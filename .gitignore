@@ -1,0 +1,16 @@
+build/
+.dart_tool/
+.idea/
+*.iml
+.DS_Store
+*.log
+.env
+.env.*
+!.env.example
+
+# Flutter
+apps/customer/.dart_tool/
+apps/customer/build/
+apps/customer/.flutter-plugins*
+apps/customer/ios/Pods/
+apps/customer/**/Flutter/ephemeral/

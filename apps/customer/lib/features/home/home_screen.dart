@@ -76,7 +76,9 @@ class HomeScreen extends ConsumerWidget {
           },
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+            // Deep bottom padding: the nav pill floats over the content, so the
+            // last item would otherwise sit underneath it.
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 110),
             children: [
               member.when(
                 data: (m) => _Greeting(member: m),

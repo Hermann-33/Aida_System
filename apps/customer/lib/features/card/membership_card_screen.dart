@@ -25,52 +25,58 @@ class MembershipCardScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AidaColors.cream,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'My QR',
-                    style: AidaType.serif(
-                      size: 24,
-                      weight: FontWeight.w700,
-                      color: AidaColors.textPrimary,
-                    ),
-                  ),
-                  const AidaLogo(height: 34),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: Center(
-                  child: member.when(
-                    data:
-                        (m) => _Card(
-                          member: m,
-                          pointsLabel: points.maybeWhen(
-                            data: (p) => p.formatted,
-                            orElse: () => '—',
+        // Scrollable, not a fixed Column. The card has a real intrinsic height,
+        // and on a short phone (or with large system text) it will not fit —
+        // this is the screen that must never fail, so it scrolls instead of
+        // overflowing. It still centres when there is room to spare.
+        child: LayoutBuilder(
+          builder:
+              (context, constraints) => SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight - 104),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'My QR',
+                            style: AidaType.serif(
+                              size: 24,
+                              color: AidaColors.textPrimary,
+                            ),
                           ),
-                        ),
-                    loading:
-                        () => const CircularProgressIndicator(color: AidaColors.coffee),
-                    error: (_, __) => const _CardUnavailable(),
+                          const AidaLogo(height: 34),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      member.when(
+                        data:
+                            (m) => _Card(
+                              member: m,
+                              pointsLabel: points.maybeWhen(
+                                data: (p) => p.formatted,
+                                orElse: () => '—',
+                              ),
+                            ),
+                        loading:
+                            () => const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 80),
+                              child: CircularProgressIndicator(color: AidaColors.coffee),
+                            ),
+                        error: (_, __) => const _CardUnavailable(),
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        'Show this to the barista to earn points and use rewards',
+                        textAlign: TextAlign.center,
+                        style: AidaType.sans(size: 12, color: AidaColors.textMuted),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  'Show this to the barista to earn points and use rewards',
-                  textAlign: TextAlign.center,
-                  style: AidaType.sans(size: 12, color: AidaColors.textMuted),
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );

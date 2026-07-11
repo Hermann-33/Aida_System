@@ -5,12 +5,13 @@ import '../../application/providers.dart';
 import '../../core/theme/aida_colors.dart';
 import '../../core/theme/aida_type.dart';
 import '../../domain/model/member.dart';
+import '../../domain/model/loyalty.dart';
+import '../../domain/model/reward.dart';
 import 'widgets/category_row.dart';
+import 'widgets/loyalty_card.dart';
 import 'widgets/offer_banner.dart';
-import 'widgets/points_balance_card.dart';
 import 'widgets/popular_item_tile.dart';
 import 'widgets/promo_carousel.dart';
-import 'widgets/stamp_card_widget.dart';
 
 /// Home.
 ///
@@ -25,11 +26,42 @@ class HomeScreen extends ConsumerWidget {
   void _openMenu(WidgetRef ref) =>
       ref.read(selectedTabProvider.notifier).select(AppTab.menu);
 
+  /// Jump to the Rewards tab.
+  void _openRewards(WidgetRef ref) =>
+      ref.read(selectedTabProvider.notifier).select(AppTab.rewards);
+
+  /// The loyalty card needs three things loaded together. Rendering it with a
+  /// balance but no reward ladder would show a track with no markers, so it
+  /// waits for all three rather than popping in piecemeal.
+  Widget _loyalty(
+    WidgetRef ref,
+    AsyncValue<Points> points,
+    AsyncValue<StampCard> stamps,
+    AsyncValue<List<Reward>> rewards,
+  ) {
+    final p = points.value;
+    final s = stamps.value;
+    final r = rewards.value;
+
+    if (p == null || s == null || r == null) {
+      return const _Skeleton(height: 300);
+    }
+
+    return LoyaltyCard(
+      points: p,
+      stamps: s,
+      rewards: r,
+      onDetails: () => _openRewards(ref),
+      onRedeem: () => _openRewards(ref),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final member = ref.watch(memberProvider);
     final points = ref.watch(pointsProvider);
     final stamps = ref.watch(stampCardProvider);
+    final rewards = ref.watch(rewardsProvider);
     final offers = ref.watch(offersProvider);
     final promos = ref.watch(promosProvider);
     final categories = ref.watch(categoriesProvider);
@@ -44,6 +76,7 @@ class HomeScreen extends ConsumerWidget {
             ref
               ..invalidate(pointsProvider)
               ..invalidate(stampCardProvider)
+              ..invalidate(rewardsProvider)
               ..invalidate(offersProvider)
               ..invalidate(promosProvider)
               ..invalidate(categoriesProvider)
@@ -61,18 +94,10 @@ class HomeScreen extends ConsumerWidget {
               const SizedBox(height: 20),
 
               // --- Loyalty first ------------------------------------------
-              points.when(
-                data: (p) => PointsBalanceCard(points: p),
-                loading: () => const _Skeleton(height: 96),
-                error: (_, __) => const _Skeleton(height: 96),
-              ),
-              const SizedBox(height: 16),
-
-              stamps.when(
-                data: (s) => StampCardWidget(card: s),
-                loading: () => const _Skeleton(height: 190),
-                error: (_, __) => const _Skeleton(height: 190),
-              ),
+              // Points, the reward ladder, and stamps are one card: they all
+              // answer "what can I get?", and a customer should not have to
+              // assemble that answer from three places.
+              _loyalty(ref, points, stamps, rewards),
               const SizedBox(height: 24),
 
               // --- Then browse --------------------------------------------

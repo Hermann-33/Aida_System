@@ -8,6 +8,7 @@ import '../domain/model/menu_category.dart';
 import '../domain/model/menu_item.dart';
 import '../domain/model/offer.dart';
 import '../domain/model/promo.dart';
+import '../domain/model/reward.dart';
 import '../domain/repository/member_repository.dart';
 
 /// The single seam between the app and its backend.
@@ -76,4 +77,8 @@ final categoriesProvider = FutureProvider<List<MenuCategory>>(
 
 final popularItemsProvider = FutureProvider<List<MenuItem>>(
   (ref) => _unwrap(ref.watch(memberRepositoryProvider).getPopularItems()),
+);
+
+final rewardsProvider = FutureProvider<List<Reward>>(
+  (ref) => _unwrap(ref.watch(memberRepositoryProvider).getRewards()),
 );

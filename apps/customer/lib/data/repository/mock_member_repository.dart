@@ -6,6 +6,7 @@ import '../../domain/model/menu_item.dart';
 import '../../domain/model/money.dart';
 import '../../domain/model/offer.dart';
 import '../../domain/model/promo.dart';
+import '../../domain/model/reward.dart';
 import '../../domain/repository/member_repository.dart';
 
 /// Demo data for client review. No network, no backend.
@@ -42,7 +43,45 @@ class MockMemberRepository implements MemberRepository {
   @override
   Future<Result<Points>> getPoints() async {
     await Future<void>.delayed(latency);
-    return Ok(Points(balance: 1240, asOf: DateTime.now()));
+    // 130 puts the member mid-ladder: the RM 5 voucher is unlocked, the pastry
+    // is 20 points away. The UI Direction deck showed 1,240, but at that
+    // balance every tier is already affordable and the reward track has nothing
+    // to show. See the note on [getRewards] — the ladder itself is the problem.
+    return Ok(Points(balance: 130, asOf: DateTime.now()));
+  }
+
+  @override
+  Future<Result<List<Reward>>> getRewards() async {
+    await Future<void>.delayed(latency);
+    // Costs are exactly PRD §10.1.
+    //
+    // PRODUCT NOTE: this ladder is narrow. At RM 1 = 1 point, a member reaches
+    // the dearest reward (180) after roughly fifteen visits and then has
+    // nothing left to aim at — the track maxes out and stops motivating. Worth
+    // raising with the owner: either add higher tiers, or raise the costs.
+    return const Ok([
+      Reward(
+        id: 'r_voucher_5',
+        name: 'RM 5 Voucher',
+        shortLabel: 'RM 5',
+        pointsCost: 100,
+        kind: RewardKind.voucher,
+      ),
+      Reward(
+        id: 'r_pastry',
+        name: 'Free Pastry',
+        shortLabel: 'Pastry',
+        pointsCost: 150,
+        kind: RewardKind.freeItem,
+      ),
+      Reward(
+        id: 'r_voucher_10',
+        name: 'RM 10 Voucher',
+        shortLabel: 'RM 10',
+        pointsCost: 180,
+        kind: RewardKind.voucher,
+      ),
+    ]);
   }
 
   @override

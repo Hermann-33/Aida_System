@@ -5,6 +5,7 @@ import '../model/menu_category.dart';
 import '../model/menu_item.dart';
 import '../model/offer.dart';
 import '../model/promo.dart';
+import '../model/reward.dart';
 
 /// Everything the customer app needs from a backend.
 ///
@@ -22,6 +23,10 @@ abstract interface class MemberRepository {
 
   /// Stamp progress toward the next free drink.
   Future<Result<StampCard>> getStampCard();
+
+  /// Reward tiers, ascending by points cost. Business data — the owner sets
+  /// these, so the app must not assume a fixed ladder.
+  Future<Result<List<Reward>>> getRewards();
 
   /// Offers this member is eligible for. The server filters; the client does
   /// not. An unverified student must not receive student offers at all.

@@ -1,29 +1,51 @@
 import 'package:flutter/material.dart';
 
-/// Palette from PRD §19.3 — warm premium café.
+/// The Aida core palette.
+///
+/// Supersedes the palette in PRD §19.3, which specified Aida/Floral Pink
+/// `#D98A8A`. There is no pink in the core palette; City Red replaces it.
+///
+/// Hex values were read from the client's palette board on 11 Jul 2026 and are
+/// approximate. Correct them here — nothing else hardcodes a colour.
 abstract final class AidaColors {
-  /// Primary background.
-  static const cream = Color(0xFFF5EFE8);
+  /// City U identity. Student offers, student badges, campus affiliation.
+  ///
+  /// NOT an error colour. See [error] — a customer must be able to tell
+  /// "20% off" from "something went wrong" without reading the text.
+  static const cityRed = Color(0xFFAF2626);
 
-  /// Secondary surfaces.
-  static const latteBeige = Color(0xFFECDDCF);
+  /// Primary background.
+  static const cream = Color(0xFFFCF8F5);
+
+  /// Secondary surfaces, dividers, muted fills.
+  static const latte = Color(0xFFE0D5C3);
 
   /// Primary actions and brand text.
-  static const coffeeBrown = Color(0xFF5F3E29);
+  static const coffee = Color(0xFF7A5B44);
 
-  /// High-contrast headers and controls.
-  static const deepEspresso = Color(0xFF1C1108);
+  /// High-contrast headers, the membership card, and dark surfaces.
+  static const espresso = Color(0xFF1C120E);
 
-  /// Secondary accents.
-  static const caramel = Color(0xFFCDAD8E);
-
-  /// Student offers, promotions, brand continuity.
-  static const aidaPink = Color(0xFFD98A8A);
-
-  /// Reserved exclusively for points, rewards, tiers, and loyalty emphasis.
-  /// Using this for anything else erodes the signal customers rely on.
-  static const rewardGold = Color(0xFFC99A45);
+  /// Reserved exclusively for points, stamps, rewards, and loyalty emphasis.
+  ///
+  /// Using this anywhere else erodes the one signal customers scan for.
+  static const rewardGold = Color(0xFFC9A24E);
 
   /// Cards and elevated surfaces.
   static const cardWhite = Color(0xFFFFFFFF);
+
+  // --- Derived / functional ---------------------------------------------
+
+  /// Body text on light surfaces.
+  static const textPrimary = espresso;
+
+  /// Secondary text, captions, "Good morning".
+  static const textMuted = Color(0xFF8A7360);
+
+  /// Errors and destructive actions. Deliberately distinct from [cityRed] so
+  /// a failure never reads as a promotion.
+  static const error = Color(0xFF8C3A2E);
+
+  /// Success, verification, confirmation.
+  static const success = Color(0xFF4F6B4A);
 }

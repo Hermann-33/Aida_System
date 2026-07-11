@@ -1,30 +1,56 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
-
+import 'package:aida_customer/application/providers.dart';
+import 'package:aida_customer/data/repository/mock_member_repository.dart';
+import 'package:aida_customer/features/card/membership_card_screen.dart';
 import 'package:aida_customer/main.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+
+/// Zero-latency repository, so tests are not racing the demo delay.
+const _fast = MockMemberRepository(latency: Duration.zero);
+
+Widget _wrap(Widget child) => ProviderScope(
+  overrides: [memberRepositoryProvider.overrideWithValue(_fast)],
+  child: MaterialApp(home: child),
+);
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('app boots into the shell without throwing', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [memberRepositoryProvider.overrideWithValue(_fast)],
+        child: const AidaApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+  group('Membership card', () {
+    testWidgets('encodes the member code into the QR', (tester) async {
+      await tester.pumpWidget(_wrap(const MembershipCardScreen()));
+      await tester.pumpAndSettle();
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+      // QrImageView keeps `data` private, so we assert on the semantics label,
+      // which carries the same code and is what a screen reader announces.
+      final qr = tester.widget<QrImageView>(find.byType(QrImageView));
+      expect(qr.semanticsLabel, contains('AIDA-2049-7731'));
+    });
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    testWidgets('shows member name and code', (tester) async {
+      await tester.pumpWidget(_wrap(const MembershipCardScreen()));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Aida Rahman'), findsOneWidget);
+      expect(find.text('MEMBER · AIDA-2049-7731'), findsOneWidget);
+    });
+
+    testWidgets('shows the verified-student pill for a verified student', (tester) async {
+      await tester.pumpWidget(_wrap(const MembershipCardScreen()));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Verified Student'), findsOneWidget);
+    });
   });
 }

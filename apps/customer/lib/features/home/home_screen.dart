@@ -3,15 +3,27 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/providers.dart';
 import '../../core/theme/aida_colors.dart';
+import '../../core/theme/aida_type.dart';
 import '../../domain/model/member.dart';
-import 'widgets/featured_item_card.dart';
+import 'widgets/category_row.dart';
 import 'widgets/offer_banner.dart';
 import 'widgets/points_balance_card.dart';
+import 'widgets/popular_item_tile.dart';
+import 'widgets/promo_carousel.dart';
 import 'widgets/stamp_card_widget.dart';
-import '../../core/theme/aida_type.dart';
 
+/// Home.
+///
+/// Order is deliberate. Loyalty (points, stamps) sits above browse content
+/// (promos, categories, popular picks) because that is Aida's differentiator —
+/// PRD §20 takes "keep points and rewards highly visible" as the lesson from
+/// ZUS. A pure ordering app would invert this; Aida is not one.
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
+
+  /// Jump to the Menu tab. Used by "View All" and the category chips.
+  void _openMenu(WidgetRef ref) =>
+      ref.read(selectedTabProvider.notifier).select(AppTab.menu);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -19,7 +31,9 @@ class HomeScreen extends ConsumerWidget {
     final points = ref.watch(pointsProvider);
     final stamps = ref.watch(stampCardProvider);
     final offers = ref.watch(offersProvider);
-    final featured = ref.watch(featuredItemProvider);
+    final promos = ref.watch(promosProvider);
+    final categories = ref.watch(categoriesProvider);
+    final popular = ref.watch(popularItemsProvider);
 
     return Scaffold(
       backgroundColor: AidaColors.cream,
@@ -27,10 +41,13 @@ class HomeScreen extends ConsumerWidget {
         child: RefreshIndicator(
           color: AidaColors.coffee,
           onRefresh: () async {
-            ref.invalidate(pointsProvider);
-            ref.invalidate(stampCardProvider);
-            ref.invalidate(offersProvider);
-            ref.invalidate(featuredItemProvider);
+            ref
+              ..invalidate(pointsProvider)
+              ..invalidate(stampCardProvider)
+              ..invalidate(offersProvider)
+              ..invalidate(promosProvider)
+              ..invalidate(categoriesProvider)
+              ..invalidate(popularItemsProvider);
           },
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -38,24 +55,35 @@ class HomeScreen extends ConsumerWidget {
             children: [
               member.when(
                 data: (m) => _Greeting(member: m),
-                loading: () => const _GreetingSkeleton(),
+                loading: () => const SizedBox(height: 52),
                 error: (_, __) => const _Greeting.fallback(),
               ),
               const SizedBox(height: 20),
 
+              // --- Loyalty first ------------------------------------------
               points.when(
                 data: (p) => PointsBalanceCard(points: p),
-                loading: () => const _CardSkeleton(height: 96),
-                error: (_, __) => const _CardSkeleton(height: 96),
+                loading: () => const _Skeleton(height: 96),
+                error: (_, __) => const _Skeleton(height: 96),
               ),
               const SizedBox(height: 16),
 
               stamps.when(
                 data: (s) => StampCardWidget(card: s),
-                loading: () => const _CardSkeleton(height: 190),
-                error: (_, __) => const _CardSkeleton(height: 190),
+                loading: () => const _Skeleton(height: 190),
+                error: (_, __) => const _Skeleton(height: 190),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
+
+              // --- Then browse --------------------------------------------
+              promos.when(
+                data: (list) => PromoCarousel(promos: list),
+                // Matches the carousel's height, so the page does not jump when
+                // the promos land.
+                loading: () => const _Skeleton(height: 196),
+                error: (_, __) => const SizedBox.shrink(),
+              ),
+              const SizedBox(height: 24),
 
               offers.when(
                 data:
@@ -67,24 +95,104 @@ class HomeScreen extends ConsumerWidget {
                         ],
                       ],
                     ),
-                loading: () => const _CardSkeleton(height: 80),
+                loading: () => const _Skeleton(height: 80),
                 error: (_, __) => const SizedBox.shrink(),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 12),
 
-              featured.when(
+              categories.when(
                 data:
-                    (item) =>
-                        item == null
+                    (list) =>
+                        list.isEmpty
                             ? const SizedBox.shrink()
-                            : FeaturedItemCard(item: item),
-                loading: () => const _CardSkeleton(height: 150),
+                            : Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _SectionHeader(
+                                  title: 'Explore Our Menu',
+                                  onViewAll: () => _openMenu(ref),
+                                ),
+                                const SizedBox(height: 14),
+                                CategoryRow(
+                                  categories: list,
+                                  onTap: (_) => _openMenu(ref),
+                                ),
+                              ],
+                            ),
+                loading: () => const _Skeleton(height: 92),
+                error: (_, __) => const SizedBox.shrink(),
+              ),
+              const SizedBox(height: 22),
+
+              popular.when(
+                data:
+                    (list) =>
+                        list.isEmpty
+                            ? const SizedBox.shrink()
+                            : Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _SectionHeader(
+                                  title: 'Popular Picks',
+                                  onViewAll: () => _openMenu(ref),
+                                ),
+                                const SizedBox(height: 4),
+                                for (final item in list) PopularItemTile(item: item),
+                              ],
+                            ),
+                loading: () => const _Skeleton(height: 220),
                 error: (_, __) => const SizedBox.shrink(),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Section title with a "View All" affordance.
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title, this.onViewAll});
+
+  final String title;
+  final VoidCallback? onViewAll;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Flexible(
+          child: Text(
+            title,
+            overflow: TextOverflow.ellipsis,
+            style: AidaType.sans(
+              size: 17,
+              weight: FontWeight.w700,
+              color: AidaColors.textPrimary,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        // Will point at the Menu tab once that screen lands.
+        TextButton(
+          onPressed: onViewAll,
+          style: TextButton.styleFrom(
+            padding: EdgeInsets.zero,
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          child: Text(
+            'View All',
+            style: AidaType.sans(
+              size: 12,
+              weight: FontWeight.w600,
+              color: AidaColors.coffee,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -96,8 +204,7 @@ class _Greeting extends StatelessWidget {
   final Member? member;
   final bool _fallback;
 
-  /// Time-of-day greeting. Malaysia is a single timezone, so the device clock
-  /// is authoritative here.
+  /// Malaysia is a single timezone, so the device clock is authoritative.
   static String _partOfDay() {
     final h = DateTime.now().hour;
     if (h < 12) return 'Good morning';
@@ -125,11 +232,7 @@ class _Greeting extends StatelessWidget {
                 name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AidaType.serif(
-                  size: 26,
-                  weight: FontWeight.w700,
-                  color: AidaColors.textPrimary,
-                ),
+                style: AidaType.serif(size: 26, color: AidaColors.textPrimary),
               ),
             ],
           ),
@@ -145,11 +248,7 @@ class _Greeting extends StatelessWidget {
           child: Center(
             child: Text(
               initial,
-              style: AidaType.serif(
-                size: 19,
-                weight: FontWeight.w700,
-                color: AidaColors.coffee,
-              ),
+              style: AidaType.serif(size: 19, color: AidaColors.coffee),
             ),
           ),
         ),
@@ -158,17 +257,10 @@ class _Greeting extends StatelessWidget {
   }
 }
 
-class _GreetingSkeleton extends StatelessWidget {
-  const _GreetingSkeleton();
-
-  @override
-  Widget build(BuildContext context) => const SizedBox(height: 52);
-}
-
-/// A neutral placeholder while data loads. Deliberately calm — a spinner on
-/// every card makes the whole screen flicker.
-class _CardSkeleton extends StatelessWidget {
-  const _CardSkeleton({required this.height});
+/// Calm placeholder while data loads. A spinner on every card would make the
+/// whole screen flicker.
+class _Skeleton extends StatelessWidget {
+  const _Skeleton({required this.height});
 
   final double height;
 

@@ -1,8 +1,10 @@
 import '../../core/error/result.dart';
 import '../model/loyalty.dart';
 import '../model/member.dart';
+import '../model/menu_category.dart';
 import '../model/menu_item.dart';
 import '../model/offer.dart';
+import '../model/promo.dart';
 
 /// Everything the customer app needs from a backend.
 ///
@@ -27,4 +29,14 @@ abstract interface class MemberRepository {
 
   /// Today's featured item, or null if the café has not set one.
   Future<Result<MenuItem?>> getFeaturedItem();
+
+  /// Hero promotions for the Home carousel. May be empty — the carousel hides
+  /// itself rather than showing a blank frame.
+  Future<Result<List<Promo>>> getPromos();
+
+  /// Menu categories, in the order the café wants them shown.
+  Future<Result<List<MenuCategory>>> getCategories();
+
+  /// Best sellers for the "Popular Picks" list.
+  Future<Result<List<MenuItem>>> getPopularItems();
 }

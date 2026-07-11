@@ -1,20 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../application/providers.dart';
 import '../../core/theme/aida_colors.dart';
+import '../../core/theme/aida_type.dart';
 import '../card/membership_card_screen.dart';
 import '../home/home_screen.dart';
-import '../../core/theme/aida_type.dart';
 
 /// The five-tab shell. PRD CUS-16, with the QR elevated per CUS-17.
-class AppShell extends StatefulWidget {
+///
+/// The selected tab lives in [selectedTabProvider] rather than local state, so
+/// a screen can navigate to another tab — Home's "View All" jumps to Menu.
+class AppShell extends ConsumerWidget {
   const AppShell({super.key});
-
-  @override
-  State<AppShell> createState() => _AppShellState();
-}
-
-class _AppShellState extends State<AppShell> {
-  int _index = 0;
 
   static const _tabs = <Widget>[
     HomeScreen(),
@@ -25,13 +23,17 @@ class _AppShellState extends State<AppShell> {
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tab = ref.watch(selectedTabProvider);
+
     return Scaffold(
       backgroundColor: AidaColors.cream,
-      body: IndexedStack(index: _index, children: _tabs),
+      // IndexedStack, not a swap: it keeps each tab's scroll position and
+      // avoids refetching every time a customer flips back to Home.
+      body: IndexedStack(index: tab.index, children: _tabs),
       bottomNavigationBar: _BottomNav(
-        index: _index,
-        onTap: (i) => setState(() => _index = i),
+        index: tab.index,
+        onTap: (i) => ref.read(selectedTabProvider.notifier).select(AppTab.values[i]),
       ),
     );
   }

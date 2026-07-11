@@ -1,9 +1,11 @@
 import '../../core/error/result.dart';
 import '../../domain/model/loyalty.dart';
 import '../../domain/model/member.dart';
+import '../../domain/model/menu_category.dart';
 import '../../domain/model/menu_item.dart';
 import '../../domain/model/money.dart';
 import '../../domain/model/offer.dart';
+import '../../domain/model/promo.dart';
 import '../../domain/repository/member_repository.dart';
 
 /// Demo data for client review. No network, no backend.
@@ -74,18 +76,102 @@ class MockMemberRepository implements MemberRepository {
   @override
   Future<Result<MenuItem?>> getFeaturedItem() async {
     await Future<void>.delayed(latency);
-    return const Ok(
+    return const Ok(_featured);
+  }
+
+  @override
+  Future<Result<List<Promo>>> getPromos() async {
+    await Future<void>.delayed(latency);
+    return const Ok([
+      Promo(
+        id: 'promo_signature',
+        headline: 'Step into\nthe light',
+        subhead: 'Try our signature roast, made fresh every morning',
+        ctaLabel: 'See Menu',
+      ),
+      Promo(
+        id: 'promo_student',
+        headline: 'Students\nsave 20%',
+        subhead: 'Verified City U students, every day',
+        ctaLabel: 'See Offer',
+        linkedOfferId: 'o_student_20',
+      ),
+      Promo(
+        id: 'promo_stamps',
+        headline: '10 stamps,\n1 free drink',
+        subhead: 'Every cup counts toward your next one',
+        ctaLabel: 'View Rewards',
+      ),
+    ]);
+  }
+
+  @override
+  Future<Result<List<MenuCategory>>> getCategories() async {
+    await Future<void>.delayed(latency);
+    // Categories per PRD §12.2.
+    return const Ok([
+      MenuCategory(id: 'c_coffee', name: 'Coffee', itemCount: 4),
+      MenuCategory(id: 'c_iced', name: 'Iced Drinks', itemCount: 4),
+      MenuCategory(id: 'c_food', name: 'Food', itemCount: 4),
+      MenuCategory(id: 'c_addons', name: 'Add-ons', itemCount: 3),
+    ]);
+  }
+
+  @override
+  Future<Result<List<MenuItem>>> getPopularItems() async {
+    await Future<void>.delayed(latency);
+    return const Ok([
+      _featured,
       MenuItem(
-        id: 'p_scl',
-        name: 'Salted Caramel Latte',
+        id: 'p_cappuccino',
+        name: 'Cappuccino',
         category: 'Coffee',
-        description: 'Silky espresso, caramel, a pinch of sea salt.',
-        price: Money.fromSen(1290), // RM 12.90
+        description: 'Smooth espresso with rich, velvety foam',
+        price: Money.fromSen(950), // RM 9.50
         isAvailable: true,
         isBestSeller: true,
         isStudentEligible: true,
-        bonusPoints: 25,
       ),
-    );
+      MenuItem(
+        id: 'p_iced_latte',
+        name: 'Iced Latte',
+        category: 'Iced Drinks',
+        description: 'Chilled, creamy, and endlessly refreshing',
+        price: Money.fromSen(1050), // RM 10.50
+        isAvailable: true,
+        isBestSeller: true,
+        isStudentEligible: true,
+      ),
+      MenuItem(
+        id: 'p_matcha',
+        name: 'Matcha Latte',
+        category: 'Iced Drinks',
+        description: 'Stone-ground matcha, gently sweetened',
+        price: Money.fromSen(1190), // RM 11.90
+        isAvailable: true,
+        isBestSeller: true,
+      ),
+      MenuItem(
+        id: 'p_croissant',
+        name: 'Butter Croissant',
+        category: 'Food',
+        description: 'Flaky, buttery, baked this morning',
+        price: Money.fromSen(750), // RM 7.50
+        isAvailable: false, // Sold out — exercises the unavailable state.
+        isBestSeller: true,
+      ),
+    ]);
   }
+
+  static const _featured = MenuItem(
+    id: 'p_scl',
+    name: 'Salted Caramel Latte',
+    category: 'Coffee',
+    description: 'Silky espresso, caramel, a pinch of sea salt',
+    price: Money.fromSen(1290), // RM 12.90
+    isAvailable: true,
+    isBestSeller: true,
+    isStudentEligible: true,
+    bonusPoints: 25,
+  );
 }

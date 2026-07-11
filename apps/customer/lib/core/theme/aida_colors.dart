@@ -34,6 +34,9 @@ abstract final class AidaColors {
   /// Cards and elevated surfaces.
   static const cardWhite = Color(0xFFFFFFFF);
 
+  /// Soft warm tint for image placeholders and empty states.
+  static const caramelTint = Color(0xFFEADFCF);
+
   // --- Derived / functional ---------------------------------------------
 
   /// Body text on light surfaces.

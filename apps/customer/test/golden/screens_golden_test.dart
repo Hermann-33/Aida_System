@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:aida_customer/application/providers.dart';
 import 'package:aida_customer/core/theme/aida_theme.dart';
@@ -24,9 +23,7 @@ const _fast = MockMemberRepository(latency: Duration.zero);
 Future<void> _loadFonts() async {
   Future<void> load(String family, String path) async {
     final bytes = await File(path).readAsBytes();
-    await (FontLoader(family)
-          ..addFont(Future.value(ByteData.sublistView(bytes))))
-        .load();
+    await (FontLoader(family)..addFont(Future.value(ByteData.sublistView(bytes)))).load();
   }
 
   await load(AidaType.display, 'assets/fonts/${AidaType.display}.ttf');
@@ -34,7 +31,8 @@ Future<void> _loadFonts() async {
 
   // Icons are also stubbed out in tests. Load the real icon font from the
   // Flutter SDK so the golden shows icons rather than empty squares.
-  final flutterRoot = Platform.environment['FLUTTER_ROOT'] ??
+  final flutterRoot =
+      Platform.environment['FLUTTER_ROOT'] ??
       File(Platform.resolvedExecutable).parent.parent.parent.path;
   final icons =
       '$flutterRoot/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf';
@@ -71,6 +69,20 @@ void main() {
   testWidgets('golden: home', (tester) async {
     await pumpApp(tester);
     await expectLater(find.byType(AppShell), matchesGoldenFile('goldens/home.png'));
+  });
+
+  testWidgets('golden: home scrolled (categories + popular picks)', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+
+    await tester.drag(find.byType(ListView), const Offset(0, -520));
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(AppShell),
+      matchesGoldenFile('goldens/home_scrolled.png'),
+    );
   });
 
   testWidgets('golden: membership card', (tester) async {

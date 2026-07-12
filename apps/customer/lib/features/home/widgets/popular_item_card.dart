@@ -14,9 +14,13 @@ import '../../../domain/model/menu_item.dart';
 /// discount price, and a star rating with a sold-count. None of those are
 /// carried over:
 ///
-/// - No cart button — v1 is browse-only (no ordering), so a button that
-///   implies "add to order" would promise something the app doesn't do.
-///   Tapping the card opens detail instead; there is nothing to add.
+/// - The "+" is present for visual parity with the reference, but v1 is
+///   browse-only — there is no cart to add to. It performs the same action
+///   as tapping the card (open detail) rather than doing nothing, so it is
+///   not a dead end, but it is not "add to order" either. Flagged explicitly:
+///   a customer will read a "+" as add-to-cart, and real ordering (cart,
+///   checkout, payment timing) is CUS-14, deferred out of v1. Revisit before
+///   a real customer sees this — either wire it to real ordering or drop it.
 /// - No discount price or rating/sold-count — Aida's domain model has no
 ///   such data. Inventing "4.9 stars, 500+ sold" to make a demo look
 ///   finished would be fabricating numbers a client could mistake for real
@@ -91,24 +95,29 @@ class PopularItemCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            item.price.formatted,
-                            overflow: TextOverflow.ellipsis,
-                            style: AidaType.sans(
-                              size: 13.5,
-                              weight: FontWeight.w700,
-                              color: AidaColors.coffee,
+                    // Right-padded so the price/chip never runs under the "+"
+                    // button, which floats independently in the corner.
+                    Padding(
+                      padding: EdgeInsets.only(right: unavailable ? 0 : 38),
+                      child: Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              item.price.formatted,
+                              overflow: TextOverflow.ellipsis,
+                              style: AidaType.sans(
+                                size: 13.5,
+                                weight: FontWeight.w700,
+                                color: AidaColors.coffee,
+                              ),
                             ),
                           ),
-                        ),
-                        if (item.bonusPoints != null) ...[
-                          const SizedBox(width: 6),
-                          _BonusChip(points: item.bonusPoints!),
+                          if (item.bonusPoints != null) ...[
+                            const SizedBox(width: 6),
+                            _BonusChip(points: item.bonusPoints!),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ],
                 ),
@@ -147,6 +156,34 @@ class PopularItemCard extends StatelessWidget {
                 ),
               ),
             ),
+
+            // Visual "+" only — see the class doc for why this is not a real
+            // add-to-cart action. Same onTap as the card, not a no-op.
+            if (!unavailable)
+              Positioned(
+                right: 12,
+                bottom: 12,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: onTap,
+                    customBorder: const CircleBorder(),
+                    child: Container(
+                      width: 34,
+                      height: 34,
+                      decoration: const BoxDecoration(
+                        color: AidaColors.coffee,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.add_rounded,
+                        size: 18,
+                        color: AidaColors.cream,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

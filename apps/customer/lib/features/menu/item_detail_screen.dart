@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/aida_colors.dart';
-import '../../core/theme/aida_theme.dart';
 import '../../core/theme/aida_type.dart';
 import '../../core/widgets/product_image.dart';
 import '../../domain/model/menu_item.dart';
@@ -133,34 +132,17 @@ class _Hero extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        Container(
-          height: 320,
-          width: double.infinity,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [AidaColors.latte, AidaColors.cream],
-            ),
-            borderRadius: BorderRadius.vertical(bottom: Radius.circular(36)),
-          ),
-          child: Center(
-            child: Container(
-              width: 220,
-              height: 220,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AidaColors.cardWhite,
-                boxShadow: AidaTheme.cardShadow,
-              ),
-              padding: const EdgeInsets.all(14),
-              child: ClipOval(
-                child: ProductImage(
-                  imageUrl: item.imageUrl,
-                  category: item.category,
-                  size: 192,
-                ),
-              ),
+        // Full-width photo, not a circular cutout — the photo is the hero
+        // here, so it should fill the space rather than float inside it.
+        ClipRRect(
+          borderRadius: const BorderRadius.vertical(bottom: Radius.circular(36)),
+          child: SizedBox(
+            height: 320,
+            width: double.infinity,
+            child: ProductImage(
+              imageUrl: item.imageUrl,
+              category: item.category,
+              borderRadius: 0,
             ),
           ),
         ),

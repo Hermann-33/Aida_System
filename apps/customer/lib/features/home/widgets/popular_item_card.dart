@@ -6,8 +6,9 @@ import '../../../core/theme/aida_type.dart';
 import '../../../core/widgets/product_image.dart';
 import '../../../domain/model/menu_item.dart';
 
-/// A 2-column grid card for Home's "Popular Picks": a circular product photo
-/// floating half over a white card underneath it.
+/// A 2-column grid card for Home's "Popular Picks": a tilted, rounded-rect
+/// product photo anchored to the top-left corner, floating half over a white
+/// card underneath it — a dropped-photo look, not a centred circular badge.
 ///
 /// Adapted from a client reference that also had a cart button, a struck-through
 /// discount price, and a star rating with a sold-count. None of those are
@@ -109,25 +110,28 @@ class PopularItemCard extends StatelessWidget {
             ),
 
             // The floating photo, drawn last so it sits in front of the card.
+            // Rounded rectangle, anchored to the top-left corner and tilted —
+            // not a centred circle. A dropped-photo look, not a badge.
             Positioned(
               top: 0,
-              left: 0,
-              right: 0,
-              child: Center(
+              left: 10,
+              child: Transform.rotate(
+                angle: -0.09,
                 child: Container(
                   width: _imageSize,
                   height: _imageSize,
                   decoration: BoxDecoration(
-                    shape: BoxShape.circle,
+                    borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: AidaColors.espresso.withValues(alpha: 0.20),
-                        blurRadius: 16,
+                        color: AidaColors.espresso.withValues(alpha: 0.22),
+                        blurRadius: 14,
                         offset: const Offset(0, 8),
                       ),
                     ],
                   ),
-                  child: ClipOval(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
                     child: ProductImage(
                       imageUrl: item.imageUrl,
                       category: item.category,

@@ -46,8 +46,8 @@ class CategoryStrip extends StatelessWidget {
     final count = categories.length + (showAll ? 1 : 0);
 
     return SizedBox(
-      // Extra room so the selected card's shadow is not clipped.
-      height: CategoryChip.height + 12,
+      // Extra room so the tile's wider floating shadow is not clipped.
+      height: CategoryChip.height + 16,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         clipBehavior: Clip.none,

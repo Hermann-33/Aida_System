@@ -7,12 +7,12 @@
 | **Product Name** | Aida System |
 | **Product Subtitle** | Aida Café Loyalty, POS, Ordering, and Business Management Ecosystem |
 | **Client / Initial Venue** | Aida Café @ City U, Malaysia |
-| **Document Version** | 2.1 — Unified PRD, amended for the Flutter Customer App |
-| **Document Date** | 10 July 2026 |
+| **Document Version** | 2.2 — Unified PRD, amended for the Flutter Customer App and the Core Palette |
+| **Document Date** | 12 July 2026 |
 | **Status** | Unified source of truth — current production baseline, approved product direction, and future roadmap |
 | **Prepared For** | Business Owner, University Owner, Product, Design, Engineering, and Operations |
 | **Supersedes** | Aida System PRD v1.0 and Aida Cafe Rewards PRD v1.5-demo-ready for product scope purposes |
-| **Amendment** | v2.1 incorporates the approved Customer App design. See §27 for the change log and `docs/superpowers/specs/2026-07-10-aida-customer-app-design.md` for the full design. |
+| **Amendment** | v2.1 incorporated the approved Customer App design. v2.2 replaces §19.3 with the client's Core Palette. See §27 for the change log and `docs/superpowers/specs/2026-07-10-aida-customer-app-design.md` for the full design. |
 
 ---
 
@@ -823,22 +823,38 @@ The target visual direction is a **warm premium café experience**: cozy, elegan
 
 ### 19.2 Brand Transition
 
-The current production frontend uses a strong pink-and-black Aida theme. The new UI direction introduces a broader warm café palette. The modernization should retain pink as a recognizable Aida accent while moving primary surfaces and hierarchy toward cream, coffee brown, caramel, and reward gold.
+> **Amended in v2.2.** The previous paragraph read: *"The current production frontend uses a strong pink-and-black Aida theme... The modernization should retain pink as a recognizable Aida accent."*
 
-### 19.3 Target Palette
+The client has since issued a **Core Palette** (below) that replaces pink with **City Red** as the sole accent used for student and City U identity. Pink is not part of the application UI in any surface — button, card, nav, banner, or otherwise.
+
+Pink and gold-sparkle floral detailing do still appear on the **Aida Café logo mark** itself. This is a deliberate split, not an oversight: the logo is treated as a fixed brand asset, not a source of UI color. See §19.3.1.
+
+### 19.3 Target Palette — Core Palette (v2.2)
+
+> **Superseded in v2.2.** The v2.1 table listed Cream, Latte Beige, Coffee Brown, Deep Espresso, Caramel, Aida/Floral Pink, Reward Gold, Card White, plus two legacy-reference colours. The client has since issued a smaller **Core Palette** that this table replaces entirely. Caramel and the two legacy-reference tokens are retired; nothing in the current build references them.
 
 | Token | Value | Intended Use |
 |---|---|---|
-| Cream | `#F5EFE8` | Primary background |
-| Latte Beige | `#ECDDCF` | Secondary surfaces |
-| Coffee Brown | `#5F3E29` | Primary actions and brand text |
-| Deep Espresso | `#1C1108` | High-contrast headers and controls |
-| Caramel | `#CDAD8E` | Secondary accents |
-| Aida / Floral Pink | `#D98A8A` | Student offers, promotions, and brand continuity |
-| Reward Gold | `#C99A45` | Points, rewards, tiers, and loyalty emphasis |
+| City Red | `#AF2626` *(provisional)* | City U / student identity **only** — student offers, student badges, campus affiliation. Not used for errors or destructive actions; see the Error row below. |
+| Cream | `#FCF8F5` *(provisional)* | Primary background |
+| Latte | `#E0D5C3` *(provisional)* | Secondary surfaces, dividers, muted fills |
+| Coffee | `#7A5B44` *(provisional)* | Primary actions and brand text |
+| Espresso | `#1C120E` *(provisional)* | High-contrast headers, controls, the membership card, and dark surfaces |
+| Reward Gold | `#C9A24E` *(provisional)* | Points, stamps, rewards, and loyalty emphasis **only** — using it elsewhere erodes the one signal customers scan for |
 | Card White | `#FFFFFF` | Cards and elevated surfaces |
-| Legacy Aida Pink | `#E91E63` | Existing production identity reference; use selectively during transition |
-| Legacy Black | `#0B0B0D` | Existing production identity reference |
+| Error | `#8C3A2E` *(provisional, derived)* | Errors and destructive actions. Deliberately distinct from City Red so a failure never reads as a promotion |
+
+**Provisional flag.** Every value above except Card White was estimated from a screenshot of the client's palette board, not sampled from a source file. They are correct enough to build against but **not yet confirmed exact**. The client has agreed to supply final hex codes; when received, only `apps/customer/lib/core/theme/aida_colors.dart` needs to change — no screen references a colour directly.
+
+#### 19.3.1 Palette vs. Logo — Decision
+
+**The Core Palette governs every UI surface. The logo mark is not a UI colour source.**
+
+The approved logo carries pink/rose florals and gold sparkle that do not appear in the Core Palette. The client has confirmed this split is intentional: those tones stay inside the logo asset itself and are never pulled into buttons, cards, offer banners, or navigation. A screen that needs the Aida mark uses a placeholder pending the final logo file (see §19.3.2); it does not approximate the mark's colours in surrounding UI.
+
+#### 19.3.2 Logo Asset Status
+
+The final logo file is **not yet supplied**. Every screen that needs it renders a neutral bordered "LOGO" placeholder rather than a guess at the mark — an incorrect logo shown to the client is worse than an obviously empty slot. The placeholder lives in one component (`apps/customer/lib/core/theme/aida_logo.dart`); dropping in the final asset is a one-file change.
 
 ### 19.4 Typography
 
@@ -1033,7 +1049,7 @@ The unified Aida Café release is accepted when the following criteria are met:
 ### 23.5 Design
 
 - Customer, POS, and admin experiences use one coherent Aida design system.
-- The redesigned product reflects the warm premium direction while retaining appropriate Aida pink brand recognition.
+- The redesigned product reflects the warm premium direction using the Core Palette (§19.3). *(Amended v2.2: pink is no longer a UI colour; City U / student identity uses City Red. Pink remains solely on the logo mark per §19.3.1.)*
 - Layouts are optimized for mobile, tablet landscape, and desktop respectively.
 - Text, controls, contrast, images, and navigation meet the agreed usability standard.
 
@@ -1095,6 +1111,11 @@ The unified Aida Café release is accepted when the following criteria are met:
 13. **Which email provider sends password resets?** New platform dependency introduced by CUS-18.
 14. **Does account deletion anonymise loyalty history or hard-delete it?** Hard deletion corrupts historical sales reporting; anonymisation may not satisfy a PDPA erasure request. Legal input needed.
 15. **Does the POS scan the membership QR with a camera, or does staff key in the member code?** POS-20 marks camera scanning as *Future*, which implies manual entry at launch. The customer app generates the same payload either way, so this does not block C2.
+
+**Raised in v2.2:**
+
+16. **Exact Core Palette hex values.** The table in §19.3 is built from a screenshot estimate. The client has agreed to supply final codes; low risk, single-file change once received.
+17. **Final logo asset.** No logo file has been supplied. The app currently renders a placeholder everywhere the mark would appear (§19.3.2).
 
 ---
 
@@ -1209,6 +1230,21 @@ Four decisions taken during Customer App design supersede v2.0. Each is recorded
 
 **Unchanged and reaffirmed:** §16.5 — points, stamps, discounts, and eligibility are computed server-side and never recalculated on a client. The Customer App's data layer is forbidden from performing arithmetic on money, points, or stamps.
 
+### v2.2 — 12 July 2026 — Core Palette amendment
+
+The client issued a smaller **Core Palette** (City Red, Cream, Latte, Coffee, Espresso, Reward Gold, Card White) that replaces the v2.1 design-system table.
+
+| # | Change | Sections affected | Reason |
+|---|---|---|---|
+| 1 | **Pink is retired as a UI colour.** City Red replaces it for City U / student identity. | §19.2, §19.3, §23.5 | Client-issued Core Palette contains no pink. City Red is deliberately kept out of error and destructive-action styling so a promotion never reads as a failure. |
+| 2 | **Caramel and both legacy-reference tokens are retired.** | §19.3 | Not part of the Core Palette; nothing in the current build references them. |
+| 3 | **The logo mark is not a UI colour source.** | §19.3.1 | The approved logo carries pink/rose florals and gold sparkle absent from the Core Palette. Confirmed intentional: those tones stay inside the mark and are never pulled into surrounding UI. |
+| 4 | **Logo asset is pending; the app renders a placeholder.** | §19.3.2, §24.4 #17 | No final logo file has been supplied. A wrong logo shown to the client is worse than an empty, clearly-marked slot. |
+
+**Decisions raised:** §24.4 #16 (exact hex confirmation) and #17 (final logo asset).
+
+**Provisional data notice:** every hex value in the amended §19.3 table except Card White was estimated from a screenshot, not sampled from a source file. Treat them as build-accurate, not final, until the client supplies exact codes.
+
 ---
 
 ## Document Governance
@@ -1224,4 +1260,4 @@ Any future product change should update:
 
 ---
 
-*End of Aida System Unified Product Requirements Document — Version 2.0*
+*End of Aida System Unified Product Requirements Document — Version 2.2*

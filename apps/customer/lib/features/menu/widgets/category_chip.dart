@@ -3,11 +3,16 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/aida_colors.dart';
 import '../../../core/theme/aida_type.dart';
 
-/// A tall rounded category card: icon above, label inside.
+/// A square, floating icon tile with the label sitting free below it.
 ///
-/// Selected fills with espresso, the icon turns cream, and the label turns
-/// **reward gold** — the gold text is what makes the selected state read as
-/// deliberate rather than merely inverted.
+/// The label is deliberately **not** enclosed by the card's border or shadow —
+/// only the icon square carries the "3D" floating look. Enclosing both in one
+/// bordered box (the previous design) reads as a single flat pill; separating
+/// them is what makes the tile itself look like it is sitting above the page.
+///
+/// Selected fills the tile with espresso and inverts the icon to cream. The
+/// label — outside the tile — turns reward gold, which is what carries the
+/// selected state once the tile itself is a different shape from the text.
 ///
 /// Used on both Home and Menu. On Home nothing is ever selected (tapping
 /// navigates); on Menu the selection persists and filters.
@@ -25,19 +30,24 @@ class CategoryChip extends StatefulWidget {
   final bool selected;
   final VoidCallback? onTap;
 
-  /// The strip's height. Callers size their scroll view from this, so the
-  /// number lives in one place. Reduced 20% from the original 126.
-  static const height = 100.8;
-  static const width = 84.0;
+  /// The square tile's side.
+  static const tileSize = 88.0;
 
+  /// Total tile height including the free-standing label beneath it. Callers
+  /// size their scroll strip from this, so the number lives in one place.
+  static const height = tileSize + 8 + 18;
+  static const width = 96.0;
+
+  /// Thin outline glyphs, matching the reference style — not the filled
+  /// `_rounded` family used elsewhere in the app for larger, single icons.
   static IconData iconFor(String name) {
     return switch (name.toLowerCase()) {
-      'all' => Icons.grid_view_rounded,
-      'coffee' => Icons.coffee_rounded,
-      'iced drinks' => Icons.local_drink_rounded,
-      'food' => Icons.bakery_dining_rounded,
-      'add-ons' => Icons.add_circle_outline_rounded,
-      _ => Icons.local_cafe_rounded,
+      'all' => Icons.grid_view_outlined,
+      'coffee' => Icons.coffee_outlined,
+      'iced drinks' => Icons.local_drink_outlined,
+      'food' => Icons.bakery_dining_outlined,
+      'add-ons' => Icons.add_circle_outline,
+      _ => Icons.local_cafe_outlined,
     };
   }
 
@@ -61,60 +71,57 @@ class _CategoryChipState extends State<CategoryChip> {
         onTapDown: (_) => setState(() => _pressed = true),
         onTapUp: (_) => setState(() => _pressed = false),
         onTapCancel: () => setState(() => _pressed = false),
-        child: AnimatedScale(
-          scale: _pressed ? 0.95 : 1.0,
-          duration: const Duration(milliseconds: 110),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOut,
-            width: CategoryChip.width,
-            height: CategoryChip.height,
-            decoration: BoxDecoration(
-              color: selected ? AidaColors.espresso : AidaColors.cardWhite,
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(
-                color:
-                    selected
-                        ? AidaColors.espresso
-                        : AidaColors.latte.withValues(alpha: 0.7),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AidaColors.espresso.withValues(alpha: selected ? 0.24 : 0.06),
-                  blurRadius: selected ? 16 : 10,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  widget.icon,
-                  // 2x the original 30 — the height reduction above means the
-                  // gap beneath it is tightened to 8 so it still fits.
-                  size: 60,
-                  color: selected ? AidaColors.cream : AidaColors.espresso,
-                ),
-                const SizedBox(height: 8),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: Text(
-                    widget.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: AidaType.sans(
-                      size: 12,
-                      weight: FontWeight.w700,
-                      // Gold, not cream. This is the detail that carries the
-                      // whole selected state.
-                      color: selected ? AidaColors.rewardGold : AidaColors.textPrimary,
-                    ),
+        child: SizedBox(
+          width: CategoryChip.width,
+          child: Column(
+            children: [
+              AnimatedScale(
+                scale: _pressed ? 0.94 : 1.0,
+                duration: const Duration(milliseconds: 110),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOut,
+                  width: CategoryChip.tileSize,
+                  height: CategoryChip.tileSize,
+                  decoration: BoxDecoration(
+                    color: selected ? AidaColors.espresso : AidaColors.cardWhite,
+                    borderRadius: BorderRadius.circular(26),
+                    // A soft, wide, low-opacity shadow rather than a tight
+                    // drop shadow is what reads as "floating" instead of
+                    // merely "bordered".
+                    boxShadow: [
+                      BoxShadow(
+                        color: AidaColors.espresso.withValues(
+                          alpha: selected ? 0.28 : 0.10,
+                        ),
+                        blurRadius: selected ? 22 : 18,
+                        spreadRadius: selected ? 0 : -2,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    widget.icon,
+                    size: 44,
+                    color: selected ? AidaColors.cream : AidaColors.coffee,
                   ),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                widget.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: AidaType.sans(
+                  size: 12.5,
+                  weight: FontWeight.w700,
+                  // Gold when selected — the label is what carries the
+                  // selected state now that it lives outside the tile.
+                  color: selected ? AidaColors.rewardGold : AidaColors.textPrimary,
+                ),
+              ),
+            ],
           ),
         ),
       ),

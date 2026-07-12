@@ -59,7 +59,7 @@ class MenuScreen extends ConsumerWidget {
                               (id) =>
                                   ref.read(selectedCategoryProvider.notifier).select(id),
                         ),
-                    loading: () => const SizedBox(height: CategoryChip.height + 12),
+                    loading: () => const SizedBox(height: CategoryChip.height + 16),
                     error: (_, __) => const SizedBox.shrink(),
                   ),
                 ),

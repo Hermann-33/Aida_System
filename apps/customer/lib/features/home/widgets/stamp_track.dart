@@ -102,8 +102,8 @@ class _Stamp extends StatelessWidget {
         height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: const LinearGradient(
-            colors: [AidaColors.rewardGold, Color(0xFFB58B3C)],
+          gradient: LinearGradient(
+            colors: [AidaColors.rewardGold, AidaColors.rewardGoldDeep],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),

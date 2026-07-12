@@ -26,8 +26,8 @@ class CategoryChip extends StatefulWidget {
   final VoidCallback? onTap;
 
   /// The strip's height. Callers size their scroll view from this, so the
-  /// number lives in one place.
-  static const height = 126.0;
+  /// number lives in one place. Reduced 20% from the original 126.
+  static const height = 100.8;
   static const width = 84.0;
 
   static IconData iconFor(String name) {
@@ -91,10 +91,12 @@ class _CategoryChipState extends State<CategoryChip> {
               children: [
                 Icon(
                   widget.icon,
-                  size: 30,
+                  // 2x the original 30 — the height reduction above means the
+                  // gap beneath it is tightened to 8 so it still fits.
+                  size: 60,
                   color: selected ? AidaColors.cream : AidaColors.espresso,
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 8),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 6),
                   child: Text(

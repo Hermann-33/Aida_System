@@ -39,6 +39,15 @@ abstract final class AidaColors {
 
   // --- Derived / functional ---------------------------------------------
 
+  /// A deeper shade of [rewardGold], for gold-on-gold gradients (the stamp
+  /// icon, the QR nav button). Same hue and saturation, just darker — not a
+  /// second gold. The PRD palette defines exactly one gold; this keeps it
+  /// that way instead of inventing a nearby hex value.
+  static Color get rewardGoldDeep {
+    final hsl = HSLColor.fromColor(rewardGold);
+    return hsl.withLightness((hsl.lightness - 0.14).clamp(0.0, 1.0)).toColor();
+  }
+
   /// Body text on light surfaces.
   static const textPrimary = espresso;
 

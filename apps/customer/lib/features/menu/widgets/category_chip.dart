@@ -97,15 +97,26 @@ class _CategoryChipState extends State<CategoryChip> {
                               : const [Color(0xFFFFFFFF), Color(0xFFF6EEE6)],
                     ),
                     borderRadius: BorderRadius.circular(26),
+                    // A thin edge, so the tile reads clearly against the cream
+                    // page instead of the gradient alone doing all the work —
+                    // a soft embossed edge without this can look washed out,
+                    // especially once compressed into a screenshot.
+                    border: Border.all(
+                      color: selected
+                          ? AidaColors.espresso
+                          : AidaColors.latte.withValues(alpha: 0.8),
+                      width: 1.2,
+                    ),
                     boxShadow: [
                       // Cast shadow: bottom-right, as if lit from the top-left.
-                      // This is the shadow that actually reads as depth.
+                      // Darkened slightly over the previous pass so the tile's
+                      // edge is unmistakable rather than merely implied.
                       BoxShadow(
                         color: AidaColors.espresso.withValues(
-                          alpha: selected ? 0.30 : 0.16,
+                          alpha: selected ? 0.34 : 0.22,
                         ),
-                        blurRadius: 20,
-                        offset: const Offset(7, 10),
+                        blurRadius: 18,
+                        offset: const Offset(6, 9),
                       ),
                       // Rim highlight: top-left, opposite the cast shadow.
                       // Without this the tile looks lit flatly; with it, the

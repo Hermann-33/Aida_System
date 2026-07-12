@@ -21,9 +21,14 @@ import 'widgets/promo_carousel.dart';
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
-  /// Jump to the Menu tab. Used by "View All" and the category chips.
-  void _openMenu(WidgetRef ref) =>
-      ref.read(selectedTabProvider.notifier).select(AppTab.menu);
+  /// Open the Menu tab, optionally filtered to one category.
+  ///
+  /// Passing the category through is what makes the chip worth tapping: "View
+  /// All" clears the filter, while tapping Coffee lands you on Coffee.
+  void _openMenu(WidgetRef ref, {String? categoryId}) {
+    ref.read(selectedCategoryProvider.notifier).select(categoryId);
+    ref.read(selectedTabProvider.notifier).select(AppTab.menu);
+  }
 
   /// Jump to the Rewards tab.
   void _openRewards(WidgetRef ref) =>
@@ -131,7 +136,7 @@ class HomeScreen extends ConsumerWidget {
                                 const SizedBox(height: 14),
                                 CategoryRow(
                                   categories: list,
-                                  onTap: (_) => _openMenu(ref),
+                                  onTap: (c) => _openMenu(ref, categoryId: c.id),
                                 ),
                               ],
                             ),

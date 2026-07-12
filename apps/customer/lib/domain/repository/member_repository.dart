@@ -44,4 +44,9 @@ abstract interface class MemberRepository {
 
   /// Best sellers for the "Popular Picks" list.
   Future<Result<List<MenuItem>>> getPopularItems();
+
+  /// The full menu. Filtering by category is done in the UI over this list —
+  /// the menu is small enough that a round trip per category would be slower
+  /// and would break offline browsing.
+  Future<Result<List<MenuItem>>> getMenuItems();
 }

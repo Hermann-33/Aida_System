@@ -36,6 +36,22 @@ class SelectedTab extends Notifier<AppTab> {
 
 final selectedTabProvider = NotifierProvider<SelectedTab, AppTab>(SelectedTab.new);
 
+/// The category the Menu screen is filtered to. Null means "All".
+///
+/// Lives here rather than inside the Menu screen so tapping a category on Home
+/// can pre-select it — the chip then does something real instead of merely
+/// switching tabs.
+class SelectedCategory extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void select(String? categoryId) => state = categoryId;
+}
+
+final selectedCategoryProvider = NotifierProvider<SelectedCategory, String?>(
+  SelectedCategory.new,
+);
+
 /// Unwraps a [Result] into a value or throws its failure, so Riverpod's
 /// AsyncValue can carry the error into the UI. Widgets match on the failure
 /// type rather than inspecting a message string.
@@ -81,4 +97,8 @@ final popularItemsProvider = FutureProvider<List<MenuItem>>(
 
 final rewardsProvider = FutureProvider<List<Reward>>(
   (ref) => _unwrap(ref.watch(memberRepositoryProvider).getRewards()),
+);
+
+final menuItemsProvider = FutureProvider<List<MenuItem>>(
+  (ref) => _unwrap(ref.watch(memberRepositoryProvider).getMenuItems()),
 );

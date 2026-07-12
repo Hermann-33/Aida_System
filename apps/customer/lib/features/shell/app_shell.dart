@@ -6,6 +6,7 @@ import '../../core/theme/aida_colors.dart';
 import '../../core/theme/aida_type.dart';
 import '../card/membership_card_screen.dart';
 import '../home/home_screen.dart';
+import '../menu/menu_screen.dart';
 
 /// The five-tab shell. PRD CUS-16, with the QR given permanent prominence
 /// per CUS-17.
@@ -19,7 +20,7 @@ class AppShell extends ConsumerWidget {
     HomeScreen(),
     _ComingSoon(title: 'Rewards', note: 'Vouchers, redemption, and stamp rewards'),
     MembershipCardScreen(),
-    _ComingSoon(title: 'Menu', note: 'Categories, items, and prices'),
+    MenuScreen(),
     _ComingSoon(title: 'Profile', note: 'Account, history, and settings'),
   ];
 
@@ -86,6 +87,7 @@ class _FloatingNav extends StatelessWidget {
             children: [
               for (final tab in AppTab.values)
                 _NavItem(
+                  key: ValueKey('nav_${tab.name}'),
                   icon: _icons[tab]!.$1,
                   label: _icons[tab]!.$2,
                   selected: tab == current,
@@ -105,6 +107,7 @@ class _FloatingNav extends StatelessWidget {
 
 class _NavItem extends StatelessWidget {
   const _NavItem({
+    super.key,
     required this.icon,
     required this.label,
     required this.selected,

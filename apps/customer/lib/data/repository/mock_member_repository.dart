@@ -159,47 +159,13 @@ class MockMemberRepository implements MemberRepository {
   @override
   Future<Result<List<MenuItem>>> getPopularItems() async {
     await Future<void>.delayed(latency);
-    return const Ok([
-      _featured,
-      MenuItem(
-        id: 'p_cappuccino',
-        name: 'Cappuccino',
-        category: 'Coffee',
-        description: 'Smooth espresso with rich, velvety foam',
-        price: Money.fromSen(950), // RM 9.50
-        isAvailable: true,
-        isBestSeller: true,
-        isStudentEligible: true,
-      ),
-      MenuItem(
-        id: 'p_iced_latte',
-        name: 'Iced Latte',
-        category: 'Iced Drinks',
-        description: 'Chilled, creamy, and endlessly refreshing',
-        price: Money.fromSen(1050), // RM 10.50
-        isAvailable: true,
-        isBestSeller: true,
-        isStudentEligible: true,
-      ),
-      MenuItem(
-        id: 'p_matcha',
-        name: 'Matcha Latte',
-        category: 'Iced Drinks',
-        description: 'Stone-ground matcha, gently sweetened',
-        price: Money.fromSen(1190), // RM 11.90
-        isAvailable: true,
-        isBestSeller: true,
-      ),
-      MenuItem(
-        id: 'p_croissant',
-        name: 'Butter Croissant',
-        category: 'Food',
-        description: 'Flaky, buttery, baked this morning',
-        price: Money.fromSen(750), // RM 7.50
-        isAvailable: false, // Sold out — exercises the unavailable state.
-        isBestSeller: true,
-      ),
-    ]);
+    return Ok(_menu.where((i) => i.isBestSeller).toList());
+  }
+
+  @override
+  Future<Result<List<MenuItem>>> getMenuItems() async {
+    await Future<void>.delayed(latency);
+    return const Ok(_menu);
   }
 
   static const _featured = MenuItem(
@@ -213,4 +179,142 @@ class MockMemberRepository implements MemberRepository {
     isStudentEligible: true,
     bonusPoints: 25,
   );
+
+  /// The menu from PRD §12.2. Prices are plausible Malaysian café prices and
+  /// must be replaced with Aida's real ones before any client demo — the owner
+  /// will comment on these first.
+  static const _menu = <MenuItem>[
+    _featured,
+    MenuItem(
+      id: 'p_latte',
+      name: 'Latte',
+      category: 'Coffee',
+      description: 'Espresso and steamed milk, softly balanced',
+      price: Money.fromSen(1050),
+      isAvailable: true,
+      isStudentEligible: true,
+    ),
+    MenuItem(
+      id: 'p_americano',
+      name: 'Americano',
+      category: 'Coffee',
+      description: 'Espresso lengthened with hot water',
+      price: Money.fromSen(850),
+      isAvailable: true,
+      isStudentEligible: true,
+    ),
+    MenuItem(
+      id: 'p_cappuccino',
+      name: 'Cappuccino',
+      category: 'Coffee',
+      description: 'Smooth espresso with rich, velvety foam',
+      price: Money.fromSen(950),
+      isAvailable: true,
+      isBestSeller: true,
+      isStudentEligible: true,
+    ),
+    MenuItem(
+      id: 'p_mocha',
+      name: 'Mocha',
+      category: 'Coffee',
+      description: 'Espresso, chocolate, and steamed milk',
+      price: Money.fromSen(1150),
+      isAvailable: true,
+    ),
+    MenuItem(
+      id: 'p_iced_coffee',
+      name: 'Iced Coffee',
+      category: 'Iced Drinks',
+      description: 'Cold, clean, and straight to the point',
+      price: Money.fromSen(900),
+      isAvailable: true,
+      isStudentEligible: true,
+    ),
+    MenuItem(
+      id: 'p_iced_latte',
+      name: 'Iced Latte',
+      category: 'Iced Drinks',
+      description: 'Chilled, creamy, and endlessly refreshing',
+      price: Money.fromSen(1050),
+      isAvailable: true,
+      isBestSeller: true,
+      isStudentEligible: true,
+    ),
+    MenuItem(
+      id: 'p_matcha',
+      name: 'Matcha Latte',
+      category: 'Iced Drinks',
+      description: 'Stone-ground matcha, gently sweetened',
+      price: Money.fromSen(1190),
+      isAvailable: true,
+      isBestSeller: true,
+    ),
+    MenuItem(
+      id: 'p_choc_ice',
+      name: 'Chocolate Ice',
+      category: 'Iced Drinks',
+      description: 'Dark chocolate over ice, not too sweet',
+      price: Money.fromSen(1090),
+      isAvailable: true,
+    ),
+    MenuItem(
+      id: 'p_sandwich',
+      name: 'Sandwich',
+      category: 'Food',
+      description: 'Toasted, generously filled, made to order',
+      price: Money.fromSen(1290),
+      isAvailable: true,
+      isStudentEligible: true,
+    ),
+    MenuItem(
+      id: 'p_croissant',
+      name: 'Butter Croissant',
+      category: 'Food',
+      description: 'Flaky, buttery, baked this morning',
+      price: Money.fromSen(750),
+      isAvailable: false, // Sold out — exercises the unavailable state.
+      isBestSeller: true,
+    ),
+    MenuItem(
+      id: 'p_muffin',
+      name: 'Muffin',
+      category: 'Food',
+      description: 'Blueberry, still warm from the oven',
+      price: Money.fromSen(690),
+      isAvailable: true,
+    ),
+    MenuItem(
+      id: 'p_wrap',
+      name: 'Chicken Wrap',
+      category: 'Food',
+      description: 'Grilled chicken, crisp greens, house sauce',
+      price: Money.fromSen(1390),
+      isAvailable: true,
+      isStudentEligible: true,
+    ),
+    MenuItem(
+      id: 'p_shot',
+      name: 'Extra Shot',
+      category: 'Add-ons',
+      description: 'One more shot of espresso',
+      price: Money.fromSen(300),
+      isAvailable: true,
+    ),
+    MenuItem(
+      id: 'p_oat',
+      name: 'Oat Milk',
+      category: 'Add-ons',
+      description: 'Swap in oat milk for any drink',
+      price: Money.fromSen(250),
+      isAvailable: true,
+    ),
+    MenuItem(
+      id: 'p_cream',
+      name: 'Whipped Cream',
+      category: 'Add-ons',
+      description: 'A generous swirl on top',
+      price: Money.fromSen(200),
+      isAvailable: true,
+    ),
+  ];
 }

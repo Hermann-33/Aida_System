@@ -71,9 +71,7 @@ void main() {
     await expectLater(find.byType(AppShell), matchesGoldenFile('goldens/home.png'));
   });
 
-  testWidgets('golden: home scrolled (categories + popular picks)', (
-    tester,
-  ) async {
+  testWidgets('golden: home scrolled (categories + popular picks)', (tester) async {
     await pumpApp(tester);
 
     await tester.drag(find.byType(ListView), const Offset(0, -520));
@@ -85,11 +83,26 @@ void main() {
     );
   });
 
+  testWidgets('golden: menu with a category selected', (tester) async {
+    await pumpApp(tester);
+
+    await tester.tap(find.byKey(const ValueKey('nav_menu')));
+    await tester.pumpAndSettle();
+
+    // Selecting Coffee should fill its chip and filter the list to coffee.
+    await tester.tap(find.byKey(const ValueKey('menu_cat_c_coffee')));
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(AppShell),
+      matchesGoldenFile('goldens/menu_selected.png'),
+    );
+  });
+
   testWidgets('golden: membership card', (tester) async {
     await pumpApp(tester);
 
-    // Tap the elevated centre QR button.
-    await tester.tap(find.bySemanticsLabel('My QR'));
+    await tester.tap(find.byKey(const ValueKey('nav_qr')));
     await tester.pumpAndSettle();
 
     await expectLater(

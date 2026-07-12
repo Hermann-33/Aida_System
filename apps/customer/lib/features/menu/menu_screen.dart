@@ -4,8 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/providers.dart';
 import '../../core/theme/aida_colors.dart';
 import '../../core/theme/aida_type.dart';
-import '../../domain/model/menu_category.dart';
-import '../home/widgets/category_row.dart';
+import 'widgets/category_chip.dart';
+import 'widgets/category_strip.dart';
 import '../home/widgets/popular_item_tile.dart';
 
 /// The menu. CUS-09.
@@ -50,14 +50,16 @@ class MenuScreen extends ConsumerWidget {
                 sliver: SliverToBoxAdapter(
                   child: categories.when(
                     data:
-                        (list) => _Categories(
+                        (list) => CategoryStrip(
                           categories: list,
                           selectedId: selected,
+                          showAll: true,
+                          keyPrefix: 'menu_cat',
                           onSelect:
                               (id) =>
                                   ref.read(selectedCategoryProvider.notifier).select(id),
                         ),
-                    loading: () => const SizedBox(height: 96),
+                    loading: () => const SizedBox(height: CategoryChip.height + 12),
                     error: (_, __) => const SizedBox.shrink(),
                   ),
                 ),
@@ -107,57 +109,6 @@ class MenuScreen extends ConsumerWidget {
   }
 }
 
-/// Category strip with a leading "All" chip.
-///
-/// "All" is not a real category from the server — it is the absence of a
-/// filter. Modelling it as a synthetic category here keeps the server's data
-/// honest while still giving the customer a way back to the full menu.
-class _Categories extends StatelessWidget {
-  const _Categories({
-    required this.categories,
-    required this.selectedId,
-    required this.onSelect,
-  });
-
-  final List<MenuCategory> categories;
-  final String? selectedId;
-  final ValueChanged<String?> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 96,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        clipBehavior: Clip.none,
-        padding: EdgeInsets.zero,
-        itemCount: categories.length + 1,
-        separatorBuilder: (_, __) => const SizedBox(width: 14),
-        itemBuilder: (_, i) {
-          if (i == 0) {
-            return CategoryChip(
-              key: const ValueKey('menu_cat_all'),
-              label: 'All',
-              icon: CategoryRow.iconFor('All'),
-              selected: selectedId == null,
-              onTap: () => onSelect(null),
-            );
-          }
-
-          final c = categories[i - 1];
-          return CategoryChip(
-            key: ValueKey('menu_cat_${c.id}'),
-            label: c.name,
-            icon: CategoryRow.iconFor(c.name),
-            selected: c.id == selectedId,
-            onTap: () => onSelect(c.id),
-          );
-        },
-      ),
-    );
-  }
-}
-
 class _EmptyCategory extends StatelessWidget {
   const _EmptyCategory();
 
@@ -168,7 +119,7 @@ class _EmptyCategory extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.no_food_rounded, size: 44, color: AidaColors.latte),
+          const Icon(Icons.no_food_rounded, size: 64, color: AidaColors.latte),
           const SizedBox(height: 14),
           Text(
             'Nothing here just yet',

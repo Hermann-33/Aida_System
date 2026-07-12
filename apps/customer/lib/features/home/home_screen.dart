@@ -6,7 +6,8 @@ import '../../core/theme/aida_colors.dart';
 import '../../core/theme/aida_type.dart';
 import '../../domain/model/member.dart';
 import '../../domain/model/loyalty.dart';
-import 'widgets/category_cards.dart';
+import '../menu/widgets/category_chip.dart';
+import '../menu/widgets/category_strip.dart';
 import 'widgets/loyalty_card.dart';
 import 'widgets/offer_banner.dart';
 import 'widgets/popular_item_tile.dart';
@@ -134,13 +135,14 @@ class HomeScreen extends ConsumerWidget {
                                   onViewAll: () => _openMenu(ref),
                                 ),
                                 const SizedBox(height: 14),
-                                CategoryCards(
+                                CategoryStrip(
                                   categories: list,
-                                  onTap: (c) => _openMenu(ref, categoryId: c.id),
+                                  keyPrefix: 'home_cat',
+                                  onSelect: (id) => _openMenu(ref, categoryId: id),
                                 ),
                               ],
                             ),
-                loading: () => const _Skeleton(height: 92),
+                loading: () => const _Skeleton(height: CategoryChip.height + 12),
                 error: (_, __) => const SizedBox.shrink(),
               ),
               const SizedBox(height: 22),

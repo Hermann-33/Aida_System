@@ -162,13 +162,20 @@ class HomeScreen extends ConsumerWidget {
                                         crossAxisCount: 2,
                                         crossAxisSpacing: 14,
                                         mainAxisSpacing: 22,
-                                        // Shorter cells make the card's fixed
-                                        // top overlap ratio (imageSize / 2)
-                                        // eat a bigger share of the cell, so
-                                        // this dropped when the image grew
-                                        // 96 -> 144 — tuned against the
-                                        // golden, not computed exactly.
-                                        childAspectRatio: 0.64,
+                                        // A fixed height, not childAspectRatio.
+                                        // Aspect ratio makes cell height scale
+                                        // with cell width — fine on a phone,
+                                        // but `flutter run -d chrome` opens at
+                                        // whatever width the browser tab is,
+                                        // and on a wide desktop window this
+                                        // stretched each card's height far
+                                        // past what the fixed-size photo and
+                                        // few lines of text actually need,
+                                        // leaving a large dead gap. The card's
+                                        // content has a fixed size regardless
+                                        // of window width, so its height
+                                        // should be fixed too.
+                                        mainAxisExtent: 250,
                                       ),
                                   itemCount: list.length,
                                   itemBuilder: (_, i) => PopularItemCard(item: list[i]),

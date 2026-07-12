@@ -162,7 +162,13 @@ class HomeScreen extends ConsumerWidget {
                                         crossAxisCount: 2,
                                         crossAxisSpacing: 14,
                                         mainAxisSpacing: 22,
-                                        childAspectRatio: 0.82,
+                                        // Shorter cells make the card's fixed
+                                        // top overlap ratio (imageSize / 2)
+                                        // eat a bigger share of the cell, so
+                                        // this dropped when the image grew
+                                        // 96 -> 144 — tuned against the
+                                        // golden, not computed exactly.
+                                        childAspectRatio: 0.64,
                                       ),
                                   itemCount: list.length,
                                   itemBuilder: (_, i) => PopularItemCard(item: list[i]),

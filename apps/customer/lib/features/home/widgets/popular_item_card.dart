@@ -28,7 +28,8 @@ class PopularItemCard extends StatelessWidget {
   final MenuItem item;
   final VoidCallback? onTap;
 
-  static const _imageSize = 96.0;
+  // +50% per request.
+  static const _imageSize = 144.0;
   static const _overlap = _imageSize / 2;
 
   @override
@@ -59,9 +60,14 @@ class PopularItemCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(22),
                   boxShadow: AidaTheme.cardShadow,
                 ),
+                // mainAxisAlignment.end, not .min: the Positioned box above
+                // gives this Column a tight height, and the name/price block
+                // was hugging the top of it — right under the photo — leaving
+                // a dead gap below. Anchoring to the bottom uses that space
+                // instead of wasting it.
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     Text(
                       item.name,

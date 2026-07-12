@@ -147,12 +147,18 @@ class MockMemberRepository implements MemberRepository {
   @override
   Future<Result<List<MenuCategory>>> getCategories() async {
     await Future<void>.delayed(latency);
+
+    // Counts are derived from the menu, not hardcoded. A hardcoded count drifts
+    // the moment someone adds an item, and a card that says "4 items" over a
+    // list of five is a small lie the customer will notice.
+    int countOf(String name) => _menu.where((i) => i.category == name).length;
+
     // Categories per PRD §12.2.
-    return const Ok([
-      MenuCategory(id: 'c_coffee', name: 'Coffee', itemCount: 4),
-      MenuCategory(id: 'c_iced', name: 'Iced Drinks', itemCount: 4),
-      MenuCategory(id: 'c_food', name: 'Food', itemCount: 4),
-      MenuCategory(id: 'c_addons', name: 'Add-ons', itemCount: 3),
+    return Ok([
+      MenuCategory(id: 'c_coffee', name: 'Coffee', itemCount: countOf('Coffee')),
+      MenuCategory(id: 'c_iced', name: 'Iced Drinks', itemCount: countOf('Iced Drinks')),
+      MenuCategory(id: 'c_food', name: 'Food', itemCount: countOf('Food')),
+      MenuCategory(id: 'c_addons', name: 'Add-ons', itemCount: countOf('Add-ons')),
     ]);
   }
 

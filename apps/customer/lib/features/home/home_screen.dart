@@ -6,6 +6,7 @@ import '../../core/theme/aida_colors.dart';
 import '../../core/theme/aida_type.dart';
 import '../../domain/model/member.dart';
 import '../../domain/model/loyalty.dart';
+import '../menu/item_detail_screen.dart';
 import '../menu/widgets/category_chip.dart';
 import '../menu/widgets/category_strip.dart';
 import 'widgets/loyalty_card.dart';
@@ -178,7 +179,11 @@ class HomeScreen extends ConsumerWidget {
                                         mainAxisExtent: 250,
                                       ),
                                   itemCount: list.length,
-                                  itemBuilder: (_, i) => PopularItemCard(item: list[i]),
+                                  itemBuilder:
+                                      (_, i) => PopularItemCard(
+                                        item: list[i],
+                                        onTap: () => openItemDetail(context, list[i]),
+                                      ),
                                 ),
                               ],
                             ),

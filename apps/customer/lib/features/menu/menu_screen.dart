@@ -4,9 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/providers.dart';
 import '../../core/theme/aida_colors.dart';
 import '../../core/theme/aida_type.dart';
+import '../home/widgets/popular_item_tile.dart';
+import 'item_detail_screen.dart';
 import 'widgets/category_chip.dart';
 import 'widgets/category_strip.dart';
-import '../home/widgets/popular_item_tile.dart';
 
 /// The menu. CUS-09.
 ///
@@ -86,7 +87,11 @@ class MenuScreen extends ConsumerWidget {
                     padding: const EdgeInsets.fromLTRB(20, 4, 20, 110),
                     sliver: SliverList.builder(
                       itemCount: visible.length,
-                      itemBuilder: (_, i) => PopularItemTile(item: visible[i]),
+                      itemBuilder:
+                          (_, i) => PopularItemTile(
+                            item: visible[i],
+                            onTap: () => openItemDetail(context, visible[i]),
+                          ),
                     ),
                   );
                 },

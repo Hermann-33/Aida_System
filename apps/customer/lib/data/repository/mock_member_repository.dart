@@ -118,22 +118,50 @@ class MockMemberRepository implements MemberRepository {
     return const Ok(_featured);
   }
 
+  /// TEMPORARY stock photography, for visualising the carousel only.
+  ///
+  /// Aida has no product photography yet. These are stand-in Unsplash images
+  /// so the client can see the intended effect — swap for real photos before
+  /// any real deployment. Hotlinked, so they need a live connection; if one
+  /// fails to load, ProductImage's fallback still renders its tinted
+  /// placeholder rather than a broken image.
+  static const _stockLatte =
+      'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=900&q=80';
+  static const _stockBeans =
+      'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=900&q=80';
+  static const _stockPastry =
+      'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=900&q=80';
+
   @override
   Future<Result<List<Promo>>> getPromos() async {
     await Future<void>.delayed(latency);
+    // Active offers are folded in here as slides, rather than shown again in
+    // a separate banner list below the carousel — see the note on [Promo].
     return const Ok([
       Promo(
         id: 'promo_signature',
         headline: 'Step into\nthe light',
         subhead: 'Try our signature roast, made fresh every morning',
         ctaLabel: 'See Menu',
+        imageUrl: _stockLatte,
       ),
       Promo(
-        id: 'promo_student',
-        headline: 'Students\nsave 20%',
-        subhead: 'Verified City U students, every day',
-        ctaLabel: 'See Offer',
+        id: 'o_student_20',
+        headline: 'Student Offer\n20% Off',
+        subhead: 'Show your student QR at City U campus',
+        ctaLabel: 'View Offer',
         linkedOfferId: 'o_student_20',
+        audience: OfferAudience.students,
+        imageUrl: _stockPastry,
+      ),
+      Promo(
+        id: 'o_double_points',
+        headline: 'Double Points\nTuesday',
+        subhead: 'Earn 2× Aida Points on every drink',
+        ctaLabel: 'View Offer',
+        linkedOfferId: 'o_double_points',
+        audience: OfferAudience.all,
+        imageUrl: _stockBeans,
       ),
       Promo(
         id: 'promo_stamps',

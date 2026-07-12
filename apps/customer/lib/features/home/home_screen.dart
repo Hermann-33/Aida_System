@@ -9,7 +9,6 @@ import '../../domain/model/loyalty.dart';
 import '../menu/widgets/category_chip.dart';
 import '../menu/widgets/category_strip.dart';
 import 'widgets/loyalty_card.dart';
-import 'widgets/offer_banner.dart';
 import 'widgets/popular_item_tile.dart';
 import 'widgets/promo_carousel.dart';
 
@@ -60,7 +59,6 @@ class HomeScreen extends ConsumerWidget {
     final member = ref.watch(memberProvider);
     final points = ref.watch(pointsProvider);
     final stamps = ref.watch(stampCardProvider);
-    final offers = ref.watch(offersProvider);
     final promos = ref.watch(promosProvider);
     final categories = ref.watch(categoriesProvider);
     final popular = ref.watch(popularItemsProvider);
@@ -75,7 +73,6 @@ class HomeScreen extends ConsumerWidget {
               ..invalidate(pointsProvider)
               ..invalidate(stampCardProvider)
               ..invalidate(rewardsProvider)
-              ..invalidate(offersProvider)
               ..invalidate(promosProvider)
               ..invalidate(categoriesProvider)
               ..invalidate(popularItemsProvider);
@@ -98,6 +95,9 @@ class HomeScreen extends ConsumerWidget {
               const SizedBox(height: 24),
 
               // --- Then browse --------------------------------------------
+              // Active offers are folded into the carousel as slides (see the
+              // note on the Promo model) rather than repeated below it in a
+              // separate banner list.
               promos.when(
                 data: (list) => PromoCarousel(promos: list),
                 // Matches the carousel's height, so the page does not jump when
@@ -106,21 +106,6 @@ class HomeScreen extends ConsumerWidget {
                 error: (_, __) => const SizedBox.shrink(),
               ),
               const SizedBox(height: 24),
-
-              offers.when(
-                data:
-                    (list) => Column(
-                      children: [
-                        for (final o in list) ...[
-                          OfferBanner(offer: o),
-                          const SizedBox(height: 12),
-                        ],
-                      ],
-                    ),
-                loading: () => const _Skeleton(height: 80),
-                error: (_, __) => const SizedBox.shrink(),
-              ),
-              const SizedBox(height: 12),
 
               categories.when(
                 data:

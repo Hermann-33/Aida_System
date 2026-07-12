@@ -86,6 +86,8 @@ class _PromoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scrimBase = promo.isStudentOffer ? AidaColors.cityRed : AidaColors.espresso;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -109,15 +111,19 @@ class _PromoCard extends StatelessWidget {
                 // Darken top and bottom only, so a photo stays visible through
                 // the middle while the headline and the pill both stay legible
                 // whatever image the café uploads later.
+                //
+                // A student-offer slide tints City Red instead of espresso —
+                // the same identity colour the old standalone banner used —
+                // so folding it into the carousel doesn't lose that signal.
                 DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        AidaColors.espresso.withValues(alpha: 0.72),
-                        AidaColors.espresso.withValues(alpha: 0.18),
-                        AidaColors.espresso.withValues(alpha: 0.62),
+                        scrimBase.withValues(alpha: 0.72),
+                        scrimBase.withValues(alpha: 0.18),
+                        scrimBase.withValues(alpha: 0.62),
                       ],
                       stops: const [0.0, 0.45, 1.0],
                     ),
@@ -143,7 +149,7 @@ class _PromoCard extends StatelessWidget {
                               ),
                             ),
                           ),
-                          if (promo.linkedOfferId != null) ...[
+                          if (promo.isStudentOffer) ...[
                             const SizedBox(width: 10),
                             const _StudentBadge(),
                           ],

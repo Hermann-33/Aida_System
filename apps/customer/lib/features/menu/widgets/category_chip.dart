@@ -31,12 +31,12 @@ class CategoryChip extends StatefulWidget {
   final VoidCallback? onTap;
 
   /// The square tile's side.
-  static const tileSize = 88.0;
+  static const tileSize = 92.0;
 
   /// Total tile height including the free-standing label beneath it. Callers
   /// size their scroll strip from this, so the number lives in one place.
-  static const height = tileSize + 8 + 18;
-  static const width = 96.0;
+  static const height = tileSize + 10 + 18;
+  static const width = 100.0;
 
   /// Thin outline glyphs, matching the reference style — not the filled
   /// `_rounded` family used elsewhere in the app for larger, single icons.
@@ -84,25 +84,46 @@ class _CategoryChipState extends State<CategoryChip> {
                   width: CategoryChip.tileSize,
                   height: CategoryChip.tileSize,
                   decoration: BoxDecoration(
-                    color: selected ? AidaColors.espresso : AidaColors.cardWhite,
+                    // Neither flat white nor flat espresso — a faint diagonal
+                    // gradient so the tile itself shows a highlight and a
+                    // falloff, the way a raised surface catches light. This is
+                    // what a single flat shadow cannot do on its own.
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors:
+                          selected
+                              ? [AidaColors.coffee, AidaColors.espresso]
+                              : const [Color(0xFFFFFFFF), Color(0xFFF6EEE6)],
+                    ),
                     borderRadius: BorderRadius.circular(26),
-                    // A soft, wide, low-opacity shadow rather than a tight
-                    // drop shadow is what reads as "floating" instead of
-                    // merely "bordered".
                     boxShadow: [
+                      // Cast shadow: bottom-right, as if lit from the top-left.
+                      // This is the shadow that actually reads as depth.
                       BoxShadow(
                         color: AidaColors.espresso.withValues(
-                          alpha: selected ? 0.28 : 0.10,
+                          alpha: selected ? 0.30 : 0.16,
                         ),
-                        blurRadius: selected ? 22 : 18,
-                        spreadRadius: selected ? 0 : -2,
-                        offset: const Offset(0, 10),
+                        blurRadius: 20,
+                        offset: const Offset(7, 10),
+                      ),
+                      // Rim highlight: top-left, opposite the cast shadow.
+                      // Without this the tile looks lit flatly; with it, the
+                      // top-left edge catches light like a raised edge would.
+                      BoxShadow(
+                        color:
+                            selected
+                                ? AidaColors.coffee.withValues(alpha: 0.5)
+                                : Colors.white,
+                        blurRadius: 10,
+                        offset: const Offset(-5, -5),
                       ),
                     ],
                   ),
                   child: Icon(
                     widget.icon,
-                    size: 44,
+                    // User-requested increase over the original 44.
+                    size: 56,
                     color: selected ? AidaColors.cream : AidaColors.coffee,
                   ),
                 ),

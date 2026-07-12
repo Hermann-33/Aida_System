@@ -142,7 +142,7 @@ class HomeScreen extends ConsumerWidget {
                                 ),
                               ],
                             ),
-                loading: () => const _Skeleton(height: CategoryChip.height + 16),
+                loading: () => const _Skeleton(height: CategoryChip.height + 20),
                 error: (_, __) => const SizedBox.shrink(),
               ),
               const SizedBox(height: 22),

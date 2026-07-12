@@ -46,12 +46,13 @@ class CategoryStrip extends StatelessWidget {
     final count = categories.length + (showAll ? 1 : 0);
 
     return SizedBox(
-      // Extra room so the tile's wider floating shadow is not clipped.
-      height: CategoryChip.height + 16,
+      // Extra room so the tile's shadow pair — cast below and rim above —
+      // is not clipped in either direction.
+      height: CategoryChip.height + 20,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         clipBehavior: Clip.none,
-        padding: const EdgeInsets.only(top: 2),
+        padding: const EdgeInsets.only(top: 6),
         itemCount: count,
         separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (_, i) {

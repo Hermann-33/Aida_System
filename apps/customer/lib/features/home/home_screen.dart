@@ -78,6 +78,11 @@ class HomeScreen extends ConsumerWidget {
               ..invalidate(popularItemsProvider);
           },
           child: ListView(
+            // Keyed so tests can target this scroll view specifically — the
+            // category strip below also contains a ListView once it has more
+            // categories than fit, and `find.byType(ListView)` alone is
+            // ambiguous the moment that happens.
+            key: const Key('home_scroll'),
             physics: const AlwaysScrollableScrollPhysics(),
             // Deep bottom padding: the nav pill floats over the content, so the
             // last item would otherwise sit underneath it.

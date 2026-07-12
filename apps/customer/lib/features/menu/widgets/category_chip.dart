@@ -102,9 +102,10 @@ class _CategoryChipState extends State<CategoryChip> {
                     // a soft embossed edge without this can look washed out,
                     // especially once compressed into a screenshot.
                     border: Border.all(
-                      color: selected
-                          ? AidaColors.espresso
-                          : AidaColors.latte.withValues(alpha: 0.8),
+                      color:
+                          selected
+                              ? AidaColors.espresso
+                              : AidaColors.latte.withValues(alpha: 0.8),
                       width: 1.2,
                     ),
                     boxShadow: [

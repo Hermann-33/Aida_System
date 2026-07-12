@@ -75,8 +75,7 @@ class CategoryStrip extends StatelessWidget {
       );
     }
 
-    final totalWidth =
-        count * CategoryChip.width + (count - 1) * _gap;
+    final totalWidth = count * CategoryChip.width + (count - 1) * _gap;
 
     return SizedBox(
       // Extra room so the tile's shadow pair — cast below and rim above —

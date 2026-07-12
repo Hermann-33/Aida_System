@@ -4,16 +4,17 @@ import '../../../core/theme/aida_colors.dart';
 import '../../../core/theme/aida_theme.dart';
 import '../../../core/theme/aida_type.dart';
 import '../../../domain/model/loyalty.dart';
-import 'stamp_track.dart';
+import 'stamp_ring.dart';
 
-/// Points and stamps in one card.
+/// Points and stamps in one compact card.
 ///
 /// Points are shown as a plain balance — no tier ladder. A customer only needs
 /// to know how many points they have; what those points buy belongs on the
 /// Rewards screen, not competing for attention here.
 ///
-/// The track shows stamp progress toward the next free drink, which is the one
-/// thing on this card that genuinely *is* a progress bar.
+/// Stamp progress is a ring, not the previous zigzag line: the same
+/// information in a fraction of the vertical space. See [StampRing] for why
+/// it's ten discrete arcs rather than one smooth sweep.
 class LoyaltyCard extends StatelessWidget {
   const LoyaltyCard({
     super.key,
@@ -44,11 +45,12 @@ class LoyaltyCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -59,7 +61,7 @@ class LoyaltyCard extends StatelessWidget {
                             points.formatted,
                             overflow: TextOverflow.ellipsis,
                             style: AidaType.serif(
-                              size: 34,
+                              size: 32,
                               color: AidaColors.textPrimary,
                             ),
                           ),
@@ -67,7 +69,7 @@ class LoyaltyCard extends StatelessWidget {
                         const SizedBox(width: 6),
                         const Icon(
                           Icons.star_rounded,
-                          size: 24,
+                          size: 22,
                           color: AidaColors.rewardGold,
                         ),
                       ],
@@ -76,42 +78,37 @@ class LoyaltyCard extends StatelessWidget {
                       'Aida Points',
                       style: AidaType.sans(size: 12, color: AidaColors.textMuted),
                     ),
+                    const SizedBox(height: 14),
+                    // One honest line about where they stand. The exact "7/10"
+                    // count lives here as text, alongside the ring, rather
+                    // than making the ring carry that precision on its own.
+                    Row(
+                      children: [
+                        Icon(
+                          stamps.freeDrinksAvailable > 0
+                              ? Icons.card_giftcard_rounded
+                              : Icons.coffee_rounded,
+                          size: 15,
+                          color: AidaColors.rewardGold,
+                        ),
+                        const SizedBox(width: 7),
+                        Expanded(
+                          child: Text(
+                            _statusLine(remaining),
+                            style: AidaType.sans(
+                              size: 11.5,
+                              weight: FontWeight.w600,
+                              color: AidaColors.coffee,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Text(
-                '${stamps.collected} / ${stamps.required_}',
-                style: AidaTheme.sectionLabel(color: AidaColors.rewardGold),
-              ),
-            ],
-          ),
-          const SizedBox(height: 22),
-
-          StampTrack(card: stamps),
-          const SizedBox(height: 14),
-
-          // One honest line about where they stand.
-          Row(
-            children: [
-              Icon(
-                stamps.freeDrinksAvailable > 0
-                    ? Icons.card_giftcard_rounded
-                    : Icons.coffee_rounded,
-                size: 15,
-                color: AidaColors.rewardGold,
-              ),
-              const SizedBox(width: 7),
-              Expanded(
-                child: Text(
-                  _statusLine(remaining),
-                  style: AidaType.sans(
-                    size: 11.5,
-                    weight: FontWeight.w600,
-                    color: AidaColors.coffee,
-                  ),
-                ),
-              ),
+              const SizedBox(width: 16),
+              StampRing(card: stamps),
             ],
           ),
           const SizedBox(height: 18),
@@ -167,7 +164,8 @@ class LoyaltyCard extends StatelessWidget {
     if (stamps.freeDrinksAvailable > 1) {
       return '${stamps.freeDrinksAvailable} free drinks ready — show your QR';
     }
-    if (remaining == 1) return '1 more stamp until your free drink';
-    return '$remaining more stamps until your free drink';
+    final count = '${stamps.collected}/${stamps.required_} stamps';
+    if (remaining == 1) return '$count · 1 more to go';
+    return '$count · $remaining more to go';
   }
 }

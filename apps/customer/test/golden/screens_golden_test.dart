@@ -74,7 +74,7 @@ void main() {
   testWidgets('golden: home scrolled (categories + popular picks)', (tester) async {
     await pumpApp(tester);
 
-    await tester.drag(find.byType(ListView), const Offset(0, -520));
+    await tester.drag(find.byKey(const Key('home_scroll')), const Offset(0, -520));
     await tester.pumpAndSettle();
 
     await expectLater(

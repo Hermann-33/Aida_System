@@ -10,9 +10,11 @@ import '../../../domain/model/loyalty.dart';
 /// Drawn as `required_` discrete arcs with gaps between them, not one smooth
 /// sweep — a plain progress ring abstracts away *which* stamp a customer is
 /// on, and the punch-card metaphor (ten individual marks, filled one by one)
-/// is what makes stamp cards satisfying in the first place. A coffee cup sits
-/// in the centre so the ring reads as "stamps" at a glance, not a generic
-/// percentage.
+/// is what makes stamp cards satisfying in the first place.
+///
+/// The centre shows both the icon and the "collected/required" count as text.
+/// Ten thin segments read as roughly "mostly full" at a glance, not as an
+/// exact 7 — the number is what actually answers "how many do I have."
 class StampRing extends StatelessWidget {
   const StampRing({super.key, required this.card, this.size = 84});
 
@@ -28,7 +30,22 @@ class StampRing extends StatelessWidget {
         alignment: Alignment.center,
         children: [
           CustomPaint(size: Size(size, size), painter: _StampRingPainter(card: card)),
-          Icon(Icons.coffee_rounded, size: size * 0.36, color: AidaColors.coffee),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.coffee_rounded, size: size * 0.24, color: AidaColors.coffee),
+              const SizedBox(height: 2),
+              Text(
+                '${card.collected}/${card.required_}',
+                style: TextStyle(
+                  fontSize: size * 0.165,
+                  fontWeight: FontWeight.w800,
+                  color: AidaColors.textPrimary,
+                  height: 1,
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );

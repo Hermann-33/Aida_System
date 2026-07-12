@@ -137,7 +137,10 @@ class LoyaltyCard extends StatelessWidget {
                 child: FilledButton(
                   onPressed: onRedeem,
                   style: FilledButton.styleFrom(
-                    backgroundColor: AidaColors.espresso,
+                    // Coffee, not espresso: the palette documents Coffee as
+                    // "primary actions and brand text," and Espresso for
+                    // headers, controls, and dark surfaces — not CTAs.
+                    backgroundColor: AidaColors.coffee,
                     foregroundColor: AidaColors.cream,
                     padding: const EdgeInsets.symmetric(vertical: 13),
                     shape: RoundedRectangleBorder(

@@ -80,9 +80,14 @@ class _StampRingPainter extends CustomPainter {
 
     // Start at the top (-90°), offset half a gap so segments sit symmetrically
     // around twelve o'clock rather than one edge landing exactly on it.
+    // The unfilled track is a translucent Coffee tint, not Latte — Latte at
+    // this stroke width can read as neutral gray rather than warm. Fading the
+    // brand brown itself guarantees it stays warm, however thin the stroke.
+    final unfilled = AidaColors.coffee.withValues(alpha: 0.18);
+
     var angle = -pi / 2 + gap / 2;
     for (var i = 0; i < n; i++) {
-      paint.color = card.isFilled(i) ? AidaColors.rewardGold : AidaColors.latte;
+      paint.color = card.isFilled(i) ? AidaColors.rewardGold : unfilled;
       canvas.drawArc(rect, angle, segmentSweep, false, paint);
       angle += segmentSweep + gap;
     }

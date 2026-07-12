@@ -131,6 +131,12 @@ class MockMemberRepository implements MemberRepository {
       'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=900&q=80';
   static const _stockPastry =
       'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=900&q=80';
+  static const _stockCappuccino =
+      'https://images.unsplash.com/photo-1541167760496-1628856ab772?w=900&q=80';
+  static const _stockIcedCoffee =
+      'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=900&q=80';
+  static const _stockMatcha =
+      'https://images.unsplash.com/photo-1536256263959-770b48d82b0a?w=900&q=80';
 
   @override
   Future<Result<List<Promo>>> getPromos() async {
@@ -212,6 +218,7 @@ class MockMemberRepository implements MemberRepository {
     isBestSeller: true,
     isStudentEligible: true,
     bonusPoints: 25,
+    imageUrl: _stockLatte,
   );
 
   /// The menu from PRD §12.2. Prices are plausible Malaysian café prices and
@@ -246,6 +253,7 @@ class MockMemberRepository implements MemberRepository {
       isAvailable: true,
       isBestSeller: true,
       isStudentEligible: true,
+      imageUrl: _stockCappuccino,
     ),
     MenuItem(
       id: 'p_mocha',
@@ -273,6 +281,7 @@ class MockMemberRepository implements MemberRepository {
       isAvailable: true,
       isBestSeller: true,
       isStudentEligible: true,
+      imageUrl: _stockIcedCoffee,
     ),
     MenuItem(
       id: 'p_matcha',
@@ -282,6 +291,7 @@ class MockMemberRepository implements MemberRepository {
       price: Money.fromSen(1190),
       isAvailable: true,
       isBestSeller: true,
+      imageUrl: _stockMatcha,
     ),
     MenuItem(
       id: 'p_choc_ice',
@@ -308,6 +318,7 @@ class MockMemberRepository implements MemberRepository {
       price: Money.fromSen(750),
       isAvailable: false, // Sold out — exercises the unavailable state.
       isBestSeller: true,
+      imageUrl: _stockPastry,
     ),
     MenuItem(
       id: 'p_muffin',

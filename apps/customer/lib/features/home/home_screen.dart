@@ -9,7 +9,7 @@ import '../../domain/model/loyalty.dart';
 import '../menu/widgets/category_chip.dart';
 import '../menu/widgets/category_strip.dart';
 import 'widgets/loyalty_card.dart';
-import 'widgets/popular_item_tile.dart';
+import 'widgets/popular_item_card.dart';
 import 'widgets/promo_carousel.dart';
 
 /// Home.
@@ -149,8 +149,24 @@ class HomeScreen extends ConsumerWidget {
                                   title: 'Popular Picks',
                                   onViewAll: () => _openMenu(ref),
                                 ),
-                                const SizedBox(height: 4),
-                                for (final item in list) PopularItemTile(item: item),
+                                const SizedBox(height: 26),
+                                // shrinkWrap + disabled physics: this grid is
+                                // nested inside Home's own vertical ListView, so it
+                                // must size to its content and let the outer list
+                                // own the actual scrolling.
+                                GridView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  gridDelegate:
+                                      const SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 2,
+                                        crossAxisSpacing: 14,
+                                        mainAxisSpacing: 22,
+                                        childAspectRatio: 0.82,
+                                      ),
+                                  itemCount: list.length,
+                                  itemBuilder: (_, i) => PopularItemCard(item: list[i]),
+                                ),
                               ],
                             ),
                 loading: () => const _Skeleton(height: 220),

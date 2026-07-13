@@ -22,6 +22,8 @@ class MenuScreen extends ConsumerWidget {
     final categories = ref.watch(categoriesProvider);
     final items = ref.watch(menuItemsProvider);
     final selected = ref.watch(selectedCategoryProvider);
+    final favorites = ref.watch(favoritesProvider);
+    final favoritesOnly = ref.watch(_favoritesOnlyProvider);
 
     return Scaffold(
       backgroundColor: AidaColors.cream,
@@ -39,9 +41,22 @@ class MenuScreen extends ConsumerWidget {
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
                 sliver: SliverToBoxAdapter(
-                  child: Text(
-                    'Menu',
-                    style: AidaType.serif(size: 28, color: AidaColors.textPrimary),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Menu',
+                          style: AidaType.serif(size: 28, color: AidaColors.textPrimary),
+                        ),
+                      ),
+                      // Favorites are session-only by explicit client choice
+                      // (cart design spec §3) — this is the only way to view
+                      // them, since there's no dedicated favorites screen.
+                      _FavoritesToggle(
+                        active: favoritesOnly,
+                        onTap: () => ref.read(_favoritesOnlyProvider.notifier).toggle(),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -71,20 +86,27 @@ class MenuScreen extends ConsumerWidget {
                   final categoryName =
                       categories.value?.where((c) => c.id == selected).firstOrNull?.name;
 
-                  final visible =
+                  var visible =
                       categoryName == null
                           ? all
                           : all.where((i) => i.category == categoryName).toList();
 
+                  if (favoritesOnly) {
+                    visible = visible.where((i) => favorites.contains(i.id)).toList();
+                  }
+
                   if (visible.isEmpty) {
-                    return const SliverFillRemaining(
+                    return SliverFillRemaining(
                       hasScrollBody: false,
-                      child: _EmptyCategory(),
+                      child: _EmptyCategory(favoritesOnly: favoritesOnly),
                     );
                   }
 
                   return SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 110),
+                    // 170, not 110: the floating cart bar sits above the nav
+                    // when the cart has items, and 110 only ever cleared the
+                    // nav on its own.
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 170),
                     sliver: SliverList.builder(
                       itemCount: visible.length,
                       itemBuilder:
@@ -115,7 +137,9 @@ class MenuScreen extends ConsumerWidget {
 }
 
 class _EmptyCategory extends StatelessWidget {
-  const _EmptyCategory();
+  const _EmptyCategory({required this.favoritesOnly});
+
+  final bool favoritesOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -124,10 +148,14 @@ class _EmptyCategory extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.no_food_rounded, size: 64, color: AidaColors.latte),
+          Icon(
+            favoritesOnly ? Icons.favorite_border_rounded : Icons.no_food_rounded,
+            size: 64,
+            color: AidaColors.latte,
+          ),
           const SizedBox(height: 14),
           Text(
-            'Nothing here just yet',
+            favoritesOnly ? 'No favorites yet' : 'Nothing here just yet',
             style: AidaType.sans(
               size: 14,
               weight: FontWeight.w700,
@@ -136,7 +164,9 @@ class _EmptyCategory extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'This category has no items right now.',
+            favoritesOnly
+                ? 'Tap the heart on an item to save it here.'
+                : 'This category has no items right now.',
             textAlign: TextAlign.center,
             style: AidaType.sans(size: 12, color: AidaColors.textMuted),
           ),
@@ -171,6 +201,45 @@ class _MenuUnavailable extends StatelessWidget {
             style: AidaType.sans(size: 12, color: AidaColors.textMuted),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Screen-local UI state — resets to off each time Menu is reopened, same as
+/// most filter toggles. Not shared app-wide like [selectedCategoryProvider],
+/// since nothing else needs to know whether this filter is active.
+class _FavoritesOnly extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void toggle() => state = !state;
+}
+
+final _favoritesOnlyProvider = NotifierProvider<_FavoritesOnly, bool>(_FavoritesOnly.new);
+
+class _FavoritesToggle extends StatelessWidget {
+  const _FavoritesToggle({required this.active, required this.onTap});
+
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: active ? AidaColors.cityRed : AidaColors.cardWhite,
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Icon(
+            active ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+            size: 20,
+            color: active ? AidaColors.cream : AidaColors.textMuted,
+          ),
+        ),
       ),
     );
   }

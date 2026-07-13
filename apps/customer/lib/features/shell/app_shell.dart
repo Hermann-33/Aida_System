@@ -5,6 +5,7 @@ import '../../application/providers.dart';
 import '../../core/theme/aida_colors.dart';
 import '../../core/theme/aida_type.dart';
 import '../card/membership_card_screen.dart';
+import '../cart/widgets/floating_cart_bar.dart';
 import '../home/home_screen.dart';
 import '../menu/menu_screen.dart';
 
@@ -34,7 +35,14 @@ class AppShell extends ConsumerWidget {
       extendBody: true,
       // IndexedStack, not a swap: it keeps each tab's scroll position and
       // avoids refetching every time a customer flips back to Home.
-      body: IndexedStack(index: tab.index, children: _tabs),
+      body: Stack(
+        children: [
+          IndexedStack(index: tab.index, children: _tabs),
+          // Positioned above the nav (68 tall + 12 bottom padding), not
+          // inside its 5 fixed slots — see FloatingCartBar's own doc for why.
+          const Positioned(left: 20, right: 20, bottom: 92, child: FloatingCartBar()),
+        ],
+      ),
       bottomNavigationBar: _FloatingNav(
         current: tab,
         onSelect: (t) => ref.read(selectedTabProvider.notifier).select(t),

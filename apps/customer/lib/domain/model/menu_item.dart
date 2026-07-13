@@ -13,6 +13,7 @@ class MenuItem {
     this.isBestSeller = false,
     this.isStudentEligible = false,
     this.bonusPoints,
+    this.compatibleAddOnIds = const [],
   });
 
   final String id;
@@ -30,4 +31,10 @@ class MenuItem {
   /// Campaign bonus points, shown as the gold `+25` pill in the approved
   /// design. Null when the item carries no campaign.
   final int? bonusPoints;
+
+  /// IDs of menu items (from the Add-ons category) this item can be ordered
+  /// with — e.g. a Latte's list includes "Extra Shot". Empty by default; a
+  /// croissant has nothing here. This is a placeholder mapping, not a
+  /// verified business rule — see the cart design spec §3.
+  final List<String> compatibleAddOnIds;
 }

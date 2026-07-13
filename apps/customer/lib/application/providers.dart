@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/error/result.dart';
 import '../data/repository/mock_member_repository.dart';
+import '../domain/model/cart.dart';
 import '../domain/model/loyalty.dart';
 import '../domain/model/member.dart';
 import '../domain/model/menu_category.dart';
@@ -101,4 +102,75 @@ final rewardsProvider = FutureProvider<List<Reward>>(
 
 final menuItemsProvider = FutureProvider<List<MenuItem>>(
   (ref) => _unwrap(ref.watch(memberRepositoryProvider).getMenuItems()),
+);
+
+/// The cart. In-memory only, cleared on app restart — see the cart design
+/// spec §2. No backend exists yet for this app to persist an order to, so
+/// this follows the same pattern as everything else: build against what's
+/// real today.
+class CartState extends Notifier<Cart> {
+  @override
+  Cart build() => const Cart();
+
+  /// Adds [line]. Merges into an existing line — incrementing its quantity —
+  /// only if one with the exact same configuration already exists.
+  void add(CartLineItem line) {
+    final lines = state.lineItems;
+    final matchIndex = lines.indexWhere(line.sameConfigurationAs);
+
+    if (matchIndex == -1) {
+      state = Cart(lineItems: [...lines, line]);
+      return;
+    }
+
+    final merged = lines[matchIndex].copyWith(
+      quantity: lines[matchIndex].quantity + line.quantity,
+    );
+    final updated = [...lines];
+    updated[matchIndex] = merged;
+    state = Cart(lineItems: updated);
+  }
+
+  /// Sets the line at [index] to [quantity]. Zero or below removes it —
+  /// a quantity stepper going to 0 is how a customer removes an item, not a
+  /// separate action they have to find.
+  void setQuantity(int index, int quantity) {
+    if (quantity <= 0) {
+      removeAt(index);
+      return;
+    }
+    final updated = [...state.lineItems];
+    updated[index] = updated[index].copyWith(quantity: quantity);
+    state = Cart(lineItems: updated);
+  }
+
+  void removeAt(int index) {
+    final updated = [...state.lineItems]..removeAt(index);
+    state = Cart(lineItems: updated);
+  }
+
+  /// Called after a mock order is placed.
+  void clear() => state = const Cart();
+}
+
+final cartProvider = NotifierProvider<CartState, Cart>(CartState.new);
+
+/// Favorited item IDs. In-memory, session-only — an explicit client choice
+/// (cart design spec §3), not an oversight: favorites reset when the app
+/// closes.
+class FavoritesState extends Notifier<Set<String>> {
+  @override
+  Set<String> build() => <String>{};
+
+  void toggle(String itemId) {
+    final updated = {...state};
+    if (!updated.remove(itemId)) updated.add(itemId);
+    state = updated;
+  }
+
+  bool contains(String itemId) => state.contains(itemId);
+}
+
+final favoritesProvider = NotifierProvider<FavoritesState, Set<String>>(
+  FavoritesState.new,
 );

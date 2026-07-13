@@ -85,9 +85,10 @@ class HomeScreen extends ConsumerWidget {
             // ambiguous the moment that happens.
             key: const Key('home_scroll'),
             physics: const AlwaysScrollableScrollPhysics(),
-            // Deep bottom padding: the nav pill floats over the content, so the
-            // last item would otherwise sit underneath it.
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 110),
+            // 170, not 110: the nav pill alone only needed 110, but the
+            // floating cart bar sits above it once the cart has items, and
+            // 110 never accounted for that second layer.
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 170),
             children: [
               member.when(
                 data: (m) => _Greeting(member: m),

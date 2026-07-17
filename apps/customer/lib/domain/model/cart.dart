@@ -85,6 +85,30 @@ class Cart {
   }
 }
 
+/// Human-readable "Large · Extra Shot" summaries of a line's size/add-ons,
+/// resolved against the menu for add-on names. Shared by the cart screen and
+/// the order receipt so the two summaries can never drift apart.
+extension CartLineItemSummary on CartLineItem {
+  String? configSummary(List<MenuItem> menu) {
+    final parts = <String>[];
+    if (size != null) parts.add(size!.label);
+    if (addOnIds.isNotEmpty) {
+      final names = addOnIds
+          .map((id) {
+            for (final m in menu) {
+              if (m.id == id) return m.name;
+            }
+            return null;
+          })
+          .whereType<String>()
+          .join(', ');
+      if (names.isNotEmpty) parts.add(names);
+    }
+    if (parts.isEmpty) return null;
+    return parts.join(' · ');
+  }
+}
+
 /// Resolves a line's add-on IDs against the full menu to a total price.
 /// Shared by the item detail live-price preview and the cart subtotal, so
 /// the two can never compute add-on pricing differently.

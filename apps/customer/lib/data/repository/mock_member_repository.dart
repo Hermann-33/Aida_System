@@ -7,6 +7,7 @@ import '../../domain/model/money.dart';
 import '../../domain/model/offer.dart';
 import '../../domain/model/promo.dart';
 import '../../domain/model/reward.dart';
+import '../../domain/model/voucher.dart';
 import '../../domain/repository/member_repository.dart';
 
 /// Demo data for client review. No network, no backend.
@@ -19,7 +20,9 @@ import '../../domain/repository/member_repository.dart';
 /// The latency below is deliberate: instant responses hide loading states, and
 /// loading states are where demos fall apart in front of a client.
 class MockMemberRepository implements MemberRepository {
-  const MockMemberRepository({this.latency = const Duration(milliseconds: 400)});
+  const MockMemberRepository({
+    this.latency = const Duration(milliseconds: 400),
+  });
 
   final Duration latency;
 
@@ -32,7 +35,39 @@ class MockMemberRepository implements MemberRepository {
     studentStatus: StudentStatus.verified,
     birthday: DateTime(2003, 4, 18),
     tierName: 'Gold Member', // Cosmetic — tiers (CUS-12) are deferred.
+    studentOrEmployeeId: 'TP065432', // Demo value — self-reported, unverified.
   );
+
+  @override
+  Future<Result<void>> logIn({
+    required String email,
+    required String password,
+  }) async {
+    await Future<void>.delayed(latency);
+    // No real credential store to check against — every well-formed
+    // attempt "succeeds." Field-level validation (empty, malformed email,
+    // short password) already happened in the form before this is called.
+    return const Ok(null);
+  }
+
+  @override
+  Future<Result<void>> signUp({
+    required String name,
+    required String email,
+    required String password,
+    required bool isStudent,
+  }) async {
+    await Future<void>.delayed(latency);
+    return const Ok(null);
+  }
+
+  @override
+  Future<Result<void>> requestPasswordReset({required String email}) async {
+    await Future<void>.delayed(latency);
+    // Always succeeds regardless of whether the email is registered — see
+    // the interface doc on why that's correct even for a real backend.
+    return const Ok(null);
+  }
 
   @override
   Future<Result<Member>> getMember() async {
@@ -87,7 +122,39 @@ class MockMemberRepository implements MemberRepository {
   @override
   Future<Result<StampCard>> getStampCard() async {
     await Future<void>.delayed(latency);
-    return const Ok(StampCard(collected: 7, required_: 10, freeDrinksAvailable: 1));
+    return const Ok(
+      StampCard(collected: 7, required_: 10, freeDrinksAvailable: 1),
+    );
+  }
+
+  @override
+  Future<Result<List<Voucher>>> getVouchers() async {
+    await Future<void>.delayed(latency);
+    // One free drink from a completed stamp card, plus a points-converted
+    // voucher — enough to demo the ticket wallet without inventing a full
+    // redemption flow. Expiry window is a stand-in until the owner sets one
+    // (design spec open question #2).
+    final now = DateTime.now();
+    return Ok([
+      Voucher(
+        id: 'v_free_drink',
+        title: 'Free Handcrafted Drink',
+        description:
+            'Unlocked with a completed stamp card. Show this at the counter.',
+        kind: RewardKind.freeDrink,
+        expiresAt: now.add(const Duration(days: 30)),
+        imageCategory: 'Drinks',
+      ),
+      Voucher(
+        id: 'v_rm5',
+        title: 'RM 5 Voucher',
+        description:
+            'Converted from 100 Aida Points. Staff apply it at checkout.',
+        kind: RewardKind.voucher,
+        expiresAt: now.add(const Duration(days: 45)),
+        imageCategory: 'Drinks',
+      ),
+    ]);
   }
 
   @override
@@ -137,6 +204,20 @@ class MockMemberRepository implements MemberRepository {
       'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=900&q=80';
   static const _stockMatcha =
       'https://images.unsplash.com/photo-1536256263959-770b48d82b0a?w=900&q=80';
+  static const _stockAmericano =
+      'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=900&q=80';
+  static const _stockMocha =
+      'https://images.unsplash.com/photo-1572490122747-3969b75c2f42?w=900&q=80';
+  static const _stockIcedCoffeePlain =
+      'https://images.unsplash.com/photo-1517701551477-081fb5d9e6e2?w=900&q=80';
+  static const _stockChocolate =
+      'https://images.unsplash.com/photo-1572490122747-3969b75c2f42?w=900&q=80';
+  static const _stockSandwich =
+      'https://images.unsplash.com/photo-1528735602782-2552fd46c207?w=900&q=80';
+  static const _stockMuffin =
+      'https://images.unsplash.com/photo-1607958996338-010a2fbfad75?w=900&q=80';
+  static const _stockWrap =
+      'https://images.unsplash.com/photo-1626700051175-6818033a6e2a?w=900&q=80';
 
   @override
   Future<Result<List<Promo>>> getPromos() async {
@@ -189,10 +270,22 @@ class MockMemberRepository implements MemberRepository {
 
     // Categories per PRD §12.2.
     return Ok([
-      MenuCategory(id: 'c_coffee', name: 'Coffee', itemCount: countOf('Coffee')),
-      MenuCategory(id: 'c_iced', name: 'Iced Drinks', itemCount: countOf('Iced Drinks')),
+      MenuCategory(
+        id: 'c_coffee',
+        name: 'Coffee',
+        itemCount: countOf('Coffee'),
+      ),
+      MenuCategory(
+        id: 'c_iced',
+        name: 'Iced Drinks',
+        itemCount: countOf('Iced Drinks'),
+      ),
       MenuCategory(id: 'c_food', name: 'Food', itemCount: countOf('Food')),
-      MenuCategory(id: 'c_addons', name: 'Add-ons', itemCount: countOf('Add-ons')),
+      MenuCategory(
+        id: 'c_addons',
+        name: 'Add-ons',
+        itemCount: countOf('Add-ons'),
+      ),
     ]);
   }
 
@@ -220,6 +313,8 @@ class MockMemberRepository implements MemberRepository {
     bonusPoints: 25,
     imageUrl: _stockLatte,
     compatibleAddOnIds: ['p_shot', 'p_oat', 'p_cream'],
+    rating: 4.9,
+    volumeMl: 240,
   );
 
   /// The menu from PRD §12.2. Prices are plausible Malaysian café prices and
@@ -231,26 +326,34 @@ class MockMemberRepository implements MemberRepository {
       id: 'p_latte',
       name: 'Latte',
       category: 'Coffee',
+      rating: 4.6,
+      volumeMl: 240,
       compatibleAddOnIds: ['p_shot', 'p_oat', 'p_cream'],
       description: 'Espresso and steamed milk, softly balanced',
       price: Money.fromSen(1050),
       isAvailable: true,
       isStudentEligible: true,
+      imageUrl: _stockLatte,
     ),
     MenuItem(
       id: 'p_americano',
       name: 'Americano',
       category: 'Coffee',
+      rating: 4.4,
+      volumeMl: 240,
       compatibleAddOnIds: ['p_shot', 'p_oat', 'p_cream'],
       description: 'Espresso lengthened with hot water',
       price: Money.fromSen(850),
       isAvailable: true,
       isStudentEligible: true,
+      imageUrl: _stockAmericano,
     ),
     MenuItem(
       id: 'p_cappuccino',
       name: 'Cappuccino',
       category: 'Coffee',
+      rating: 4.7,
+      volumeMl: 240,
       compatibleAddOnIds: ['p_shot', 'p_oat', 'p_cream'],
       description: 'Smooth espresso with rich, velvety foam',
       price: Money.fromSen(950),
@@ -263,25 +366,33 @@ class MockMemberRepository implements MemberRepository {
       id: 'p_mocha',
       name: 'Mocha',
       category: 'Coffee',
+      rating: 4.3,
+      volumeMl: 240,
       compatibleAddOnIds: ['p_shot', 'p_oat', 'p_cream'],
       description: 'Espresso, chocolate, and steamed milk',
       price: Money.fromSen(1150),
       isAvailable: true,
+      imageUrl: _stockMocha,
     ),
     MenuItem(
       id: 'p_iced_coffee',
       name: 'Iced Coffee',
       category: 'Iced Drinks',
+      rating: 4.5,
+      volumeMl: 350,
       compatibleAddOnIds: ['p_shot', 'p_oat', 'p_cream'],
       description: 'Cold, clean, and straight to the point',
       price: Money.fromSen(900),
       isAvailable: true,
       isStudentEligible: true,
+      imageUrl: _stockIcedCoffeePlain,
     ),
     MenuItem(
       id: 'p_iced_latte',
       name: 'Iced Latte',
       category: 'Iced Drinks',
+      rating: 4.8,
+      volumeMl: 350,
       compatibleAddOnIds: ['p_shot', 'p_oat', 'p_cream'],
       description: 'Chilled, creamy, and endlessly refreshing',
       price: Money.fromSen(1050),
@@ -294,6 +405,8 @@ class MockMemberRepository implements MemberRepository {
       id: 'p_matcha',
       name: 'Matcha Latte',
       category: 'Iced Drinks',
+      rating: 4.6,
+      volumeMl: 350,
       compatibleAddOnIds: ['p_shot', 'p_oat', 'p_cream'],
       description: 'Stone-ground matcha, gently sweetened',
       price: Money.fromSen(1190),
@@ -305,10 +418,13 @@ class MockMemberRepository implements MemberRepository {
       id: 'p_choc_ice',
       name: 'Chocolate Ice',
       category: 'Iced Drinks',
+      rating: 4.2,
+      volumeMl: 350,
       compatibleAddOnIds: ['p_shot', 'p_oat', 'p_cream'],
       description: 'Dark chocolate over ice, not too sweet',
       price: Money.fromSen(1090),
       isAvailable: true,
+      imageUrl: _stockIcedCoffee,
     ),
     MenuItem(
       id: 'p_sandwich',
@@ -318,6 +434,7 @@ class MockMemberRepository implements MemberRepository {
       price: Money.fromSen(1290),
       isAvailable: true,
       isStudentEligible: true,
+      imageUrl: _stockSandwich,
     ),
     MenuItem(
       id: 'p_croissant',
@@ -336,6 +453,7 @@ class MockMemberRepository implements MemberRepository {
       description: 'Blueberry, still warm from the oven',
       price: Money.fromSen(690),
       isAvailable: true,
+      imageUrl: _stockMuffin,
     ),
     MenuItem(
       id: 'p_wrap',
@@ -345,6 +463,7 @@ class MockMemberRepository implements MemberRepository {
       price: Money.fromSen(1390),
       isAvailable: true,
       isStudentEligible: true,
+      imageUrl: _stockWrap,
     ),
     MenuItem(
       id: 'p_shot',

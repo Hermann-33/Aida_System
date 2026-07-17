@@ -3,11 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/providers.dart';
 import '../../core/theme/aida_colors.dart';
-import '../../core/theme/aida_type.dart';
 import '../card/membership_card_screen.dart';
 import '../cart/widgets/floating_cart_bar.dart';
 import '../home/home_screen.dart';
 import '../menu/menu_screen.dart';
+import '../profile/profile_screen.dart';
+import '../rewards/rewards_screen.dart';
 
 /// The five-tab shell. PRD CUS-16, with the QR given permanent prominence
 /// per CUS-17.
@@ -19,10 +20,10 @@ class AppShell extends ConsumerWidget {
 
   static const _tabs = <Widget>[
     HomeScreen(),
-    _ComingSoon(title: 'Rewards', note: 'Vouchers, redemption, and stamp rewards'),
+    RewardsScreen(),
     MembershipCardScreen(),
     MenuScreen(),
-    _ComingSoon(title: 'Profile', note: 'Account, history, and settings'),
+    ProfileScreen(),
   ];
 
   @override
@@ -38,9 +39,14 @@ class AppShell extends ConsumerWidget {
       body: Stack(
         children: [
           IndexedStack(index: tab.index, children: _tabs),
-          // Positioned above the nav (68 tall + 12 bottom padding), not
+          // Positioned above the nav (72 tall + 12 bottom padding), not
           // inside its 5 fixed slots — see FloatingCartBar's own doc for why.
-          const Positioned(left: 20, right: 20, bottom: 92, child: FloatingCartBar()),
+          const Positioned(
+            left: 20,
+            right: 20,
+            bottom: 96,
+            child: FloatingCartBar(),
+          ),
         ],
       ),
       bottomNavigationBar: _FloatingNav(
@@ -51,12 +57,8 @@ class AppShell extends ConsumerWidget {
   }
 }
 
-/// A detached dark pill. Icon-only.
-///
-/// No visible labels, which is a deliberate trade: it reads as premium, but a
-/// customer must infer "Rewards" from a gift icon. Every item carries a
-/// [Semantics] label so screen readers still announce it (PRD §18), and the
-/// labels can come back if customers hesitate.
+/// Neumorphic floating tab buttons on the cream page — raised when idle,
+/// pressed-in when selected (see reference soft-UI circles).
 class _FloatingNav extends StatelessWidget {
   const _FloatingNav({required this.current, required this.onSelect});
 
@@ -76,33 +78,22 @@ class _FloatingNav extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-        child: Container(
-          height: 68,
-          decoration: BoxDecoration(
-            color: AidaColors.espresso,
-            borderRadius: BorderRadius.circular(34),
-            boxShadow: [
-              BoxShadow(
-                color: AidaColors.espresso.withValues(alpha: 0.32),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+        child: SizedBox(
+          height: 72,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               for (final tab in AppTab.values)
-                _NavItem(
+                _NeumorphicNavButton(
                   key: ValueKey('nav_${tab.name}'),
                   icon: _icons[tab]!.$1,
                   label: _icons[tab]!.$2,
                   selected: tab == current,
-                  // The QR stays gold whether selected or not. CUS-17 asks for
-                  // one-tap QR access, and a button that only stands out once
-                  // you are already on it defeats that.
-                  alwaysGold: tab == AppTab.qr,
+                  variant:
+                      tab == AppTab.qr
+                          ? _NavButtonVariant.qr
+                          : _NavButtonVariant.standard,
                   onTap: () => onSelect(tab),
                 ),
             ],
@@ -113,110 +104,185 @@ class _FloatingNav extends StatelessWidget {
   }
 }
 
-class _NavItem extends StatelessWidget {
-  const _NavItem({
+enum _NavButtonVariant { standard, qr }
+
+class _NeumorphicNavButton extends StatefulWidget {
+  const _NeumorphicNavButton({
     super.key,
     required this.icon,
     required this.label,
     required this.selected,
-    required this.alwaysGold,
+    required this.variant,
     required this.onTap,
   });
 
   final IconData icon;
   final String label;
   final bool selected;
-  final bool alwaysGold;
+  final _NavButtonVariant variant;
   final VoidCallback onTap;
 
+  static const _size = 56.0;
+
   @override
-  Widget build(BuildContext context) {
-    final Color background;
-    final Color foreground;
-
-    if (alwaysGold) {
-      background = AidaColors.rewardGold;
-      foreground = AidaColors.espresso;
-    } else if (selected) {
-      background = AidaColors.cream;
-      foreground = AidaColors.espresso;
-    } else {
-      background = Colors.transparent;
-      foreground = AidaColors.latte;
-    }
-
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: label,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: background,
-            // A selected QR needs some mark of its own, since it is gold either
-            // way — a cream ring reads clearly against the dark pill.
-            border:
-                alwaysGold && selected
-                    ? Border.all(color: AidaColors.cream, width: 2)
-                    : null,
-          ),
-          child: Icon(icon, size: 23, color: foreground),
-        ),
-      ),
-    );
-  }
+  State<_NeumorphicNavButton> createState() => _NeumorphicNavButtonState();
 }
 
-/// Honest placeholder for the tabs not yet built. Says what is coming rather
-/// than pretending to be broken.
-class _ComingSoon extends StatelessWidget {
-  const _ComingSoon({required this.title, required this.note});
+class _NeumorphicNavButtonState extends State<_NeumorphicNavButton> {
+  bool _pressed = false;
 
-  final String title;
-  final String note;
+  bool get _inset => widget.selected || _pressed;
+
+  LinearGradient get _gradient {
+    if (widget.variant == _NavButtonVariant.qr) {
+      if (_inset) {
+        return LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AidaColors.rewardGoldDeep, AidaColors.rewardGold],
+        );
+      }
+      return LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          AidaColors.rewardGold,
+          AidaColors.rewardGoldDeep,
+        ],
+      );
+    }
+    if (_inset) {
+      return LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          AidaColors.latte.withValues(alpha: 0.95),
+          AidaColors.caramelTint,
+          AidaColors.cream,
+        ],
+        stops: const [0.0, 0.45, 1.0],
+      );
+    }
+    return LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        AidaColors.cardWhite,
+        AidaColors.cream,
+        AidaColors.latte.withValues(alpha: 0.65),
+      ],
+      stops: const [0.0, 0.55, 1.0],
+    );
+  }
+
+  Color get _iconColor {
+    if (widget.variant == _NavButtonVariant.qr) {
+      return AidaColors.espresso;
+    }
+    return _inset ? AidaColors.coffee : AidaColors.textMuted;
+  }
+
+  List<BoxShadow> _shadows() {
+    if (_inset) {
+      // Deeper pressed well — strong top-left shade, bottom-right catch light.
+      return [
+        BoxShadow(
+          color: AidaColors.espresso.withValues(alpha: 0.32),
+          offset: const Offset(6, 6),
+          blurRadius: 12,
+          spreadRadius: -3,
+        ),
+        BoxShadow(
+          color: AidaColors.coffee.withValues(alpha: 0.12),
+          offset: const Offset(4, 4),
+          blurRadius: 8,
+          spreadRadius: -6,
+        ),
+        BoxShadow(
+          color: AidaColors.cardWhite.withValues(alpha: 0.75),
+          offset: const Offset(-4, -4),
+          blurRadius: 10,
+          spreadRadius: -4,
+        ),
+      ];
+    }
+    return [
+      BoxShadow(
+        color: AidaColors.cardWhite,
+        offset: const Offset(-6, -6),
+        blurRadius: 14,
+      ),
+      BoxShadow(
+        color: AidaColors.latte.withValues(alpha: 0.95),
+        offset: const Offset(6, 6),
+        blurRadius: 16,
+      ),
+      BoxShadow(
+        color: AidaColors.espresso.withValues(alpha: 0.08),
+        offset: const Offset(0, 10),
+        blurRadius: 20,
+      ),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AidaColors.cream,
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(title, style: AidaType.serif(size: 26, color: AidaColors.textPrimary)),
-              const SizedBox(height: 8),
-              Text(
-                note,
-                textAlign: TextAlign.center,
-                style: AidaType.sans(size: 13, color: AidaColors.textMuted),
-              ),
-              const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                decoration: BoxDecoration(
-                  color: AidaColors.latte.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  'NEXT UP',
-                  style: AidaType.sans(
-                    size: 10,
-                    weight: FontWeight.w700,
-                    letterSpacing: 1.2,
-                    color: AidaColors.coffee,
+    return Semantics(
+      button: true,
+      selected: widget.selected,
+      label: widget.label,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onTap,
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapUp: (_) => setState(() => _pressed = false),
+        onTapCancel: () => setState(() => _pressed = false),
+        child: AnimatedScale(
+          scale: _inset ? 0.9 : 1.0,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            width: _NeumorphicNavButton._size,
+            height: _NeumorphicNavButton._size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: _gradient,
+              boxShadow: _shadows(),
+              border:
+                  widget.variant == _NavButtonVariant.qr && widget.selected
+                      ? Border.all(color: AidaColors.cream, width: 2.5)
+                      : Border.all(
+                        color:
+                            _inset
+                                ? AidaColors.latte.withValues(alpha: 0.5)
+                                : AidaColors.cardWhite.withValues(alpha: 0.6),
+                        width: 1,
+                      ),
+            ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                if (_inset)
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          center: const Alignment(-0.55, -0.55),
+                          radius: 1.05,
+                          colors: [
+                            AidaColors.espresso.withValues(alpha: 0.16),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ],
+                Icon(widget.icon, size: 24, color: _iconColor),
+              ],
+            ),
           ),
         ),
       ),

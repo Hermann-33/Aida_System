@@ -5,6 +5,7 @@ import 'package:aida_customer/core/theme/aida_theme.dart';
 import 'package:aida_customer/core/theme/aida_type.dart';
 import 'package:aida_customer/data/repository/mock_member_repository.dart';
 import 'package:aida_customer/features/shell/app_shell.dart';
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +17,11 @@ import 'package:flutter_test/flutter_test.dart';
 /// Regenerate after an intentional design change:
 ///   flutter test --update-goldens
 const _fast = MockMemberRepository(latency: Duration.zero);
+
+/// Home renders a time-of-day greeting and a Mon–Sun check-in streak from
+/// `clock.now()`. Pinned to a Friday afternoon so goldens are deterministic
+/// regardless of when the suite actually runs.
+final _fixedNow = DateTime(2026, 1, 16, 14);
 
 /// `flutter test` substitutes a placeholder font for everything, so goldens
 /// would render text as blank boxes. Load the real bundled fonts so the golden
@@ -67,47 +73,55 @@ void main() {
   }
 
   testWidgets('golden: home', (tester) async {
-    await pumpApp(tester);
-    await expectLater(find.byType(AppShell), matchesGoldenFile('goldens/home.png'));
+    await withClock(Clock.fixed(_fixedNow), () async {
+      await pumpApp(tester);
+      await expectLater(find.byType(AppShell), matchesGoldenFile('goldens/home.png'));
+    });
   });
 
   testWidgets('golden: home scrolled (categories + popular picks)', (tester) async {
-    await pumpApp(tester);
+    await withClock(Clock.fixed(_fixedNow), () async {
+      await pumpApp(tester);
 
-    await tester.drag(find.byKey(const Key('home_scroll')), const Offset(0, -520));
-    await tester.pumpAndSettle();
+      await tester.drag(find.byKey(const Key('home_scroll')), const Offset(0, -520));
+      await tester.pumpAndSettle();
 
-    await expectLater(
-      find.byType(AppShell),
-      matchesGoldenFile('goldens/home_scrolled.png'),
-    );
+      await expectLater(
+        find.byType(AppShell),
+        matchesGoldenFile('goldens/home_scrolled.png'),
+      );
+    });
   });
 
   testWidgets('golden: menu with a category selected', (tester) async {
-    await pumpApp(tester);
+    await withClock(Clock.fixed(_fixedNow), () async {
+      await pumpApp(tester);
 
-    await tester.tap(find.byKey(const ValueKey('nav_menu')));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('nav_menu')));
+      await tester.pumpAndSettle();
 
-    // Selecting Coffee should fill its chip and filter the list to coffee.
-    await tester.tap(find.byKey(const ValueKey('menu_cat_c_coffee')));
-    await tester.pumpAndSettle();
+      // Selecting Coffee should fill its chip and filter the list to coffee.
+      await tester.tap(find.byKey(const ValueKey('menu_cat_c_coffee')));
+      await tester.pumpAndSettle();
 
-    await expectLater(
-      find.byType(AppShell),
-      matchesGoldenFile('goldens/menu_selected.png'),
-    );
+      await expectLater(
+        find.byType(AppShell),
+        matchesGoldenFile('goldens/menu_selected.png'),
+      );
+    });
   });
 
   testWidgets('golden: membership card', (tester) async {
-    await pumpApp(tester);
+    await withClock(Clock.fixed(_fixedNow), () async {
+      await pumpApp(tester);
 
-    await tester.tap(find.byKey(const ValueKey('nav_qr')));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('nav_qr')));
+      await tester.pumpAndSettle();
 
-    await expectLater(
-      find.byType(AppShell),
-      matchesGoldenFile('goldens/membership_card.png'),
-    );
+      await expectLater(
+        find.byType(AppShell),
+        matchesGoldenFile('goldens/membership_card.png'),
+      );
+    });
   });
 }

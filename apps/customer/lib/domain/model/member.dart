@@ -28,6 +28,7 @@ class Member {
     this.phone,
     this.birthday,
     this.tierName,
+    this.studentOrEmployeeId,
   });
 
   final String id;
@@ -46,9 +47,37 @@ class Member {
   /// it is displayed because the approved design shows it.
   final String? tierName;
 
+  /// City U student ID, or staff/employee ID for a non-student member. Not
+  /// in the original CUS-21 field list (name, phone, birthday) — added on
+  /// client request. Self-reported by the member, same as every other
+  /// editable field here; nothing verifies it against a real campus system.
+  final String? studentOrEmployeeId;
+
   bool get isVerifiedStudent => studentStatus == StudentStatus.verified;
 
   /// First letter, for the avatar. Falls back to `?` rather than crashing on
   /// an empty name.
   String get initial => name.isEmpty ? '?' : name.trim()[0].toUpperCase();
+
+  /// For the Edit Profile form: applies the customer's own changes to the
+  /// editable fields, leaving everything else (id, memberCode, email,
+  /// studentStatus, tierName) untouched — those aren't self-editable.
+  Member copyWith({
+    String? name,
+    String? phone,
+    DateTime? birthday,
+    String? studentOrEmployeeId,
+  }) {
+    return Member(
+      id: id,
+      memberCode: memberCode,
+      name: name ?? this.name,
+      email: email,
+      studentStatus: studentStatus,
+      phone: phone ?? this.phone,
+      birthday: birthday ?? this.birthday,
+      tierName: tierName,
+      studentOrEmployeeId: studentOrEmployeeId ?? this.studentOrEmployeeId,
+    );
+  }
 }

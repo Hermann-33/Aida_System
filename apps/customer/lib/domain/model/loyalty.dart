@@ -47,5 +47,6 @@ class StampCard {
 
   /// 0.0 → 1.0. Guards against a server sending `required_ == 0`, which would
   /// otherwise divide by zero and crash the Home screen.
-  double get progress => required_ == 0 ? 0 : (collected / required_).clamp(0.0, 1.0);
+  double get progress =>
+      required_ == 0 ? 0 : (collected / required_).clamp(0.0, 1.0);
 }

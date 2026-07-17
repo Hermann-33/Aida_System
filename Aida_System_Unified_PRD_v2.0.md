@@ -7,12 +7,12 @@
 | **Product Name** | Aida System |
 | **Product Subtitle** | Aida Café Loyalty, POS, Ordering, and Business Management Ecosystem |
 | **Client / Initial Venue** | Aida Café @ City U, Malaysia |
-| **Document Version** | 2.2 — Unified PRD, amended for the Flutter Customer App and the Core Palette |
-| **Document Date** | 12 July 2026 |
+| **Document Version** | 2.4 — Unified PRD, amended for Customer App build-status tracking |
+| **Document Date** | 17 July 2026 |
 | **Status** | Unified source of truth — current production baseline, approved product direction, and future roadmap |
 | **Prepared For** | Business Owner, University Owner, Product, Design, Engineering, and Operations |
 | **Supersedes** | Aida System PRD v1.0 and Aida Cafe Rewards PRD v1.5-demo-ready for product scope purposes |
-| **Amendment** | v2.1 incorporated the approved Customer App design. v2.2 replaces §19.3 with the client's Core Palette. See §27 for the change log and `docs/superpowers/specs/2026-07-10-aida-customer-app-design.md` for the full design. |
+| **Amendment** | v2.1 incorporated the approved Customer App design. v2.2 replaced §19.3 with the client's Core Palette. v2.3 supersedes it with the Rose Palette (red / pink / white) per client direction. v2.4 records which of the 23 designed Customer App screens are built versus outstanding. See §27 for the change log and `docs/superpowers/specs/2026-07-10-aida-customer-app-design.md` for the full design. |
 
 ---
 
@@ -352,6 +352,23 @@ Requirement status uses the following definitions:
 > **CUS-18 through CUS-21 were absent from v2.0.** A customer who forgets a password currently has no route back to their points balance, and §18 mandates a deletion process that no requirement implemented. CUS-18 introduces a new platform dependency: the backend must be able to send email.
 >
 > **CUS-22 and CUS-23** make explicit the offline guarantees the customer app relies on. The membership card is the one screen a customer opens with a barista waiting, and it must never depend on campus wifi.
+
+#### 9.1.1 Flutter Customer App — Screen Build Status (as of 17 Jul 2026)
+
+Against the 23-screen list in `docs/superpowers/specs/2026-07-10-aida-customer-app-design.md` §3, plus real ordering added afterward at client request (cart, checkout, order tracking, order history — outside the original 23, see the v2.4 change log entry):
+
+**Built:** Login, Sign Up (registration), Forgot Password (CUS-01, CUS-02), Home (CUS-05), Rewards catalogue + redeem + voucher wallet, combined into one screen rather than three (CUS-06, CUS-07), Membership QR card (CUS-04, CUS-17, CUS-22), Menu + category browsing (CUS-09), Menu item detail with size/add-ons/notes/favoriting, Profile (CUS-03) and Edit Profile (CUS-21), Transaction history list and receipt detail (CUS-08), plus the added cart/checkout/order-tracking flow.
+
+**Not yet built:**
+- Splash / session bootstrap — the app opens directly to Login; there is no cached-session check to bootstrap yet since Auth has no real backend (§24.4 #11).
+- Student verification pending screen (§14.2) — a self-declared student currently has no screen explaining that their status is pending admin verification.
+- Offer detail — promotional cards on Home are not tappable to any detail view (CUS-10, CUS-11 render the offer, but don't yet let a customer open it).
+- Change password (CUS-19) and Delete account (CUS-20) — both have a requirement and a Settings row that says "coming soon"; neither has a screen.
+- Points ledger — no dedicated view of individual point-earning/spending events (CUS-08 covers transactions, not a ledger).
+- Settings — a real screen (notifications, language, etc.) as opposed to the placeholder row.
+- Voucher detail with an expiry countdown as its own page (§10.1) — expiry is shown inline on each voucher card, not as a separate detail screen.
+
+Two rows on Profile — "My Stats" and "Invite a Friend" — were added during UI iteration and are not in the original 23-screen list or any CUS requirement. They are placeholders; keep or drop is an open product call, not an engineering one.
 
 ### 9.2 Staff POS Tablet
 
@@ -827,24 +844,26 @@ The target visual direction is a **warm premium café experience**: cozy, elegan
 
 The client has since issued a **Core Palette** (below) that replaces pink with **City Red** as the sole accent used for student and City U identity. Pink is not part of the application UI in any surface — button, card, nav, banner, or otherwise.
 
+> **Re-amended in v2.3.** The paragraph above is retained for history but no longer holds: on 16 Jul 2026 the client redirected the app theme to **red / pink / white**, bringing pink back as the secondary-surface colour. City Red remains reserved for student and City U identity. See the v2.3 table below.
+
 Pink and gold-sparkle floral detailing do still appear on the **Aida Café logo mark** itself. This is a deliberate split, not an oversight: the logo is treated as a fixed brand asset, not a source of UI color. See §19.3.1.
 
-### 19.3 Target Palette — Core Palette (v2.2)
+### 19.3 Target Palette — Rose Palette (v2.3)
 
-> **Superseded in v2.2.** The v2.1 table listed Cream, Latte Beige, Coffee Brown, Deep Espresso, Caramel, Aida/Floral Pink, Reward Gold, Card White, plus two legacy-reference colours. The client has since issued a smaller **Core Palette** that this table replaces entirely. Caramel and the two legacy-reference tokens are retired; nothing in the current build references them.
+> **Superseded in v2.3.** The v2.2 Core Palette used warm coffee tones (Cream `#FCF8F5`, Latte `#E0D5C3`, Coffee `#7A5B44`, Espresso `#1C120E`). On 16 Jul 2026 the client redirected the theme to **red / pink / white**. Token *names* are retained from v2.2 — they are identifiers in code, and every screen references the role, not the hue — but their values and colour descriptions below are new. City Red, Reward Gold, Card White, Error, and Success carry over unchanged.
 
 | Token | Value | Intended Use |
 |---|---|---|
-| City Red | `#AF2626` *(provisional)* | City U / student identity **only** — student offers, student badges, campus affiliation. Not used for errors or destructive actions; see the Error row below. |
-| Cream | `#FCF8F5` *(provisional)* | Primary background |
-| Latte | `#E0D5C3` *(provisional)* | Secondary surfaces, dividers, muted fills |
-| Coffee | `#7A5B44` *(provisional)* | Primary actions and brand text |
-| Espresso | `#1C120E` *(provisional)* | High-contrast headers, controls, the membership card, and dark surfaces |
-| Reward Gold | `#C9A24E` *(provisional)* | Points, stamps, rewards, and loyalty emphasis **only** — using it elsewhere erodes the one signal customers scan for |
+| City Red | `#AF2626` *(provisional)* | City U / student identity **only** — student offers, student badges, campus affiliation. Deliberately a deeper brick red than the Coffee action colour so the student signal survives in a red-accented UI. Not used for errors; see the Error row below. |
+| Cream | `#FDF6F7` *(provisional)* | Primary background — blush-tinted white |
+| Latte | `#F2CFD6` *(provisional)* | Secondary surfaces, dividers, muted fills — soft pink |
+| Coffee | `#C13A52` *(provisional)* | Primary actions and brand text — raspberry red, brighter than City Red so buttons never read as a student badge |
+| Espresso | `#27121A` *(provisional)* | High-contrast headers, controls, the membership card, and dark surfaces — near-black with a plum undertone |
+| Reward Gold | `#C9A24E` *(provisional)* | Points, stamps, rewards, and loyalty emphasis **only** — a functional signal, not a theme colour; carried over unchanged |
 | Card White | `#FFFFFF` | Cards and elevated surfaces |
-| Error | `#8C3A2E` *(provisional, derived)* | Errors and destructive actions. Deliberately distinct from City Red so a failure never reads as a promotion |
+| Error | `#8C3A2E` *(provisional, derived)* | Errors and destructive actions. Deliberately distinct from both City Red and Coffee — burnt sienna rather than a third red — so a failure never reads as a promotion or a button |
 
-**Provisional flag.** Every value above except Card White was estimated from a screenshot of the client's palette board, not sampled from a source file. They are correct enough to build against but **not yet confirmed exact**. The client has agreed to supply final hex codes; when received, only `apps/customer/lib/core/theme/aida_colors.dart` needs to change — no screen references a colour directly.
+**Provisional flag.** The v2.3 values were chosen by the development team to demonstrate the client's red/pink/white direction; they are not sampled from any client asset. They are correct enough to build against but **not yet confirmed exact**. When the client supplies final hex codes, only `apps/customer/lib/core/theme/aida_colors.dart` needs to change — no screen references a colour directly.
 
 #### 19.3.1 Palette vs. Logo — Decision
 
@@ -1117,6 +1136,12 @@ The unified Aida Café release is accepted when the following criteria are met:
 16. **Exact Core Palette hex values.** The table in §19.3 is built from a screenshot estimate. The client has agreed to supply final codes; low risk, single-file change once received.
 17. **Final logo asset.** No logo file has been supplied. The app currently renders a placeholder everywhere the mark would appear (§19.3.2).
 
+**Raised in v2.4:**
+
+18. **Does Offer Detail need its own screen, or is a bottom sheet enough?** CUS-10/CUS-11 only require an offer to be *visible*; tapping one currently does nothing (§9.1.1). Rewards already consolidated three designed screens into one via bottom sheets — the same pattern may be the right call here too, rather than building a fourth full screen.
+19. **What does the Student Verification Pending screen need to say?** §14.2 defines the verification *process* but not what a pending customer sees while waiting — copy and whether it names an expected turnaround time are both undecided.
+20. **Is a Splash screen worth building before real Auth exists?** It has nothing to bootstrap (no cached token, no version gate) until Auth (§24.4 #11) is real — building it now risks a screen with a spinner and nothing to spin for.
+
 ---
 
 ## 25. Operational and Developer Notes
@@ -1244,6 +1269,32 @@ The client issued a smaller **Core Palette** (City Red, Cream, Latte, Coffee, Es
 **Decisions raised:** §24.4 #16 (exact hex confirmation) and #17 (final logo asset).
 
 **Provisional data notice:** every hex value in the amended §19.3 table except Card White was estimated from a screenshot, not sampled from a source file. Treat them as build-accurate, not final, until the client supplies exact codes.
+
+### v2.3 — 16 July 2026 — Rose Palette amendment
+
+The client redirected the app theme to **red / pink / white**, superseding the v2.2 coffee-toned Core Palette.
+
+| # | Change | Sections affected | Reason |
+|---|---|---|---|
+| 1 | **Pink returns as the secondary-surface colour.** Background becomes blush white, muted fills become soft pink, primary actions become raspberry red. | §19.2, §19.3 | Client direction, 16 Jul 2026. Reverses the v2.2 "pink is retired" decision for surfaces; City Red remains reserved for student / City U identity and is kept visually distinct from the new action red. |
+| 2 | **Token names are unchanged; only values changed.** Cream, Latte, Coffee, Espresso keep their identifiers in code. | §19.3 | Every screen references the role, not the hue; renaming identifiers across the codebase adds churn with no product value. |
+| 3 | **Reward Gold, Card White, Error, and Success carry over unchanged.** | §19.3 | These are functional signals (loyalty, surface, failure, success), not theme colours. |
+
+**Provisional data notice:** the v2.3 values were chosen by the development team to demonstrate the direction, not sampled from a client asset. §24.4 #16 (exact hex confirmation) remains open.
+
+### v2.4 — 17 July 2026 — Customer App build-status tracking
+
+An audit of the Flutter Customer App against the 23-screen design spec (§9.1.1, new) found most core screens built, several still outstanding, and real ordering added beyond the original scope at client request.
+
+| # | Change | Sections affected | Reason |
+|---|---|---|---|
+| 1 | **Real in-app ordering was added: cart, checkout, and order tracking.** | §9.1.1, §24.4 | Requested three separate times across different screens during Customer App review. Not the deferred CUS-14 (scheduled order-ahead) — this is immediate, session-based ordering with a demo checkout, no payment gateway, no backend order queue. |
+| 2 | **§9.1.1 added: a per-screen build-status record against the original 23-screen list.** | §9.1 | The PRD tracked *requirements*; nothing recorded which designed *screens* actually exist yet, and an audit found real gaps (Offer detail is not tappable at all) that had gone unnoticed. |
+| 3 | **Three new open decisions raised (§24.4 #18–20).** | §24.4 | Offer Detail's screen-vs-sheet question, Student Verification Pending's copy, and whether Splash is worth building before Auth is real — none blocked prior work, all block the screens they touch. |
+
+**Decisions raised:** §24.4 #18 → #20 (Offer Detail pattern, verification-pending copy, Splash timing).
+
+**Not a decision, but worth a reader's attention:** two Profile rows (My Stats, Invite a Friend) exist in the build with no corresponding requirement anywhere in this PRD. §9.1.1 flags them; whether to formalize or remove them is unresolved.
 
 ---
 

@@ -6,6 +6,7 @@ import '../model/menu_item.dart';
 import '../model/offer.dart';
 import '../model/promo.dart';
 import '../model/reward.dart';
+import '../model/voucher.dart';
 
 /// Everything the customer app needs from a backend.
 ///
@@ -15,6 +16,24 @@ import '../model/reward.dart';
 /// Implementations must not compute balances, discounts, or eligibility — they
 /// transport what the server decided (PRD §16.5).
 abstract interface class MemberRepository {
+  /// Starts a session for an existing member. No real credential store
+  /// exists yet — the mock implementation accepts any well-formed input —
+  /// so this is a seam for Auth (C2), not a working login.
+  Future<Result<void>> logIn({required String email, required String password});
+
+  /// Registers a new member and starts a session.
+  Future<Result<void>> signUp({
+    required String name,
+    required String email,
+    required String password,
+    required bool isStudent,
+  });
+
+  /// Requests a password-reset email. Must succeed identically whether or
+  /// not [email] belongs to a real account — a response that reveals which
+  /// is a real account-enumeration leak, in a mock or a real backend alike.
+  Future<Result<void>> requestPasswordReset({required String email});
+
   /// The signed-in member. Cached; renders offline.
   Future<Result<Member>> getMember();
 
@@ -27,6 +46,12 @@ abstract interface class MemberRepository {
   /// Reward tiers, ascending by points cost. Business data — the owner sets
   /// these, so the app must not assume a fixed ladder.
   Future<Result<List<Reward>>> getRewards();
+
+  /// Entitlements the member already holds (voucher wallet). PRD CUS-06.
+  ///
+  /// The server owns expiry and validity — the client only displays what it
+  /// receives. Consuming any of these still requires staff at the counter.
+  Future<Result<List<Voucher>>> getVouchers();
 
   /// Offers this member is eligible for. The server filters; the client does
   /// not. An unverified student must not receive student offers at all.

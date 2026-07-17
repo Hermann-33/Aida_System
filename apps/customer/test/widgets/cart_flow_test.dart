@@ -118,7 +118,8 @@ const _onePixelPng = <int>[
   130,
 ];
 
-class _FakeHttpResponse extends Stream<List<int>> implements HttpClientResponse {
+class _FakeHttpResponse extends Stream<List<int>>
+    implements HttpClientResponse {
   @override
   int get statusCode => 200;
 
@@ -139,9 +140,12 @@ class _FakeHttpResponse extends Stream<List<int>> implements HttpClientResponse 
     void Function()? onDone,
     bool? cancelOnError,
   }) {
-    return Stream<List<int>>.fromIterable([
-      _onePixelPng,
-    ]).listen(onData, onError: onError, onDone: onDone, cancelOnError: cancelOnError);
+    return Stream<List<int>>.fromIterable([_onePixelPng]).listen(
+      onData,
+      onError: onError,
+      onDone: onDone,
+      cancelOnError: cancelOnError,
+    );
   }
 
   @override
@@ -176,9 +180,9 @@ void main() {
     // off-screen (but still built) widget computes a coordinate outside
     // the visible area and can silently land on the wrong target — scroll
     // each into view first rather than trusting an off-screen tap.
-    await tester.ensureVisible(find.text('L'));
+    await tester.ensureVisible(find.text('Large'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('L'));
+    await tester.tap(find.text('Large'));
     await tester.pump();
 
     await tester.ensureVisible(find.text('Extra Shot'));
@@ -196,9 +200,11 @@ void main() {
     await tester.tap(find.byIcon(Icons.add_rounded));
     await tester.pump();
 
-    // 1290 (base) + 150 (L) + 300 (shot) = 1740/unit; x2 = RM 34.80.
-    expect(find.text('Add to Order · RM 34.80'), findsOneWidget);
-    await tester.tap(find.text('Add to Order · RM 34.80'));
+    // 1290 (base) + 150 (L) + 300 (shot) = 1740/unit; x2 = RM 34.80 — checked
+    // below once the floating cart bar picks it up. The bottom bar itself
+    // has no price text, just a circular "Add to order" bag-icon button.
+    expect(find.bySemanticsLabel('Add to order'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel('Add to order'));
     await tester.pumpAndSettle();
 
     // The confirmation SnackBar has a 2-second auto-dismiss Timer, which
@@ -232,12 +238,14 @@ void main() {
     expect(find.textContaining('Extra Shot'), findsOneWidget);
     expect(find.text('"less ice please"'), findsOneWidget);
 
-    // Place the order.
-    await tester.tap(find.text('Place Order'));
+    // Checkout opens the payment method sheet; pay to place the order.
+    await tester.tap(find.text('Checkout'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Pay RM 34.80'));
     await tester.pumpAndSettle();
 
     expect(find.byType(OrderConfirmationScreen), findsOneWidget);
-    expect(find.text('Order Placed!'), findsOneWidget);
+    expect(find.text('Preparing your order'), findsOneWidget);
 
     // Back to Menu — should land back at the root with an empty cart.
     await tester.tap(find.text('Back to Menu'));

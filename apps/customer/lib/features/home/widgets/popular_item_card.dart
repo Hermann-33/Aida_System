@@ -91,7 +91,10 @@ class PopularItemCard extends StatelessWidget {
                       style: AidaType.sans(
                         size: 11,
                         weight: unavailable ? FontWeight.w700 : FontWeight.w500,
-                        color: unavailable ? AidaColors.error : AidaColors.textMuted,
+                        color:
+                            unavailable
+                                ? AidaColors.error
+                                : AidaColors.textMuted,
                       ),
                     ),
                     const SizedBox(height: 8),

@@ -3,16 +3,18 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/aida_colors.dart';
 import '../../../core/theme/aida_type.dart';
 
-/// A square, floating icon tile with the label sitting free below it.
+/// A floating category tile with the label sitting free below it.
 ///
-/// The label is deliberately **not** enclosed by the card's border or shadow —
-/// only the icon square carries the "3D" floating look. Enclosing both in one
-/// bordered box (the previous design) reads as a single flat pill; separating
-/// them is what makes the tile itself look like it is sitting above the page.
+/// Real categories (Coffee, Iced Drinks, Food, Add-ons) show a cut-out product
+/// photo — just the item on transparent pixels, no card fill behind it —
+/// matching the client's "real images, no background" ask. "All" has no
+/// single item to represent it, so it falls back to the icon-in-a-square tile.
 ///
-/// Selected fills the tile with espresso and inverts the icon to cream. The
-/// label — outside the tile — turns reward gold, which is what carries the
-/// selected state once the tile itself is a different shape from the text.
+/// The label is deliberately **not** enclosed by the tile's border or shadow —
+/// only the tile itself carries the floating look.
+///
+/// Selected draws a coloured ring around the photo tile (or fills the icon
+/// fallback). The label turns reward gold either way.
 ///
 /// Used on both Home and Menu. On Home nothing is ever selected (tapping
 /// navigates); on Menu the selection persists and filters.
@@ -38,8 +40,8 @@ class CategoryChip extends StatefulWidget {
   static const height = tileSize + 10 + 18;
   static const width = 100.0;
 
-  /// Thin outline glyphs, matching the reference style — not the filled
-  /// `_rounded` family used elsewhere in the app for larger, single icons.
+  /// Thin outline glyphs — the "All" fallback tile only. Real categories use
+  /// [assetFor] instead; see the class doc.
   static IconData iconFor(String name) {
     return switch (name.toLowerCase()) {
       'all' => Icons.grid_view_outlined,
@@ -48,6 +50,18 @@ class CategoryChip extends StatefulWidget {
       'food' => Icons.bakery_dining_outlined,
       'add-ons' => Icons.add_circle_outline,
       _ => Icons.local_cafe_outlined,
+    };
+  }
+
+  /// Cut-out product photo for the category. Null for "All" — there's no
+  /// single item to depict — and for anything unrecognised.
+  static String? assetFor(String name) {
+    return switch (name.toLowerCase()) {
+      'coffee' => 'assets/images/cat_coffee.png',
+      'iced drinks' => 'assets/images/cat_iced.png',
+      'food' => 'assets/images/cat_food.png',
+      'add-ons' => 'assets/images/cat_addons.png',
+      _ => null,
     };
   }
 
@@ -61,6 +75,7 @@ class _CategoryChipState extends State<CategoryChip> {
   @override
   Widget build(BuildContext context) {
     final selected = widget.selected;
+    final asset = CategoryChip.assetFor(widget.label);
 
     return Semantics(
       button: true,
@@ -78,67 +93,10 @@ class _CategoryChipState extends State<CategoryChip> {
               AnimatedScale(
                 scale: _pressed ? 0.94 : 1.0,
                 duration: const Duration(milliseconds: 110),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeOut,
-                  width: CategoryChip.tileSize,
-                  height: CategoryChip.tileSize,
-                  decoration: BoxDecoration(
-                    // Neither flat white nor flat espresso — a faint diagonal
-                    // gradient so the tile itself shows a highlight and a
-                    // falloff, the way a raised surface catches light. This is
-                    // what a single flat shadow cannot do on its own.
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors:
-                          selected
-                              ? [AidaColors.coffee, AidaColors.espresso]
-                              : const [Color(0xFFFFFFFF), Color(0xFFF6EEE6)],
-                    ),
-                    borderRadius: BorderRadius.circular(26),
-                    // A thin edge, so the tile reads clearly against the cream
-                    // page instead of the gradient alone doing all the work —
-                    // a soft embossed edge without this can look washed out,
-                    // especially once compressed into a screenshot.
-                    border: Border.all(
-                      color:
-                          selected
-                              ? AidaColors.espresso
-                              : AidaColors.latte.withValues(alpha: 0.8),
-                      width: 1.2,
-                    ),
-                    boxShadow: [
-                      // Cast shadow: bottom-right, as if lit from the top-left.
-                      // Darkened slightly over the previous pass so the tile's
-                      // edge is unmistakable rather than merely implied.
-                      BoxShadow(
-                        color: AidaColors.espresso.withValues(
-                          alpha: selected ? 0.34 : 0.22,
-                        ),
-                        blurRadius: 18,
-                        offset: const Offset(6, 9),
-                      ),
-                      // Rim highlight: top-left, opposite the cast shadow.
-                      // Without this the tile looks lit flatly; with it, the
-                      // top-left edge catches light like a raised edge would.
-                      BoxShadow(
-                        color:
-                            selected
-                                ? AidaColors.coffee.withValues(alpha: 0.5)
-                                : Colors.white,
-                        blurRadius: 10,
-                        offset: const Offset(-5, -5),
-                      ),
-                    ],
-                  ),
-                  child: Icon(
-                    widget.icon,
-                    // User-requested increase over the original 44.
-                    size: 56,
-                    color: selected ? AidaColors.cream : AidaColors.coffee,
-                  ),
-                ),
+                child:
+                    asset != null
+                        ? _PhotoTile(asset: asset, selected: selected)
+                        : _IconTile(icon: widget.icon, selected: selected),
               ),
               const SizedBox(height: 8),
               Text(
@@ -149,14 +107,116 @@ class _CategoryChipState extends State<CategoryChip> {
                 style: AidaType.sans(
                   size: 12.5,
                   weight: FontWeight.w700,
-                  // Gold when selected — the label is what carries the
-                  // selected state now that it lives outside the tile.
-                  color: selected ? AidaColors.rewardGold : AidaColors.textPrimary,
+                  color:
+                      selected ? AidaColors.rewardGold : AidaColors.textPrimary,
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Cut-out product photo — transparent PNG, no fill behind it. A coffee
+/// selection ring is the only chrome when selected.
+class _PhotoTile extends StatelessWidget {
+  const _PhotoTile({required this.asset, required this.selected});
+
+  final String asset;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      width: CategoryChip.tileSize,
+      height: CategoryChip.tileSize,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: selected ? AidaColors.coffee : Colors.transparent,
+          width: 3,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Image.asset(
+          asset,
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.high,
+          errorBuilder:
+              (_, __, ___) => Icon(
+                Icons.local_cafe_outlined,
+                size: 40,
+                color: AidaColors.coffee.withValues(alpha: 0.55),
+              ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Icon-in-a-square fallback for categories with no representative item
+/// ("All" — there is no single thing to depict).
+class _IconTile extends StatelessWidget {
+  const _IconTile({required this.icon, required this.selected});
+
+  final IconData icon;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      width: CategoryChip.tileSize,
+      height: CategoryChip.tileSize,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors:
+              selected
+                  ? [AidaColors.coffee, AidaColors.espresso]
+                  : [
+                    AidaColors.cardWhite,
+                    AidaColors.latte.withValues(alpha: 0.5),
+                  ],
+        ),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(
+          color:
+              selected
+                  ? AidaColors.espresso
+                  : AidaColors.latte.withValues(alpha: 0.8),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AidaColors.espresso.withValues(
+              alpha: selected ? 0.34 : 0.22,
+            ),
+            blurRadius: 18,
+            offset: const Offset(6, 9),
+          ),
+          BoxShadow(
+            color:
+                selected
+                    ? AidaColors.coffee.withValues(alpha: 0.5)
+                    : Colors.white,
+            blurRadius: 10,
+            offset: const Offset(-5, -5),
+          ),
+        ],
+      ),
+      child: Icon(
+        icon,
+        size: 56,
+        color: selected ? AidaColors.cream : AidaColors.coffee,
       ),
     );
   }

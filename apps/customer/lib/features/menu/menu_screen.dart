@@ -3,11 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/providers.dart';
 import '../../core/theme/aida_colors.dart';
+import '../../core/theme/aida_theme.dart';
 import '../../core/theme/aida_type.dart';
-import '../home/widgets/popular_item_tile.dart';
+import '../../domain/model/menu_category.dart';
+import '../../domain/model/menu_item.dart';
 import 'item_detail_screen.dart';
 import 'widgets/category_chip.dart';
 import 'widgets/category_strip.dart';
+import 'widgets/menu_grid_item.dart';
 
 /// The menu. CUS-09.
 ///
@@ -17,13 +20,45 @@ import 'widgets/category_strip.dart';
 class MenuScreen extends ConsumerWidget {
   const MenuScreen({super.key});
 
+  /// Groups [items] by category in server order. When a single category is
+  /// filtered, one section is returned with that name.
+  static List<(String title, List<MenuItem> items)> _groupSections(
+    List<MenuItem> items,
+    List<MenuCategory>? categories,
+    String? selectedCategoryName,
+  ) {
+    if (selectedCategoryName != null) {
+      return [(selectedCategoryName, items)];
+    }
+
+    final order = categories?.map((c) => c.name).toList() ?? const [];
+    final grouped = <String, List<MenuItem>>{};
+    for (final item in items) {
+      grouped.putIfAbsent(item.category, () => []).add(item);
+    }
+
+    final sections = <(String, List<MenuItem>)>[];
+    for (final name in order) {
+      final list = grouped[name];
+      if (list != null && list.isNotEmpty) {
+        sections.add((name, list));
+      }
+    }
+    for (final entry in grouped.entries) {
+      if (!order.contains(entry.key)) {
+        sections.add((entry.key, entry.value));
+      }
+    }
+    return sections;
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final categories = ref.watch(categoriesProvider);
     final items = ref.watch(menuItemsProvider);
     final selected = ref.watch(selectedCategoryProvider);
     final favorites = ref.watch(favoritesProvider);
-    final favoritesOnly = ref.watch(_favoritesOnlyProvider);
+    final favoritesOnly = ref.watch(favoritesOnlyProvider);
 
     return Scaffold(
       backgroundColor: AidaColors.cream,
@@ -46,15 +81,19 @@ class MenuScreen extends ConsumerWidget {
                       Expanded(
                         child: Text(
                           'Menu',
-                          style: AidaType.serif(size: 28, color: AidaColors.textPrimary),
+                          style: AidaType.serif(
+                            size: 28,
+                            color: AidaColors.textPrimary,
+                          ),
                         ),
                       ),
-                      // Favorites are session-only by explicit client choice
-                      // (cart design spec §3) — this is the only way to view
-                      // them, since there's no dedicated favorites screen.
                       _FavoritesToggle(
                         active: favoritesOnly,
-                        onTap: () => ref.read(_favoritesOnlyProvider.notifier).toggle(),
+                        onTap:
+                            () =>
+                                ref
+                                    .read(favoritesOnlyProvider.notifier)
+                                    .toggle(),
                       ),
                     ],
                   ),
@@ -72,10 +111,12 @@ class MenuScreen extends ConsumerWidget {
                           showAll: true,
                           keyPrefix: 'menu_cat',
                           onSelect:
-                              (id) =>
-                                  ref.read(selectedCategoryProvider.notifier).select(id),
+                              (id) => ref
+                                  .read(selectedCategoryProvider.notifier)
+                                  .select(id),
                         ),
-                    loading: () => const SizedBox(height: CategoryChip.height + 20),
+                    loading:
+                        () => const SizedBox(height: CategoryChip.height + 20),
                     error: (_, __) => const SizedBox.shrink(),
                   ),
                 ),
@@ -84,15 +125,21 @@ class MenuScreen extends ConsumerWidget {
               items.when(
                 data: (all) {
                   final categoryName =
-                      categories.value?.where((c) => c.id == selected).firstOrNull?.name;
+                      categories.value
+                          ?.where((c) => c.id == selected)
+                          .firstOrNull
+                          ?.name;
 
                   var visible =
                       categoryName == null
                           ? all
-                          : all.where((i) => i.category == categoryName).toList();
+                          : all
+                              .where((i) => i.category == categoryName)
+                              .toList();
 
                   if (favoritesOnly) {
-                    visible = visible.where((i) => favorites.contains(i.id)).toList();
+                    visible =
+                        visible.where((i) => favorites.contains(i.id)).toList();
                   }
 
                   if (visible.isEmpty) {
@@ -102,18 +149,57 @@ class MenuScreen extends ConsumerWidget {
                     );
                   }
 
-                  return SliverPadding(
-                    // 170, not 110: the floating cart bar sits above the nav
-                    // when the cart has items, and 110 only ever cleared the
-                    // nav on its own.
-                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 170),
-                    sliver: SliverList.builder(
-                      itemCount: visible.length,
-                      itemBuilder:
-                          (_, i) => PopularItemTile(
-                            item: visible[i],
-                            onTap: () => openItemDetail(context, visible[i]),
+                  final sections = _groupSections(
+                    visible,
+                    categories.value,
+                    categoryName,
+                  );
+
+                  return SliverToBoxAdapter(
+                    child: Container(
+                      margin: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+                      padding: const EdgeInsets.fromLTRB(16, 22, 16, 16),
+                      decoration: BoxDecoration(
+                        color: AidaColors.cardWhite,
+                        borderRadius: BorderRadius.circular(28),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AidaColors.espresso.withValues(alpha: 0.08),
+                            blurRadius: 28,
+                            offset: const Offset(0, 10),
                           ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          for (var i = 0; i < sections.length; i++) ...[
+                            if (i > 0) const SizedBox(height: 22),
+                            _MenuSectionHeader(title: sections[i].$1),
+                            const SizedBox(height: 14),
+                            GridView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 3,
+                                mainAxisSpacing: 14,
+                                crossAxisSpacing: 10,
+                                childAspectRatio: 0.82,
+                              ),
+                              itemCount: sections[i].$2.length,
+                              itemBuilder: (context, j) {
+                                final item = sections[i].$2[j];
+                                return MenuGridItem(
+                                  item: item,
+                                  onTap:
+                                      () => openItemDetail(context, item),
+                                );
+                              },
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                   );
                 },
@@ -122,16 +208,46 @@ class MenuScreen extends ConsumerWidget {
                       child: Padding(
                         padding: EdgeInsets.only(top: 60),
                         child: Center(
-                          child: CircularProgressIndicator(color: AidaColors.coffee),
+                          child: CircularProgressIndicator(
+                            color: AidaColors.coffee,
+                          ),
                         ),
                       ),
                     ),
-                error: (_, __) => const SliverToBoxAdapter(child: _MenuUnavailable()),
+                error:
+                    (_, __) =>
+                        const SliverToBoxAdapter(child: _MenuUnavailable()),
               ),
+              const SliverToBoxAdapter(child: SizedBox(height: 170)),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _MenuSectionHeader extends StatelessWidget {
+  const _MenuSectionHeader({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(
+          title.toUpperCase(),
+          style: AidaTheme.sectionLabel(color: AidaColors.coffee),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Divider(
+            height: 1,
+            color: AidaColors.latte.withValues(alpha: 0.85),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -149,7 +265,9 @@ class _EmptyCategory extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            favoritesOnly ? Icons.favorite_border_rounded : Icons.no_food_rounded,
+            favoritesOnly
+                ? Icons.favorite_border_rounded
+                : Icons.no_food_rounded,
             size: 64,
             color: AidaColors.latte,
           ),
@@ -205,18 +323,6 @@ class _MenuUnavailable extends StatelessWidget {
     );
   }
 }
-
-/// Screen-local UI state — resets to off each time Menu is reopened, same as
-/// most filter toggles. Not shared app-wide like [selectedCategoryProvider],
-/// since nothing else needs to know whether this filter is active.
-class _FavoritesOnly extends Notifier<bool> {
-  @override
-  bool build() => false;
-
-  void toggle() => state = !state;
-}
-
-final _favoritesOnlyProvider = NotifierProvider<_FavoritesOnly, bool>(_FavoritesOnly.new);
 
 class _FavoritesToggle extends StatelessWidget {
   const _FavoritesToggle({required this.active, required this.onTap});

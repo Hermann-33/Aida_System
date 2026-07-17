@@ -17,6 +17,12 @@ class ProductImage extends StatelessWidget {
     required this.category,
     this.size,
     this.borderRadius = 16,
+    this.fit = BoxFit.cover,
+    /// When false, placeholders are icon-only on transparent pixels — for
+    /// grid tiles where the product should float on the page color.
+    this.filledPlaceholder = true,
+    /// Bundled cut-out or product art when [imageUrl] is missing or fails.
+    this.assetFallback,
   });
 
   final String? imageUrl;
@@ -25,45 +31,68 @@ class ProductImage extends StatelessWidget {
   /// Square when set. Otherwise fills its parent.
   final double? size;
   final double borderRadius;
+  final BoxFit fit;
+  final bool filledPlaceholder;
+  final String? assetFallback;
 
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(borderRadius);
+    final child = SizedBox(
+      width: size,
+      height: size,
+      child: _buildContent(),
+    );
 
-    Widget content;
-    if (imageUrl == null || imageUrl!.isEmpty) {
-      content = _Placeholder(category: category);
-    } else {
-      content = Image.network(
+    if (fit == BoxFit.contain && borderRadius <= 0) {
+      return child;
+    }
+
+    return ClipRRect(borderRadius: radius, child: child);
+  }
+
+  Widget _buildContent() {
+    if (imageUrl != null && imageUrl!.isNotEmpty) {
+      return Image.network(
         imageUrl!,
-        fit: BoxFit.cover,
-        // A broken URL must never show a browser's broken-image glyph to a
-        // customer. Fall back to the same placeholder.
-        errorBuilder: (_, __, ___) => _Placeholder(category: category),
+        fit: fit,
+        errorBuilder: (_, __, ___) => _assetOrPlaceholder(),
         frameBuilder: (_, child, frame, wasSyncLoaded) {
           if (wasSyncLoaded) return child;
           return AnimatedOpacity(
             opacity: frame == null ? 0 : 1,
             duration: const Duration(milliseconds: 250),
-            child: frame == null ? _Placeholder(category: category) : child,
+            child: frame == null ? _assetOrPlaceholder() : child,
           );
         },
       );
     }
+    return _assetOrPlaceholder();
+  }
 
-    return ClipRRect(
-      borderRadius: radius,
-      child: SizedBox(width: size, height: size, child: content),
-    );
+  Widget _assetOrPlaceholder() {
+    if (assetFallback != null) {
+      return Image.asset(
+        assetFallback!,
+        fit: fit,
+        errorBuilder:
+            (_, __, ___) => _Placeholder(
+              category: category,
+              filled: filledPlaceholder,
+            ),
+      );
+    }
+    return _Placeholder(category: category, filled: filledPlaceholder);
   }
 }
 
 /// Warm tinted tile with a category-appropriate icon. Deliberately not a grey
 /// box — it should read as intentional, not as a missing asset.
 class _Placeholder extends StatelessWidget {
-  const _Placeholder({required this.category});
+  const _Placeholder({required this.category, this.filled = true});
 
   final String category;
+  final bool filled;
 
   static IconData _iconFor(String category) {
     return switch (category.toLowerCase()) {
@@ -77,10 +106,23 @@ class _Placeholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!filled) {
+      return Center(
+        child: Icon(
+          _iconFor(category),
+          size: 36,
+          color: AidaColors.coffee.withValues(alpha: 0.45),
+        ),
+      );
+    }
+
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [AidaColors.latte.withValues(alpha: 0.55), AidaColors.caramelTint],
+          colors: [
+            AidaColors.latte.withValues(alpha: 0.55),
+            AidaColors.caramelTint,
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),

@@ -86,7 +86,8 @@ class _PromoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scrimBase = promo.isStudentOffer ? AidaColors.cityRed : AidaColors.espresso;
+    final scrimBase =
+        promo.isStudentOffer ? AidaColors.cityRed : AidaColors.espresso;
 
     return Material(
       color: Colors.transparent,
@@ -172,7 +173,10 @@ class _PromoCard extends StatelessWidget {
                       // Floating CTA. No secondary icon button: the reference's
                       // was a bookmark, and Aida has nothing to bookmark yet.
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 14),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 26,
+                          vertical: 14,
+                        ),
                         decoration: BoxDecoration(
                           color: AidaColors.cream,
                           borderRadius: BorderRadius.circular(30),

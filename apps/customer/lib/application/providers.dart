@@ -8,8 +8,10 @@ import '../domain/model/member.dart';
 import '../domain/model/menu_category.dart';
 import '../domain/model/menu_item.dart';
 import '../domain/model/offer.dart';
+import '../domain/model/order.dart';
 import '../domain/model/promo.dart';
 import '../domain/model/reward.dart';
+import '../domain/model/voucher.dart';
 import '../domain/repository/member_repository.dart';
 
 /// The single seam between the app and its backend.
@@ -19,6 +21,25 @@ import '../domain/repository/member_repository.dart';
 final memberRepositoryProvider = Provider<MemberRepository>(
   (ref) => const MockMemberRepository(),
 );
+
+/// Whether the customer is signed in. Starts false — [AuthGate] shows the
+/// login screen until this flips, then shows the shell. Session-only: there
+/// is no real token to persist across app restarts yet.
+class AuthState extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void logIn() => state = true;
+
+  /// Also clears any local profile edits — a fresh sign-in should see the
+  /// mock repository's own data, not a previous session's edited name.
+  void logOut() {
+    state = false;
+    ref.read(memberEditsProvider.notifier).clear();
+  }
+}
+
+final authStateProvider = NotifierProvider<AuthState, bool>(AuthState.new);
 
 /// Tabs, per PRD CUS-16.
 enum AppTab { home, rewards, qr, menu, profile }
@@ -35,7 +56,9 @@ class SelectedTab extends Notifier<AppTab> {
   void select(AppTab tab) => state = tab;
 }
 
-final selectedTabProvider = NotifierProvider<SelectedTab, AppTab>(SelectedTab.new);
+final selectedTabProvider = NotifierProvider<SelectedTab, AppTab>(
+  SelectedTab.new,
+);
 
 /// The category the Menu screen is filtered to. Null means "All".
 ///
@@ -53,6 +76,24 @@ final selectedCategoryProvider = NotifierProvider<SelectedCategory, String?>(
   SelectedCategory.new,
 );
 
+/// Whether Menu is filtered to favorites only.
+///
+/// Lives here rather than inside the Menu screen, same reason as
+/// [SelectedCategory] — Home's "Favorites" quick action can turn this on
+/// before switching to the Menu tab, landing the customer directly on their
+/// saved items instead of a plain, unfiltered menu.
+class FavoritesOnly extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void toggle() => state = !state;
+  void set(bool value) => state = value;
+}
+
+final favoritesOnlyProvider = NotifierProvider<FavoritesOnly, bool>(
+  FavoritesOnly.new,
+);
+
 /// Unwraps a [Result] into a value or throws its failure, so Riverpod's
 /// AsyncValue can carry the error into the UI. Widgets match on the failure
 /// type rather than inspecting a message string.
@@ -67,6 +108,34 @@ Future<T> _unwrap<T>(Future<Result<T>> future) async {
 final memberProvider = FutureProvider<Member>(
   (ref) => _unwrap(ref.watch(memberRepositoryProvider).getMember()),
 );
+
+/// Local edits from the Edit Profile form — session-only, same as cart and
+/// favorites: there is no backend yet to persist a real profile edit to, so
+/// a save applies for the rest of this session and no further.
+class MemberEdits extends Notifier<Member?> {
+  @override
+  Member? build() => null;
+
+  void apply(Member edited) => state = edited;
+
+  void clear() => state = null;
+}
+
+final memberEditsProvider = NotifierProvider<MemberEdits, Member?>(
+  MemberEdits.new,
+);
+
+/// The member as every screen should display them: the mock repository's
+/// data, with any local session edits layered on top. Every screen that
+/// shows member details (Home's header, the membership card, Profile) reads
+/// this instead of [memberProvider] directly, so an edit shows up everywhere
+/// at once rather than only on the Profile screen that made it.
+final displayedMemberProvider = Provider<AsyncValue<Member>>((ref) {
+  final base = ref.watch(memberProvider);
+  final edits = ref.watch(memberEditsProvider);
+  if (edits == null) return base;
+  return AsyncValue.data(edits);
+});
 
 final pointsProvider = FutureProvider<Points>(
   (ref) => _unwrap(ref.watch(memberRepositoryProvider).getPoints()),
@@ -98,6 +167,10 @@ final popularItemsProvider = FutureProvider<List<MenuItem>>(
 
 final rewardsProvider = FutureProvider<List<Reward>>(
   (ref) => _unwrap(ref.watch(memberRepositoryProvider).getRewards()),
+);
+
+final vouchersProvider = FutureProvider<List<Voucher>>(
+  (ref) => _unwrap(ref.watch(memberRepositoryProvider).getVouchers()),
 );
 
 final menuItemsProvider = FutureProvider<List<MenuItem>>(
@@ -174,3 +247,15 @@ class FavoritesState extends Notifier<Set<String>> {
 final favoritesProvider = NotifierProvider<FavoritesState, Set<String>>(
   FavoritesState.new,
 );
+
+/// Past orders, most recent first. In-memory, session-only — same as cart
+/// and favorites: there is no backend to persist this to yet.
+class OrderHistoryState extends Notifier<List<PastOrder>> {
+  @override
+  List<PastOrder> build() => const [];
+
+  void add(PastOrder order) => state = [order, ...state];
+}
+
+final orderHistoryProvider =
+    NotifierProvider<OrderHistoryState, List<PastOrder>>(OrderHistoryState.new);

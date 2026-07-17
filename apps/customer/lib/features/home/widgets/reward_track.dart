@@ -76,13 +76,19 @@ class RewardTrack extends StatelessWidget {
                     Positioned(
                       left: centres[i] - 9,
                       top: 13,
-                      child: _Marker(reached: rewards[i].isAffordableAt(balance)),
+                      child: _Marker(
+                        reached: rewards[i].isAffordableAt(balance),
+                      ),
                     ),
                   // The "you are here" pin.
                   Positioned(
                     left: pointerX - 6,
                     top: 0,
-                    child: const Icon(Icons.place, size: 13, color: AidaColors.coffee),
+                    child: const Icon(
+                      Icons.place,
+                      size: 13,
+                      color: AidaColors.coffee,
+                    ),
                   ),
                 ],
               ),
@@ -117,7 +123,10 @@ class RewardTrack extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             textAlign: TextAlign.center,
-                            style: AidaType.sans(size: 9.5, color: AidaColors.textMuted),
+                            style: AidaType.sans(
+                              size: 9.5,
+                              color: AidaColors.textMuted,
+                            ),
                           ),
                         ],
                       ),

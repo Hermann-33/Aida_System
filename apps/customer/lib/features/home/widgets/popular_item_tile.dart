@@ -34,7 +34,11 @@ class PopularItemTile extends StatelessWidget {
             opacity: unavailable ? 0.5 : 1,
             child: Row(
               children: [
-                ProductImage(imageUrl: item.imageUrl, category: item.category, size: 64),
+                ProductImage(
+                  imageUrl: item.imageUrl,
+                  category: item.category,
+                  size: 64,
+                ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
@@ -66,7 +70,10 @@ class PopularItemTile extends StatelessWidget {
                         item.description,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: AidaType.sans(size: 12, color: AidaColors.textMuted),
+                        style: AidaType.sans(
+                          size: 12,
+                          color: AidaColors.textMuted,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       Row(

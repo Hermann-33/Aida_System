@@ -14,6 +14,8 @@ class MenuItem {
     this.isStudentEligible = false,
     this.bonusPoints,
     this.compatibleAddOnIds = const [],
+    this.rating,
+    this.volumeMl,
   });
 
   final String id;
@@ -37,4 +39,16 @@ class MenuItem {
   /// croissant has nothing here. This is a placeholder mapping, not a
   /// verified business rule — see the cart design spec §3.
   final List<String> compatibleAddOnIds;
+
+  /// TEST DATA ONLY — there is no review system anywhere in this app, no
+  /// customer can leave a rating, and this number is not backed by anything
+  /// real. Shown purely so the detail page can be visually reviewed with a
+  /// rating in place; must not ship to a real customer without an actual
+  /// review feature behind it. Null renders nothing.
+  final double? rating;
+
+  /// Placeholder serving size, e.g. 240 for "240ml". Not a confirmed menu
+  /// spec — same caveat as every price and size delta in this app: real
+  /// numbers are the owner's call. Null renders nothing.
+  final int? volumeMl;
 }

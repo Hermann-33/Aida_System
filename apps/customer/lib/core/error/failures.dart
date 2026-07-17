@@ -42,7 +42,10 @@ class VoucherExpiredFailure extends Failure {
 
 /// Field-level rejection. [fieldErrors] maps a form field name to its problem.
 class ValidationFailure extends Failure {
-  const ValidationFailure(this.fieldErrors, [super.message = 'Check your details']);
+  const ValidationFailure(
+    this.fieldErrors, [
+    super.message = 'Check your details',
+  ]);
 
   final Map<String, String> fieldErrors;
 }

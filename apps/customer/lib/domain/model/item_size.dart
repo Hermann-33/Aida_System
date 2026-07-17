@@ -7,9 +7,9 @@ import 'money.dart';
 /// not confirmed real pricing. Every price in this app carries that same
 /// caveat until the owner sets real menu numbers.
 enum ItemSize {
-  small(label: 'S', delta: Money.fromSen(-100)),
-  medium(label: 'M', delta: Money.fromSen(0)),
-  large(label: 'L', delta: Money.fromSen(150));
+  small(label: 'Small', delta: Money.fromSen(-100)),
+  medium(label: 'Medium', delta: Money.fromSen(0)),
+  large(label: 'Large', delta: Money.fromSen(150));
 
   const ItemSize({required this.label, required this.delta});
 
@@ -20,5 +20,6 @@ enum ItemSize {
   /// Shot" doesn't have S/M/L.
   static const applicableCategories = {'Coffee', 'Iced Drinks'};
 
-  static bool appliesTo(String category) => applicableCategories.contains(category);
+  static bool appliesTo(String category) =>
+      applicableCategories.contains(category);
 }

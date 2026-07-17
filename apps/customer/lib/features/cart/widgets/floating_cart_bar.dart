@@ -24,7 +24,9 @@ class FloatingCartBar extends ConsumerWidget {
     if (cart.isEmpty) return const SizedBox.shrink();
 
     final menu = ref.watch(menuItemsProvider).value ?? const <MenuItem>[];
-    final subtotal = cart.subtotal((line) => addOnTotalFor(line.addOnIds, menu));
+    final subtotal = cart.subtotal(
+      (line) => addOnTotalFor(line.addOnIds, menu),
+    );
 
     return Material(
       color: Colors.transparent,
@@ -87,7 +89,11 @@ class FloatingCartBar extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              const Icon(Icons.chevron_right_rounded, size: 20, color: AidaColors.cream),
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: AidaColors.cream,
+              ),
             ],
           ),
         ),

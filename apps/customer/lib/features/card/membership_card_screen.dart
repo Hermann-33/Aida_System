@@ -19,7 +19,7 @@ class MembershipCardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final member = ref.watch(memberProvider);
+    final member = ref.watch(displayedMemberProvider);
     final points = ref.watch(pointsProvider);
 
     return Scaffold(
@@ -34,7 +34,9 @@ class MembershipCardScreen extends ConsumerWidget {
               (context, constraints) => SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: constraints.maxHeight - 104),
+                  constraints: BoxConstraints(
+                    minHeight: constraints.maxHeight - 104,
+                  ),
                   child: Column(
                     children: [
                       Row(
@@ -63,7 +65,9 @@ class MembershipCardScreen extends ConsumerWidget {
                         loading:
                             () => const Padding(
                               padding: EdgeInsets.symmetric(vertical: 80),
-                              child: CircularProgressIndicator(color: AidaColors.coffee),
+                              child: CircularProgressIndicator(
+                                color: AidaColors.coffee,
+                              ),
                             ),
                         error: (_, __) => const _CardUnavailable(),
                       ),
@@ -71,7 +75,10 @@ class MembershipCardScreen extends ConsumerWidget {
                       Text(
                         'Show this to the barista to earn points and use rewards',
                         textAlign: TextAlign.center,
-                        style: AidaType.sans(size: 12, color: AidaColors.textMuted),
+                        style: AidaType.sans(
+                          size: 12,
+                          color: AidaColors.textMuted,
+                        ),
                       ),
                     ],
                   ),

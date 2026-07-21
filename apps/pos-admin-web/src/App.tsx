@@ -36,6 +36,8 @@ import { AdminLoyaltyPage } from './features/admin/AdminLoyaltyPage';
 import { AdminStampsPage } from './features/admin/AdminStampsPage';
 import { AdminOffersPage } from './features/admin/AdminOffersPage';
 import { AdminCampaignsPage } from './features/admin/AdminCampaignsPage';
+import { AdminAdPublishingPage } from './features/admin/AdminAdPublishingPage';
+import { AdminSalesPointsPage } from './features/admin/AdminSalesPointsPage';
 import { AdminAuditPage } from './features/admin/AdminAuditPage';
 import { AdminIntegrationsPage } from './features/admin/AdminIntegrationsPage';
 import { AdminSettingsPage } from './features/admin/AdminSettingsPage';
@@ -90,6 +92,7 @@ export default function App() {
               <Route path="/admin/reports/inventory" element={<AdminInventoryReportPage />} />
               <Route path="/admin/reports/exports" element={<AdminExportsPage />} />
               <Route path="/admin/operations/branches" element={<AdminBranchesPage />} />
+              <Route path="/admin/operations/sales-points" element={<AdminSalesPointsPage />} />
               <Route path="/admin/operations/terminals" element={<AdminTerminalsPage />} />
               <Route path="/admin/operations/shifts" element={<AdminShiftsPage />} />
               <Route path="/admin/operations/employees" element={<AdminEmployeesPage />} />
@@ -104,6 +107,7 @@ export default function App() {
               <Route path="/admin/rewards/stamps" element={<AdminStampsPage />} />
               <Route path="/admin/rewards/offers" element={<AdminOffersPage />} />
               <Route path="/admin/rewards/campaigns" element={<AdminCampaignsPage />} />
+              <Route path="/admin/rewards/ads" element={<AdminAdPublishingPage />} />
               <Route path="/admin/system/audit" element={<AdminAuditPage />} />
               <Route path="/admin/system/integrations" element={<AdminIntegrationsPage />} />
               <Route path="/admin/system/settings" element={<AdminSettingsPage />} />

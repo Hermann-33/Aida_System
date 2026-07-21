@@ -36,6 +36,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     title: 'Operations',
     items: [
       { label: 'Branches', path: '/admin/operations/branches' },
+      { label: 'Sales points', path: '/admin/operations/sales-points' },
       { label: 'Terminals', path: '/admin/operations/terminals' },
       { label: 'Shifts', path: '/admin/operations/shifts' },
       { label: 'Employees', path: '/admin/operations/employees' },
@@ -64,6 +65,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       { label: 'Stamps', path: '/admin/rewards/stamps' },
       { label: 'Offers', path: '/admin/rewards/offers' },
       { label: 'Campaigns', path: '/admin/rewards/campaigns' },
+      { label: 'Ad publishing', path: '/admin/rewards/ads' },
     ],
   },
   {

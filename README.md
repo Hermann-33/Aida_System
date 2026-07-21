@@ -27,17 +27,30 @@ copy .env.example .env.development
 npm install
 npm run typecheck
 npm test
+npm run test:e2e
 npm run build
 npm run dev
 ```
 
 Open the Vite URL (default `http://localhost:5173`).
 
-- Employee Access: `/`
-- POS Counter: after preview sign-in as a POS role
-- Admin / Office: after preview sign-in as an admin/manager role
+- Employee Access: `/employee`
+- POS Counter: after preview sign-in as `preview.staff`
+- Admin / Office: after preview sign-in as `preview.admin`
 
 You should see a **UI PREVIEW — SAMPLE DATA** banner while fixtures are active.
+
+### Closure-gate screenshots
+
+```powershell
+cd apps/pos-admin-web
+# with npm run dev already running
+npm run capture:closure
+```
+
+Evidence: `apps/pos-admin-web/docs/screenshots/closure-gate/`  
+Manifest: `docs/pos-admin-ui/POS_ADMIN_SCREENSHOT_MANIFEST.md`  
+Report: `docs/pos-admin-ui/POS_ADMIN_UI_CLOSURE_GATE.md`
 
 ## Documentation
 

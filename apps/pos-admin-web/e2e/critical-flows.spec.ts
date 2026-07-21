@@ -2,6 +2,11 @@ import { test, expect, type APIRequestContext, type Page } from '@playwright/tes
 
 const API = process.env.E2E_API_URL || 'http://localhost:3011';
 const ORIGIN = process.env.E2E_WEB_URL || 'http://localhost:5173';
+const PREVIEW_ONLY = process.env.E2E_PREVIEW_ONLY === 'true' || process.env.VITE_UI_PREVIEW_MODE === 'true';
+
+test.beforeEach(() => {
+  test.skip(PREVIEW_ONLY, 'API-backed Phase 2B E2E skipped in preview-only closure gate');
+});
 
 function parseCookies(setCookie: string[] | null) {
   const jar: Record<string, string> = {};

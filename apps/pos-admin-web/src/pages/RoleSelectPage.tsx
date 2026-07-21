@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { getEmployeeSession, selectProduct } from '../auth/employeeSession';
+import { UiPreviewBanner } from '../shared/components/UiPreviewBanner';
 import './employee/employee.css';
 
 export function RoleSelectPage() {
@@ -32,6 +33,7 @@ export function RoleSelectPage() {
 
   return (
     <div className="employee-welcome">
+      <UiPreviewBanner />
       <section className="employee-panel" aria-labelledby="role-select-title">
         <p className="brand-script">Aida Cafe</p>
         <p className="employee-kicker">Dual-role access</p>

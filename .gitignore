@@ -7,6 +7,7 @@ build/
 .env
 .env.*
 !.env.example
+__MACOSX/
 
 # Flutter
 apps/customer/.dart_tool/

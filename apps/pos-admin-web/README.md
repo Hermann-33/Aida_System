@@ -19,11 +19,19 @@ npm install
 ```powershell
 npm run typecheck
 npm test
+npm run test:e2e
 npm run build
 npm run dev
+npm run capture:closure
 ```
 
 Default dev URL: `http://localhost:5173`
+
+| Script | Purpose |
+|---|---|
+| `test:e2e` | Preview-only Playwright (no backend) |
+| `test:e2e:api` | Legacy API-backed suite (requires Team 2 API) |
+| `capture:closure` | Closure-gate screenshots + SHA-256 uniqueness |
 
 ## Preview mode
 
@@ -32,6 +40,15 @@ Default dev URL: `http://localhost:5173`
 - Production builds reject `VITE_UI_PREVIEW_MODE=true` (fail-closed in `vite.config.ts`)
 - No Vite API proxy is configured in this Aida_System copy
 
+### Demo accounts (preview only)
+
+| Role | Username | Password |
+|---|---|---|
+| Staff | `preview.staff` | `preview123` |
+| Admin | `preview.admin` | `preview123` |
+| Dual | `preview.dual` | `preview123` |
+| Terminal enrol | code `AIDA-482731` | — |
+
 ## Docs
 
-UI specs and validation notes: `../../docs/pos-admin-ui/`
+UI specs, closure report, and screenshot manifest: `../../docs/pos-admin-ui/`

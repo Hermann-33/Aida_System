@@ -1,64 +1,122 @@
 # Current Handoff
 
+Updated: 2026-08-11
+
 ## Current task
 
-`TASK-WF-001: Establish AIDA frontend repository context and governance documentation`
+`TASK-DB-001: Verify the reset Supabase project and establish the version-controlled migration, local-development, schema, and RLS testing foundation—without frontend feature wiring.`
 
 ## Starting state
 
-- Branch `master`, tracking `origin/master`; initial working tree was clean.
-- One Flutter customer app under `apps/customer`.
-- No root `AGENTS.md` or requested context/ADR/frontend/security governance set.
-- No backend, Supabase code/config/migrations, POS/staff app, or admin app in the repository.
-- Customer app bound to `MockMemberRepository` with extensive session/local simulation.
+- Repository transferred to `Hermann-33/Aida_System`; default branch `master`.
+- Scrap branch `team1/aida-pos-admin-ui` exists and was ignored.
+- Governance docs from `TASK-WF-001` were present on `master`.
+- Frontend was still a Flutter customer prototype bound to `MockMemberRepository`.
+- Supabase project was expected to be reset/clean, but repository docs still treated it as unverified.
 
-## Completed documentation work
+## Completed work
 
-- Added root governance and authority instructions.
-- Added project, active context, architecture, Supabase status, codebase map, roadmap, workflow, handoff, and audit log.
-- Added four active ADRs for runtime, persistence boundary, auth/session direction, and completion gate.
-- Added frontend screen/state/mock/integration/fragility audits.
-- Added a security review.
+- Created task branch `codex/task-db-001-supabase-foundation`.
+- Verified the remote Aida System Supabase reset state before migration.
+- Applied three Supabase migrations to remote project `eswovqxqzfevcdwwcmuh`.
+- Added version-controlled Supabase CLI/config and migration files.
+- Added RLS/schema posture check script.
+- Added `docs/database/SCHEMA_FOUNDATION.md`.
+- Updated architecture, active context, Supabase status, codebase map, roadmap, audit log and this handoff.
+- Added `ADR-0005: Database migration and identity foundation`.
 
 ## Behavior changed
 
-None. No Dart, platform, package, lockfile, asset, existing spec, or runtime behavior was intentionally modified.
+No Flutter behavior changed. No frontend package, lockfile, UI, route, provider, screen, model or asset was changed.
 
 ## Database and infrastructure changes
 
-None. No database was connected, queried, created, altered, migrated, seeded, reset, or deployed. No Supabase client/package/config was added.
+Remote Supabase project changed from clean/reset state to initial foundation state.
+
+Created:
+
+- `public.user_profiles`
+- `public.members`
+- `public.student_verifications`
+- `public.app_user_role`
+- `public.member_type`
+- `public.student_verification_status`
+- `public.set_updated_at()`
+- `public.generate_member_code()`
+- `public.handle_new_auth_user()`
+- `private.current_app_role()`
+- `private.is_staff_or_above()`
+- Auth trigger `on_auth_user_created_aida_profile`
+
+Security/RLS:
+
+- RLS enabled and forced on all foundation tables.
+- Anonymous users have no direct table grants.
+- Customer access is owner-scoped.
+- Staff/admin/owner access uses trusted `user_profiles.app_role` through private RLS helpers.
+- Public RPC role helpers were removed from the exposed public schema.
 
 ## Verification evidence
 
-- Repository/file inventory and targeted code/spec searches completed.
-- Flutter 3.44.7 / Dart 3.12.2 identified.
-- `flutter analyze --no-pub`: one warning for unused `_stockChocolate`.
-- `flutter test --no-pub`: 24 passes and four golden failures.
-- `flutter test --no-pub test\domain test\widgets test\widget_test.dart`: all 24 non-golden tests passed.
-- Secret/config filename and text patterns inspected; no credential/env/Supabase/migration file found.
-- Documentation cross-checks are recorded in `AUDIT_LOG.md`.
+Remote Supabase checks:
 
-The failed golden run generated untracked comparison artifacts under `apps/customer/test/golden/failures/`. They were not deleted because this task explicitly prohibited file removal. They are diagnostic output, not intended product source.
+- Pre-migration `public` base table inventory: empty.
+- Pre-migration `public` enum inventory: empty.
+- Pre-migration `public` function inventory: empty.
+- Old proof buckets `menu-images` and `marketing-assets`: absent.
+- Post-migration tables: `members`, `student_verifications`, `user_profiles`.
+- Post-migration enums: `app_user_role`, `member_type`, `student_verification_status`.
+- Post-migration public functions: `generate_member_code`, `handle_new_auth_user`, `set_updated_at`.
+- Post-migration policies: six foundation policies across the three tables.
+- Supabase security advisor after hardening: 0 lints.
+- Supabase performance advisor: only unused-index INFO lints remain, expected on a new no-traffic schema.
 
-## Branch and Git status
+Repository checks:
 
-- Branch: `master`, tracking `origin/master` with no commit divergence reported by `git status`.
-- Untracked: root `AGENTS.md`; requested files under `docs/context/`, `docs/decisions/`, `docs/frontend/`, and `docs/security/`; golden comparison artifacts under `apps/customer/test/golden/failures/`.
-- No tracked application or existing documentation file is modified.
-- No commit or push was performed.
+- GitHub connector verified admin/write access to `Hermann-33/Aida_System`.
+- Branch list inspected; `team1/aida-pos-admin-ui` ignored as instructed.
+- Migration/config/docs created on task branch.
+
+Not run:
+
+- Flutter tests/analyze, because no local checkout/runtime execution was available through this connector task.
+- Local `supabase db reset`, because this task used the connected remote Supabase project and GitHub API rather than a local CLI checkout.
+
+## Branch and PR
+
+- Branch: `codex/task-db-001-supabase-foundation`
+- Base: `master`
+- PR: opened by this task if connector PR creation succeeded.
 
 ## Exact next action
 
-Review the TASK-WF-001 documentation diff and the four golden comparison artifacts. After review, authorize cleanup/ignore policy for generated failure images and either approve a documentation commit or request corrections. The next implementation task should then be a narrowly scoped Supabase/database foundation verification and migration/RLS baseline—without frontend feature wiring.
+Review the PR diff, especially:
+
+1. `supabase/migrations/`
+2. `docs/context/SUPABASE_STATUS.md`
+3. `docs/database/SCHEMA_FOUNDATION.md`
+4. `docs/decisions/ADR-0005-database-migration-and-identity-foundation.md`
+
+Then run local validation from a checkout if available:
+
+```bash
+supabase start
+supabase db reset
+supabase db lint
+```
+
+Recommended next implementation task after merge:
+
+`TASK-DB-002: Design and migrate the published menu/catalogue foundation with public read policy, admin ownership boundary, and image/storage decision.`
 
 ## Known risks
 
-- Older PRD deployment/status statements may mislead future work if read without governance context.
-- Current UI shapes can bias schema design toward mock assumptions.
-- Auth, QR offline behavior, checkout, order status, and loyalty are not real integrations.
-- Full visual tests are not green; baseline updates require deliberate review.
-- No staff/admin surface exists to fulfill orders or consume rewards.
+- Existing Flutter analyzer warning `_stockChocolate` and golden failures remain unresolved because this was a database task.
+- RLS behavior needs local/CI tests with seeded auth users in a later task.
+- Staff/admin role assignment has no UI or controlled admin operation yet.
+- Menu/order/loyalty schemas are intentionally absent.
+- Flutter is not wired to Supabase yet.
 
 ## Do-not-touch boundaries
 
-Do not change mock values into business truth, add schemas from guesswork, expose privileged Supabase keys, trust client totals/roles/loyalty, update goldens without review, or merge POS/admin scope into the customer app without an explicit task.
+Do not wire Flutter directly to the foundation tables until auth/session adapter contracts, typed failures, local cache/logout behavior, and RLS tests are reviewed. Do not add menu/order/loyalty/POS tables without separate bounded tasks.

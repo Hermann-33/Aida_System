@@ -5,9 +5,9 @@ import 'money.dart';
 class MenuItem {
   const MenuItem({
     required this.id,
-    required this.categoryId,
-    required this.sku,
-    required this.kind,
+    this.categoryId = '',
+    this.sku = '',
+    this.kind = 'product',
     required this.name,
     required this.category,
     required this.description,
@@ -22,7 +22,8 @@ class MenuItem {
     this.volumeMl,
   });
 
-  /// Server-owned stable identifier.
+  /// Server-owned stable identifier. Live catalogue rows always provide these
+  /// backend fields; defaults only preserve isolated widget/test construction.
   final String id;
   final String categoryId;
   final String sku;
@@ -49,6 +50,12 @@ class MenuItem {
   final List<MenuVariant> variants;
 
   final int? volumeMl;
+
+  /// Ratings and bonus campaigns are not catalogue facts. Compatibility
+  /// getters keep old presentation code compiling while ensuring no fake value
+  /// can leak into the live menu.
+  double? get rating => null;
+  int? get bonusPoints => null;
 
   MenuVariant? get defaultVariant {
     for (final variant in variants) {

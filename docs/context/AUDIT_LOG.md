@@ -1,5 +1,25 @@
 # Audit Log
 
+## 2026-08-13 — TASK-DEMO-ORDER-001 — Authoritative ordering and scheduled pickup backend
+
+**Verdict:** PARTIAL for the end-user feature under ADR-0004; shared backend scope implemented and live-validated, frontend intentionally deferred to Codex.
+
+Created the same task branch in both repos: `codex/task-demo-order-001-order-scheduling-backend`, stacked on each repo's AUTH-003 branch. No default branch was changed.
+
+Applied live Supabase migrations `20260812182212_create_authoritative_orders_and_scheduling` and `20260812183029_index_order_foreign_keys`. Canonical customer-repo filenames were aligned to the exact live ledger versions without changing applied SQL.
+
+Added FORCE-RLS order/scheduling tables, authoritative quote/order RPCs, immutable commercial snapshots, idempotent placement, server scheduling policy, versioned legal fulfilment transitions, append-only events, and `orders` Realtime publication. Scheduling begins with Asia/Kuala_Lumpur, 15-minute lead, 15-minute slots and 7-day horizon. Branch hours/capacity remain explicitly unmodeled.
+
+Canonical `supabase/tests/order_integration.sql` passed transactionally. It proved forged totals are ignored, live catalogue pricing/variant/add-on compatibility is revalidated, invalid schedules fail, customer ownership/member derivation holds, idempotency works, direct customer order DML/status control fails, staff POS/queue access works, legal/stale/terminal status rules hold, and only admin can update schedule policy. Rollback cleanup left 0 Auth users/profiles/members/orders/lines/add-ons/events.
+
+Security advisor returned 0 lints. Performance advisor initially identified four unindexed order foreign keys; a forward migration added covering indexes. Final performance findings are unused-index INFO only on the empty/new dataset.
+
+Dashboard server-only implementation added `server/orderBff.ts`, Vercel/Vite API adapters, Vite route mounting and `server/orderBff.test.ts`. It retains the existing HttpOnly employee-session/caller-JWT model, requires same origin for POSTs, uses no service-role credential, and maps idempotency/status-version conflicts to HTTP 409. No React component or Flutter source file was changed by this backend task. An isolated strict TypeScript 5.8.3 compile of `server/orderBff.ts` passed under the repo's server compiler rules.
+
+Accepted ADR-0010 and added the byte-identical `ORDER_AND_SCHEDULING_CONTRACT.md` in both repos. The remaining work is frontend integration: customer authoritative quote/ASAP-or-scheduled placement/history/Realtime status; dashboard POS authoritative quote/place and live order board/status controls; then full client toolchains and cross-client E2E.
+
+No real payment authority was added. Frontends must use an explicit Pay-at-counter/unpaid demo path rather than claiming Card/E-wallet/Student Wallet processing.
+
 ## 2026-08-12 — TASK-MENU-001 — Shared catalogue/menu integration
 
 **Verdict:** PARTIAL because client/toolchain/deployed E2E validation was deferred by user instruction.

@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/error/result.dart';
+import '../data/repository/supabase_catalogue_repository.dart';
 import '../data/repository/supabase_member_repository.dart';
 import '../domain/model/cart.dart';
+import '../domain/model/catalogue_snapshot.dart';
 import '../domain/model/loyalty.dart';
 import '../domain/model/member.dart';
 import '../domain/model/menu_category.dart';
@@ -15,16 +17,19 @@ import '../domain/model/order.dart';
 import '../domain/model/promo.dart';
 import '../domain/model/reward.dart';
 import '../domain/model/voucher.dart';
+import '../domain/repository/catalogue_repository.dart';
 import '../domain/repository/member_repository.dart';
 
-/// Auth and membership use Supabase. The concrete repository explicitly
-/// delegates only not-yet-integrated feature families to preview data.
 final memberRepositoryProvider = Provider<MemberRepository>(
   (ref) => SupabaseMemberRepository(Supabase.instance.client),
 );
 
-/// Backend-derived session state. The old mutable demo flag is gone: login,
-/// logout and restart state all follow Supabase Auth's persisted session.
+/// Catalogue is a separate capability from membership. It never falls back to
+/// preview menu data when Supabase is unavailable.
+final catalogueRepositoryProvider = Provider<CatalogueRepository>(
+  (ref) => SupabaseCatalogueRepository(Supabase.instance.client),
+);
+
 class AuthState extends Notifier<bool> {
   StreamSubscription<bool>? _subscription;
 
@@ -48,8 +53,6 @@ class AuthState extends Notifier<bool> {
     ref.invalidate(memberProvider);
   }
 
-  /// Re-syncs immediately after a credential operation; the auth stream remains
-  /// the ongoing source of truth.
   void logIn() {
     final repository = ref.read(memberRepositoryProvider);
     state = repository is SupabaseMemberRepository && repository.hasActiveSession;
@@ -116,15 +119,10 @@ Future<T> _unwrap<T>(Future<Result<T>> future) async {
   };
 }
 
-/// The signed-in member comes from public.user_profiles + public.members under
-/// owner-scoped RLS. No locally generated member id/code is accepted.
 final memberProvider = FutureProvider<Member>(
   (ref) => _unwrap(ref.watch(memberRepositoryProvider).getMember()),
 );
 
-/// Edit-profile persistence remains a separate bounded task. This overlay is
-/// retained only for that existing screen; authentication/signup never writes
-/// to it and never uses it as identity authority.
 class MemberEdits extends Notifier<Member?> {
   @override
   Member? build() => null;
@@ -157,21 +155,41 @@ final offersProvider = FutureProvider<List<Offer>>(
   (ref) => _unwrap(ref.watch(memberRepositoryProvider).getOffers()),
 );
 
-final featuredItemProvider = FutureProvider<MenuItem?>(
-  (ref) => _unwrap(ref.watch(memberRepositoryProvider).getFeaturedItem()),
-);
-
 final promosProvider = FutureProvider<List<Promo>>(
   (ref) => _unwrap(ref.watch(memberRepositoryProvider).getPromos()),
 );
 
-final categoriesProvider = FutureProvider<List<MenuCategory>>(
-  (ref) => _unwrap(ref.watch(memberRepositoryProvider).getCategories()),
+/// Supabase Realtime exposes only a singleton revision signal. Every revision
+/// change causes a fresh RLS-filtered snapshot fetch; change payloads never
+/// become catalogue authority in the client.
+final catalogueRevisionProvider = StreamProvider<int>(
+  (ref) => ref.watch(catalogueRepositoryProvider).watchRevision(),
 );
 
-final popularItemsProvider = FutureProvider<List<MenuItem>>(
-  (ref) => _unwrap(ref.watch(memberRepositoryProvider).getPopularItems()),
-);
+final catalogueProvider = FutureProvider<CatalogueSnapshot>((ref) {
+  ref.watch(catalogueRevisionProvider);
+  return _unwrap(ref.watch(catalogueRepositoryProvider).getCatalogue());
+});
+
+final featuredItemProvider = FutureProvider<MenuItem?>((ref) async {
+  final catalogue = await ref.watch(catalogueProvider.future);
+  return catalogue.featuredItem;
+});
+
+final categoriesProvider = FutureProvider<List<MenuCategory>>((ref) async {
+  final catalogue = await ref.watch(catalogueProvider.future);
+  return catalogue.categories;
+});
+
+final popularItemsProvider = FutureProvider<List<MenuItem>>((ref) async {
+  final catalogue = await ref.watch(catalogueProvider.future);
+  return catalogue.popularItems;
+});
+
+final menuItemsProvider = FutureProvider<List<MenuItem>>((ref) async {
+  final catalogue = await ref.watch(catalogueProvider.future);
+  return catalogue.items;
+});
 
 final rewardsProvider = FutureProvider<List<Reward>>(
   (ref) => _unwrap(ref.watch(memberRepositoryProvider).getRewards()),
@@ -179,10 +197,6 @@ final rewardsProvider = FutureProvider<List<Reward>>(
 
 final vouchersProvider = FutureProvider<List<Voucher>>(
   (ref) => _unwrap(ref.watch(memberRepositoryProvider).getVouchers()),
-);
-
-final menuItemsProvider = FutureProvider<List<MenuItem>>(
-  (ref) => _unwrap(ref.watch(memberRepositoryProvider).getMenuItems()),
 );
 
 class CartState extends Notifier<Cart> {

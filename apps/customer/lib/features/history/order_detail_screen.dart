@@ -4,8 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/providers.dart';
 import '../../core/theme/aida_colors.dart';
 import '../../core/theme/aida_type.dart';
-import '../../domain/model/cart.dart';
-import '../../domain/model/menu_item.dart';
 import '../../domain/model/order.dart';
 import 'order_history_screen.dart' show formatOrderDate;
 import 'widgets/order_status_pill.dart';
@@ -17,12 +15,11 @@ import 'widgets/order_status_pill.dart';
 class OrderDetailScreen extends ConsumerWidget {
   const OrderDetailScreen({super.key, required this.order});
 
-  final PastOrder order;
+  final OrderSnapshot order;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final menuAsync = ref.watch(menuItemsProvider);
-    final menu = menuAsync.value ?? const <MenuItem>[];
+    final current = ref.watch(orderProvider(order.id)).value ?? order;
 
     return Scaffold(
       backgroundColor: AidaColors.cream,
@@ -58,9 +55,9 @@ class OrderDetailScreen extends ConsumerWidget {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
                 children: [
-                  _StatusCard(order: order),
+                  _StatusCard(order: current),
                   const SizedBox(height: 16),
-                  _ReceiptCard(order: order, menu: menu),
+                  _ReceiptCard(order: current),
                 ],
               ),
             ),
@@ -123,7 +120,7 @@ class _DoneBar extends StatelessWidget {
 class _StatusCard extends StatelessWidget {
   const _StatusCard({required this.order});
 
-  final PastOrder order;
+  final OrderSnapshot order;
 
   @override
   Widget build(BuildContext context) {
@@ -157,7 +154,7 @@ class _StatusCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Order confirmed',
+                  _statusTitle(order.status),
                   style: AidaType.sans(
                     size: 14.5,
                     weight: FontWeight.w700,
@@ -165,7 +162,9 @@ class _StatusCard extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'Ready for pickup at the counter',
+                  order.status == OrderStatus.ready
+                      ? 'Ready for pickup at the counter'
+                      : 'Pay at the counter when you collect it',
                   style: AidaType.sans(size: 12, color: AidaColors.textMuted),
                 ),
               ],
@@ -179,10 +178,9 @@ class _StatusCard extends StatelessWidget {
 }
 
 class _ReceiptCard extends StatelessWidget {
-  const _ReceiptCard({required this.order, required this.menu});
+  const _ReceiptCard({required this.order});
 
-  final PastOrder order;
-  final List<MenuItem> menu;
+  final OrderSnapshot order;
 
   @override
   Widget build(BuildContext context) {
@@ -215,7 +213,7 @@ class _ReceiptCard extends StatelessWidget {
                 ),
               ),
               Text(
-                formatOrderDate(order.placedAt),
+                formatOrderDate(order.createdAt.toLocal()),
                 style: AidaType.sans(size: 12, color: AidaColors.textMuted),
               ),
             ],
@@ -223,8 +221,8 @@ class _ReceiptCard extends StatelessWidget {
           const SizedBox(height: 14),
           const Divider(height: 1, color: AidaColors.latte),
           const SizedBox(height: 14),
-          for (final line in order.lineItems) ...[
-            _ReceiptLine(line: line, menu: menu),
+          for (final line in order.lines) ...[
+            _ReceiptLine(line: line),
             const SizedBox(height: 12),
           ],
           const Divider(height: 1, color: AidaColors.latte),
@@ -259,7 +257,7 @@ class _ReceiptCard extends StatelessWidget {
               ),
               const Spacer(),
               Text(
-                order.subtotal.formatted,
+                order.total.formatted,
                 style: AidaType.sans(
                   size: 18,
                   weight: FontWeight.w800,
@@ -274,13 +272,13 @@ class _ReceiptCard extends StatelessWidget {
           Row(
             children: [
               const Icon(
-                Icons.credit_card_rounded,
+                Icons.storefront_rounded,
                 size: 16,
                 color: AidaColors.textMuted,
               ),
               const SizedBox(width: 8),
               Text(
-                'Paid with ${order.paymentMethodLabel}',
+                'Pay at the counter',
                 style: AidaType.sans(size: 13, color: AidaColors.textMuted),
               ),
             ],
@@ -292,16 +290,13 @@ class _ReceiptCard extends StatelessWidget {
 }
 
 class _ReceiptLine extends StatelessWidget {
-  const _ReceiptLine({required this.line, required this.menu});
+  const _ReceiptLine({required this.line});
 
-  final CartLineItem line;
-  final List<MenuItem> menu;
+  final OrderLineSnapshot line;
 
   @override
   Widget build(BuildContext context) {
-    final addOns = addOnTotalFor(line.addOnIds, menu);
-    final lineTotal = line.lineTotal(addOns);
-    final summary = line.configSummary(menu);
+    final summary = line.configurationLabel;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -311,7 +306,7 @@ class _ReceiptLine extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                line.item.name,
+                line.name,
                 style: AidaType.sans(
                   size: 14,
                   weight: FontWeight.w700,
@@ -320,7 +315,7 @@ class _ReceiptLine extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                '${line.quantity} × ${line.unitPrice(addOns).formatted}',
+                '${line.quantity} × ${line.unitPrice.formatted}',
                 style: AidaType.sans(size: 12, color: AidaColors.textMuted),
               ),
               if (summary != null) ...[
@@ -345,7 +340,7 @@ class _ReceiptLine extends StatelessWidget {
           ),
         ),
         Text(
-          lineTotal.formatted,
+          line.lineTotal.formatted,
           style: AidaType.sans(
             size: 14,
             weight: FontWeight.w700,
@@ -356,3 +351,12 @@ class _ReceiptLine extends StatelessWidget {
     );
   }
 }
+
+String _statusTitle(OrderStatus status) => switch (status) {
+  OrderStatus.confirmed => 'Order confirmed',
+  OrderStatus.scheduled => 'Pickup scheduled',
+  OrderStatus.preparing => 'Preparing your order',
+  OrderStatus.ready => 'Order ready',
+  OrderStatus.completed => 'Order completed',
+  OrderStatus.cancelled => 'Order cancelled',
+};

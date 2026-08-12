@@ -62,6 +62,10 @@ No real payment processor exists. Remove/disable UI that implies Cash/Card/E-wal
 - If a quote/placement fails because an item/variant/add-on became unavailable, surface a theme-consistent actionable message and keep the cart for correction/retry.
 - Do not silently fall back to local totals/order history after a backend error.
 
+## Customer validation result
+
+Implemented on the shared task branch. Flutter 3.44.9 passes pub get, zero-issue analyze and 40/40 tests, including quote/scheduling/idempotency/cart/history-status/Realtime behavior. No golden baseline changed. Deployed real-identity cross-client proof remains external work under ADR-0004.
+
 ## Validation required after frontend implementation
 
 - `flutter pub get`

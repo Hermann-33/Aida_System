@@ -15,9 +15,9 @@ Customer catalogue now fails visibly if the backend is unavailable; it does not 
 
 `test/support/test_catalogue_repository.dart` is an explicit 4-category/16-item test fixture and is never wired as a production fallback. Its values exist only to keep isolated widget/golden coverage representative of the canonical seed.
 
-## Order/checkout placeholders that must now be removed by frontend integration
+## Removed order/checkout placeholders
 
-The backend for orders/scheduling is live, so the following customer runtime behaviors are now obsolete placeholders rather than acceptable long-term preview authority:
+The live customer runtime no longer uses these obsolete placeholders:
 
 - random local order-number generation in checkout;
 - local-only `PastOrder` persistence/history as order truth;
@@ -27,7 +27,7 @@ The backend for orders/scheduling is live, so the following customer runtime beh
 - payment-method copy that implies Cash/Card/E-wallet/Student Wallet was actually processed;
 - absence of server-policy-backed ASAP/Schedule-for-later selection.
 
-Codex frontend integration should replace those with ADR-0010 and `ORDER_AND_SCHEDULING_CONTRACT.md`, while preserving the existing visual design.
+ADR-0010 and `ORDER_AND_SCHEDULING_CONTRACT.md` now replace them while preserving the existing visual design. The explicit test repository remains test-only.
 
 ## Allowed local UI state after integration
 

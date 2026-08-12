@@ -14,12 +14,16 @@ Updated: 2026-08-13
 - `apps/customer/lib/application/providers.dart` — Auth/member/catalogue/cart/provider composition.
 - `apps/customer/lib/features/menu/` — DB-driven menu/item customization UI.
 
-### Current order frontend that Codex must replace/integrate
+### Integrated customer order frontend
 
-- `apps/customer/lib/features/cart/cart_screen.dart` — currently local cart arithmetic plus fake payment-method sheet and random local order number; must consume authoritative quote/place and Pay-at-counter demo semantics.
-- `apps/customer/lib/features/cart/order_confirmation_screen.dart` — currently advances status using a local timer; must render persisted backend order status and scheduled pickup.
-- `apps/customer/lib/domain/model/order.dart` — currently local `PastOrder` model/status; must be replaced/refactored around the backend order snapshot.
-- `apps/customer/lib/features/history/order_history_screen.dart` and `order_detail_screen.dart` — currently local history presentation; should preserve visual design while reading `get_my_orders()`/`get_order()`.
+- `apps/customer/lib/domain/model/order.dart` — typed schedule policy, trusted selection payload, quote lines and persisted order snapshots/statuses.
+- `apps/customer/lib/domain/repository/order_repository.dart` and `data/repository/supabase_order_repository.dart` — policy/quote/place/history/detail RPC boundary plus owner-scoped `orders` invalidation stream.
+- `apps/customer/lib/application/order_checkout.dart` — timezone-aware slot derivation, UUID generation and retry-stable placement session.
+- `apps/customer/lib/application/providers.dart` — Realtime-invalidated authoritative history/detail providers.
+- `apps/customer/lib/features/cart/cart_screen.dart` and `order_checkout_sheet.dart` — local selection estimate, server quote, ASAP/scheduled choice, Pay-at-counter placement and clear-on-success behavior.
+- `apps/customer/lib/features/cart/order_confirmation_screen.dart` — persisted status timeline with no client progression timer.
+- `apps/customer/lib/features/history/order_history_screen.dart`, `order_detail_screen.dart` and `widgets/order_status_pill.dart` — owner history/detail from immutable backend snapshots.
+- order-focused tests cover mapping, payload, scheduling, idempotency, Realtime, success-clear and failure-retain behavior.
 - existing cart/menu widgets remain useful selection/presentation state but cannot be commercial authority.
 
 ### Canonical Supabase ownership

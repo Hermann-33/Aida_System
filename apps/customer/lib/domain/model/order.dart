@@ -1,32 +1,329 @@
-import 'cart.dart';
 import 'money.dart';
 
-/// A placed order, snapshotted the moment checkout completes — nothing here
-/// changes afterward, the same way a printed receipt doesn't.
-///
-/// Status is always [ready]: there is no staff/kitchen app in this repo to
-/// drive a real "preparing" → "ready" transition (see
-/// OrderConfirmationScreen's own doc for why), and a history entry stuck
-/// showing "Preparing" forever with no way to ever update would be actively
-/// wrong, not just incomplete.
-enum OrderStatus { ready }
+enum FulfillmentType { asap, scheduled }
 
-class PastOrder {
-  const PastOrder({
-    required this.orderNumber,
-    required this.placedAt,
-    required this.lineItems,
-    required this.subtotal,
-    required this.paymentMethodLabel,
-    this.status = OrderStatus.ready,
+enum OrderStatus {
+  confirmed,
+  scheduled,
+  preparing,
+  ready,
+  completed,
+  cancelled;
+
+  static OrderStatus fromJson(Object? value) => values.firstWhere(
+    (status) => status.name == value,
+    orElse: () => confirmed,
+  );
+}
+
+class OrderingPolicy {
+  const OrderingPolicy({
+    required this.serverNow,
+    required this.timezone,
+    required this.scheduleEnabled,
+    required this.minimumLeadMinutes,
+    required this.slotIntervalMinutes,
+    required this.maximumAdvanceDays,
   });
 
-  final String orderNumber;
-  final DateTime placedAt;
-  final List<CartLineItem> lineItems;
-  final Money subtotal;
-  final String paymentMethodLabel;
-  final OrderStatus status;
+  factory OrderingPolicy.fromJson(Map<String, dynamic> json) => OrderingPolicy(
+    serverNow: DateTime.parse(json['serverNow'] as String),
+    timezone: json['timezone'] as String,
+    scheduleEnabled: json['scheduleEnabled'] == true,
+    minimumLeadMinutes: _int(json['minimumLeadMinutes']),
+    slotIntervalMinutes: _int(json['slotIntervalMinutes']),
+    maximumAdvanceDays: _int(json['maximumAdvanceDays']),
+  );
 
-  int get itemCount => lineItems.fold(0, (sum, line) => sum + line.quantity);
+  final DateTime serverNow;
+  final String timezone;
+  final bool scheduleEnabled;
+  final int minimumLeadMinutes;
+  final int slotIntervalMinutes;
+  final int maximumAdvanceDays;
+}
+
+class OrderSelectionLine {
+  const OrderSelectionLine({
+    required this.itemId,
+    this.variantId,
+    this.addOnIds = const [],
+    required this.quantity,
+    this.note,
+  });
+
+  final String itemId;
+  final String? variantId;
+  final List<String> addOnIds;
+  final int quantity;
+  final String? note;
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'itemId': itemId,
+    if (variantId != null) 'variantId': variantId,
+    'addOnIds': addOnIds,
+    'quantity': quantity,
+    if (note?.trim().isNotEmpty == true) 'note': note!.trim(),
+  };
+}
+
+class OrderRequest {
+  const OrderRequest({
+    required this.fulfillmentType,
+    required this.items,
+    this.requestedPickupAt,
+    this.clientRequestId,
+  });
+
+  final FulfillmentType fulfillmentType;
+  final List<OrderSelectionLine> items;
+  final DateTime? requestedPickupAt;
+  final String? clientRequestId;
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    if (clientRequestId != null) 'clientRequestId': clientRequestId,
+    'fulfillmentType': fulfillmentType.name,
+    if (fulfillmentType == FulfillmentType.scheduled)
+      'requestedPickupAt': requestedPickupAt!.toUtc().toIso8601String(),
+    'items': items.map((line) => line.toJson()).toList(growable: false),
+  };
+
+  OrderRequest copyWith({String? clientRequestId}) => OrderRequest(
+    fulfillmentType: fulfillmentType,
+    items: items,
+    requestedPickupAt: requestedPickupAt,
+    clientRequestId: clientRequestId ?? this.clientRequestId,
+  );
+}
+
+class OrderAddOnSnapshot {
+  const OrderAddOnSnapshot({
+    required this.itemId,
+    required this.sku,
+    required this.name,
+    required this.price,
+  });
+
+  factory OrderAddOnSnapshot.fromJson(Map<String, dynamic> json) =>
+      OrderAddOnSnapshot(
+        itemId: json['itemId'] as String,
+        sku: json['sku'] as String,
+        name: json['name'] as String,
+        price: Money.fromSen(_int(json['priceSen'])),
+      );
+
+  final String itemId;
+  final String sku;
+  final String name;
+  final Money price;
+}
+
+class OrderVariantSnapshot {
+  const OrderVariantSnapshot({
+    required this.id,
+    required this.code,
+    required this.label,
+    required this.priceDeltaSen,
+  });
+
+  factory OrderVariantSnapshot.fromJson(Map<String, dynamic> json) =>
+      OrderVariantSnapshot(
+        id: json['id'] as String,
+        code: json['code'] as String,
+        label: json['label'] as String,
+        priceDeltaSen: _int(json['priceDeltaSen']),
+      );
+
+  final String id;
+  final String code;
+  final String label;
+  final int priceDeltaSen;
+}
+
+class OrderLineSnapshot {
+  const OrderLineSnapshot({
+    this.id,
+    required this.lineNumber,
+    required this.itemId,
+    required this.sku,
+    required this.name,
+    required this.basePrice,
+    this.variant,
+    this.addOns = const [],
+    required this.addOnTotal,
+    required this.unitPrice,
+    required this.quantity,
+    required this.lineTotal,
+    this.note,
+  });
+
+  factory OrderLineSnapshot.fromJson(Map<String, dynamic> json) {
+    final variant = json['variant'];
+    final addOns = json['addOns'];
+    return OrderLineSnapshot(
+      id: json['id'] as String?,
+      lineNumber: _int(json['lineNumber']),
+      itemId: json['itemId'] as String,
+      sku: json['sku'] as String,
+      name: json['name'] as String,
+      basePrice: Money.fromSen(_int(json['basePriceSen'])),
+      variant:
+          variant is Map
+              ? OrderVariantSnapshot.fromJson(
+                Map<String, dynamic>.from(variant),
+              )
+              : null,
+      addOns:
+          addOns is List
+              ? addOns
+                  .map(
+                    (value) => OrderAddOnSnapshot.fromJson(
+                      Map<String, dynamic>.from(value as Map),
+                    ),
+                  )
+                  .toList(growable: false)
+              : const [],
+      addOnTotal: Money.fromSen(_int(json['addOnTotalSen'])),
+      unitPrice: Money.fromSen(_int(json['unitPriceSen'])),
+      quantity: _int(json['quantity']),
+      lineTotal: Money.fromSen(_int(json['lineTotalSen'])),
+      note: json['note'] as String?,
+    );
+  }
+
+  final String? id;
+  final int lineNumber;
+  final String itemId;
+  final String sku;
+  final String name;
+  final Money basePrice;
+  final OrderVariantSnapshot? variant;
+  final List<OrderAddOnSnapshot> addOns;
+  final Money addOnTotal;
+  final Money unitPrice;
+  final int quantity;
+  final Money lineTotal;
+  final String? note;
+
+  String? get configurationLabel {
+    final parts = <String>[
+      if (variant != null) variant!.label,
+      ...addOns.map((addOn) => addOn.name),
+    ];
+    return parts.isEmpty ? null : parts.join(' · ');
+  }
+}
+
+class OrderQuote {
+  const OrderQuote({
+    required this.pricingVersion,
+    required this.currency,
+    required this.subtotal,
+    required this.total,
+    required this.fulfillmentType,
+    this.requestedPickupAt,
+    required this.serverNow,
+    required this.schedulePolicy,
+    required this.lines,
+  });
+
+  factory OrderQuote.fromJson(Map<String, dynamic> json) => OrderQuote(
+    pricingVersion: _int(json['pricingVersion']),
+    currency: json['currency'] as String,
+    subtotal: Money.fromSen(_int(json['subtotalSen'])),
+    total: Money.fromSen(_int(json['totalSen'])),
+    fulfillmentType: FulfillmentType.values.byName(
+      json['fulfillmentType'] as String,
+    ),
+    requestedPickupAt: _date(json['requestedPickupAt']),
+    serverNow: DateTime.parse(json['serverNow'] as String),
+    schedulePolicy: OrderingPolicy.fromJson(<String, dynamic>{
+      ...Map<String, dynamic>.from(json['schedulePolicy'] as Map),
+      'serverNow': json['serverNow'],
+    }),
+    lines: (json['lines'] as List)
+        .map(
+          (value) => OrderLineSnapshot.fromJson(
+            Map<String, dynamic>.from(value as Map),
+          ),
+        )
+        .toList(growable: false),
+  );
+
+  final int pricingVersion;
+  final String currency;
+  final Money subtotal;
+  final Money total;
+  final FulfillmentType fulfillmentType;
+  final DateTime? requestedPickupAt;
+  final DateTime serverNow;
+  final OrderingPolicy schedulePolicy;
+  final List<OrderLineSnapshot> lines;
+}
+
+class OrderSnapshot {
+  const OrderSnapshot({
+    required this.id,
+    required this.orderNumber,
+    required this.fulfillmentType,
+    this.requestedPickupAt,
+    required this.status,
+    required this.statusVersion,
+    required this.currency,
+    required this.pricingVersion,
+    required this.subtotal,
+    required this.total,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.lines,
+  });
+
+  factory OrderSnapshot.fromJson(Map<String, dynamic> json) => OrderSnapshot(
+    id: json['id'] as String,
+    orderNumber: json['orderNumber'] as String,
+    fulfillmentType: FulfillmentType.values.byName(
+      json['fulfillmentType'] as String,
+    ),
+    requestedPickupAt: _date(json['requestedPickupAt']),
+    status: OrderStatus.fromJson(json['status']),
+    statusVersion: _int(json['statusVersion']),
+    currency: json['currency'] as String,
+    pricingVersion: _int(json['pricingVersion']),
+    subtotal: Money.fromSen(_int(json['subtotalSen'])),
+    total: Money.fromSen(_int(json['totalSen'])),
+    createdAt: DateTime.parse(json['createdAt'] as String),
+    updatedAt: DateTime.parse(json['updatedAt'] as String),
+    lines: (json['lines'] as List)
+        .map(
+          (value) => OrderLineSnapshot.fromJson(
+            Map<String, dynamic>.from(value as Map),
+          ),
+        )
+        .toList(growable: false),
+  );
+
+  final String id;
+  final String orderNumber;
+  final FulfillmentType fulfillmentType;
+  final DateTime? requestedPickupAt;
+  final OrderStatus status;
+  final int statusVersion;
+  final String currency;
+  final int pricingVersion;
+  final Money subtotal;
+  final Money total;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final List<OrderLineSnapshot> lines;
+
+  int get itemCount => lines.fold(0, (sum, line) => sum + line.quantity);
+}
+
+DateTime? _date(Object? value) =>
+    value == null ? null : DateTime.parse(value as String);
+
+int _int(Object? value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return int.parse(value.toString());
 }

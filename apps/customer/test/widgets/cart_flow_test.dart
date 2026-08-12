@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:aida_customer/application/providers.dart';
 import 'package:aida_customer/data/repository/mock_member_repository.dart';
+import 'package:aida_customer/core/error/failures.dart';
+import 'package:aida_customer/domain/model/cart.dart';
 import 'package:aida_customer/features/cart/cart_screen.dart';
 import 'package:aida_customer/features/cart/order_confirmation_screen.dart';
 import 'package:aida_customer/features/shell/app_shell.dart';
@@ -11,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../support/test_catalogue_repository.dart';
+import '../support/test_order_repository.dart';
 
 const _fast = MockMemberRepository(latency: Duration.zero);
 const _catalogue = TestCatalogueRepository();
@@ -32,10 +35,73 @@ class _FakeHttpRequest implements HttpClientRequest {
 }
 
 const _onePixelPng = <int>[
-  137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82,
-  0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 31, 21, 196, 137,
-  0, 0, 0, 10, 73, 68, 65, 84, 120, 156, 99, 0, 1, 0, 0, 5, 0,
-  1, 13, 10, 45, 180, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
+  137,
+  80,
+  78,
+  71,
+  13,
+  10,
+  26,
+  10,
+  0,
+  0,
+  0,
+  13,
+  73,
+  72,
+  68,
+  82,
+  0,
+  0,
+  0,
+  1,
+  0,
+  0,
+  0,
+  1,
+  8,
+  6,
+  0,
+  0,
+  0,
+  31,
+  21,
+  196,
+  137,
+  0,
+  0,
+  0,
+  10,
+  73,
+  68,
+  65,
+  84,
+  120,
+  156,
+  99,
+  0,
+  1,
+  0,
+  0,
+  5,
+  0,
+  1,
+  13,
+  10,
+  45,
+  180,
+  0,
+  0,
+  0,
+  0,
+  73,
+  69,
+  78,
+  68,
+  174,
+  66,
+  96,
+  130,
 ];
 
 class _FakeHttpResponse extends Stream<List<int>>
@@ -80,6 +146,7 @@ void main() {
         overrides: [
           memberRepositoryProvider.overrideWithValue(_fast),
           catalogueRepositoryProvider.overrideWithValue(_catalogue),
+          orderRepositoryProvider.overrideWithValue(TestOrderRepository()),
         ],
         child: const MaterialApp(home: AppShell()),
       ),
@@ -134,13 +201,15 @@ void main() {
     expect(find.textContaining('Extra Shot'), findsOneWidget);
     expect(find.text('"less ice please"'), findsOneWidget);
 
-    await tester.tap(find.text('Checkout'));
+    await tester.tap(find.text('Review order'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Pay RM 34.80'));
+    expect(find.text('Server total'), findsOneWidget);
+    expect(find.text('RM 34.80'), findsWidgets);
+    await tester.tap(find.text('Place order · RM 34.80'));
     await tester.pumpAndSettle();
 
     expect(find.byType(OrderConfirmationScreen), findsOneWidget);
-    expect(find.text('Preparing your order'), findsOneWidget);
+    expect(find.text('Order confirmed'), findsOneWidget);
 
     await tester.tap(find.text('Back to Menu'));
     await tester.pumpAndSettle();
@@ -150,5 +219,47 @@ void main() {
     expect(find.text('2 items'), findsNothing);
 
     debugNetworkImageHttpClientProvider = null;
+  });
+
+  testWidgets('placement failure retains cart selections for retry', (
+    tester,
+  ) async {
+    final orders = TestOrderRepository(
+      placeFailure: const ServerFailure('Connection lost'),
+    );
+    final container = ProviderContainer(
+      overrides: [
+        memberRepositoryProvider.overrideWithValue(_fast),
+        catalogueRepositoryProvider.overrideWithValue(_catalogue),
+        orderRepositoryProvider.overrideWithValue(orders),
+      ],
+    );
+    addTearDown(container.dispose);
+    container
+        .read(cartProvider.notifier)
+        .add(
+          const CartLineItem(
+            item: TestCatalogueRepository.latte,
+            size: TestCatalogueRepository.large,
+            addOnIds: ['p_shot'],
+            quantity: 2,
+          ),
+        );
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: CartScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Review order'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Place order · RM 34.80'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Connection lost'), findsOneWidget);
+    expect(container.read(cartProvider).itemCount, 2);
+    expect(orders.placedRequests.single.clientRequestId, isNotNull);
   });
 }

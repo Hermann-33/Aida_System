@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/error/result.dart';
 import '../data/repository/supabase_catalogue_repository.dart';
 import '../data/repository/supabase_member_repository.dart';
+import '../data/repository/supabase_order_repository.dart';
 import '../domain/model/cart.dart';
 import '../domain/model/catalogue_snapshot.dart';
 import '../domain/model/loyalty.dart';
@@ -19,6 +20,7 @@ import '../domain/model/reward.dart';
 import '../domain/model/voucher.dart';
 import '../domain/repository/catalogue_repository.dart';
 import '../domain/repository/member_repository.dart';
+import '../domain/repository/order_repository.dart';
 
 final memberRepositoryProvider = Provider<MemberRepository>(
   (ref) => SupabaseMemberRepository(Supabase.instance.client),
@@ -28,6 +30,10 @@ final memberRepositoryProvider = Provider<MemberRepository>(
 /// preview menu data when Supabase is unavailable.
 final catalogueRepositoryProvider = Provider<CatalogueRepository>(
   (ref) => SupabaseCatalogueRepository(Supabase.instance.client),
+);
+
+final orderRepositoryProvider = Provider<OrderRepository>(
+  (ref) => SupabaseOrderRepository(Supabase.instance.client),
 );
 
 class AuthState extends Notifier<bool> {
@@ -51,14 +57,19 @@ class AuthState extends Notifier<bool> {
     state = signedIn;
     ref.read(memberEditsProvider.notifier).clear();
     ref.invalidate(memberProvider);
+    ref.invalidate(orderUpdatesProvider);
+    ref.invalidate(orderHistoryProvider);
   }
 
   void logIn() {
     final repository = ref.read(memberRepositoryProvider);
-    state = repository is SupabaseMemberRepository && repository.hasActiveSession;
+    state =
+        repository is SupabaseMemberRepository && repository.hasActiveSession;
     if (state) {
       ref.read(memberEditsProvider.notifier).clear();
       ref.invalidate(memberProvider);
+      ref.invalidate(orderUpdatesProvider);
+      ref.invalidate(orderHistoryProvider);
     }
   }
 
@@ -67,6 +78,8 @@ class AuthState extends Notifier<bool> {
     state = false;
     ref.read(memberEditsProvider.notifier).clear();
     ref.invalidate(memberProvider);
+    ref.invalidate(orderUpdatesProvider);
+    ref.invalidate(orderHistoryProvider);
     if (repository is SupabaseMemberRepository) {
       unawaited(repository.logOut());
     }
@@ -257,12 +270,18 @@ final favoritesProvider = NotifierProvider<FavoritesState, Set<String>>(
   FavoritesState.new,
 );
 
-class OrderHistoryState extends Notifier<List<PastOrder>> {
-  @override
-  List<PastOrder> build() => const [];
+final orderUpdatesProvider = StreamProvider<void>(
+  (ref) => ref.watch(orderRepositoryProvider).watchMyOrders(),
+);
 
-  void add(PastOrder order) => state = [order, ...state];
-}
+/// Realtime is an invalidation signal only. The list is always rebuilt from
+/// the owner-scoped get_my_orders() snapshot RPC.
+final orderHistoryProvider = FutureProvider<List<OrderSnapshot>>((ref) {
+  ref.watch(orderUpdatesProvider);
+  return _unwrap(ref.watch(orderRepositoryProvider).getMyOrders());
+});
 
-final orderHistoryProvider =
-    NotifierProvider<OrderHistoryState, List<PastOrder>>(OrderHistoryState.new);
+final orderProvider = FutureProvider.family<OrderSnapshot, String>((ref, id) {
+  ref.watch(orderUpdatesProvider);
+  return _unwrap(ref.watch(orderRepositoryProvider).getOrder(id));
+});

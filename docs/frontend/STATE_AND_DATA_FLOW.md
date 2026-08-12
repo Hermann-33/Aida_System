@@ -85,7 +85,7 @@ select order
  -> order detail / confirmation status
 ```
 
-The current local `PastOrder` list must stop being order truth once this integration lands. Historical product names/prices come from immutable backend snapshots, not current catalogue records.
+The removed local `PastOrder` list is no longer order truth. Historical product names/prices come from immutable backend snapshots, not current catalogue records.
 
 ## Realtime status
 
@@ -100,7 +100,7 @@ staff transition in dashboard
  -> confirmation/order detail renders persisted status
 ```
 
-The current fixed two-second timer in `OrderConfirmationScreen` must be removed. No frontend timer may manufacture Preparing/Ready state.
+The fixed two-second timer has been removed from `OrderConfirmationScreen`. No frontend timer may manufacture Preparing/Ready state.
 
 The UI may compute presentation-only labels such as "scheduled in 45 min" from timestamps, but persisted fulfilment status comes only from the backend.
 

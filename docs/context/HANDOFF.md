@@ -122,20 +122,22 @@ Performance advisor: only `unused_index` INFO after a forward migration added al
 
 Dashboard `server/orderBff.ts` passes isolated strict TypeScript 5.8.3 compilation under the repository server compiler rules. `server/orderBff.test.ts` adds contract coverage for publishable-key public policy reads, staff caller-JWT queue/quote/place, same-origin rejection, optimistic-conflict mapping, and admin-only policy writes.
 
-## Frontend work remaining
+## Frontend integration state
 
-### Customer Flutter
+### Customer Flutter — locally complete
 
-Replace the current local/mock order authority with ADR-0010:
+The customer now consumes ADR-0010:
 
-- call the authoritative quote before placement;
-- add ASAP / Schedule for later checkout UX from `get_ordering_policy()`;
-- generate/reuse a placement `clientRequestId` correctly;
-- call `place_customer_order()`;
-- replace random local order numbers and local-only `PastOrder` authority with backend snapshots/history;
-- replace the timer-driven confirmation timeline with persisted status;
-- subscribe to authorized `orders` Realtime changes and re-fetch the order;
-- display scheduled pickup and status using existing AIDA visual language.
+- authoritative quote runs before placement and supplies the rendered final total;
+- ASAP / Schedule-for-later reads `get_ordering_policy()` and derives timezone-aware slots;
+- placement reuses one `clientRequestId` across failed retries and resets it after success;
+- `place_customer_order()` returns the persisted snapshot that clears the cart;
+- backend snapshots replace random order numbers and local `PastOrder` authority;
+- confirmation/history/detail render persisted status with no client timer;
+- owner-scoped `orders` Realtime invalidates and re-fetches full snapshots;
+- existing AIDA visual language is retained with explicit `Pay at counter` copy.
+
+Flutter 3.44.9: pub get passed, analyze has zero issues, full suite passes 40/40. Live read-only verification found all five customer RPCs, `orders` in Realtime, FORCE RLS, anonymous placement denied, authenticated execution granted, 0 security lints, and 0 retained order rows.
 
 ### Dashboard React
 
@@ -168,7 +170,7 @@ For a local demo, the dashboard may run locally against the same Supabase projec
 
 ## Exact next task
 
-Continue `TASK-DEMO-ORDER-001` on the current shared branch with **frontend-only integration and full client validation**, then prove:
+Continue `TASK-DEMO-ORDER-001` in the dashboard repository with POS/order-board frontend integration. Once approved identities and configured deployments exist, prove:
 
 ```text
 customer quote + ASAP/scheduled placement

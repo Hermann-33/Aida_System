@@ -87,15 +87,21 @@ Employee endpoints validate the existing HttpOnly session and forward the caller
 - dashboard `server/orderBff.ts`: strict TypeScript 5.8.3 isolated compile passes under the repository server compiler settings;
 - dashboard BFF contract tests are added in `server/orderBff.test.ts` for caller-JWT routing, origin checks, conflict mapping and admin policy authority.
 
-## Frontend work deliberately not implemented here
+## Customer frontend integration validated
 
-Customer Flutter still has the old local checkout/order presentation until Codex integrates ADR-0010:
+Customer Flutter now integrates ADR-0010 without changing the shared catalogue/auth architecture:
 
-- random local order number;
-- local `PastOrder` storage;
-- fake payment-method choices;
-- confirmation timeline driven by a local timer;
-- no ASAP/scheduled pickup selector backed by server policy.
+- typed policy/quote/place/history/detail models and `OrderRepository`;
+- cart payloads contain selection IDs, quantity and note only;
+- checkout switches from a labelled local estimate to the authoritative server quote;
+- ASAP/scheduled pickup slots derive from server time, named timezone, lead, interval and horizon;
+- one placement UUID is retained across failed retries and replaced after success;
+- the cart clears only after a persisted order succeeds;
+- history/detail/confirmation render backend snapshots and all persisted statuses;
+- owner-scoped `orders` Realtime invalidates and re-fetches RPC snapshots;
+- fake payment choices and timer-driven status progression are removed from the active flow; payment presentation is explicitly `Pay at the counter`.
+
+Flutter 3.44.9 validation passes: `flutter pub get`, zero-issue `flutter analyze`, and 40/40 tests. Two Flutter 3.47-only golden differences were inspected (menu edge/shadow rasterization and membership-card placeholder edges; QR present). Matching-project Flutter 3.44.9 passes all reviewed baselines, so no golden was updated.
 
 Dashboard React still needs to connect its existing POS/order surfaces to the new order BFF and present the live scheduled/confirmed/preparing/ready queues and transitions. Preview cart/totals/payment logic must not become trusted authority.
 
@@ -120,4 +126,4 @@ It is stacked on each repository's `codex/task-auth-003-deployed-e2e` branch. Ex
 
 ## Exact next task
 
-Continue `TASK-DEMO-ORDER-001` on the same shared branch with **frontend integration only**: Flutter quote/schedule/place/history/Realtime status UI and dashboard POS quote/place/live order board/status controls. Preserve the established AIDA visual language rather than redesigning either product. Then run full client toolchains and the cross-client customer-place -> dashboard-status -> customer-Realtime E2E required by ADR-0004.
+Continue `TASK-DEMO-ORDER-001` in the dashboard repository with POS authoritative quote/place plus the live order board/status controls. Then, after approved customer and staff identities and configured deployments exist, run the cross-client customer-place -> dashboard-status -> customer-Realtime E2E required by ADR-0004. Do not create identities or deploy as part of this customer integration change.

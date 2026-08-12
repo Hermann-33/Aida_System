@@ -107,6 +107,8 @@ Catalogue clients re-fetch the full catalogue after revision change. Order clien
 
 `supabase/tests/order_integration.sql` passed transactionally against the live project and rolled back all synthetic users/orders.
 
+Customer frontend integration rechecked the live project read-only on 2026-08-13: all five customer RPCs exist; `orders` remains in `supabase_realtime`; FORCE RLS is active; anonymous placement execute is denied while authenticated execute is granted; security advisor remains 0 lints; all order tables remain empty. Performance advisor contains only unused-index INFO notices expected before real order/member traffic.
+
 It proved:
 
 - anonymous authoritative quote access;

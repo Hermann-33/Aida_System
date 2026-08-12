@@ -1,6 +1,7 @@
 import 'menu_item.dart';
 import 'menu_variant.dart';
 import 'money.dart';
+import 'order.dart';
 
 /// One configured line in the local preview cart.
 ///
@@ -47,12 +48,12 @@ class CartLineItem {
   }
 
   CartLineItem copyWith({int? quantity}) => CartLineItem(
-        item: item,
-        size: size,
-        addOnIds: addOnIds,
-        quantity: quantity ?? this.quantity,
-        note: note,
-      );
+    item: item,
+    size: size,
+    addOnIds: addOnIds,
+    quantity: quantity ?? this.quantity,
+    note: note,
+  );
 }
 
 class Cart {
@@ -71,6 +72,18 @@ class Cart {
     }
     return Money.fromSen(sen);
   }
+
+  List<OrderSelectionLine> toOrderSelection() => lineItems
+      .map(
+        (line) => OrderSelectionLine(
+          itemId: line.item.id,
+          variantId: line.size?.id,
+          addOnIds: List.unmodifiable(line.addOnIds),
+          quantity: line.quantity,
+          note: line.note,
+        ),
+      )
+      .toList(growable: false);
 }
 
 extension CartLineItemSummary on CartLineItem {

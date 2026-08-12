@@ -1,71 +1,27 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../application/providers.dart';
 import '../../core/theme/aida_colors.dart';
 import '../../core/theme/aida_type.dart';
+import '../../domain/model/order.dart';
 
-/// The four stages a real order actually goes through — payment, then
-/// creation, then two kitchen stages. Copy is written as the real, shipped
-/// experience — not flagged as a demo to the customer.
-const _stages = [
-  'Payment received',
-  'Order created',
-  'Kitchen is preparing your order',
-  'Ready for pickup',
-];
+const _stages = ['Confirmed', 'Preparing', 'Ready for pickup', 'Completed'];
 
-/// Shown after "Place Order." No backend exists to actually receive this
-/// order, and no staff/kitchen app exists yet to mark real stages complete
-/// (that's the separate Admin/POS app in the wider Aida System) — so this
-/// timeline advances itself on a fixed timer rather than a real status push.
-/// The fact that nothing real is behind it is a true statement about the
-/// current build, not something a real customer should ever read; that
-/// caveat lives here in code comments, not in the screen's text. See the
-/// cart design spec §2.
-///
-/// The cart is already empty by the time this screen shows — CartScreen
-/// clears it at the moment "Place Order" is tapped, not here, so the cart is
-/// correctly empty no matter how the customer navigates away from this
-/// screen (this button, or the device back gesture).
-class OrderConfirmationScreen extends StatefulWidget {
-  const OrderConfirmationScreen({super.key, required this.orderNumber});
+/// Shows persisted backend status. Realtime only invalidates [orderProvider];
+/// this screen never advances an order on a client timer.
+class OrderConfirmationScreen extends ConsumerWidget {
+  const OrderConfirmationScreen({super.key, required this.order});
 
-  final String orderNumber;
+  final OrderSnapshot order;
 
   @override
-  State<OrderConfirmationScreen> createState() =>
-      _OrderConfirmationScreenState();
-}
-
-class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
-  // Payment has already happened by the time this screen appears, so the
-  // timeline opens with that stage already complete and "Order created" as
-  // the active one — not at zero.
-  int _activeStage = 1;
-  Timer? _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 2), (timer) {
-      if (_activeStage >= _stages.length - 1) {
-        timer.cancel();
-        return;
-      }
-      setState(() => _activeStage++);
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final ready = _activeStage == _stages.length - 1;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final current = ref.watch(orderProvider(order.id)).value ?? order;
+    final activeStage = _stageIndex(current.status);
+    final cancelled = current.status == OrderStatus.cancelled;
+    final ready = current.status == OrderStatus.ready;
+    final completed = current.status == OrderStatus.completed;
 
     return Scaffold(
       backgroundColor: AidaColors.cream,
@@ -90,27 +46,41 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                   ),
                 ),
                 child: Icon(
-                  ready ? Icons.local_cafe_rounded : Icons.coffee_maker_rounded,
+                  cancelled
+                      ? Icons.close_rounded
+                      : ready
+                      ? Icons.local_cafe_rounded
+                      : Icons.coffee_maker_rounded,
                   size: 60,
                   color: AidaColors.coffee.withValues(alpha: 0.55),
                 ),
               ),
               const SizedBox(height: 28),
               Text(
-                ready ? 'Order ready!' : 'Preparing your order',
+                cancelled
+                    ? 'Order cancelled'
+                    : completed
+                    ? 'Order completed'
+                    : ready
+                    ? 'Order ready!'
+                    : current.status == OrderStatus.scheduled
+                    ? 'Pickup scheduled'
+                    : 'Order confirmed',
                 style: AidaType.serif(size: 24, color: AidaColors.textPrimary),
               ),
               const SizedBox(height: 6),
               Text(
-                ready
-                    ? 'Head to the counter — order #${widget.orderNumber} is waiting for you.'
-                    : 'Hang tight, this only takes a moment.',
+                cancelled
+                    ? 'This order will not be prepared.'
+                    : ready
+                    ? 'Head to the counter — order ${current.orderNumber} is waiting for you.'
+                    : 'Pay at the counter when you collect your order.',
                 textAlign: TextAlign.center,
                 style: AidaType.sans(size: 13.5, color: AidaColors.textMuted),
               ),
               const SizedBox(height: 8),
               Text(
-                'Order #${widget.orderNumber}',
+                'Order ${current.orderNumber}',
                 style: AidaType.sans(
                   size: 12,
                   weight: FontWeight.w700,
@@ -118,25 +88,26 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                 ),
               ),
               const SizedBox(height: 32),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    for (var i = 0; i < _stages.length; i++)
-                      _TimelineStep(
-                        label: _stages[i],
-                        state:
-                            i < _activeStage
-                                ? _StepState.done
-                                : i == _activeStage
-                                ? _StepState.active
-                                : _StepState.pending,
-                        isLast: i == _stages.length - 1,
-                      ),
-                  ],
+              if (!cancelled)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (var i = 0; i < _stages.length; i++)
+                        _TimelineStep(
+                          label: _stages[i],
+                          state:
+                              i < activeStage
+                                  ? _StepState.done
+                                  : i == activeStage
+                                  ? _StepState.active
+                                  : _StepState.pending,
+                          isLast: i == _stages.length - 1,
+                        ),
+                    ],
+                  ),
                 ),
-              ),
               const Spacer(),
               SizedBox(
                 width: double.infinity,
@@ -165,6 +136,14 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
   }
 }
 
+int _stageIndex(OrderStatus status) => switch (status) {
+  OrderStatus.confirmed || OrderStatus.scheduled => 0,
+  OrderStatus.preparing => 1,
+  OrderStatus.ready => 2,
+  OrderStatus.completed => 3,
+  OrderStatus.cancelled => 0,
+};
+
 enum _StepState { done, active, pending }
 
 class _TimelineStep extends StatelessWidget {
@@ -182,7 +161,6 @@ class _TimelineStep extends StatelessWidget {
   Widget build(BuildContext context) {
     final dotColor =
         state == _StepState.pending ? AidaColors.latte : AidaColors.coffee;
-
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,

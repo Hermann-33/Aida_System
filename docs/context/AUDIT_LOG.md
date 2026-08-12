@@ -1,5 +1,17 @@
 # Audit Log
 
+## 2026-08-13 — TASK-DEMO-ORDER-001 — Customer Flutter integration
+
+**Verdict:** PARTIAL under ADR-0004; customer local integration is complete, but dashboard frontend and deployed real-identity cross-client E2E remain.
+
+Integrated the live order/scheduling contract into Flutter on `codex/task-demo-order-001-order-scheduling-backend`. Added typed policy/selection/quote/snapshot/status models; Supabase RPC and owner-scoped Realtime repository boundaries; timezone-aware server-policy slots; retry-stable placement UUIDs; authoritative quote-before-place; clear-on-success/retain-on-failure cart behavior; real history/detail; and persisted status presentation without client timers. The active flow uses only `Pay at counter` and sends no trusted prices, totals, identity, order number or status.
+
+Flutter 3.44.9 `pub get` and zero-issue `analyze` pass; full suite passes 40/40. Focused tests cover policy/quote mapping, trusted ASAP/scheduled serialization, server total use, lead/interval/horizon slots, idempotency reuse/new intent, cart clear/retain, all persisted statuses and Realtime-triggered refetch. Flutter 3.47 produced two toolchain-only golden diffs; actual/diff images were reviewed, all menu/QR content was correct, and matching-project 3.44.9 passed without updating baselines.
+
+Read-only live evidence: project healthy; exact two order migrations present; 14 expected RLS-enabled public tables; order tables empty; five customer RPCs present; `orders` published to Realtime; FORCE RLS active; anon placement execute denied; authenticated execute granted; security advisor 0 lints. Performance advisor has unused-index INFO only on the empty/new dataset. No schema/data mutation or SQL regression rerun was necessary because backend state was unchanged. Production scans found no service-role/secret credential marker.
+
+No approved customer/staff identity or configured public client key is available in this runtime, and this task was explicitly forbidden from creating identities/deploying. Therefore authenticated live placement and customer-place -> dashboard-transition -> Flutter-Realtime visible update remain unproven.
+
 ## 2026-08-13 — TASK-DEMO-ORDER-001 — Authoritative ordering and scheduled pickup backend
 
 **Verdict:** PARTIAL for the end-user feature under ADR-0004; shared backend scope implemented and live-validated, frontend intentionally deferred to Codex.

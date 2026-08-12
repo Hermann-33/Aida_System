@@ -8,10 +8,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// openItemDetail is shared by Home's grid and Menu's list — verify tapping
-/// an item actually navigates and shows that item's own data, and that the
-/// back button actually returns, rather than trusting the wiring by eye.
+import '../support/test_catalogue_repository.dart';
+
 const _fast = MockMemberRepository(latency: Duration.zero);
+const _catalogue = TestCatalogueRepository();
 
 void main() {
   const item = MenuItem(
@@ -22,7 +22,6 @@ void main() {
     price: Money.fromSen(1290),
     isAvailable: true,
     isStudentEligible: true,
-    bonusPoints: 25,
   );
 
   testWidgets('tapping the card opens detail with the right item, and back returns', (
@@ -30,7 +29,10 @@ void main() {
   ) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [memberRepositoryProvider.overrideWithValue(_fast)],
+        overrides: [
+          memberRepositoryProvider.overrideWithValue(_fast),
+          catalogueRepositoryProvider.overrideWithValue(_catalogue),
+        ],
         child: MaterialApp(
           home: Scaffold(
             body: PopularItemCard(
@@ -51,12 +53,8 @@ void main() {
     expect(find.text('Salted Caramel Latte'), findsOneWidget);
     expect(find.text('RM 12.90'), findsOneWidget);
     expect(find.text('Student offer eligible'), findsOneWidget);
-    expect(find.text('+25 pts'), findsOneWidget);
+    expect(find.textContaining('pts'), findsNothing);
 
-    // The back button is inside the hero, part of the scrollable content —
-    // Size/Add-ons pushed it potentially out of the initial viewport since
-    // this screen grew a real ordering flow. ensureVisible rather than
-    // trust an on-screen tap.
     await tester.ensureVisible(find.byIcon(Icons.arrow_back_rounded));
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.arrow_back_rounded));
@@ -77,7 +75,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [memberRepositoryProvider.overrideWithValue(_fast)],
+        overrides: [
+          memberRepositoryProvider.overrideWithValue(_fast),
+          catalogueRepositoryProvider.overrideWithValue(_catalogue),
+        ],
         child: const MaterialApp(home: ItemDetailScreen(item: soldOut)),
       ),
     );

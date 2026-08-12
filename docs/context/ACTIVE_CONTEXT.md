@@ -1,7 +1,8 @@
 # Active Context
 
 **As of:** 2026-08-12
-**Setup status:** COMPLETE on task branches; merge stack pending
+**Setup status:** COMPLETE and merged to default branches
+**Current implementation task:** none
 **Next implementation task:** `TASK-DB-002 — shared menu/catalogue foundation`
 
 ## Project topology
@@ -30,13 +31,15 @@
 
 Both frontends are consumers of one backend contract. Neither frontend is authoritative for identity, roles, branch scope, member verification, catalogue pricing, order/payment state, loyalty, inventory, reporting, audit or other trusted business outcomes.
 
-## Completed setup tasks
+## Completed and integrated setup tasks
 
 - `TASK-WF-001` — customer frontend audit and repository governance baseline.
 - `TASK-DB-001` — version-controlled Supabase identity/membership foundation.
 - `TASK-WF-002` — POS/Admin dashboard source import and audit.
 - `TASK-WF-003` — synchronized dual-repository context, ADRs, security review, shared backend contract, workflow and handoff.
-- `TASK-WF-003` closeout — permanent `SESSION_BOOTSTRAP.md` added so new chats can recover project context from repository truth.
+- `TASK-WF-004` — post-merge setup finalization and durable new-session bootstrap.
+
+The setup/governance phase is closed. Future work starts from `master` in the customer repo and `main` in the dashboard repo, using new bounded task branches.
 
 ## Supabase implementation reality
 
@@ -72,16 +75,16 @@ Repository-local screenshots, old design specs, generated evidence and import/au
 
 `docs/context/SESSION_BOOTSTRAP.md` contains the permanent new-chat prompt.
 
-## Open PR stack
+## Setup merge record
 
-Merge in this dependency order:
+The setup stack was merged in dependency order:
 
-1. Dashboard PR #1 — `TASK-WF-002` dashboard import -> `main`.
-2. Customer PR #2 — `TASK-DB-001` Supabase foundation -> `master`.
-3. Customer PR #3 — `TASK-WF-003` synchronized project docs, stacked on DB-001.
-4. Dashboard PR #2 — `TASK-WF-003` synchronized project docs, stacked on WF-002.
+1. Dashboard PR #1 — `TASK-WF-002` import — merged to `main`.
+2. Customer PR #2 — `TASK-DB-001` foundation — merged to `master`.
+3. Customer PR #3 — `TASK-WF-003` synchronized docs — merged to `master`.
+4. Dashboard PR #2 — `TASK-WF-003` synchronized docs — merged to `main`.
 
-After predecessor merges, retarget/rebase the stacked WF-003 PRs if GitHub does not resolve the base automatically. Future implementation work should branch from the updated default branches only after this stack is integrated.
+`TASK-WF-004` exists only to remove the now-stale “merge pending” wording and finalize the default-branch handoff.
 
 ## Verification baselines
 
@@ -113,6 +116,6 @@ Dashboard import baseline:
 - Account deletion/anonymization and retention.
 - Production reporting/business-day semantics and marketing approval workflow.
 
-## Next action after setup merge
+## Next action
 
-Start `TASK-DB-002: shared menu/catalogue foundation` only after reading both customer and dashboard backend-integration docs and the shared backend contract. Do not mechanically map either preview fixture model into database tables, and do not wire either frontend in that schema-foundation task unless its scope is explicitly expanded.
+Start `TASK-DB-002: shared menu/catalogue foundation` from fresh task branches based on the updated default branches. Read both customer and dashboard backend-integration docs plus the shared backend contract before designing SQL. Do not mechanically map either preview fixture model into database tables, and do not wire either frontend unless that task is explicitly expanded.

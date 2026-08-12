@@ -4,47 +4,180 @@ Updated: 2026-08-13
 
 ## Current task
 
-`TASK-AUTH-003 — deployed/device customer Auth and catalogue cross-client E2E`.
+`TASK-DEMO-ORDER-001 — live ordering, scheduled pickup, POS queue, and Realtime fulfilment`
 
-**Verdict:** PARTIAL under ADR-0004.
+**Overall verdict:** PARTIAL under ADR-0004 because the shared backend is implemented/validated but the Flutter and React integrations are intentionally left for the next Codex frontend pass.
 
-Customer branch: `codex/task-auth-003-deployed-e2e`, stacked on `codex/task-menu-001-shared-catalogue` / draft PR #7, which remains stacked on #6 and #5.
+Shared branch in both repositories:
 
-## Completed validation and fixes
+`codex/task-demo-order-001-order-scheduling-backend`
 
-- Ran `flutter pub get`; committed source had a stale lockfile that did not resolve the added `supabase_flutter` dependency, so the lockfile is now regenerated from the pinned `2.15.4` constraint.
-- `flutter analyze` passes with no issues.
-- `flutter test` passes all 32 tests after deliberate review of the four prior golden failures.
-- Added the ADR-0003-required durable, user-scoped minimum offline member-code cache and tests. Logout/user switch removes the old user's entry; roles, verification, loyalty and pricing are not cached.
-- Added a focused provider regression proving a catalogue revision event triggers a second authoritative snapshot fetch.
-- Repaired the explicit test-only catalogue fixture so menu/golden tests represent all 4 categories and 16 seeded items rather than one product and one add-on.
-- Proved `item_size.dart` is absent and production Dart has no `ItemSize` reference, migrated menu fixture, seeded catalogue price literal, or static S/M/L price-delta definition.
-- Verified source wiring from Supabase `get_catalogue()` through `SupabaseCatalogueRepository` into categories/items/variants/compatible add-ons and UI providers.
-- Ran the canonical Auth/member and catalogue SQL regressions verbatim against Supabase; both passed inside rollback transactions.
-- Independently verified cleanup: no synthetic users, regression category/item, or regression audit row remains.
-- Verified live anonymous catalogue shape: 4 categories, 16 items, 27 variants, 27 compatible add-on links, required Flutter contract fields present.
-- Verified revision 1 and exactly one `catalogue_revision` entry in `supabase_realtime`.
-- Security advisor: 0 lints. Performance advisor: six unused-index INFO notices only.
-- Reconciled all eight current live migration statements to the canonical files. Names and SQL semantics match; only applied timestamp prefixes and non-semantic comments/formatting differ, so no schema mutation or manufactured migration is needed.
-- Reconciled the customer mirror to dashboard commit `238e0ff211fe550f42ec4d4423724e3642282295`: lint/typecheck/85 tests/build pass, Playwright 6/6 passes, Admin and POS browse the shared catalogue, preview catalogue fallbacks are absent at runtime, BFF contract/security checks pass, and the dashboard security advisor has 0 lints.
+The branch is stacked on each repository's `codex/task-auth-003-deployed-e2e` branch. Do not alter default branches or merge this stack out of order.
 
-## Remaining blockers
+## Backend implemented
 
-- Flutter 3.44.7 release web starts successfully against live public Supabase configuration and renders the real sign-in UI. Chrome, Edge, and Windows desktop are available; there is no Android emulator/physical device.
-- Live Supabase has 0 Auth users, 0 profiles, 0 members, and no customer/admin/owner identity. No approved credentials or mailbox were supplied, so Auth lifecycle and password-reset completion remain blocked.
-- Neither GitHub repository has a deployment and the dashboard has no AUTH-003 branch/evidence or deployed URL. Cross-client Admin mutation -> revision -> Flutter Realtime -> UI -> restore therefore remains blocked.
-- Baseline evidence: revision 1; SKU `CF-SCL`; item `4287b72b-5c01-4c98-8f7b-2e4babfb1cd4`; base price 1290 sen; available and published. No mutation was performed.
-- Anonymous catalogue/admin RPC probes failed closed with HTTP 404. No service-role/secret marker exists in Flutter source/config or its release web build. Customer-session negative checks require the missing approved customer identity.
-- Dashboard preview checkout, totals, orders and payments remain untrusted and must not be treated as authoritative because catalogue browsing is shared.
+### Supabase
 
-## Git and PR state
+Live project: `eswovqxqzfevcdwwcmuh`.
 
-- No default branch was changed.
-- No migration, deployment, real-user creation, or RLS change was performed during this closeout.
-- Customer branch: `codex/task-auth-003-deployed-e2e`, stacked on #7. Existing stack remains #5 `AUTH-001` -> #6 `AUTH-002` -> #7 `TASK-MENU-001` -> TASK-AUTH-003.
+Canonical customer-repo migrations:
+
+- `20260812182212_create_authoritative_orders_and_scheduling.sql`
+- `20260812183029_index_order_foreign_keys.sql`
+
+They create and secure:
+
+- `order_schedule_settings`
+- `orders`
+- `order_lines`
+- `order_line_addons`
+- `order_events`
+
+Public order RPCs:
+
+- `get_ordering_policy()`
+- `quote_order(jsonb)`
+- `place_customer_order(jsonb)`
+- `place_pos_order(jsonb)`
+- `get_order(uuid)`
+- `get_my_orders(integer)`
+- `list_orders(text[], integer)`
+- `transition_order_status(uuid,text,bigint,text)`
+- `save_ordering_policy(jsonb)`
+
+Clients submit IDs/quantities/notes/fulfilment intent only. The backend validates the current shared catalogue and owns price, totals, order IDs/numbers, trusted identity, status and schedule acceptance. Historical line/add-on commercial data is persisted as immutable snapshots.
+
+Placement requires a `clientRequestId` UUID. Identical retries return the same order; using the same key for different content fails.
+
+### Scheduling
+
+Current server policy:
+
+- timezone `Asia/Kuala_Lumpur`
+- enabled
+- minimum lead 15 minutes
+- slot interval 15 minutes
+- maximum advance 7 days
+
+Branch-hours/closures/capacity are not yet authoritative and therefore are not enforced or claimed by this task.
+
+### Fulfilment / Realtime
+
+Statuses:
+
+`confirmed`, `scheduled`, `preparing`, `ready`, `completed`, `cancelled`.
+
+Legal staff transitions:
+
+```text
+confirmed -> preparing | cancelled
+scheduled -> preparing | cancelled
+preparing -> ready | cancelled
+ready -> completed
+```
+
+Transitions use expected `statusVersion` concurrency and append `order_events` evidence.
+
+`orders` is published to Supabase Realtime alongside the existing `catalogue_revision`. Clients re-fetch an authorized full snapshot after an order-header change.
+
+### Dashboard server/BFF
+
+No React UI was changed.
+
+New server endpoints:
+
+- `GET /api/v1/orders/policy`
+- `GET /api/v1/orders`
+- `GET /api/v1/orders/detail?id=<uuid>`
+- `POST /api/v1/orders/quote`
+- `POST /api/v1/orders/place`
+- `POST /api/v1/orders/status`
+- `POST /api/v1/admin/orders/policy`
+
+Privileged calls use the existing HttpOnly employee session, same-origin POSTs, the publishable Supabase project key, and the caller JWT. No service-role credential or employee token is exposed to browser JavaScript.
+
+## Backend validation evidence
+
+Canonical `supabase/tests/order_integration.sql` passed transactionally against the live project.
+
+Proved:
+
+- forged client price/total values are ignored;
+- `2 × Salted Caramel Latte / Medium / Oat Milk` resolves from live catalogue truth to 3080 sen;
+- incompatible add-ons and invalid past schedules fail;
+- customer scheduled placement persists trusted immutable snapshots;
+- same `clientRequestId` retry does not duplicate;
+- changed payload with reused idempotency key fails;
+- customer history is owner-scoped;
+- customer direct order DML and status transition fail;
+- staff sees queue and can create a guest POS order;
+- `scheduled -> preparing -> ready -> completed` works;
+- stale status versions and illegal terminal transitions fail;
+- staff cannot update scheduling policy; admin can;
+- regression rollback leaves zero synthetic identities/orders/events.
+
+Supabase security advisor: **0 lints**.
+
+Performance advisor: only `unused_index` INFO after a forward migration added all missing foreign-key covering indexes.
+
+Dashboard `server/orderBff.ts` passes isolated strict TypeScript 5.8.3 compilation under the repository server compiler rules. `server/orderBff.test.ts` adds contract coverage for publishable-key public policy reads, staff caller-JWT queue/quote/place, same-origin rejection, optimistic-conflict mapping, and admin-only policy writes.
+
+## Frontend work remaining
+
+### Customer Flutter
+
+Replace the current local/mock order authority with ADR-0010:
+
+- call the authoritative quote before placement;
+- add ASAP / Schedule for later checkout UX from `get_ordering_policy()`;
+- generate/reuse a placement `clientRequestId` correctly;
+- call `place_customer_order()`;
+- replace random local order numbers and local-only `PastOrder` authority with backend snapshots/history;
+- replace the timer-driven confirmation timeline with persisted status;
+- subscribe to authorized `orders` Realtime changes and re-fetch the order;
+- display scheduled pickup and status using existing AIDA visual language.
+
+### Dashboard React
+
+Keep preview POS cart editing only as selection state, but make quote/place totals and persisted orders authoritative through the BFF:
+
+- quote current cart through `/api/v1/orders/quote`;
+- place ASAP or scheduled POS orders through `/api/v1/orders/place`;
+- add the live staff order board/queue using `/api/v1/orders`;
+- visually distinguish Scheduled / Confirmed / Preparing / Ready;
+- transition statuses through `/api/v1/orders/status` with `expectedVersion`;
+- refresh/refetch on order Realtime changes or a safe query invalidation strategy;
+- preserve existing AIDA dashboard components/tokens/layout conventions.
+
+No real payment processor exists. Frontend must use an explicit `Pay at counter`/unpaid demo path and must remove or disable copy that falsely implies Card/E-wallet/Student Wallet was processed.
+
+## Required frontend sources
+
+In both repos read normal governance docs first, then:
+
+- `docs/decisions/ADR-0010-authoritative-ordering-and-scheduled-fulfilment.md`
+- `docs/contracts/ORDER_AND_SCHEDULING_CONTRACT.md`
+
+Do not re-design the backend contract in frontend work unless actual repository/live evidence shows a defect.
+
+## Existing external validation debt
+
+TASK-AUTH-003 remains PARTIAL because the Vercel preview lacks its two publishable Supabase environment variables and the live project has zero approved real customer/staff/admin identities. Those operator gates will still be needed for a real-identity deployed E2E.
+
+For a local demo, the dashboard may run locally against the same Supabase project once an approved staff/admin identity exists; the customer app/device can independently use the same cloud project.
 
 ## Exact next task
 
-Resume `TASK-AUTH-003`: provision/approve a real customer mailbox identity and trusted admin/owner identity, deploy the dashboard AUTH-003 stack, provide the deployed URL/credentials securely, then run the required lifecycle and cross-client mutation/revision/UI/restore observation without restarting Flutter.
+Continue `TASK-DEMO-ORDER-001` on the current shared branch with **frontend-only integration and full client validation**, then prove:
 
-Do not begin `TASK-ORDER-001` release work until these validation debts are explicitly accepted or closed.
+```text
+customer quote + ASAP/scheduled placement
+-> persisted order
+-> dashboard queue
+-> staff Preparing/Ready/Completed transition
+-> running customer app Realtime event
+-> authorized re-fetch
+-> visible status update without a fake timer
+```
+
+Do not begin payment, loyalty, inventory or analytics authority until this trusted order flow is integrated.

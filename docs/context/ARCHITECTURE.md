@@ -6,81 +6,59 @@ Updated: 2026-08-12
 
 ```mermaid
 flowchart LR
-    C[Customer Flutter app\nHermann-33/Aida_System] -->|customer intent / reads| B[Shared Supabase / trusted operations]
-    D[POS + Admin React app\nHermann-33/Aida_System-Dashboard] -->|staff/admin operations / reads| B
-    B --> A[Supabase Auth]
-    B --> P[(Postgres + RLS)]
-    B --> S[Storage - future]
-    B --> R[Realtime / controlled RPC or Edge Functions - as required]
+    C[Customer Flutter app] -->|Supabase Auth + owner-scoped reads| S[Shared Supabase]
+    D[POS/Admin React browser] -->|same-origin cookie HTTP| F[Dashboard BFF]
+    F -->|caller JWT / publishable key| S
+    S --> A[Supabase Auth]
+    S --> P[(Postgres + forced RLS)]
 ```
 
-The clients are separate deployables but one product. No client is authoritative for money, identity, authorization or operational state.
+Both frontends are one product over one trusted Supabase backend. Browser/client state is never authority for identity, roles, member identity or other trusted business outcomes.
 
 ## Customer runtime
 
-- Flutter/Dart, Material 3, Riverpod.
-- Android, iOS and web source.
-- `AuthGate`, five-tab `IndexedStack`, imperative `Navigator` detail routes.
-- `MemberRepository` abstraction bound only to `MockMemberRepository` today.
-- Client/session simulation for authentication, profile edits, favourites, cart, checkout/order tracking and history.
+- Flutter/Dart/Riverpod.
+- TASK-AUTH-001 wires Supabase Auth and owner-scoped profile/member reads.
+- Signup intent includes only display name/student declaration; backend owns role, verification state and member code.
+- Other domains remain mock/preview until their own backend tasks.
 
 ## Dashboard runtime
 
-- React 19, TypeScript 6, Vite 8, Tailwind CSS 4.
-- React Router with employee, POS and admin layouts.
-- React component/module state, preview fixtures and session storage.
-- TanStack Query provider exists but live queries/mutations are not yet the data layer.
-- Preview/non-preview auth and terminal adapters anticipate same-origin HTTP APIs and HttpOnly credentials; production API behavior is not yet implemented against the shared Supabase system.
+- React/TypeScript/Vite.
+- Browser employee session client sends same-origin requests with `credentials: include`; it does not persist privileged bearer tokens.
+- TASK-AUTH-002 adds `server/employeeBff.ts` plus `/api/v1/auth/employee/*` and `/api/v1/admin/members` adapters.
+- BFF tokens live in HttpOnly cookies. The BFF revalidates Auth identity and trusted `user_profiles` state for every session/member capability.
+- Admin browser login is independent from POS terminal enrolment.
+- The same BFF core is mounted in Vite dev/preview; production/serverless adapters remain thin.
 
 ## Shared backend foundation
 
-Supabase Auth is the intended identity source. Current Postgres foundation:
+- `public.user_profiles`: trusted profile/application role and disabled state.
+- `public.members`: server-owned membership identity/member code.
+- `public.student_verifications`: declaration/review workflow.
+- private role helpers, Auth provisioning trigger, forced RLS.
+- `public.list_admin_members()`: authenticated, admin/owner checked, `SECURITY INVOKER` member-directory capability.
 
-- `public.user_profiles`: trusted profile/application role record.
-- `public.members`: server-owned membership identity and stable member code.
-- `public.student_verifications`: declaration and trusted review workflow.
-- private role helpers for RLS.
-- auth trigger provisions profile/member rows.
-
-All exposed foundation tables have forced RLS.
-
-## Canonical database ownership
-
-Until superseded by ADR, version-controlled migrations live in `Hermann-33/Aida_System/supabase/`. The dashboard repository consumes the resulting shared contract but does not maintain a duplicate migration chain.
-
-Database tasks may require coordinated client-contract analysis in both repos even when SQL changes are committed only to the migration-owning repo.
-
-## Authoritative ownership
+## Authority
 
 | Domain | Authority |
 |---|---|
-| Auth identity/session | Supabase Auth / trusted session boundary |
-| Customer profile/app role | `user_profiles` foundation; future controlled role operations |
-| Member code / verification | `members` + `student_verifications` |
-| Branches, terminals, employees | Future shared backend |
-| Catalogue/prices/modifiers | Future shared backend |
-| Quote/totals/discounts | Future controlled server operation |
-| Orders/status/receipt facts | Future shared persistence + controlled transitions |
-| Payments/refunds | Approved provider/device + trusted server record |
-| Loyalty/rewards/vouchers | Future auditable ledger and atomic operations |
-| Inventory | Future stock ledger/operations |
-| Marketing/reporting/audit | Future trusted publication/aggregate/audit boundaries |
+| Customer identity/session | Supabase Auth + customer client session |
+| Employee/admin identity | Supabase Auth + trusted `user_profiles` |
+| Dashboard browser session transport | same-origin BFF + HttpOnly cookies |
+| Member identity/code/status | Supabase `members` / verification records |
+| Admin member directory | BFF with caller JWT -> `list_admin_members()` |
+| Terminal identity | separate future terminal credential boundary |
+| Catalogue/orders/payments/loyalty/inventory/reporting | future shared-backend tasks |
 
-## Cross-client contract rule
+## Security invariants
 
-Stable IDs and lifecycle enums are backend contracts, not UI implementation details. Customer and dashboard adapters must map to the same contract and be updated together when a breaking contract changes.
+- No Supabase service-role key, database secret, employee password/PIN or long-lived privileged bearer token enters a frontend bundle.
+- Dashboard route guards are usability controls; BFF authorization and Supabase RLS/function checks are authoritative.
+- Caller JWT, not service-role bypass, is used for admin member reads.
+- State-changing cookie endpoints require same origin and authenticated data is not cached.
+- Terminal credentials do not authenticate an administrator.
 
-Examples: member code, branch/sales-point ID, menu item/variant/modifier ID, quote/order ID, order status, payment status/reference, reward/voucher ID and status, employee role, terminal ID and inventory location.
+## Deployment
 
-## Security architecture
-
-- Customer and dashboard browsers/apps are untrusted.
-- Staff/admin UI guards are usability controls only; RLS/server authorization remains mandatory.
-- Branch scoping and global-manager privileges must be verified server-side.
-- Terminal enrolment/credentials and manager approval require trusted credential lifecycle and audit.
-- Service-role keys never enter Flutter or browser bundles.
-- Privileged business operations should use controlled RPC/Edge Function/server boundaries when direct table mutation cannot safely express authorization, atomicity or idempotency.
-
-## Deferred architecture
-
-Catalogue/storage, branch/terminal/employee schema, quote/order/payment model, loyalty ledger, inventory, marketing, reporting, realtime subscriptions, notification delivery, production offline sync, observability, backups and deployment runbooks remain future bounded decisions/tasks.
+`vercel.json` and root `/api` adapters provide one supported same-origin serverless shape; hosting is not backend authority. A live AIDA deployment is still required before full-stack auth/member completion can be proven.

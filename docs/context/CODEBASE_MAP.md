@@ -2,62 +2,52 @@
 
 Updated: 2026-08-12
 
-## Customer repository — `Hermann-33/Aida_System`
+## Customer — `Hermann-33/Aida_System`
 
 - `apps/customer/`: Flutter customer app.
-- `apps/customer/lib/features/auth/login_screen.dart`: real Supabase email/password sign-up/sign-in UI path on TASK-AUTH-001 branch.
-- `apps/customer/lib/application/providers.dart`: Riverpod bindings; auth state now follows Supabase session on TASK-AUTH-001 branch.
-- `apps/customer/lib/data/repository/supabase_member_repository.dart`: real auth/session/member adapter; delegates only not-yet-integrated feature families to preview repository.
-- `apps/customer/lib/data/repository/mock_member_repository.dart`: still preview authority for catalogue/loyalty/promotions and other domains not covered by TASK-AUTH-001; no longer auth/member authority on the task branch.
-- `apps/customer/lib/domain/`: models and `MemberRepository` port.
-- `apps/customer/test/`: domain/widget/golden tests.
-- `supabase/`: canonical Supabase config, migrations and SQL checks.
+- `apps/customer/lib/application/providers.dart`: Riverpod state/session bindings.
+- `apps/customer/lib/data/repository/supabase_member_repository.dart`: live Auth/profile/member adapter.
+- `apps/customer/lib/data/repository/mock_member_repository.dart`: remaining non-auth preview domains.
+- `supabase/`: canonical migrations/tests.
+- `docs/`: mirrored project context, frontend/dashboard context, contracts, security and ADRs.
 
-TASK-AUTH-001 migrations/tests:
+## Dashboard — `Hermann-33/Aida_System-Dashboard`
 
-- `supabase/migrations/20260812191500_integrate_customer_auth_member_directory.sql`
-- `supabase/migrations/20260812192500_fix_signup_member_code_generation.sql`
-- `supabase/migrations/20260812195500_make_admin_member_directory_security_invoker.sql`
-- `supabase/tests/auth_membership_integration.sql`
+Client:
 
-## Dashboard repository — `Hermann-33/Aida_System-Dashboard`
+- `src/auth/employeeSession.ts`: cookie-only employee session client.
+- `src/auth/ProtectedRoute.tsx`: UI route gating; admin unauthenticated path goes to `/admin/login`.
+- `src/pages/AdminLoginPage.tsx`: terminal-independent administrator password login.
+- `src/features/admin/memberDirectory.ts`: live same-origin member-directory client with no fixture fallback.
+- `src/features/admin/AdminMembersLoyaltyReportPage.tsx`: trusted member directory rendering; loyalty activity remains separately preview-marked.
 
-- `src/auth/`: employee/session boundaries; production same-origin HttpOnly session contract exists conceptually but server runtime is not implemented.
-- `src/features/admin/AdminMembersLoyaltyReportPage.tsx`: Members tab now renders backend-shaped member data and no longer imports `PREVIEW_MEMBERS`; Rewards Activity remains preview-only.
-- `src/features/admin/memberDirectory.ts`: same-origin `GET /api/v1/admin/members` client with `credentials: include`; no fixture fallback.
-- `src/features/admin/memberDirectory.test.ts`: adapter contract/error/authorization tests.
-- `src/preview/`: remaining preview fixtures/repositories for unintegrated domains.
-- `e2e/`: preview and API-backed suites.
+Server/BFF:
 
-## Shared backend ownership
+- `server/employeeBff.ts`: Supabase Auth session, refresh/logout, role/disabled validation and admin member RPC.
+- `server/employeeBff.test.ts`: server security/authorization tests.
+- `server/viteBffPlugin.ts`: mounts the same handlers in Vite dev/preview.
+- `api/v1/auth/employee/{login,session,logout}.ts`: same-origin deployment adapters.
+- `api/v1/admin/members.ts`: admin member-directory deployment adapter.
+- `tsconfig.server.json`: server/API typecheck scope.
+- `vercel.json`: Vite SPA rewrite for supported same-origin serverless hosting.
 
-Canonical migrations remain only in the customer repository's `supabase/` workspace. Do not create dashboard-local migration history without a superseding ADR.
-
-## Standard checks
+## Checks
 
 Customer:
 
-```bash
+```powershell
 cd apps/customer
-flutter pub get
 flutter analyze
 flutter test
 ```
 
 Dashboard:
 
-```bash
+```powershell
 npm run lint
 npm run typecheck
 npm test
 npm run build
 ```
 
-Supabase:
-
-```bash
-supabase db reset
-supabase db lint
-```
-
-Live remote checks are supplemental; local reset/lint remains required before a database task is considered release-ready.
+The TASK-AUTH-002 GitHub Actions attempt did not run any command because GitHub blocked runner allocation for account billing/spending limits. Do not record that as a code-test failure.

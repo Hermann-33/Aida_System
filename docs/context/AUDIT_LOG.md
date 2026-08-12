@@ -4,7 +4,7 @@
 
 **Verdict:** COMPLETE for audit/documentation; product remained prototype.
 
-Flutter customer app audited with `MockMemberRepository`, local/mock auth/cart/orders/loyalty and the recorded analyzer/test baseline.
+Flutter customer app audited with mock/local auth/cart/orders/loyalty and the recorded analyzer/test baseline.
 
 ---
 
@@ -12,7 +12,7 @@ Flutter customer app audited with `MockMemberRepository`, local/mock auth/cart/o
 
 **Verdict:** COMPLETE for scoped database foundation.
 
-Created and remotely applied `user_profiles`, `members`, `student_verifications`, enums, auth provisioning and forced RLS. Public role-helper exposure and RLS performance warnings were hardened. Security advisor ended at 0 lints.
+Created and remotely applied `user_profiles`, `members`, `student_verifications`, enums, Auth provisioning and forced RLS. Security hardening ended with 0 security-advisor lints.
 
 ---
 
@@ -20,7 +20,7 @@ Created and remotely applied `user_profiles`, `members`, `student_verifications`
 
 **Verdict:** COMPLETE.
 
-Imported and audited the React/TypeScript/Vite POS/Admin source. Dashboard business outcomes remained fixture/local/session preview data.
+Imported and audited the React/TypeScript/Vite POS/Admin source. Business outcomes remained preview/local at that point.
 
 ---
 
@@ -44,32 +44,33 @@ Finalized setup wording after the governance/database/import stack merged to bot
 
 **Verdict:** PARTIAL.
 
+Implemented real customer Supabase Auth/member provisioning, owner reads, server-issued member codes and admin-only member-directory RPC. Admin Members removed `PREVIEW_MEMBERS`. Live provisioning/tamper/RLS checks passed and security advisor ended at 0 lints. The task remained partial because the dashboard BFF/session server transport did not yet exist.
+
+---
+
+## 2026-08-12 — TASK-AUTH-002 — Trusted staff/admin session + member API
+
+**Verdict:** PARTIAL.
+
 ### Implemented
 
-- Customer Flutter auth path now uses Supabase Auth for sign-up/sign-in/recovery/session restore/logout.
-- Customer member/profile identity reads now come from live `user_profiles` and `members` under owner RLS.
-- Local signup-generated member IDs/codes were removed from the implemented path.
-- Server signup provisioning accepts only display name and student declaration as untrusted input; role, verification and member code remain trusted/server-owned.
-- Added admin/owner-only member-directory capability `public.list_admin_members()` and tightened bulk profile/member reads from staff-wide to admin/owner.
-- Admin Members removed `PREVIEW_MEMBERS` and now targets a same-origin credentialed API contract with no fixture fallback.
-- Member points/stamps/rewards were removed from that Members tab because no trusted loyalty backend exists yet.
+- Added same-origin BFF core for employee/admin password login, Auth validation, role/disabled checks, refresh rotation, logout and member-directory reads.
+- Access/refresh tokens are HttpOnly cookies and are never returned to browser JSON or application storage.
+- `customer` identities are denied employee sessions; disabled profiles are denied; ordinary `staff` is denied the admin member directory.
+- Admin member reads call `public.list_admin_members()` with the caller JWT so RLS and the RPC's admin/owner check stay active.
+- Added thin root `/api` deployment adapters plus a Vite dev/preview middleware adapter over the same core.
+- Added terminal-independent `/admin/login` and admin-specific unauthenticated routing.
+- Bound Admin Members to the centralized employee-session fetch client; no member fixture fallback was reintroduced.
+- Added BFF security tests and server TypeScript configuration.
+- Added ADR-0008 and mirrored current project/security documentation.
 
-### Live database verification
+### Verification and failures
 
-The first provisioning test exposed a regression: the initial replacement trigger omitted explicit member-code generation and would fail signup because `members.member_code` has no column default. A forward corrective migration restored `public.generate_member_code()`; the migration history was not rewritten.
-
-A subsequent security-advisor pass flagged the admin member-directory RPC as an authenticated `SECURITY DEFINER` function. A second forward hardening migration changed it to `SECURITY INVOKER`, retaining explicit admin/owner checks plus RLS. Security advisor returned to 0 lints.
-
-Rolled-back live tests then verified standard signup, student-pending signup, forged role/verification/member-code rejection, admin directory access and customer rejection. Production counts remained zero after rollback.
-
-### Remaining blocker
-
-The dashboard has no production staff/admin BFF/session runtime. `/api/v1/admin/members` is therefore only a client contract, not an executable end-to-end endpoint. Under ADR-0004 the requested signup -> Admin Members outcome is not yet full-stack complete.
-
-### Branches
-
-Both repositories: `codex/task-auth-001-auth-member-integration`.
+- Ad-hoc compile/runtime checks for the new BFF core passed critical login, token non-disclosure, cookie refresh, admin caller-JWT RPC, staff denial and logout cases.
+- Live Supabase recheck: `list_admin_members()` remains `SECURITY INVOKER`; anon cannot execute; authenticated may execute subject to function/RLS authorization; security advisor 0 lints; retained counts remained zero.
+- A GitHub Actions workflow was attempted to run `npm ci`, lint, typecheck, tests and build. GitHub rejected the job before a runner/step started because recent account payments failed or the spending limit must be increased. The workflow was removed rather than leave every PR red for a billing condition.
+- No AIDA project exists in the connected Vercel account, and live Supabase contains no admin/owner identity, so deployed browser E2E could not be proven.
 
 ### Exact next task
 
-`TASK-AUTH-002 — trusted staff/admin session and member-directory API`.
+`TASK-AUTH-003 — dashboard deployment + admin bootstrap + live auth/member E2E closure`.

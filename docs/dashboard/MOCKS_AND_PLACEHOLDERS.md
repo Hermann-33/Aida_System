@@ -1,25 +1,23 @@
 # POS/Admin Mocks and Placeholders Register
 
-Everything below is non-production until a bounded task proves a trusted backend path.
+Updated: 2026-08-12
 
-## Member area changed by TASK-AUTH-001
+## No longer hardcoded in the implemented live auth/member path
 
-The Admin Members tab no longer uses `PREVIEW_MEMBERS` and has no fixture fallback. It now requests the intended same-origin `GET /api/v1/admin/members` contract.
+- Admin Members does not read `PREVIEW_MEMBERS` and has no fixture fallback.
+- Live admin password session source is Supabase Auth through the same-origin BFF.
+- Admin member IDs/codes/type/student status/active/joined data come from the shared database RPC.
+- Member points/stamps/reward values were removed from the trusted Members table because no loyalty backend exists.
 
-That does **not** make the path production-complete: the trusted staff/admin BFF/session and the endpoint are not implemented yet. Until TASK-AUTH-002 closes that gap, the Members tab will fail closed rather than invent member rows.
+Preview mode may still intentionally exercise preview auth/member UI for design/E2E closure; production builds reject preview mode.
 
-Points, stamps and reward activity are not shown as trusted member-directory data. The separate Rewards Activity tab remains explicitly preview-only because loyalty persistence has not been implemented.
+## Still fixture/local until bounded backend tasks
 
-## Still fixture/local data
+- POS catalogue, prices, modifiers and availability.
+- POS cart/order/payment/receipt/shifts/cash operations.
+- Loyalty balances/rewards/vouchers and Rewards Activity.
+- Employee roster/badge-PIN, branch assignments and manager approval.
+- Branches/sales points/terminal enrolment and health.
+- Inventory, marketing, reports/audit and most settings/integrations.
 
-- Products, categories, modifiers, prices, availability and routing.
-- Loyalty points/stamps/reward rules and transaction/reward activity.
-- Employees, roles, branch assignments and global-manager flags.
-- Branches/sales points, terminals and terminal health.
-- Transactions, receipts, payment mix and report aggregates.
-- Shifts, cash variance, inventory, recipes and alerts.
-- Marketing creatives and audit rows.
-
-## Still simulated operations
-
-QR/member lookup, tender/payment, receipt/order generation, manager approval, void/refund/cancel, shifts/cash moves, catalogue/inventory/marketing edits and reporting remain preview/local until their respective backend tasks.
+Promote none of these values mechanically. Each trusted domain requires a backend contract and authorization model.

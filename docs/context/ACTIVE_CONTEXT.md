@@ -1,71 +1,48 @@
 # Active Context
 
 **As of:** 2026-08-12
-**Setup status:** COMPLETE and merged to default branches
-**Current implementation task:** `TASK-AUTH-001 — customer auth + member integration`
+**Current implementation task:** `TASK-AUTH-002 — trusted staff/admin session and member-directory API`
 **Current task verdict:** PARTIAL
-**Exact recommended next task:** `TASK-AUTH-002 — trusted staff/admin session and member-directory API`
+**Exact recommended next task:** `TASK-AUTH-003 — deploy the AIDA dashboard BFF, bootstrap an admin/owner identity, and run live auth/member E2E closure`
 
-## Project topology
+## Current product reality
 
-### Customer application
+### Customer app
 
-- Repo: `Hermann-33/Aida_System`
-- Default branch: `master`
-- Runtime: Flutter / Dart / Riverpod
-- Task branch: `codex/task-auth-001-auth-member-integration`
-- Auth/member integration state on the task branch: Supabase Auth sign-up/sign-in/recovery/session restore/logout are wired; signed-in member/profile reads come from Supabase under RLS; locally generated member IDs/codes were removed from the implemented path.
-- Other customer domains still delegate to preview/mock data until their bounded backend tasks.
-- Canonical Supabase migration workspace: `supabase/` in this repository.
+- Repo: `Hermann-33/Aida_System`; default branch `master`.
+- TASK-AUTH-001 branch stack wires Supabase Auth sign-up/sign-in/recovery/session restore/logout and owner-scoped profile/member reads.
+- Signup no longer generates authoritative member IDs/codes locally. Supabase provisions `user_profiles` + `members` and generates member codes server-side.
+- Other customer domains remain preview/mock until their bounded backend tasks.
 
 ### POS/Admin dashboard
 
-- Repo: `Hermann-33/Aida_System-Dashboard`
-- Default branch: `main`
-- Runtime: React / TypeScript / Vite
-- Task branch: `codex/task-auth-001-auth-member-integration`
-- Admin Members no longer reads the member fixture. It calls the intended same-origin `GET /api/v1/admin/members` contract and has no fixture fallback.
-- The repository still has no production staff/admin BFF/session runtime, so the member endpoint is not executable end-to-end yet. Do not replace this gap with browser service keys or anonymous member access.
+- Repo: `Hermann-33/Aida_System-Dashboard`; default branch `main`.
+- TASK-AUTH-002 branch: `codex/task-auth-002-admin-session-member-api`, stacked on TASK-AUTH-001.
+- A same-origin employee/admin BFF now implements password login, session validation/refresh, logout and `GET /api/v1/admin/members`.
+- Supabase access/refresh tokens remain in HttpOnly cookies; browser JSON and storage never receive them.
+- The BFF validates Supabase Auth plus trusted `user_profiles.app_role`/`disabled_at` and invokes `public.list_admin_members()` with the caller JWT, preserving RLS.
+- `/admin/login` is independent of POS terminal enrolment.
+- Admin Members has no member-fixture fallback. Non-auth/loyalty/operations domains remain preview until their own tasks.
+- The same BFF core is mounted in Vite dev/preview and exposed through root `/api` adapters for same-origin serverless hosting.
 
-### Shared backend
+### Shared Supabase
 
-- Platform: Supabase
-- Project: **Aida System**
-- Ref: `eswovqxqzfevcdwwcmuh`
-- Region: `ap-southeast-1`
+Project: **Aida System**, ref `eswovqxqzfevcdwwcmuh`, region `ap-southeast-1`.
 
-Both frontends consume one backend contract. Neither frontend is authoritative for identity, roles, branch scope, member verification, catalogue pricing, orders/payments, loyalty, inventory, reporting, audit or other trusted outcomes.
+TASK-AUTH-002 requires no schema migration. Live `list_admin_members()` remains `SECURITY INVOKER`, executable only by `authenticated`, with anon denied. Security advisor is 0 lints. Latest retained counts are 0 Auth users / 0 profiles / 0 members / 0 student verifications.
 
-## TASK-AUTH-001 backend reality
+## Verification state
 
-Live Supabase now includes the DB-001 identity/membership foundation plus three forward TASK-AUTH-001 migrations:
+Passed:
 
-1. `20260812191500_integrate_customer_auth_member_directory.sql`
-2. `20260812192500_fix_signup_member_code_generation.sql`
-3. `20260812195500_make_admin_member_directory_security_invoker.sql`
+- TASK-AUTH-001 live provisioning/tamper/admin-vs-customer database tests.
+- TASK-AUTH-002 BFF core ad-hoc TypeScript compile/runtime checks: login token non-disclosure, HttpOnly cookies, refresh rotation, staff denial, admin caller-JWT RPC, logout cookie clearing.
+- Live Supabase RPC posture and security advisor recheck.
 
-Current behavior:
+Blocked externally:
 
-- Auth user creation provisions `user_profiles` and `members` server-side.
-- `display_name` and `is_student` are accepted only as untrusted signup declarations.
-- Signup cannot self-assign application role, verified student status or member code.
-- Standard signup becomes `member_type=standard`, `student_status=not_submitted`.
-- Student declaration becomes `member_type=student`, `student_status=pending` until trusted review.
-- Member code is generated by `public.generate_member_code()`.
-- Customer reads are owner-scoped; bulk member/profile reads are admin/owner only.
-- `public.list_admin_members()` is authenticated-only, role-checked and `SECURITY INVOKER`, so RLS remains active.
-- Live tamper/provisioning tests and admin-vs-customer directory tests passed in rolled-back transactions.
-- Live security advisor after hardening: 0 lints.
-- Production data counts remained 0 users / 0 profiles / 0 members / 0 student verifications after tests.
+- GitHub Actions could not start any npm step because the account runner was blocked by a billing/spending-limit condition. The temporary workflow was removed so it does not poison future PRs.
+- No AIDA project exists in the connected Vercel account, so no hosted same-origin deployment can be proven here.
+- Live Supabase currently has no real admin/owner Auth identity and no real customer rows, so the literal deployed customer-signup -> Admin Members browser flow cannot be exercised yet.
 
-## Remaining task blocker
-
-The exact requested cross-client outcome — a newly signed-up customer immediately appearing in the production Admin Members screen — is blocked by the missing trusted staff/admin session + BFF/API runtime. The database capability and dashboard client contract are ready, but the server transport is absent. Under ADR-0004 this remains `PARTIAL`.
-
-## Open product/architecture decisions
-
-Payment/provider/device model, scheduled-order rules, branch/staff assignment administration, terminal credential lifecycle, manager approval, full student-verification evidence policy, inventory accounting, retention/account deletion, reporting business-day semantics and marketing approval remain unresolved.
-
-## Next action
-
-Implement `TASK-AUTH-002: trusted staff/admin session and member-directory API`. It must establish the same-origin HttpOnly employee/admin session, implement `GET /api/v1/admin/members` against the authenticated admin capability, enforce admin/owner role checks server-side, add revocation/unauthorized tests, and prove customer signup -> DB member -> Admin Members end-to-end before TASK-AUTH-001 can be considered fully closed.
+Under ADR-0004 those external gates keep the requested full-stack feature `PARTIAL`; the missing source BFF implementation itself is now present.

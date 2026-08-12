@@ -4,74 +4,56 @@ Updated: 2026-08-12
 
 ## Current task
 
-`TASK-AUTH-001 — customer auth + member integration`
+`TASK-AUTH-002 — trusted staff/admin session and member-directory API`
 
 **Verdict:** PARTIAL.
 
-Task branches in both repositories:
+Branches in both repositories:
 
-`codex/task-auth-001-auth-member-integration`
+`codex/task-auth-002-admin-session-member-api`
+
+These branches are stacked on the TASK-AUTH-001 branches; do not merge them ahead of their prerequisites.
 
 ## Implemented
 
-### Customer
+### Customer + membership foundation inherited from TASK-AUTH-001
 
-- Added Supabase Flutter integration for email/password sign-up, sign-in, password recovery, persisted session bootstrap and logout.
-- Replaced the local auth boolean as identity authority with Supabase Auth session state.
-- Replaced mock member identity reads with owner-scoped `user_profiles` + `members` reads.
-- Removed local signup generation of member IDs/codes from the implemented auth path.
-- Student checkbox is now only a backend `pending` declaration; it never creates verified status.
-- Runtime requires a public/publishable Supabase client key through `AIDA_SUPABASE_PUBLISHABLE_KEY`; no service-role or secret key is committed.
-- Non-auth domains still use preview data until their own tasks.
+- Supabase Auth customer sign-up/sign-in/recovery/session restore/logout.
+- Owner-scoped live profile/member reads.
+- Server-created `user_profiles` + `members` with server-generated member code.
+- Student self-declaration can only become `pending`.
+- Admin/owner-only `public.list_admin_members()` under RLS and `SECURITY INVOKER`.
+- Admin Members browser client has no fixture fallback.
 
-### Shared Supabase
+### Dashboard BFF added by TASK-AUTH-002
 
-Applied three canonical TASK-AUTH-001 migrations from `Hermann-33/Aida_System/supabase/`:
+- `server/employeeBff.ts`: password login, Auth user validation, profile/role/disabled check, access-token refresh, logout, admin member directory.
+- `api/v1/auth/employee/login.ts`
+- `api/v1/auth/employee/session.ts`
+- `api/v1/auth/employee/logout.ts`
+- `api/v1/admin/members.ts`
+- HttpOnly `aida_employee_access` and `aida_employee_refresh` cookies; no privileged browser token storage.
+- Admin member RPC is called using the employee/admin caller JWT, never service-role credentials.
+- Same-origin checks protect state-changing cookie endpoints; authenticated responses are `no-store`.
+- New `/admin/login` route removes the incorrect dependency on POS terminal enrolment.
+- `server/viteBffPlugin.ts` mounts the identical BFF handlers in Vite dev/preview.
+- `vercel.json` preserves Vite SPA deep links while root `/api` functions remain same-origin deployment adapters.
+- ADR-0008 records the accepted BFF architecture in both repos.
 
-1. `20260812191500_integrate_customer_auth_member_directory.sql`
-2. `20260812192500_fix_signup_member_code_generation.sql`
-3. `20260812195500_make_admin_member_directory_security_invoker.sql`
+## Verification
 
-They harden signup provisioning, preserve server-issued member codes, restrict profile/member bulk reads to admin/owner, and expose authenticated admin member-directory RPC `public.list_admin_members()` under RLS.
+- Live Supabase: member RPC remains `SECURITY INVOKER`; anon execute false; authenticated execute true; security advisor 0 lints; retained data counts 0.
+- BFF core compile/runtime harness passed the critical session/admin-member cases.
+- GitHub Actions did not execute because the GitHub account refused to allocate a runner due billing/spending limits. This is infrastructure failure, not a code test result.
 
-Live verification passed for:
+## Why the full feature is still PARTIAL
 
-- standard signup provisioning;
-- student pending provisioning;
-- forged role/member-code/verified-status metadata rejection;
-- server member-code format;
-- authenticated admin directory read;
-- ordinary customer directory rejection;
-- security advisor 0 lints;
-- rollback/no retained synthetic users.
+The source implementation that was missing in TASK-AUTH-001 now exists, but ADR-0004 requires executable end-to-end proof. There is no connected AIDA deployment and no real admin/owner account to authenticate, and the repository's full npm lint/typecheck/test/build chain could not run because GitHub Actions never started.
 
-### Dashboard
-
-- Admin Members removed `PREVIEW_MEMBERS` as its data source.
-- Added a capability-specific client for same-origin `GET /api/v1/admin/members` using cookie credentials.
-- No fixture fallback exists for the Members tab.
-- Points/stamps/reward values were removed from the Members tab because trusted loyalty persistence does not exist yet.
-- Rewards Activity remains explicitly preview-only pending the loyalty task.
-
-## Why the task is not COMPLETE
-
-The dashboard repository has no production staff/admin server/BFF and no AIDA deployment providing the required same-origin HttpOnly employee session. Therefore `/api/v1/admin/members` is not implemented server-side and a customer signup cannot yet be demonstrated end-to-end in the production Admin Members screen.
-
-Do not bypass this with:
-
-- Supabase service-role keys in the browser;
-- browser-stored privileged tokens;
-- anonymous bulk member policies;
-- customer-auth tokens treated as staff/admin authority.
-
-## Verification/tooling debt
-
-- Live Supabase SQL authorization/provisioning checks passed.
-- Flutter dependency lock regeneration, analyzer/tests and a real signup/sign-in smoke test still require a Flutter-capable checkout/runtime.
-- Dashboard unit/typecheck/build checks still require execution from a checkout/toolchain; source tests were added for the member-directory client.
+Do not bypass these gates by exposing a service-role key, opening member data anonymously, or storing privileged tokens in browser storage.
 
 ## Exact next task
 
-`TASK-AUTH-002: trusted staff/admin session and member-directory API`
+`TASK-AUTH-003 — dashboard deployment + admin bootstrap + live auth/member E2E closure`.
 
-Exit criterion: a real customer signup provisions the member in Supabase, a real authorized admin session can call `GET /api/v1/admin/members`, the dashboard renders that member from the API with no fixture fallback, unauthorized users are rejected, and relevant client/server/security checks pass.
+Exit criterion: deploy the dashboard/BFF same-origin with only the Supabase publishable key, create or assign a real trusted admin/owner identity through an approved operator path, run the full repository checks, create a real customer through the app, and prove that customer appears in Admin Members while staff/customer/disabled access remains rejected.

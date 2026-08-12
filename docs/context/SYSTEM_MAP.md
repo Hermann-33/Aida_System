@@ -4,47 +4,37 @@ Updated: 2026-08-12
 
 ## Source systems
 
-| System | Repository/service | Default | Runtime |
-|---|---|---|---|
-| Customer app | `Hermann-33/Aida_System` | `master` | Flutter/Dart/Riverpod |
-| POS/Admin | `Hermann-33/Aida_System-Dashboard` | `main` | React/TypeScript/Vite |
-| Shared backend | Supabase `eswovqxqzfevcdwwcmuh` | managed | Auth/Postgres/RLS |
+| System | Repository/runtime | Current auth/member source |
+|---|---|---|
+| Customer | `Hermann-33/Aida_System` — Flutter | Supabase Auth + owner-scoped `user_profiles`/`members` on TASK-AUTH-001 stack |
+| POS/Admin | `Hermann-33/Aida_System-Dashboard` — React/Vite | same-origin BFF cookie session + live admin-member API on TASK-AUTH-002 stack |
+| Shared backend | Supabase `eswovqxqzfevcdwwcmuh` | Auth/Postgres/forced RLS/RPC |
 
-## Current shared-domain status
-
-| Shared concept | Customer task branch | Dashboard task branch | Trusted authority/status |
-|---|---|---|---|
-| Customer auth/session | Supabase Auth | n/a | Supabase Auth — integrated customer-side |
-| User/member profile | owner-scoped DB read | Members UI calls planned BFF | `user_profiles` + `members` |
-| Member code | server-issued DB value | directory contract field | `public.generate_member_code()` |
-| Student declaration | signup sends untrusted `is_student` | admin table displays trusted status | signup can create only `pending`; trusted review remains separate |
-| Admin member directory | n/a | no fixture fallback; HTTP contract only | `public.list_admin_members()` exists; BFF/session missing |
-| Catalogue | preview/mock | preview fixture | not persisted yet |
-| Price/modifiers | client preview | client preview | future trusted quote/catalogue |
-| Orders/payments | local preview | local/simulated | not persisted yet |
-| Loyalty/rewards | mock | rewards preview | not persisted yet |
-| Branch/staff/terminal | n/a | preview | trusted model/session not implemented |
-| Inventory/reporting/audit | n/a | preview | not persisted yet |
-
-## Auth/member flow now
+## Auth/member flow
 
 ```text
-Customer sign-up intent
+Customer sign-up
   -> Supabase Auth
-  -> auth.users trigger
-  -> user_profiles(app_role=customer)
-  -> members(server member_code; standard/not_submitted or student/pending)
+  -> Auth trigger
+  -> user_profiles + members
+  -> server-issued member_code
 
-Signed-in customer
-  -> owner-scoped user_profiles + members reads under forced RLS
-
-Authorized admin target flow
-  -> same-origin HttpOnly staff/admin session [NOT IMPLEMENTED]
-  -> GET /api/v1/admin/members [NOT IMPLEMENTED SERVER-SIDE]
-  -> public.list_admin_members() as authenticated admin/owner under RLS
-  -> Admin Members table [client adapter implemented]
+Admin browser
+  -> POST /api/v1/auth/employee/login
+  -> dashboard BFF
+  -> Supabase Auth + own user_profiles role/disabled check
+  -> HttpOnly session cookies
+  -> GET /api/v1/admin/members
+  -> BFF calls list_admin_members() with caller JWT
+  -> Admin Members renders trusted rows
 ```
+
+No member fixture fallback exists in the implemented Admin Members path.
+
+## Still preview/not authoritative
+
+Catalogue/pricing, quote/order/payment, loyalty/rewards/vouchers, branch/terminal/employee administration, POS operational state, inventory, marketing, reporting and audit remain future backend domains unless separately documented as implemented.
 
 ## Change-impact rule
 
-Any shared identity/member/role/catalogue/order/payment/loyalty/inventory contract change requires inspection of both repositories. UI fixtures are requirements evidence, never database authority.
+Shared identity/member/role changes require both clients plus Supabase/BFF authorization to be reviewed together. A browser screen compiling does not prove backend completion.

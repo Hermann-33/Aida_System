@@ -1,25 +1,26 @@
 # POS/Admin Backend Integration Plan
 
-This is a needs map, not a table-by-table schema prescription.
+Updated: 2026-08-12
 
-| Area | Current verified state | Remaining trusted behavior | Priority |
-|---|---|---|---|
-| Employee/admin auth | browser-side session contract expects same-origin HttpOnly runtime; server absent | authenticate/revoke staff/admin, disabled state, trusted roles | MVP |
-| Member directory | DB admin RPC exists; Members UI targets `/api/v1/admin/members` with no fixture fallback | implement trusted BFF endpoint/session and E2E proof | MVP |
-| Branch/role scope | preview | assignments/global-manager/server authorization | MVP |
-| Terminals/shifts/cash | preview | secure enrolment/session/branch binding and audited operations | MVP POS |
-| Catalogue | preview | same published IDs/prices as customer; privileged edits | MVP |
-| Quote/orders/payments | preview/simulated | authoritative totals/lifecycle/provider/reconciliation | MVP |
-| Member QR lookup | preview | bounded staff lookup, minimal disclosure, rate limits/audit | MVP |
-| Loyalty/vouchers | preview | current trusted balance/eligibility and atomic consume/redeem | MVP |
-| Inventory/reporting/audit | preview | durable trusted models and scoped queries | Important/MVP foundation |
+## Implemented auth/member slice
 
-## Immediate next integration
+- Same-origin BFF source for Supabase Auth password login, session validation/refresh and logout.
+- HttpOnly employee tokens; no browser bearer-token persistence.
+- Trusted `user_profiles.app_role`/`disabled_at` check on employee/admin access.
+- Separate `/admin/login`; admin browser access does not require POS terminal enrolment.
+- `GET /api/v1/admin/members` uses authenticated admin/owner caller JWT -> `public.list_admin_members()` under RLS.
+- Admin Members has no fixture fallback and does not invent loyalty values.
+- Same handlers run through Vite dev/preview middleware and root `/api` deployment adapters.
 
-`TASK-AUTH-002` must implement the production same-origin employee/admin session plus `GET /api/v1/admin/members`. The endpoint must authenticate the HttpOnly session, enforce admin/owner authorization, call the shared backend capability and serialize only required directory fields.
+## Still required for auth/operations
 
-No Supabase service-role key, private database credential or privileged long-lived token may be shipped to the Vite browser bundle.
+- production deployment/E2E and admin bootstrap;
+- badge/PIN authentication;
+- terminal enrolment/revocation backend;
+- branch assignments/global-manager/dual-role policy beyond the narrow current role mapping;
+- employee role/status administration and audit;
+- manager approval.
 
-## Shared-contract rule
+## Other backend domains
 
-Do not implement dashboard-only identity, catalogue, order or loyalty authority. Shared concepts must align with the customer requirements and `docs/contracts/SHARED_BACKEND_CONTRACT.md`.
+Shared catalogue -> quote/order/payment -> loyalty/member operations -> inventory -> marketing/reporting/integrations remain future tasks. Do not create dashboard-only authority for those domains.

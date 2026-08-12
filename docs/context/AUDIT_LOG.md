@@ -44,25 +44,26 @@ Actions:
 - added dashboard-specific audit/integration documentation to both repos;
 - added mirrored-doc workflow and cross-repo ADRs;
 - preserved source-specific evidence as repository-local exceptions;
-- opened synchronized WF-003 PRs in both repositories.
+- added `SESSION_BOOTSTRAP.md` with the permanent new-chat prompt;
+- opened and then merged the synchronized WF-003 PRs after their prerequisites.
 
 No runtime, dependency, migration or Supabase change was made by WF-003.
 
 ---
 
-## 2026-08-12 — TASK-WF-003 closeout — Setup/governance baseline locked
+## 2026-08-12 — TASK-WF-004 — Setup post-merge finalization
 
-**Verdict:** COMPLETE on task branches; merge stack pending.
+**Verdict:** COMPLETE.
 
-Closeout actions:
+Purpose: make the default-branch documentation reflect the fact that the entire setup stack has been merged and remove stale “merge pending” handoff language.
 
-- recorded the setup phase as complete in `ACTIVE_CONTEXT.md`, `HANDOFF.md` and `ROADMAP.md`;
-- added `docs/context/SESSION_BOOTSTRAP.md` containing the permanent new-chat prompt;
-- documented the exact open PR dependency order and next implementation task;
-- retained the rule that project-level governance must remain mirrored across both repositories;
-- retained `Hermann-33/Aida_System/supabase/` as the only canonical executable migration history until an ADR supersedes it;
-- made no customer runtime, dashboard runtime, dependency or Supabase changes.
+Merged setup record:
 
-Setup artifacts now cover both applications, the shared backend, architecture/system map, security boundaries, database status, ADR history, customer/dashboard audits, backend requirements, workflow, handoff, roadmap and a repeatable session bootstrap.
+- Dashboard PR #1 — `TASK-WF-002` — merge commit `386f0fd5a10fe57f7bad4e2f350cd280cf639e39`.
+- Customer PR #2 — `TASK-DB-001` — merge commit `561d0d6fe4ec0ecc0c357784810ed806d6ef4e08`.
+- Customer PR #3 — `TASK-WF-003` — merge commit `84b766c23addb0163131f9c2f3b15e595bc98c65`.
+- Dashboard PR #2 — `TASK-WF-003` — merge commit `ffe2056589d9a128a5584b58da5e0fca68ec1df5`.
 
-Next implementation after the PR stack is integrated: `TASK-DB-002 — shared menu/catalogue foundation`.
+Finalization updates `ACTIVE_CONTEXT.md`, `HANDOFF.md`, `ROADMAP.md`, `docs/README.md`, `SESSION_BOOTSTRAP.md` and this audit log in both repositories. No application runtime, dependency or Supabase object was changed.
+
+The setup/governance phase is now fully integrated. The next implementation task is `TASK-DB-002 — shared menu/catalogue foundation`.

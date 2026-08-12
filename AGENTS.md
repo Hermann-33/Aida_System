@@ -11,6 +11,12 @@ AIDA Café is one product implemented across two source repositories and one sha
 
 Neither frontend owns business truth. Both clients consume the same backend contract.
 
+## New-session bootstrap
+
+For a fresh ChatGPT/Codex conversation, use `docs/context/SESSION_BOOTSTRAP.md`. It contains the permanent copy/paste prompt and directs the agent back to repository-resident truth.
+
+Do not rely on prior chat history as durable project memory.
+
 ## Mandatory reads before implementation
 
 Read in this order:
@@ -27,6 +33,7 @@ Read in this order:
 10. `docs/context/HANDOFF.md`
 11. Relevant `docs/decisions/ADR-*.md`
 12. Relevant customer docs under `docs/frontend/` and dashboard docs under `docs/dashboard/`.
+13. `docs/security/SECURITY_REVIEW.md` when security, authorization, trusted data, payments, loyalty, inventory, staff or audit boundaries are affected.
 
 ## Authority order
 

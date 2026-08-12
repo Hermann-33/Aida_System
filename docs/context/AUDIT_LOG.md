@@ -33,3 +33,15 @@ Validation evidence:
 - Reconciled the customer mirror to owner-supplied dashboard evidence at clean pushed commit `238e0ff211fe550f42ec4d4423724e3642282295`: lint/typecheck/85 tests/build and Playwright 6/6 pass; Admin and POS use the shared catalogue with no runtime preview catalogue fallback; the BFF returns 4/16/27; anonymous, cross-origin, and non-admin mutation defenses pass; security advisor is 0 lints. Preview checkout/totals/orders/payments remain untrusted.
 
 Remaining gate: deployed/device customer Auth and deployed Admin-write -> customer UI Realtime E2E require approved real identities and deployment. That work belongs to TASK-AUTH-003.
+
+## 2026-08-13 — TASK-AUTH-003 — Customer deployed/device E2E preflight
+
+**Verdict:** PARTIAL under ADR-0004.
+
+Created customer branch `codex/task-auth-003-deployed-e2e` from validated TASK-MENU-001 commit `7c7d91c2e3cf07e319dce1881c1322525881584f`. Flutter 3.44.7 reports Chrome, Edge, and Windows desktop as supported local runtimes; no Android emulator/physical device is available. A release Flutter web build compiled successfully with the live public Supabase configuration and rendered the real sign-in UI in Chromium.
+
+The authoritative blockers are unchanged external prerequisites: live Supabase contains 0 Auth users, 0 confirmed users, 0 profiles, 0 members, and no admin/owner; GitHub exposes no customer/dashboard deployment; and the dashboard has no AUTH-003 branch, deployed URL, or mutation evidence. No approved identity credentials or mailbox path were supplied. Accordingly no identity was invented, no password-reset email was sent, and no direct database mutation was substituted for the deployed Admin flow.
+
+Recorded catalogue baseline: revision 1; SKU `CF-SCL`; item ID `4287b72b-5c01-4c98-8f7b-2e4babfb1cd4`; 1290 sen; available/published. Anonymous calls to catalogue mutation and Admin member RPCs failed closed with HTTP 404. Scans found no service-role/secret marker in Flutter source/config or the release web build. Supabase retained 4 categories, 16 items, 27 variants, 27 add-on links and zero identity/member rows.
+
+Exact human action: approve/provision one real customer mailbox identity and one trusted admin/owner identity; deploy the dashboard AUTH-003 stack; securely provide its URL and test credentials; then resume the running-client lifecycle and Admin mutation -> revision -> Flutter Realtime -> UI -> restored-state proof.

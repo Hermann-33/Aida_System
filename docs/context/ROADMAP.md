@@ -24,7 +24,7 @@ Live database regression/security checks, the full Flutter suite, reviewed golde
 
 ## Validation debt — TASK-AUTH-003
 
-Provision approved real identities and deployment targets, then run deployed/device customer Auth and Admin-write -> customer-Realtime cross-client E2E. Do not use the shared catalogue result to promote preview checkout, totals, orders, or payments to trusted status.
+PARTIAL. Flutter release web starts successfully against live public Supabase configuration, but live state has zero identities and neither repository has a deployment. An approved customer mailbox identity, trusted admin/owner identity, deployed dashboard AUTH-003 stack, and secure credential handoff are required before customer Auth lifecycle and Admin-write -> customer-Realtime cross-client E2E can run. Do not use the shared catalogue result to promote preview checkout, totals, orders, or payments to trusted status.
 
 ## Next product phase
 

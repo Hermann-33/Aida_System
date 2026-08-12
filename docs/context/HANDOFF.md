@@ -4,11 +4,11 @@ Updated: 2026-08-13
 
 ## Current task
 
-Customer-side validation closeout for `AUTH-001`, `AUTH-002`, and `TASK-MENU-001`.
+`TASK-AUTH-003 — deployed/device customer Auth and catalogue cross-client E2E`.
 
 **Verdict:** PARTIAL under ADR-0004.
 
-Customer branch: `codex/task-menu-001-shared-catalogue`, stacked as draft PR #7 on draft PR #6 on draft PR #5.
+Customer branch: `codex/task-auth-003-deployed-e2e`, stacked on `codex/task-menu-001-shared-catalogue` / draft PR #7, which remains stacked on #6 and #5.
 
 ## Completed validation and fixes
 
@@ -30,18 +30,21 @@ Customer branch: `codex/task-menu-001-shared-catalogue`, stacked as draft PR #7 
 
 ## Remaining blockers
 
-- Deployed/device Auth flows and deployed Admin-write -> customer-Realtime UI E2E were not exercised.
-- Real identities and deployment are absent; those remaining Auth/Menu cross-client checks belong to TASK-AUTH-003.
+- Flutter 3.44.7 release web starts successfully against live public Supabase configuration and renders the real sign-in UI. Chrome, Edge, and Windows desktop are available; there is no Android emulator/physical device.
+- Live Supabase has 0 Auth users, 0 profiles, 0 members, and no customer/admin/owner identity. No approved credentials or mailbox were supplied, so Auth lifecycle and password-reset completion remain blocked.
+- Neither GitHub repository has a deployment and the dashboard has no AUTH-003 branch/evidence or deployed URL. Cross-client Admin mutation -> revision -> Flutter Realtime -> UI -> restore therefore remains blocked.
+- Baseline evidence: revision 1; SKU `CF-SCL`; item `4287b72b-5c01-4c98-8f7b-2e4babfb1cd4`; base price 1290 sen; available and published. No mutation was performed.
+- Anonymous catalogue/admin RPC probes failed closed with HTTP 404. No service-role/secret marker exists in Flutter source/config or its release web build. Customer-session negative checks require the missing approved customer identity.
 - Dashboard preview checkout, totals, orders and payments remain untrusted and must not be treated as authoritative because catalogue browsing is shared.
 
 ## Git and PR state
 
 - No default branch was changed.
 - No migration, deployment, real-user creation, or RLS change was performed during this closeout.
-- PR stack: #5 `AUTH-001` -> #6 `AUTH-002` -> #7 `TASK-MENU-001`.
+- Customer branch: `codex/task-auth-003-deployed-e2e`, stacked on #7. Existing stack remains #5 `AUTH-001` -> #6 `AUTH-002` -> #7 `TASK-MENU-001` -> TASK-AUTH-003.
 
 ## Exact next task
 
-`TASK-AUTH-003 — provision approved real test identities and deployment targets, then run deployed customer Auth and Admin-write -> customer-Realtime cross-client E2E`.
+Resume `TASK-AUTH-003`: provision/approve a real customer mailbox identity and trusted admin/owner identity, deploy the dashboard AUTH-003 stack, provide the deployed URL/credentials securely, then run the required lifecycle and cross-client mutation/revision/UI/restore observation without restarting Flutter.
 
 Do not begin `TASK-ORDER-001` release work until these validation debts are explicitly accepted or closed.

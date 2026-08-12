@@ -1,7 +1,7 @@
 # Active Context
 
 **As of:** 2026-08-13
-**Current implementation task:** customer-side validation closeout for `AUTH-001`, `AUTH-002`, and `TASK-MENU-001`
+**Current implementation task:** `TASK-AUTH-003 — deployed/device customer Auth and catalogue cross-client E2E`
 **Current task verdict:** PARTIAL
 
 ## Current product reality
@@ -33,19 +33,19 @@ The stacked customer source now contains real Supabase Auth/member and shared-ca
 
 ## Remaining gates
 
-- No deployed/device Auth sign-up/sign-in/reset/logout/member-read E2E was run.
-- No deployed Admin write -> Realtime -> customer UI E2E was run; the customer invalidation behavior is proven at provider level and the live database publication/contract is verified separately.
-- Real test identities and a deployment target are absent, so the remaining Auth/Menu cross-client gate cannot be exercised in this task.
+- A Flutter 3.44.7 release web build ran successfully in the in-app Chromium runtime against the live Supabase public configuration and rendered the real sign-in UI. Chrome, Edge, and Windows desktop are supported locally; no Android emulator or physical device is connected.
+- Live preflight still reports 0 Auth users, 0 profiles, 0 members, and no customer/admin/owner identity. No approved credentials or mailbox completion path were provided, so sign-up/sign-in/session restore/logout/reset/member/offline-cache lifecycle E2E was not fabricated.
+- GitHub reports no customer or dashboard deployment, the dashboard has no `codex/task-auth-003-deployed-e2e` branch/evidence yet, and no deployed Admin URL exists. Therefore no real Admin mutation, revision increment, Flutter Realtime observation, or restored-value observation was possible. The recorded baseline remains SKU `CF-SCL`, item `4287b72b-5c01-4c98-8f7b-2e4babfb1cd4`, RM12.90, available/published, revision 1.
+- Anonymous probes against `save_catalogue_category` and the Admin member RPC failed closed with HTTP 404; source and the release build contain no service-role or secret-key markers. Customer-session negatives remain unexercised because no customer session exists.
 - Dashboard preview checkout, totals, orders, and payments remain client/session-local and untrusted; the shared browsing catalogue does not make those transaction paths authoritative.
 
 ## Branch and PR stack
 
-- Customer branch: `codex/task-menu-001-shared-catalogue`.
-- Draft PR #7 is stacked on draft PR #6, which is stacked on draft PR #5.
-- Merge order remains #5 -> #6 -> #7 after review and required validation.
+- Customer branch: `codex/task-auth-003-deployed-e2e`, stacked on `codex/task-menu-001-shared-catalogue` / draft PR #7.
+- Existing merge order remains #5 -> #6 -> #7 -> TASK-AUTH-003 PR.
 
 ## Exact next task
 
-`TASK-AUTH-003 — provision approved real test identities and deployment targets, then run deployed customer Auth and Admin-write -> customer-Realtime cross-client E2E`.
+Resume `TASK-AUTH-003` after a human provisions/approves one customer mailbox identity and one trusted admin/owner identity, deploys the dashboard TASK-AUTH-003 stack, and supplies the deployed URL/credentials through an approved secure channel. Then run the lifecycle and mutation/revision/UI/restore evidence without restarting Flutter.
 
 After TASK-AUTH-003, the next product task remains `TASK-ORDER-001 — authoritative quote/cart/order foundation`.

@@ -64,3 +64,9 @@ The live ledger uses the following application versions for the canonical reposi
 The live ledger exposes stored statements rather than a checksum. Read-only comparison found the first three files text-identical after line-ending/final-newline normalization; all eight have identical SQL after removing comments and normalizing whitespace/operator formatting. The mismatch is harmless historical timestamp/comment drift from applying the statements before their canonical repository filenames were fixed, not schema drift. Do not rename or rewrite applied migrations and do not manufacture a reconciliation migration. Future work must create and commit the timestamped migration before applying that same version.
 
 Four older ledger rows remain (`create_aida_cafe_app_pos_loyalty_schema`, storage hardening, and a create/drop connection-test pair), but their described legacy public objects and storage buckets are absent. Current inventory is exactly three identity/member and six catalogue public tables, all with RLS enabled; there are no public views or storage buckets, and only `catalogue_revision` is in `supabase_realtime`.
+
+## TASK-AUTH-003 live preflight
+
+Read-only preflight on 2026-08-13 found 0 Auth users, 0 confirmed users, 0 profiles, and 0 members. Catalogue state remains revision 1 with 4 categories, 16 items, 27 variants, and 27 add-on links; `catalogue_revision` has one Realtime publication entry. No identity, schema, catalogue, or audit data was changed.
+
+The intended visible mutation baseline is SKU `CF-SCL`, item ID `4287b72b-5c01-4c98-8f7b-2e4babfb1cd4`, 1290 sen, available and published. No before/after revision exists because no trusted admin identity or deployed dashboard is available.

@@ -7,13 +7,13 @@ Statuses describe verified project reality, not historical PRD deployment claims
 ## Phase 1 — Governance and source baselines
 
 - `TASK-WF-001`: customer frontend audit/governance — COMPLETE.
-- `TASK-WF-002`: POS/Admin source import and audit — COMPLETE on task branch; merge pending.
-- `TASK-WF-003`: mirrored dual-repository project context and shared-backend governance — COMPLETE on task branches; merge pending.
-- Setup closeout: permanent session bootstrap prompt and final handoff recorded — COMPLETE on task branches.
+- `TASK-WF-002`: POS/Admin source import and audit — COMPLETE and merged.
+- `TASK-WF-003`: mirrored dual-repository project context and shared-backend governance — COMPLETE and merged.
+- `TASK-WF-004`: post-merge setup finalization and permanent session bootstrap — COMPLETE.
 
-Exit criterion has been met on the setup branches: both repositories independently describe the full system, share authority/workflow rules, contain customer and dashboard context, reference one backend contract, and include a repeatable new-session bootstrap.
+Exit criterion is met: both default branches independently describe the full AIDA system, share authority/workflow rules, contain customer and dashboard context, reference one backend contract, and include a repeatable new-session bootstrap.
 
-Integration status: the setup PR stack still needs to be merged in the dependency order documented in `ACTIVE_CONTEXT.md` and `HANDOFF.md`.
+Status: COMPLETE.
 
 ## Phase 2 — Shared Supabase foundation
 
@@ -72,8 +72,6 @@ Status: not started.
 
 ## Next recommended task
 
-After the setup PR stack is merged:
-
 `TASK-DB-002: shared menu/catalogue foundation`.
 
-Before SQL, inspect both `docs/frontend/BACKEND_INTEGRATION_PLAN.md` and `docs/dashboard/BACKEND_INTEGRATION_PLAN.md` plus `docs/contracts/SHARED_BACKEND_CONTRACT.md`. Do not map either preview model mechanically into tables, and do not wire either frontend unless that task is explicitly expanded.
+Start from fresh task branches based on `master` and `main`. Before SQL, inspect both `docs/frontend/BACKEND_INTEGRATION_PLAN.md` and `docs/dashboard/BACKEND_INTEGRATION_PLAN.md` plus `docs/contracts/SHARED_BACKEND_CONTRACT.md`. Do not map either preview model mechanically into tables, and do not wire either frontend unless that task is explicitly expanded.

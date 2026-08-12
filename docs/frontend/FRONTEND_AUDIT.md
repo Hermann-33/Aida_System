@@ -1,3 +1,5 @@
+> Scope note (2026-08-12): this audit describes the customer repository `Hermann-33/Aida_System` and preserves the TASK-WF-001 customer baseline. Project-wide current truth, including the separate POS/Admin repository and later Supabase foundation, is in `docs/context/`, `docs/contracts/`, and ADR-0006/0007.
+
 # Frontend Audit
 
 ## Executive summary
@@ -30,11 +32,11 @@ The most important distinction is visual completeness versus system completeness
 - Profile and session edit form.
 - Shared theme, product-image fallback, interaction animation, category, ticket, QR, and status widgets.
 
-There is no active staff/POS/admin module.
+There is no active staff/POS/admin module in the customer repository.
 
 ## Screen inventory
 
-The inspected UI contains 17 screen/modal surfaces plus the shell/navigation frame. See `UI_SCREEN_MAP.md`. The older design spec’s 23-screen plan is not the current implementation: splash/bootstrap, verification pending, offer detail, redeem confirmation, separate voucher/stamp detail, change password, delete account, points ledger, and settings screens are absent or consolidated/placeholders.
+The inspected UI contains 17 screen/modal surfaces plus the shell/navigation frame. See `UI_SCREEN_MAP.md`.
 
 ## Data-flow summary
 
@@ -69,52 +71,13 @@ See `MOCKS_AND_PLACEHOLDERS.md`.
 
 ## Integration readiness
 
-### Helpful foundations
-
-- `Money` uses integer sen.
-- models avoid Flutter dependencies.
-- `Result`/typed failures establish an error vocabulary.
-- repository binding can be overridden in tests.
-- async providers expose loading/data/error surfaces.
-- tests cover cart arithmetic, navigation, checkout UI flow, categories, QR semantics, and visual baselines.
-
-### Gaps before real integration
-
-- Repository is too broad for reads yet too narrow for real writes.
-- No DTO/serialization/client/cache/session layer.
-- No centralized route/guard/deep-link model.
-- No authoritative quote/order/loyalty operations.
-- Offline QR comments promise storage that does not exist.
-- Most typed failures are not produced/tested through an adapter.
-- Large screens and the provider file couple navigation, presentation, and local business simulation.
-
-## Blockers
-
-1. Verified Supabase project/schema/migration/RLS foundation.
-2. Identity/profile/member-code and role/verification decisions.
-3. Approved menu, variant/modifier, price, reward, expiry, scheduling, and payment rules.
-4. Staff/POS fulfillment and voucher-use workflow for customer ordering/loyalty completion.
-5. Cache/offline and session-security design.
-6. Golden-test review; current visual baselines fail on the audit toolchain.
-7. Production assets, branding, signing, platform/toolchain, privacy/retention, and deployment decisions.
-
-## Key risks
-
-- UI models becoming an accidental database schema.
-- Client-side price/order/loyalty trust and fraud.
-- QR screenshot sharing and unverified staff handling.
-- Shared-device data leakage after persistence is added.
-- “Replace one repository class” underestimating missing write contracts and local calculations.
-- Temporary content reaching production.
-- PRD legacy claims being mistaken for current systems.
+Helpful foundations include integer-sen `Money`, Flutter-independent models, typed failures, overridable repository binding, async provider states, and tests for cart/navigation/QR/UI. Gaps include DTO/serialization, auth/session/cache, authoritative quote/order/loyalty operations, offline member-code storage, real adapter errors and large coupled provider/screen files.
 
 ## Verification result
 
 - Static analysis: one warning (`_stockChocolate` unused).
 - Non-golden tests: 24/24 passed.
-- Full test suite: four golden failures, with 4.13%–12.12% pixel differences.
+- Full test suite: four golden failures.
 - No automated fixes or golden updates were made.
 
-## Recommended next task
-
-After reviewing and accepting this documentation diff, run a dedicated **Supabase/database foundation audit and baseline**: verify the reset project, select migration workflow, establish initial identity/profile/member concepts, define RLS test conventions, and commit reproducible schema/config documentation. Do not wire customer features in the same task.
+The later project-level next tasks are governed by `docs/context/ROADMAP.md`, not this historical recommendation.

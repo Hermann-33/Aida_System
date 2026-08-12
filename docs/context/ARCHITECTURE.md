@@ -1,118 +1,86 @@
-# Current Architecture
+# AIDA Café Architecture
 
-Updated: 2026-08-11
+Updated: 2026-08-12
 
-This document describes the accepted current AIDA Café architecture. Current implementation reality and future plans are separated deliberately.
-
-## Runtime diagram
+## System architecture
 
 ```mermaid
-flowchart TD
-    A["Flutter apps/customer main.dart"] --> B["ProviderScope + MaterialApp"]
-    B --> C["AuthGate"]
-    C -->|"authState = false"| D["Unified Login / Sign-up UI"]
-    C -->|"authState = true"| E["Five-tab AppShell"]
-    E --> F["Home · Rewards · QR · Menu · Profile"]
-    F --> G["Riverpod providers"]
-    D --> G
-    G --> H["MemberRepository interface"]
-    H --> I["MockMemberRepository"]
-    I --> J["Hardcoded demo member, menu, loyalty, promos, vouchers"]
-    G --> K["In-memory auth, edits, favorites, cart, order history"]
-
-    S["Supabase Auth"] --> P["public.user_profiles"]
-    P --> M["public.members"]
-    M --> V["public.student_verifications"]
-    R["private role helper functions"] --> P
-    R --> M
-    R --> V
-
-    G -. "not wired yet" .-> S
+flowchart LR
+    C[Customer Flutter app\nHermann-33/Aida_System] -->|customer intent / reads| B[Shared Supabase / trusted operations]
+    D[POS + Admin React app\nHermann-33/Aida_System-Dashboard] -->|staff/admin operations / reads| B
+    B --> A[Supabase Auth]
+    B --> P[(Postgres + RLS)]
+    B --> S[Storage - future]
+    B --> R[Realtime / controlled RPC or Edge Functions - as required]
 ```
 
-## Active applications
+The clients are separate deployables but one product. No client is authoritative for money, identity, authorization or operational state.
 
-| Area | Current state |
+## Customer runtime
+
+- Flutter/Dart, Material 3, Riverpod.
+- Android, iOS and web source.
+- `AuthGate`, five-tab `IndexedStack`, imperative `Navigator` detail routes.
+- `MemberRepository` abstraction bound only to `MockMemberRepository` today.
+- Client/session simulation for authentication, profile edits, favourites, cart, checkout/order tracking and history.
+
+## Dashboard runtime
+
+- React 19, TypeScript 6, Vite 8, Tailwind CSS 4.
+- React Router with employee, POS and admin layouts.
+- React component/module state, preview fixtures and session storage.
+- TanStack Query provider exists but live queries/mutations are not yet the data layer.
+- Preview/non-preview auth and terminal adapters anticipate same-origin HTTP APIs and HttpOnly credentials; production API behavior is not yet implemented against the shared Supabase system.
+
+## Shared backend foundation
+
+Supabase Auth is the intended identity source. Current Postgres foundation:
+
+- `public.user_profiles`: trusted profile/application role record.
+- `public.members`: server-owned membership identity and stable member code.
+- `public.student_verifications`: declaration and trusted review workflow.
+- private role helpers for RLS.
+- auth trigger provisions profile/member rows.
+
+All exposed foundation tables have forced RLS.
+
+## Canonical database ownership
+
+Until superseded by ADR, version-controlled migrations live in `Hermann-33/Aida_System/supabase/`. The dashboard repository consumes the resulting shared contract but does not maintain a duplicate migration chain.
+
+Database tasks may require coordinated client-contract analysis in both repos even when SQL changes are committed only to the migration-owning repo.
+
+## Authoritative ownership
+
+| Domain | Authority |
 |---|---|
-| Customer | Flutter app in `apps/customer` |
-| POS/staff | Not present |
-| Admin | Not present |
-| Backend/API | No custom API source present |
-| Supabase | Initial database foundation exists; frontend not connected |
+| Auth identity/session | Supabase Auth / trusted session boundary |
+| Customer profile/app role | `user_profiles` foundation; future controlled role operations |
+| Member code / verification | `members` + `student_verifications` |
+| Branches, terminals, employees | Future shared backend |
+| Catalogue/prices/modifiers | Future shared backend |
+| Quote/totals/discounts | Future controlled server operation |
+| Orders/status/receipt facts | Future shared persistence + controlled transitions |
+| Payments/refunds | Approved provider/device + trusted server record |
+| Loyalty/rewards/vouchers | Future auditable ledger and atomic operations |
+| Inventory | Future stock ledger/operations |
+| Marketing/reporting/audit | Future trusted publication/aggregate/audit boundaries |
 
-## Frontend boundary
+## Cross-client contract rule
 
-The Flutter app remains a prototype frontend. Riverpod state and `MockMemberRepository` still provide customer identity, menu, loyalty, voucher, order and profile behavior in memory/source code. No Supabase dependency or client initialization exists in the Flutter app.
+Stable IDs and lifecycle enums are backend contracts, not UI implementation details. Customer and dashboard adapters must map to the same contract and be updated together when a breaking contract changes.
 
-Protected frontend integration files remain:
+Examples: member code, branch/sales-point ID, menu item/variant/modifier ID, quote/order ID, order status, payment status/reference, reward/voucher ID and status, employee role, terminal ID and inventory location.
 
-- `apps/customer/lib/application/providers.dart`
-- `apps/customer/lib/domain/repository/member_repository.dart`
-- `apps/customer/lib/data/repository/mock_member_repository.dart`
-- `apps/customer/lib/main.dart`
-- `apps/customer/lib/features/shell/app_shell.dart`
-- money/cart/QR-related domain models and screens
+## Security architecture
 
-## Supabase foundation boundary
-
-`TASK-DB-001` establishes the first trusted persistence boundary in Supabase.
-
-Implemented database foundation:
-
-- `public.user_profiles`: trusted application profile and role record keyed by `auth.users(id)`.
-- `public.members`: server-issued membership identity and member code.
-- `public.student_verifications`: student declaration and trusted review workflow.
-- `private.current_app_role()` and `private.is_staff_or_above()`: non-exposed RLS helper functions.
-- Auth trigger: new `auth.users` rows provision profile/member foundation records.
-
-This foundation is intentionally narrow. It does not implement menu, orders, quote, loyalty ledger, vouchers, payments, POS/admin operations, marketing, reporting, storage, or Flutter wiring.
-
-## Authentication and authorization
-
-Current frontend auth is still a local boolean and must not be treated as real authentication.
-
-Accepted direction:
-
-- Supabase Auth owns identity/session lifecycle.
-- `public.user_profiles` owns trusted app role, not user-editable metadata.
-- RLS policies enforce owner and staff/admin access.
-- Frontend receives only public/publishable configuration in a later task.
-- Service-role keys remain server-only and must never enter Flutter/web builds.
-
-## Current data ownership
-
-| Data area | Current authority |
-|---|---|
-| User identity/session | Future Supabase Auth; frontend currently mock/local |
-| Trusted profile/app role | `public.user_profiles` |
-| Member code/QR identity | `public.members` |
-| Student verification state | `public.student_verifications` |
-| Menu/catalogue/pricing | Still mock; future schema required |
-| Cart/quote/order | Still local simulation; future trusted operation required |
-| Loyalty/rewards/vouchers | Still mock/display-only; future ledger/operation required |
-| POS/admin/staff actions | Not present; future app/service required |
-
-## Security boundaries
-
-- The Flutter/web client is untrusted.
-- Client-computed prices, totals, points, roles, QR payloads, verification status, member codes and order numbers are not authoritative.
-- Public tables require RLS and explicit ownership or trusted operational role predicates.
-- Role helper functions are outside the exposed `public` API schema.
-- Anonymous access has no direct table grants in the foundation schema.
+- Customer and dashboard browsers/apps are untrusted.
+- Staff/admin UI guards are usability controls only; RLS/server authorization remains mandatory.
+- Branch scoping and global-manager privileges must be verified server-side.
+- Terminal enrolment/credentials and manager approval require trusted credential lifecycle and audit.
+- Service-role keys never enter Flutter or browser bundles.
+- Privileged business operations should use controlled RPC/Edge Function/server boundaries when direct table mutation cannot safely express authorization, atomicity or idempotency.
 
 ## Deferred architecture
 
-Deferred until later tasks:
-
-- Supabase Flutter client package/configuration.
-- Auth session bootstrap/refresh/logout wiring.
-- Local secure/durable member-code cache.
-- Menu/catalogue schema and storage/image policy.
-- Server-side cart quote/order operations and idempotency.
-- Loyalty ledger, rewards, voucher issuance/use, and audit trail.
-- POS/staff/admin app or service boundary.
-- Reporting, marketing, observability, backup/restore and deployment runbooks.
-
-## Fragile boundaries
-
-The highest-risk boundary is now the seam between the mock Flutter prototype and the new Supabase foundation. Do not wire UI directly to tables until repository ports, typed failures, cache/logout behavior, and RLS tests are reviewed.
+Catalogue/storage, branch/terminal/employee schema, quote/order/payment model, loyalty ledger, inventory, marketing, reporting, realtime subscriptions, notification delivery, production offline sync, observability, backups and deployment runbooks remain future bounded decisions/tasks.

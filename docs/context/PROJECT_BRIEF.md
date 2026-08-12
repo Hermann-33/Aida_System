@@ -1,66 +1,52 @@
 # AIDA Café Project Brief
 
+Updated: 2026-08-12
+
 ## Product purpose
 
-AIDA Café is intended to support café ordering and membership operations for City University Malaysia. The product direction combines a customer experience—menu discovery, ordering, QR membership, rewards, and order tracking—with future staff/POS and admin workflows.
+AIDA Café is the ordering, membership, loyalty and café-operations system for City University Malaysia. The product combines a customer application with staff POS and administration workflows over one authoritative backend.
 
-Evidence: `Aida_System_Unified_PRD_v2.0.md` §§6–13 and `docs/superpowers/specs/2026-07-10-aida-customer-app-design.md`.
+## System components
 
-## Problem being solved
+### Customer application
 
-Customers need a clear way to discover café items, identify themselves as members, see loyalty value, and place or review orders. Café staff and administrators will eventually need a shared operational record for menu availability, member verification, pricing, orders, rewards, promotions, and reporting. The current checkout-shaped UI has no shared operational record yet.
+Repository: `Hermann-33/Aida_System`.
+
+Flutter customer UI for authentication, home/promotions, rewards/vouchers, membership QR, menu browsing/configuration, favourites, cart, payment-method selection, order tracking/history and profile. It is currently a polished prototype still bound to mock/session-local data; no Flutter Supabase client is wired yet.
+
+### POS/Admin dashboard
+
+Repository: `Hermann-33/Aida_System-Dashboard`.
+
+React 19 + TypeScript + Vite browser application with employee access, terminal enrolment, POS, orders, payments, member/QR lookup, loyalty, shifts, branches/locations, terminals, employees/access, menu/catalogue, inventory, marketing, reporting, audit, integrations and settings. It is currently a frontend preview using deterministic fixtures, component/module state and session storage; no Supabase SDK or durable transactional backend is connected.
+
+### Shared backend
+
+Supabase project **Aida System**, ref `eswovqxqzfevcdwwcmuh`.
+
+The first database foundation is implemented: trusted profiles/application roles, members/server-issued member codes and student-verification records with RLS. Menu, quote/order, payment, loyalty, POS operational, inventory, marketing and reporting persistence remain to be built.
 
 ## Target users
 
-- City University students and other café customers.
-- Café staff/baristas/cashiers using a planned POS or staff workflow.
-- Café owners/managers/admin users using a planned operational dashboard.
+- Students and other café customers.
+- Baristas/cashiers/staff operating shared terminals and POS workflows.
+- Managers/admin/owners operating catalogue, staff, inventory, rewards, marketing and reporting workflows.
 
-Only the customer role has an application in this repository. No staff, POS, or admin source folder was found in the 2026-08-11 inventory.
+## Shared product rule
 
-## Core scope
-
-### Customer app
-
-The current Flutter UI covers sign-in/sign-up, password-reset request, home and promotions, loyalty summary and local check-in interaction, rewards/vouchers, membership QR, menu/category browsing, item configuration, favorites, cart, payment-method selection, mock order tracking, session order history/receipt, profile, and session-only profile editing.
-
-Evidence: `apps/customer/lib/features/`, `apps/customer/lib/application/providers.dart`, and `docs/frontend/UI_SCREEN_MAP.md`.
-
-### POS, staff, and admin
-
-The PRD describes planned POS/staff/admin capabilities, including sales, order operations, member lookup, catalogue management, verification, reporting, promotions, and loyalty administration. None is implemented in this checkout. These workflows must not be described as current repository capability.
-
-Evidence: PRD §§9.2–9.4 and absence from the repository file inventory recorded in `docs/context/AUDIT_LOG.md`.
-
-## Explicit non-goals for the current baseline
-
-- Claiming that the UI is production-ready or full-stack complete.
-- Preserving or assuming any historical Node/Express/Neon deployment described by the PRD.
-- Inferring a Supabase schema from mock models or old database descriptions.
-- Building custom payment-card processing.
-- Treating the current customer-side totals, loyalty values, roles, or QR as authoritative.
-- Implementing POS/admin features inside the customer app by accident.
+The two frontends are views/controllers over one operational system. They must use the same identifiers, lifecycle definitions and backend rules. The customer app cannot invent a price/order/reward outcome that the POS does not recognise, and the dashboard cannot mutate data outside the same server-enforced contract.
 
 ## Current maturity
 
-This is a polished, test-backed frontend prototype with useful domain types and a repository abstraction. It is not yet a real connected product:
+- Customer UI: prototype; mock/session-local business data.
+- Dashboard UI: broad preview; fixture/local/session state with planned HTTP adapters.
+- Supabase: real identity/membership foundation exists; not yet connected to either frontend.
+- Full ordering/loyalty/operations: `PARTIAL` because authoritative shared persistence and operational integration are missing.
 
-- `memberRepositoryProvider` binds only `MockMemberRepository`.
-- auth is a session boolean and accepts any sign-in attempt;
-- cart, favorites, profile edits, check-in, and order history live in memory;
-- payment, order creation, and order status are simulated;
-- no Supabase package, client, config, migration, or backend exists here.
+## Core business domains
 
-## Honest limitations
-
-- Only Android, iOS, and web runner directories are committed; no Windows runner is present.
-- The web manifest and package README still contain scaffold text.
-- Product images are temporary hotlinked Unsplash images and several local cut-out/category assets; the logo is a placeholder.
-- Product prices, serving sizes, add-on compatibility, ratings, voucher expiry, points/reward values, and demo identity data are not verified operational data.
-- The offline QR claim is architecturally intended but not implemented with durable local storage.
-- Scheduled ordering has no current screen or data flow.
-- The full test command currently fails four golden comparisons; non-golden tests pass.
+Identity/session, membership/student verification, branches/sales points/terminals, employees/roles, catalogue/modifiers/pricing, cart/quote, orders/fulfilment/KDS, payments/refunds, loyalty/rewards/vouchers, inventory/recipes/wastage/transfers, promotions/marketing, reporting and immutable audit.
 
 ## Success criteria
 
-AIDA succeeds when verified users can complete their role-appropriate flows against one authoritative system, with server-controlled price/loyalty/order rules, secure access, usable failure/offline behavior, and operational visibility for staff/admin. Repository-level success additionally requires reproducible migrations, tests, current documentation, reviewed UI baselines, and deployable target builds.
+AIDA succeeds when role-appropriate users complete their flows against one trusted backend with consistent IDs and state transitions, server-authoritative value calculations, secure ownership/branch/role access, audited privileged actions, usable failure/offline behavior, reproducible migrations, cross-client integration tests and current mirrored documentation.

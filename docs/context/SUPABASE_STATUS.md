@@ -1,153 +1,82 @@
 # Supabase Status
 
-**Status date:** 2026-08-11
-**Implementation state:** database foundation created; Flutter frontend not connected
+**Status date:** 2026-08-12
 **Remote project:** Aida System
 **Project ref:** `eswovqxqzfevcdwwcmuh`
 **Region:** `ap-southeast-1`
+**Implementation state:** identity/membership database foundation created; neither frontend connected
 
-## Verdict
+## Verified reset and migration history
 
-`TASK-DB-001` verified the reset project, created the first version-controlled Supabase migration foundation, and applied it to the remote Aida System project.
+Before `TASK-DB-001`, remote `public` base tables, public enums and public functions were all verified at 0 and old proof buckets `menu-images` / `marketing-assets` were absent.
 
-The frontend still does **not** connect to Supabase. No Flutter behavior, dependency, environment file, or client configuration was changed.
+Applied migrations:
 
-## Pre-migration reset verification
+1. `20260811101100_create_identity_membership_foundation.sql`
+2. `20260811102200_harden_foundation_role_helpers.sql`
+3. `20260811102700_optimize_foundation_rls_policies.sql`
 
-Before applying the foundation migrations, the remote project was verified as clean:
+Canonical files live in `Hermann-33/Aida_System/supabase/`.
 
-| Area | Verified result |
-|---|---|
-| `public` base tables | 0 |
-| `public` enum types | 0 |
-| `public` functions | 0 |
-| `menu-images` bucket | absent |
-| `marketing-assets` bucket | absent |
+## Current objects
 
-No old proof/demo schema or storage bucket remains.
+Tables:
 
-## Migration ledger
+- `public.user_profiles`
+- `public.members`
+- `public.student_verifications`
 
-| Migration | Remote applied | Purpose |
-|---|---:|---|
-| `20260811101100_create_identity_membership_foundation.sql` | Yes | Creates identity/profile/member/student-verification foundation, triggers, grants and first RLS policies |
-| `20260811102200_harden_foundation_role_helpers.sql` | Yes | Moves role helper functions into non-exposed `private` schema |
-| `20260811102700_optimize_foundation_rls_policies.sql` | Yes | Adds reviewed-by index and optimizes RLS calls to avoid auth init-plan warnings |
+Enums:
 
-Repository files live under:
+- `public.app_user_role`
+- `public.member_type`
+- `public.student_verification_status`
 
-```text
-supabase/migrations/
-supabase/config.toml
-supabase/tests/rls_foundation.sql
-docs/database/SCHEMA_FOUNDATION.md
-```
+Public trigger/support functions:
 
-## Current database objects
+- `public.set_updated_at`
+- `public.generate_member_code`
+- `public.handle_new_auth_user`
 
-### Tables
+Private RLS helpers:
 
-```text
-public.user_profiles
-public.members
-public.student_verifications
-```
+- `private.current_app_role`
+- `private.is_staff_or_above`
 
-### Enums
+## Access posture
 
-```text
-public.app_user_role
-public.member_type
-public.student_verification_status
-```
-
-### Functions
-
-Public operational/trigger functions:
-
-```text
-public.set_updated_at
-public.generate_member_code
-public.handle_new_auth_user
-```
-
-Private RLS helper functions:
-
-```text
-private.current_app_role
-private.is_staff_or_above
-```
-
-The role helper functions were intentionally moved out of the exposed `public` API schema.
-
-## Access and RLS posture
-
-- RLS is enabled and forced on all foundation tables.
+- RLS enabled and forced on every foundation table.
 - Anonymous users have no direct table grants.
-- Authenticated customers can select their own profile/member records.
-- Authenticated customers can update only basic profile columns through column-level grants.
-- Authenticated customers can insert pending student-verification submissions only for their own member record.
-- Staff/admin/owner access uses trusted `user_profiles.app_role`, not user-editable Auth metadata.
-- Student-verification review updates require staff/admin/owner role.
-- New Supabase Auth users trigger creation of a `user_profiles` row and a server-issued `members.member_code`.
+- Customer reads are owner-scoped.
+- Basic customer profile updates are column-limited.
+- Student submission is owner-scoped and pending-only.
+- Review access requires trusted staff/admin/owner role.
+- Role authorization uses trusted database records, not user-editable Auth metadata.
 
-## Advisor findings
+Security advisor after hardening: **0 lints**.
 
-Security advisor after hardening:
+Performance advisor after optimization: auth init-plan warnings resolved; remaining unused-index INFO notices are expected on a fresh no-traffic schema.
 
-```text
-0 security lints
-```
+## Client connection state
 
-Performance advisor after optimization:
+### Customer
 
-```text
-No auth RLS init-plan warnings remain.
-Only unused-index INFO lints remain, expected because the schema has no traffic yet.
-```
+No Supabase Flutter dependency/client initialization, session bootstrap, database query, Storage access, Realtime subscription or function call. Active adapter remains `MockMemberRepository`.
 
-## Frontend connection status
+### Dashboard
 
-The customer frontend still has no Supabase dependency, client initialization, auth session bootstrap, database query, storage access, realtime subscription, or Edge Function call.
+No Supabase SDK, migrations, policies, keys or direct Supabase calls. Current preview repositories/fixtures and planned HTTP adapters are not authoritative backend integration.
 
-`MemberRepository` remains bound to `MockMemberRepository`. The database is ready for the next implementation phase, but no UI path is wired to it.
+## Migration ownership rule
 
-## Local development notes
+Do not create a separate Supabase migration chain inside `Aida_System-Dashboard`. Database changes are committed to the canonical `Aida_System/supabase/` workspace and documented in both repositories. If backend ownership moves to a dedicated repository later, supersede the relevant ADR first.
 
-Use Supabase CLI locally. Do not commit secrets.
+## Not implemented yet
 
-```bash
-supabase start
-supabase db reset
-supabase migration list
-supabase db lint
-supabase gen types typescript --local > supabase/types/database.types.ts
-```
+Branches/locations/terminals/employees, catalogue/modifiers/storage, quotes/orders/KDS, payments/refunds, loyalty/rewards/vouchers, inventory, marketing/publication, reporting/audit persistence and frontend integration.
 
-Remote linking is local-only:
+## Next database task
 
-```bash
-supabase login
-supabase link --project-ref eswovqxqzfevcdwwcmuh
-```
+`TASK-DB-002: Design and migrate the published menu/catalogue foundation using requirements from both customer and POS/Admin UIs, with published-read policy, privileged admin mutation boundary, stable IDs and an explicit image/storage decision.`
 
-## Current non-goals
-
-This foundation does not implement:
-
-- menu/catalogue schema;
-- cart, quote, or order schema;
-- loyalty ledger, rewards, or voucher schema;
-- POS/staff/admin workflows;
-- payment processing;
-- storage buckets;
-- reporting or marketing tables;
-- Flutter integration.
-
-## Next required work
-
-Recommended next database task:
-
-`TASK-DB-002: Design and migrate the published menu/catalogue foundation with public read policy, admin ownership boundary, and image/storage decision.`
-
-Do not wire Flutter before the relevant schema, RLS, and adapter contract are reviewed.
+Local verification still required from a developer checkout: `supabase db reset`, `supabase db lint`, and seeded RLS scenarios.

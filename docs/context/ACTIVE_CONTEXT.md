@@ -1,94 +1,118 @@
 # Active Context
 
-**As of:** 2026-08-11
-**Repository:** `Hermann-33/Aida_System`
-**Default branch:** `master`
-**Active task branch:** `codex/task-db-001-supabase-foundation`
-**Current task:** `TASK-DB-001`—Supabase migration and database foundation
+**As of:** 2026-08-12
+**Setup status:** COMPLETE on task branches; merge stack pending
+**Next implementation task:** `TASK-DB-002 — shared menu/catalogue foundation`
 
-## Current reality
+## Project topology
 
-- One active source application exists: `apps/customer`, a Flutter/Dart customer app.
-- `main.dart` starts `ProviderScope` and a Material 3 `MaterialApp`.
-- Riverpod owns app/session state. Navigation is an `AuthGate`, five-tab `IndexedStack`, and imperative `Navigator`/`MaterialPageRoute` pushes.
-- `go_router` is declared but no `GoRouter` usage or route configuration exists.
-- Customer app data remains bound to `MockMemberRepository`.
-- No POS, staff, or admin app source is present.
-- `TASK-DB-001` adds the first real Supabase database foundation, but the Flutter frontend is still not wired to it.
+### Customer application
 
-## Latest completed/active work
+- Repo: `Hermann-33/Aida_System`
+- Default branch: `master`
+- Runtime: Flutter / Dart / Material 3 / Riverpod
+- Current integration state: frontend prototype; `MockMemberRepository` is still active and no Flutter Supabase client is wired.
+- Canonical Supabase migration workspace: `supabase/` in this repository.
 
-`TASK-WF-001` established repository governance and frontend audit documentation.
+### POS/Admin dashboard
 
-`TASK-DB-001` now establishes:
+- Repo: `Hermann-33/Aida_System-Dashboard`
+- Default branch: `main`
+- Runtime: React 19 / TypeScript 6 / Vite 8 / React Router
+- Current integration state: broad employee/POS/admin frontend preview using fixtures, component/module state and session storage; no Supabase SDK or durable transactional backend is wired.
 
-- Supabase CLI/config foundation under `supabase/`;
-- remote verification for Aida System project `eswovqxqzfevcdwwcmuh`;
-- version-controlled migrations for profile/member/student-verification foundation;
-- RLS policies and role-helper hardening;
-- RLS/schema check script;
-- database documentation under `docs/database/SCHEMA_FOUNDATION.md`.
+### Shared backend
 
-## Verified database state
-
-Remote project:
-
-- Name: Aida System
-- Project ref: `eswovqxqzfevcdwwcmuh`
+- Platform: Supabase
+- Project: **Aida System**
+- Ref: `eswovqxqzfevcdwwcmuh`
 - Region: `ap-southeast-1`
 
-Pre-migration reset state was verified:
+Both frontends are consumers of one backend contract. Neither frontend is authoritative for identity, roles, branch scope, member verification, catalogue pricing, order/payment state, loyalty, inventory, reporting, audit or other trusted business outcomes.
 
-- `public` base tables: 0
-- `public` enum types: 0
-- `public` functions: 0
-- old proof buckets `menu-images` and `marketing-assets`: absent
+## Completed setup tasks
 
-Current foundation state:
+- `TASK-WF-001` — customer frontend audit and repository governance baseline.
+- `TASK-DB-001` — version-controlled Supabase identity/membership foundation.
+- `TASK-WF-002` — POS/Admin dashboard source import and audit.
+- `TASK-WF-003` — synchronized dual-repository context, ADRs, security review, shared backend contract, workflow and handoff.
+- `TASK-WF-003` closeout — permanent `SESSION_BOOTSTRAP.md` added so new chats can recover project context from repository truth.
 
-- tables: `user_profiles`, `members`, `student_verifications`
-- enums: `app_user_role`, `member_type`, `student_verification_status`
-- RLS: enabled and forced on all foundation tables
-- security advisor: 0 security lints after hardening
-- performance advisor: only unused-index INFO lints remain, expected on a new schema with no traffic
+## Supabase implementation reality
 
-## Current test/build state
+`TASK-DB-001` created and remotely applied:
 
-Repository-side Flutter checks were not rerun by this GitHub/Supabase connector task because no checked-out runtime was available. Previous frontend audit baseline remains:
+- `public.user_profiles`
+- `public.members`
+- `public.student_verifications`
+- enums `app_user_role`, `member_type`, `student_verification_status`
+- Auth provisioning trigger and supporting functions
+- forced RLS on all three foundation tables
+- private trusted role helpers
 
-- Flutter: 3.44.7 stable; Dart 3.12.2.
-- `flutter analyze --no-pub`: failed with one warning—unused `_stockChocolate` in `mock_member_repository.dart:213`.
-- Full `flutter test --no-pub`: 24 tests passed and four golden comparisons failed.
-- Non-golden command `flutter test --no-pub test\domain test\widgets test\widget_test.dart`: all 24 tests passed.
+Security advisor after hardening: 0 lints. Performance advisor had only expected unused-index INFO findings on the new no-traffic schema.
 
-Supabase checks performed remotely:
+No catalogue, quote/order, payment, loyalty, inventory, marketing/reporting or POS operational persistence exists yet.
 
-- clean reset queries before migration;
-- migration application;
-- table/type/function/policy inventory queries;
-- security advisor;
-- performance advisor.
+## Documentation state
 
-## Immediate priorities
+Project-level governance is mirrored across both repositories. The canonical mirrored set includes:
 
-1. Review and merge PR for `TASK-DB-001` after checking migration files.
-2. Run local Supabase CLI validation from a checkout: `supabase db reset`, `supabase db lint`, and `supabase/tests/rls_foundation.sql`.
-3. Decide the next narrow foundation task before Flutter wiring. Recommended: menu/catalogue schema and published read policy.
-4. Separately fix the existing `_stockChocolate` analyzer warning and review golden diffs; that is frontend cleanup, not database foundation.
+- root `AGENTS.md`
+- `docs/README.md`
+- `docs/context/`
+- `docs/decisions/`
+- `docs/contracts/`
+- `docs/frontend/`
+- `docs/dashboard/`
+- `docs/database/`
+- `docs/security/`
 
-## Assumptions and unknowns
+Repository-local screenshots, old design specs, generated evidence and import/audit artifacts may differ.
 
-- **Assumption:** Supabase remains the selected platform for auth, database and storage.
-- **Unknown:** final launch payment model, scheduled-order rules, full student-verification review process, account-deletion policy, and POS/admin ownership.
-- **Unknown:** whether `staff`, `admin`, and `owner` roles will be managed manually, by an admin app, or by a controlled function in a later task.
-- **Unknown:** whether current golden differences are intended UI evolution or environment/font rendering drift.
+`docs/context/SESSION_BOOTSTRAP.md` contains the permanent new-chat prompt.
 
-## Scope protection
+## Open PR stack
 
-Until an accepted task changes this context:
+Merge in this dependency order:
 
-- do not claim the frontend is connected to Supabase;
-- do not claim menu, cart, order, loyalty, reward, payment, POS, or admin persistence exists;
-- do not expose service-role keys or database credentials;
-- do not trust client-generated prices, member codes, order numbers, verification status, role claims, or loyalty values;
-- do not wire Flutter features before the relevant database contract and RLS behavior are reviewed.
+1. Dashboard PR #1 — `TASK-WF-002` dashboard import -> `main`.
+2. Customer PR #2 — `TASK-DB-001` Supabase foundation -> `master`.
+3. Customer PR #3 — `TASK-WF-003` synchronized project docs, stacked on DB-001.
+4. Dashboard PR #2 — `TASK-WF-003` synchronized project docs, stacked on WF-002.
+
+After predecessor merges, retarget/rebase the stacked WF-003 PRs if GitHub does not resolve the base automatically. Future implementation work should branch from the updated default branches only after this stack is integrated.
+
+## Verification baselines
+
+Customer audit baseline:
+
+- Flutter 3.44.7 / Dart 3.12.2.
+- `flutter analyze --no-pub`: one unused `_stockChocolate` warning.
+- Non-golden tests: 24/24 passed.
+- Full test run: four golden comparison failures.
+
+Dashboard import baseline:
+
+- `npm run lint`: passed with 5 warnings.
+- `npm run typecheck`: passed.
+- `npm test`: 14 files / 62 tests passed.
+- `npm run build`: passed with bundle-size warning.
+- Preview E2E: 6/6 passed.
+- API-backed E2E: not run because backend environment is unavailable.
+- Dependency audit: 1 moderate and 4 high findings; no automated upgrades applied.
+
+## Open architectural/product decisions
+
+- Final payment/provider/device model, including student-wallet semantics.
+- Scheduled-order rules, capacity and cutoff behavior.
+- Staff/admin role assignment, manager approval and branch-scope administration.
+- Terminal credential lifecycle and production employee authentication method.
+- Full student-verification evidence/review policy.
+- Inventory accounting and depletion model.
+- Account deletion/anonymization and retention.
+- Production reporting/business-day semantics and marketing approval workflow.
+
+## Next action after setup merge
+
+Start `TASK-DB-002: shared menu/catalogue foundation` only after reading both customer and dashboard backend-integration docs and the shared backend contract. Do not mechanically map either preview fixture model into database tables, and do not wire either frontend in that schema-foundation task unless its scope is explicitly expanded.

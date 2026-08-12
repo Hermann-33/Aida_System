@@ -88,8 +88,8 @@ At task completion:
 - Shared identifiers and lifecycle semantics must be compatible across customer, POS and admin workflows.
 - Client previews are requirements evidence, not database authority.
 
-## Current setup closeout
+## Current setup state
 
-The setup/governance phase is complete on its task branches. The repositories now contain customer context, dashboard context, shared architecture, database foundation status, security rules, ADR history, shared contract, workflow and handoff material. Open stacked PRs must still be merged in their documented dependency order before future work should branch from the default branches.
+The setup/governance phase is complete and merged into both default branches. The repositories contain customer context, dashboard context, shared architecture, database foundation status, security rules, ADR history, shared contract, workflow and handoff material.
 
-The recommended next implementation task after the setup PR stack is merged is `TASK-DB-002: shared menu/catalogue foundation`.
+The recommended next implementation task is `TASK-DB-002: shared menu/catalogue foundation`.

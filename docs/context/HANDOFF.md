@@ -4,7 +4,7 @@ Updated: 2026-08-12
 
 ## Setup phase status
 
-The initial AIDA project setup/governance phase is COMPLETE on its task branches. No implementation task is currently active.
+The initial AIDA project setup/governance phase is COMPLETE and integrated into both default branches. No implementation task is currently active.
 
 Completed setup work:
 
@@ -12,12 +12,12 @@ Completed setup work:
 - `TASK-DB-001` — Supabase identity/membership foundation with version-controlled migrations and RLS.
 - `TASK-WF-002` — POS/Admin dashboard import and audit.
 - `TASK-WF-003` — synchronized dual-repository project context, architecture, ADRs, security, workflow and shared backend contract.
-- Setup closeout — permanent `docs/context/SESSION_BOOTSTRAP.md` added for new chats.
+- `TASK-WF-004` — post-merge setup finalization and permanent session bootstrap.
 
 ## Current system reality
 
-- Customer repo: `Hermann-33/Aida_System`, Flutter/Dart/Riverpod prototype, no Supabase client wiring yet.
-- Dashboard repo: `Hermann-33/Aida_System-Dashboard`, React/TypeScript/Vite employee/POS/admin preview, no durable backend wiring yet.
+- Customer repo: `Hermann-33/Aida_System`, default branch `master`, Flutter/Dart/Riverpod prototype, no Supabase client wiring yet.
+- Dashboard repo: `Hermann-33/Aida_System-Dashboard`, default branch `main`, React/TypeScript/Vite employee/POS/admin preview, no durable backend wiring yet.
 - Shared backend: Supabase **Aida System**, ref `eswovqxqzfevcdwwcmuh`, region `ap-southeast-1`.
 - Canonical executable migrations: `Hermann-33/Aida_System/supabase/` until superseded by ADR.
 - Project-level governance docs are mirrored in both repositories.
@@ -35,14 +35,16 @@ Completed setup work:
 
 No catalogue, order/payment, loyalty, inventory, marketing/reporting or POS operational persistence exists yet.
 
-## Open PR dependency order
+## Setup merge record
 
-1. Dashboard PR #1 — `TASK-WF-002` -> `main`.
-2. Customer PR #2 — `TASK-DB-001` -> `master`.
-3. Customer PR #3 — `TASK-WF-003`, currently stacked on DB-001.
-4. Dashboard PR #2 — `TASK-WF-003`, currently stacked on WF-002.
+Merged successfully:
 
-Merge predecessors first. Retarget/rebase stacked WF-003 PRs onto the updated default branches if required. Do not start a new implementation branch from stale defaults while this stack is unresolved.
+- Dashboard PR #1 — `TASK-WF-002` import.
+- Customer PR #2 — `TASK-DB-001` foundation.
+- Customer PR #3 — `TASK-WF-003` synchronized project context.
+- Dashboard PR #2 — `TASK-WF-003` synchronized project context.
+
+`TASK-WF-004` finalizes the default-branch wording after those merges.
 
 ## Permanent new-session entry point
 
@@ -76,8 +78,6 @@ Payment/provider/device model, student wallet semantics, scheduled-order rules, 
 
 ## Exact next implementation task
 
-After the setup PR stack is merged:
-
 `TASK-DB-002: shared menu/catalogue foundation`
 
-That task must inspect customer and dashboard catalogue requirements together, define one published catalogue contract and security model, create canonical migrations only in the customer repo's `supabase/` workspace, update mirrored docs in both repos, and avoid frontend wiring unless explicitly included in scope.
+Create fresh task branches from `master` and `main` as required. Inspect customer and dashboard catalogue requirements together, define one published catalogue contract and security model, create canonical migrations only in the customer repo's `supabase/` workspace, update mirrored docs in both repos, and avoid frontend wiring unless explicitly included in scope.

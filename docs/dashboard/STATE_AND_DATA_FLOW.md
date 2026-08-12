@@ -21,6 +21,10 @@ Browser code never receives a service-role credential. A refreshed employee acce
 
 A successful save bumps `catalogue_revision`; the Flutter customer app listens to that row and re-fetches its public RLS-filtered snapshot.
 
+## POS catalogue browsing
+
+POS browsing consumes the same public catalogue BFF contract as the customer/Admin catalogue model and has no runtime preview-catalogue fallback. POS cart arithmetic, checkout, orders, and payments remain local/preview state and are not trusted persistence.
+
 ## Remaining preview
 
 POS checkout/order/payment state remains local/fixture-backed and is not made authoritative by Admin catalogue integration.

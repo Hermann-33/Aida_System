@@ -6,7 +6,7 @@ Scope: `Hermann-33/Aida_System-Dashboard`.
 |---|---|---|---|
 | `/employee` | anonymous/staff/admin | terminal enrolment and employee sign-in | preview roster/terminal repo; planned API adapters |
 | `/employee/select-role` | dual-role admin | choose POS or Admin workspace | current employee session |
-| `/pos` | staff / enabled dual-role admin | full counter workspace | fixtures + component/module/session state; no durable order backend |
+| `/pos` | staff / enabled dual-role admin | full counter workspace | shared catalogue browsing; preview cart/totals/orders/payments remain non-durable |
 | `/unauthorized` | denied identity | access-denied boundary | route-guard state |
 | `/admin` | admin | executive KPIs/operations | derived preview transactions/terminals/shifts |
 | `/admin/reports/sales` | admin | sales/product/payment/void/refund/staff/branch reporting | preview aggregates; export disabled |
@@ -16,8 +16,8 @@ Scope: `Hermann-33/Aida_System-Dashboard`.
 | `/admin/operations/terminals` | admin | terminal health/enrol/revoke | preview/session simulator |
 | `/admin/operations/shifts` | admin | shifts and cash variance | preview rows |
 | `/admin/operations/employees` | admin | employee/role/branch management | session-only React state |
-| `/admin/catalogue/menu` | admin | items/categories/modifiers/add item | preview data; local additions |
-| `/admin/catalogue/menu/:id` | admin | price/availability editor | save disabled/read-only boundary |
+| `/admin/catalogue/menu` | admin | items/categories/modifiers/add item | shared catalogue through authenticated same-origin BFF |
+| `/admin/catalogue/menu/:id` | admin | price/availability/variant/add-on editor | shared catalogue mutation through caller-JWT BFF/RPC |
 | `/admin/inventory/stock` | admin | stock/recipes/wastage/transfers | local arrays/state; transfer simulation |
 | `/admin/rewards/loyalty` | admin | points/stamps/offers rules | preview read-only |
 | `/admin/rewards/campaigns` | admin | campaign/ad composition | publish disabled/local-only flag |

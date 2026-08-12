@@ -1,6 +1,6 @@
 # POS/Admin Backend Integration Plan
 
-Updated: 2026-08-12
+Updated: 2026-08-13
 
 ## Admin catalogue — implemented source/data
 
@@ -10,6 +10,6 @@ Admin can create categories/items and edit item name/SKU/category/type/descripti
 
 Admin Menu no longer imports the preview catalogue/modifier fixtures.
 
-## POS
+## POS catalogue browsing
 
-The checkout workspace still contains preview transaction/catalogue wiring. Do not treat it as catalogue authority. Replace it as part of authoritative quote/order/POS integration so prices and cart/order transitions are validated together.
+POS browsing now reads the same shared catalogue and has no runtime preview-catalogue fallback. The checkout workspace still computes preview totals and holds order/payment state locally. Do not treat those transaction paths as authoritative; replace them as part of quote/order/POS integration so prices and cart/order transitions are validated on a trusted boundary.

@@ -1,6 +1,6 @@
 # Roadmap
 
-Updated: 2026-08-12
+Updated: 2026-08-13
 
 ## Completed foundations
 
@@ -9,7 +9,7 @@ Updated: 2026-08-12
 
 ## Auth/member
 
-Source implementation exists across customer + dashboard BFF, but final validation/deployment E2E remains deferred. Formal status: PARTIAL under ADR-0004.
+Customer source, analyzer, all Flutter tests, reviewed goldens, canonical live SQL regression, cleanup checks, and the ADR-0003 minimum offline member-code cache pass. Deployed/device Auth E2E remains open because real identities and deployment are absent. Formal status: PARTIAL under ADR-0004.
 
 ## Shared catalogue — TASK-MENU-001
 
@@ -20,7 +20,11 @@ Implemented:
 - Admin Menu creates/updates shared categories/items/variants/add-on compatibility through caller-JWT BFF;
 - production customer menu hardcodes and `ItemSize` removed.
 
-Live database regression/security checks pass. Client/toolchain/deployed E2E validation was explicitly deferred, so formal status remains PARTIAL.
+Live database regression/security checks, the full Flutter suite, reviewed goldens, production-hardcode searches, provider-level Realtime invalidation, migration-ledger reconciliation, and mirrored fact synchronization pass. Dashboard lint/typecheck/85 tests/build and Playwright 6/6 also pass at commit `238e0ff211fe550f42ec4d4423724e3642282295`; Admin and POS browse the shared catalogue without runtime preview fallback. Deployed Admin-write -> customer UI E2E remains open. Formal status remains PARTIAL.
+
+## Validation debt — TASK-AUTH-003
+
+Provision approved real identities and deployment targets, then run deployed/device customer Auth and Admin-write -> customer-Realtime cross-client E2E. Do not use the shared catalogue result to promote preview checkout, totals, orders, or payments to trusted status.
 
 ## Next product phase
 

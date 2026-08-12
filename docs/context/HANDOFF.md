@@ -1,38 +1,47 @@
 # Current Handoff
 
-Updated: 2026-08-12
+Updated: 2026-08-13
 
 ## Current task
 
-`TASK-MENU-001 — shared catalogue/menu persistence and dual-client integration`
+Customer-side validation closeout for `AUTH-001`, `AUTH-002`, and `TASK-MENU-001`.
 
-**Verdict:** PARTIAL because validation was explicitly deferred.
+**Verdict:** PARTIAL under ADR-0004.
 
-Branch in both repos: `codex/task-menu-001-shared-catalogue`, stacked on TASK-AUTH-002.
+Customer branch: `codex/task-menu-001-shared-catalogue`, stacked as draft PR #7 on draft PR #6 on draft PR #5.
 
-## Implemented
+## Completed validation and fixes
 
-- Live Supabase catalogue with forced RLS, audit evidence and Realtime revision signal.
-- Seeded the exact 16 customer menu items that were previously hardcoded, including original prices/availability/images/flags.
-- Moved Small/Medium/Large deltas into 27 per-item variant rows and drink add-on compatibility into 27 normalized links.
-- Customer `CatalogueRepository` reads `get_catalogue()`; no production mock fallback exists.
-- Flutter watches `catalogue_revision` and re-fetches after Admin writes.
-- Admin Menu list/category creation/item editor now read/write shared DB data through BFF caller-JWT RPCs.
-- Old customer runtime menu constants and `ItemSize` enum removed.
-- Fake rating/bonus-points catalogue presentation removed rather than persisted.
-- Live catalogue SQL regression passes; security advisor 0 lints.
+- Ran `flutter pub get`; committed source had a stale lockfile that did not resolve the added `supabase_flutter` dependency, so the lockfile is now regenerated from the pinned `2.15.4` constraint.
+- `flutter analyze` passes with no issues.
+- `flutter test` passes all 32 tests after deliberate review of the four prior golden failures.
+- Added the ADR-0003-required durable, user-scoped minimum offline member-code cache and tests. Logout/user switch removes the old user's entry; roles, verification, loyalty and pricing are not cached.
+- Added a focused provider regression proving a catalogue revision event triggers a second authoritative snapshot fetch.
+- Repaired the explicit test-only catalogue fixture so menu/golden tests represent all 4 categories and 16 seeded items rather than one product and one add-on.
+- Proved `item_size.dart` is absent and production Dart has no `ItemSize` reference, migrated menu fixture, seeded catalogue price literal, or static S/M/L price-delta definition.
+- Verified source wiring from Supabase `get_catalogue()` through `SupabaseCatalogueRepository` into categories/items/variants/compatible add-ons and UI providers.
+- Ran the canonical Auth/member and catalogue SQL regressions verbatim against Supabase; both passed inside rollback transactions.
+- Independently verified cleanup: no synthetic users, regression category/item, or regression audit row remains.
+- Verified live anonymous catalogue shape: 4 categories, 16 items, 27 variants, 27 compatible add-on links, required Flutter contract fields present.
+- Verified revision 1 and exactly one `catalogue_revision` entry in `supabase_realtime`.
+- Security advisor: 0 lints. Performance advisor: six unused-index INFO notices only.
+- Reconciled all eight current live migration statements to the canonical files. Names and SQL semantics match; only applied timestamp prefixes and non-semantic comments/formatting differ, so no schema mutation or manufactured migration is needed.
+- Reconciled the customer mirror to dashboard commit `238e0ff211fe550f42ec4d4423724e3642282295`: lint/typecheck/85 tests/build pass, Playwright 6/6 passes, Admin and POS browse the shared catalogue, preview catalogue fallbacks are absent at runtime, BFF contract/security checks pass, and the dashboard security advisor has 0 lints.
 
-## Deferred by user instruction
+## Remaining blockers
 
-- Flutter analyzer/tests.
-- Dashboard lint/typecheck/unit/build checks.
-- Deployed Admin edit -> Realtime -> customer app browser/device E2E.
-- Prior auth deployment/admin bootstrap validation.
+- Deployed/device Auth flows and deployed Admin-write -> customer-Realtime UI E2E were not exercised.
+- Real identities and deployment are absent; those remaining Auth/Menu cross-client checks belong to TASK-AUTH-003.
+- Dashboard preview checkout, totals, orders and payments remain untrusted and must not be treated as authoritative because catalogue browsing is shared.
 
-## Non-goal retained
+## Git and PR state
 
-Dashboard POS checkout still contains preview transaction/catalogue wiring. It is not Admin catalogue authority and should be replaced with the trusted quote/order path, not patched piecemeal in this menu task.
+- No default branch was changed.
+- No migration, deployment, real-user creation, or RLS change was performed during this closeout.
+- PR stack: #5 `AUTH-001` -> #6 `AUTH-002` -> #7 `TASK-MENU-001`.
 
-## Next product task
+## Exact next task
 
-`TASK-ORDER-001 — authoritative quote/cart/order foundation`.
+`TASK-AUTH-003 — provision approved real test identities and deployment targets, then run deployed customer Auth and Admin-write -> customer-Realtime cross-client E2E`.
+
+Do not begin `TASK-ORDER-001` release work until these validation debts are explicitly accepted or closed.

@@ -1,6 +1,6 @@
 # AIDA Café Project Brief
 
-Updated: 2026-08-12
+Updated: 2026-08-13
 
 ## Product purpose
 
@@ -12,19 +12,19 @@ AIDA Café is the ordering, membership, loyalty and café-operations system for 
 
 Repository: `Hermann-33/Aida_System`.
 
-Flutter customer UI for authentication, home/promotions, rewards/vouchers, membership QR, menu browsing/configuration, favourites, cart, payment-method selection, order tracking/history and profile. It is currently a polished prototype still bound to mock/session-local data; no Flutter Supabase client is wired yet.
+Flutter customer UI for authentication, home/promotions, rewards/vouchers, membership QR, menu browsing/configuration, favourites, cart, payment-method selection, order tracking/history and profile. Supabase Auth/member reads, minimum per-user offline member-code caching, and the shared catalogue are wired on the current stack. Loyalty, rewards, offers/promotions, profile writes, cart/quote/order/payment and history remain mock, local, or incomplete.
 
 ### POS/Admin dashboard
 
 Repository: `Hermann-33/Aida_System-Dashboard`.
 
-React 19 + TypeScript + Vite browser application with employee access, terminal enrolment, POS, orders, payments, member/QR lookup, loyalty, shifts, branches/locations, terminals, employees/access, menu/catalogue, inventory, marketing, reporting, audit, integrations and settings. It is currently a frontend preview using deterministic fixtures, component/module state and session storage; no Supabase SDK or durable transactional backend is connected.
+React 19 + TypeScript + Vite browser application with employee access, terminal enrolment, POS, orders, payments, member/QR lookup, loyalty, shifts, branches/locations, terminals, employees/access, menu/catalogue, inventory, marketing, reporting, audit, integrations and settings. Admin and POS catalogue browsing use the shared Supabase catalogue through the same-origin BFF; preview checkout/totals/orders/payments and most other operations still use fixtures, component/module state, or session storage.
 
 ### Shared backend
 
 Supabase project **Aida System**, ref `eswovqxqzfevcdwwcmuh`.
 
-The first database foundation is implemented: trusted profiles/application roles, members/server-issued member codes and student-verification records with RLS. Menu, quote/order, payment, loyalty, POS operational, inventory, marketing and reporting persistence remain to be built.
+The identity/member foundation and shared catalogue are implemented with RLS. Quote/order, payment, loyalty, POS operational, inventory, marketing and reporting persistence remain to be built.
 
 ## Target users
 
@@ -38,9 +38,9 @@ The two frontends are views/controllers over one operational system. They must u
 
 ## Current maturity
 
-- Customer UI: prototype; mock/session-local business data.
-- Dashboard UI: broad preview; fixture/local/session state with planned HTTP adapters.
-- Supabase: real identity/membership foundation exists; not yet connected to either frontend.
+- Customer UI: Supabase Auth/member and catalogue partially integrated; remaining business domains are mock/session-local.
+- Dashboard UI: shared catalogue browsing/administration integrated; broader operations remain fixture/local/session preview.
+- Supabase: real identity/membership and shared catalogue foundations exist; customer reads them and the stacked dashboard Admin catalogue uses caller-JWT BFF/RPC access.
 - Full ordering/loyalty/operations: `PARTIAL` because authoritative shared persistence and operational integration are missing.
 
 ## Core business domains

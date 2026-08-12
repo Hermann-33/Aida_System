@@ -1,13 +1,13 @@
 # POS/Admin Mocks and Placeholders Register
 
-Updated: 2026-08-12
+Updated: 2026-08-13
 
-## No longer preview in Admin Menu
+## No longer preview in Admin Menu or POS browsing
 
-Admin Menu categories/items/prices/publication/availability/variants/add-on compatibility now come from the shared Supabase catalogue through the BFF. The conflicting dashboard preview catalogue is not promoted to production data.
+Admin Menu and POS browsing categories/items/prices/publication/availability/variants/add-on compatibility now come from the shared Supabase catalogue through the BFF. No runtime fallback to `PREVIEW_MENU`, `PREVIEW_CATEGORIES`, or `PREVIEW_MODIFIER_GROUPS` remains.
 
 ## Still preview
 
-POS cart/order/payment/tender/receipt flows, checkout-specific catalogue fixture wiring, loyalty, employee/terminal operations, branches, inventory, marketing, reporting and most settings remain preview until bounded backend tasks.
+POS cart calculations/totals, order/payment/tender/receipt flows, loyalty, employee/terminal operations, branches, inventory, marketing, reporting and most settings remain preview until bounded backend tasks.
 
-The remaining POS fixture must not be used as shared menu authority.
+Shared catalogue reads do not make preview checkout, totals, orders or payments trusted business authority.

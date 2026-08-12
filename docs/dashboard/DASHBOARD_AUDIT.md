@@ -1,8 +1,8 @@
 # POS/Admin Dashboard Audit
 
-**Source audit:** TASK-WF-002, 2026-08-12
+**Source audit:** TASK-MENU-001 validation, 2026-08-13, commit `238e0ff211fe550f42ec4d4423724e3642282295`
 **Repository:** `Hermann-33/Aida_System-Dashboard`
-**Verdict:** broad frontend preview; not backend-connected or production-transactional.
+**Verdict:** shared catalogue browsing/administration integrated; broader dashboard remains preview and not production-transactional.
 
 ## Runtime
 
@@ -16,9 +16,9 @@ React 19.2.7, TypeScript 6.0.3, Vite 8.1.5, React Router DOM 7.18.1, Tailwind CS
 
 ## Current data model
 
-The app is intentionally preview-first. Most operational data comes from deterministic fixtures, component/module memory or `sessionStorage`. Planned non-preview adapters expect HTTP/session/terminal APIs, but the intended shared Supabase backend is not implemented behind them.
+The app is intentionally preview-first outside catalogue. Admin and POS catalogue browsing use the shared Supabase catalogue through the same-origin BFF, and Admin mutations use the authenticated caller JWT. No runtime fallback to `PREVIEW_MENU`, `PREVIEW_CATEGORIES`, or `PREVIEW_MODIFIER_GROUPS` remains. Most other operational data comes from deterministic fixtures, component/module memory or `sessionStorage`.
 
-No Supabase SDK, migration, RLS policy or direct Supabase call exists in the dashboard source.
+The browser does not receive a service-role credential or call Supabase directly. The BFF uses the publishable key/caller session and RLS/security-invoker RPCs.
 
 ## Critical non-authoritative behavior
 
@@ -28,19 +28,21 @@ No Supabase SDK, migration, RLS policy or direct Supabase call exists in the das
 - Simulated cash/non-cash payment state.
 - Preview manager PIN approval and local action log.
 - Non-durable orders, shifts, cash moves and held tickets.
-- Session-only admin mutations for employees/branches/terminals/menu/inventory/marketing.
+- Session-only admin mutations for employees/branches/terminals/inventory/marketing.
 - Fixture reports, statistics, audit rows and loyalty balances.
 
 ## Verification baseline
 
-- lint passed with 5 warnings;
+- lint passed;
 - typecheck passed;
-- 62 tests across 14 files passed;
-- build passed with bundle-size warning;
+- 85 tests passed;
+- build passed;
 - preview E2E 6/6 passed;
-- API-backed E2E not run because backend environment is unavailable;
-- dependency audit: 1 moderate and 4 high findings, unresolved by design in import task.
+- public catalogue BFF returned 4 categories / 16 items / 27 variants;
+- anonymous Admin endpoints returned 401, cross-origin mutations returned 403, and authenticated non-admin catalogue mutation was rejected;
+- Supabase security advisor returned 0 lints;
+- deployed Auth/Menu cross-client E2E was not run because real identities and deployment are absent.
 
 ## Backend dependency
 
-Real operation requires shared server authority for employee/session/branch/terminal scope, catalogue/pricing, orders, payments/refunds, member lookup, loyalty/vouchers, shifts/cash, inventory, marketing, reporting and immutable audit. See `BACKEND_INTEGRATION_PLAN.md` and `SHARED_BACKEND_CONTRACT.md`.
+Real operation still requires shared server authority for employee/session/branch/terminal scope, trusted quote/order pricing, orders, payments/refunds, member lookup, loyalty/vouchers, shifts/cash, inventory, marketing, reporting and immutable audit. The integrated browsing catalogue does not make preview checkout/totals/orders/payments authoritative. See `BACKEND_INTEGRATION_PLAN.md` and `SHARED_BACKEND_CONTRACT.md`.

@@ -1,6 +1,6 @@
 # Customer Mocks and Placeholders Register
 
-Updated: 2026-08-12
+Updated: 2026-08-13
 
 ## Removed from production runtime
 
@@ -13,7 +13,7 @@ Customer catalogue now fails visibly if the backend is unavailable; it does not 
 
 ## Test-only
 
-`test/support/test_catalogue_repository.dart` is an explicit test fixture and is never wired as production fallback.
+`test/support/test_catalogue_repository.dart` is an explicit 4-category/16-item test fixture and is never wired as a production fallback. Its values exist to keep isolated widget/golden coverage representative of the canonical seed.
 
 ## Still preview/untrusted
 

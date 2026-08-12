@@ -34,7 +34,7 @@ Branch: `codex/task-wf-002-dashboard-import`.
 
 ## 2026-08-12 — TASK-WF-003 — Dual-repository context synchronization
 
-**Scope:** governance/documentation only across both repositories.
+**Verdict:** COMPLETE for scoped governance/documentation work.
 
 Actions:
 
@@ -43,8 +43,26 @@ Actions:
 - recorded cross-client shared-backend architecture and canonical migration ownership;
 - added dashboard-specific audit/integration documentation to both repos;
 - added mirrored-doc workflow and cross-repo ADRs;
-- preserved source-specific evidence as repository-local exceptions.
+- preserved source-specific evidence as repository-local exceptions;
+- opened synchronized WF-003 PRs in both repositories.
 
-No runtime, dependency, migration or Supabase change was made.
+No runtime, dependency, migration or Supabase change was made by WF-003.
 
-**Verdict:** COMPLETE when both WF-003 branches contain matching canonical docs and PRs are opened.
+---
+
+## 2026-08-12 — TASK-WF-003 closeout — Setup/governance baseline locked
+
+**Verdict:** COMPLETE on task branches; merge stack pending.
+
+Closeout actions:
+
+- recorded the setup phase as complete in `ACTIVE_CONTEXT.md`, `HANDOFF.md` and `ROADMAP.md`;
+- added `docs/context/SESSION_BOOTSTRAP.md` containing the permanent new-chat prompt;
+- documented the exact open PR dependency order and next implementation task;
+- retained the rule that project-level governance must remain mirrored across both repositories;
+- retained `Hermann-33/Aida_System/supabase/` as the only canonical executable migration history until an ADR supersedes it;
+- made no customer runtime, dashboard runtime, dependency or Supabase changes.
+
+Setup artifacts now cover both applications, the shared backend, architecture/system map, security boundaries, database status, ADR history, customer/dashboard audits, backend requirements, workflow, handoff, roadmap and a repeatable session bootstrap.
+
+Next implementation after the PR stack is integrated: `TASK-DB-002 — shared menu/catalogue foundation`.

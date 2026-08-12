@@ -2,32 +2,24 @@
 
 This is a needs map, not a table-by-table schema prescription.
 
-| Area | Required trusted behavior | Priority |
-|---|---|---|
-| Employee auth | authenticate/revoke staff/admin, rate limits, disabled state, trusted roles | MVP |
-| Branch/role scope | employee assignments, global-manager rules, server authorization | MVP |
-| Terminals | enrolment codes, secure terminal credential, branch/sales-point binding, revoke/health | MVP |
-| Shifts/cash | open/lock/resume/close, cash movements, variance, manager controls, audit | MVP for POS |
-| Catalogue | same published items/variants/modifiers/prices as customer app; privileged edits | MVP |
-| Quote/POS cart | validate configurations and authoritative totals | MVP |
-| Orders/KDS | idempotent create, queue/routing, legal status transitions, receipts | MVP |
-| Payments | provider/device transaction, cash record, failure/retry, refunds/void, reconciliation | MVP / provider decision |
-| Member/QR | authorized member-code lookup, minimal data, verification and abuse controls | MVP |
-| Loyalty/vouchers | current balance/eligibility, atomic issue/redeem/consume linked to order | MVP |
-| Employees/admin | controlled role/branch/status mutation, reauth/approval, audit | MVP/important |
-| Inventory | stock ledger, units, recipes, depletion, counts, wastage, transfers | Important |
-| Marketing | media/placement/audience/windows, draft/publish/expire, audit | Important |
-| Reporting | trusted business-day/branch/payment/refund/loyalty aggregates and export | Important |
-| Audit | immutable/equivalently protected privileged-action trail | MVP foundation |
-| Integrations/settings | protected configuration/secrets, versioning and audit | Later/confirmed scope |
+| Area | Current verified state | Remaining trusted behavior | Priority |
+|---|---|---|---|
+| Employee/admin auth | browser-side session contract expects same-origin HttpOnly runtime; server absent | authenticate/revoke staff/admin, disabled state, trusted roles | MVP |
+| Member directory | DB admin RPC exists; Members UI targets `/api/v1/admin/members` with no fixture fallback | implement trusted BFF endpoint/session and E2E proof | MVP |
+| Branch/role scope | preview | assignments/global-manager/server authorization | MVP |
+| Terminals/shifts/cash | preview | secure enrolment/session/branch binding and audited operations | MVP POS |
+| Catalogue | preview | same published IDs/prices as customer; privileged edits | MVP |
+| Quote/orders/payments | preview/simulated | authoritative totals/lifecycle/provider/reconciliation | MVP |
+| Member QR lookup | preview | bounded staff lookup, minimal disclosure, rate limits/audit | MVP |
+| Loyalty/vouchers | preview | current trusted balance/eligibility and atomic consume/redeem | MVP |
+| Inventory/reporting/audit | preview | durable trusted models and scoped queries | Important/MVP foundation |
 
-## Integration sequencing
+## Immediate next integration
 
-1. Shared identity/role/branch/terminal decisions.
-2. Shared catalogue contract.
-3. POS quote/order/payment and customer order interoperability.
-4. Loyalty/member operations.
-5. Inventory and advanced operations.
-6. Marketing/reporting/integrations/hardening.
+`TASK-AUTH-002` must implement the production same-origin employee/admin session plus `GET /api/v1/admin/members`. The endpoint must authenticate the HttpOnly session, enforce admin/owner authorization, call the shared backend capability and serialize only required directory fields.
 
-Do not implement a dashboard-only catalogue/order/loyalty backend. Every shared concept must align with `docs/contracts/SHARED_BACKEND_CONTRACT.md` and customer requirements.
+No Supabase service-role key, private database credential or privileged long-lived token may be shipped to the Vite browser bundle.
+
+## Shared-contract rule
+
+Do not implement dashboard-only identity, catalogue, order or loyalty authority. Shared concepts must align with the customer requirements and `docs/contracts/SHARED_BACKEND_CONTRACT.md`.

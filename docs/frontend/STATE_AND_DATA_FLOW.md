@@ -1,33 +1,42 @@
-> Scope note: customer Flutter state/data flow. The separate POS/Admin flow is documented under `docs/dashboard/STATE_AND_DATA_FLOW.md`.
+> Scope note: customer Flutter state/data flow. POS/Admin flow is documented under `docs/dashboard/STATE_AND_DATA_FLOW.md`.
 
 # State and Data Flow
 
-All application-wide providers live in `apps/customer/lib/application/providers.dart`.
-
-Key state includes `memberRepositoryProvider` -> `MockMemberRepository`, local boolean auth, selected tab/category, favourites filter/set, member edit overlay, mock async member/menu/loyalty providers, in-memory cart and in-memory order history.
-
-## Repository flow
-
-`MemberRepository` supports mock auth and customer reads for member/points/stamps/rewards/vouchers/offers/menu. It has no real service for profile writes, quote/order, check-in, redemption, voucher consumption, images, notifications or payments.
+## Auth/member path on TASK-AUTH-001 branch
 
 ```text
-Mock constants -> domain models -> Result<T> -> Riverpod AsyncValue -> widgets
+Flutter Login/Signup
+  -> MemberRepository
+  -> SupabaseMemberRepository
+  -> Supabase Auth
+  -> auth.users trigger
+  -> user_profiles + members
+  -> owner-scoped reads under forced RLS
+  -> Riverpod memberProvider
+  -> widgets
 ```
 
-No DTO/serialization/API boundary exists.
+`authStateProvider` derives from the Supabase persisted session/auth-state stream rather than a mutable demo-login boolean. Logout signs out of Supabase and invalidates user-scoped member state.
 
-## Current auth/session
+`memberProvider` loads trusted member/profile fields from Supabase. Signup does not construct a `Member` locally and does not generate member identifiers/codes.
 
-Mock login succeeds, signup generates member/code locally, logout resets only auth/member edits, process restart loses state. Real direction is Supabase Auth session lifecycle, trusted member bootstrap and per-user cache isolation.
+## Remaining preview flow
 
-## Menu/cart/order
+For feature families not integrated yet:
 
-Mock catalogue is filtered locally. Item detail constructs local cart lines. Client calculates price, chooses local payment method, generates order number, stores history and advances confirmation on timer. Real flow must use shared catalogue IDs, trusted quote/order creation and staff-driven status from the same backend used by POS.
+```text
+MockMemberRepository preview constants
+  -> domain models / Result<T>
+  -> Riverpod AsyncValue
+  -> widgets
+```
 
-## Loyalty/profile/QR
+This still covers catalogue/menu, loyalty, rewards, vouchers, offers and promotions. Cart/order/payment flows remain local preview state and are not authoritative.
 
-Balances and rewards are mock reads; redeem/apply are placeholders. Profile edits are overlays. QR encodes member code with no durable cache. Real paths use owner-scoped profile/member reads, server-issued code, ledger/redemption operations and authorized dashboard/POS lookup.
+## Profile edits
+
+The existing member edit overlay remains for the unimplemented profile-write task. It is UI/session state only and is cleared/invalidated across auth changes; it is not identity authority.
 
 ## Error flow
 
-Typed failure classes exist but mock adapter rarely exercises them. Real adapters must cover auth/network/validation/conflict/insufficient-balance/expired-voucher/unavailable-item failures and retry/logout/cache behavior.
+Auth adapter maps Supabase failures to controlled application failures rather than surfacing raw backend errors. Future adapters must do the same for validation/conflict/availability/payment/loyalty errors.

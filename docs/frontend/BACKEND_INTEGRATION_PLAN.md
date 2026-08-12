@@ -4,26 +4,23 @@
 
 This is a needs map, not a schema prescription.
 
-| Area | Required backend behavior | Priority |
-|---|---|---|
-| Customer auth | sign-up/sign-in/recovery/session restore-refresh-revoke | MVP |
-| Profile/member | owner-scoped profile, server-issued member code, verification workflow | MVP |
-| QR | durable member-code display + authorized POS lookup | MVP |
-| Catalogue | published categories/items/variants/modifiers/prices/availability/images | MVP |
-| Quote | validate IDs/configuration and return authoritative totals/expiry | MVP |
-| Orders | idempotent create, owner history, staff-driven status, receipt snapshot | MVP |
-| Payments | trusted method/status/reference under approved provider/POS model | Needs decision/MVP |
-| Loyalty | ledger balances, rewards/vouchers, atomic redemption/consumption | MVP |
-| Promotions | published campaigns/eligibility/terms | Important |
-| Notifications | consent/preferences and delivery/deep-link contract | Future |
-| Storage | product/promo media; optional owner-scoped avatar | Important/Future |
-| Errors | typed safe validation/auth/network/conflict/domain error mapping | MVP |
-| Cache/offline | per-user member-code cache, catalogue cache, stale indicators; never authorize stale value | MVP/Important |
+| Area | Current verified state | Remaining backend behavior | Priority |
+|---|---|---|---|
+| Customer auth | TASK-AUTH-001 task branch uses Supabase sign-up/sign-in/recovery/session restore/logout | Flutter toolchain + real-device/browser smoke proof; cache/revocation hardening | MVP |
+| Profile/member | owner-scoped DB reads; server-issued member code; signup provisioning live | durable profile edits; complete admin visibility through staff BFF | MVP |
+| Student status | signup declaration creates only `pending` | evidence submission/review/expiry policy | MVP |
+| QR | customer displays server member code after member read | authorized POS lookup, rate limits/audit | MVP |
+| Catalogue | preview/mock | published categories/items/variants/modifiers/prices/availability/images | MVP |
+| Quote/orders/payments | preview/local | authoritative quote, order lifecycle and approved payment boundary | MVP |
+| Loyalty/vouchers | preview/mock | ledger balances and atomic redemption/consumption | MVP |
+| Promotions/storage/notifications | preview/placeholder | bounded publication/storage/delivery contracts | Important/Future |
 
-## Cross-client dependencies
+## TASK-AUTH-001 boundary
 
-Real customer ordering requires the separate POS/Admin system to read the same orders and perform authorized fulfilment transitions. QR/voucher use requires dashboard/POS member lookup and staff-authorized consumption. Catalogue IDs/prices must be exactly the same contract used by POS and admin editing.
+`SupabaseMemberRepository` is now the auth/member implementation. It deliberately delegates catalogue, loyalty, rewards, offers, promos and menu reads to preview data until those feature tasks replace them. This is not permission to treat preview data as trusted; it prevents one auth task from silently inventing other backend domains.
 
-## Sequence
+Signup no longer creates local member IDs/codes. The client submits email/password plus display name and student declaration; Supabase Auth and the database trigger own persisted identity/membership outcomes.
 
-Follow the project roadmap: shared database/security foundation -> auth/role/access -> catalogue -> quote/order/payment -> loyalty -> operations/hardening. Avoid a single “replace mock repository” change that crosses all trust boundaries at once.
+## Cross-client dependency
+
+The database admin member-directory capability exists, but production Admin visibility requires `TASK-AUTH-002` to implement trusted staff/admin sessions and the same-origin member API. Do not make the customer app or dashboard browser privileged to close that gap.

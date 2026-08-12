@@ -2,29 +2,30 @@
 
 # Mocks and Placeholders Register
 
-`MockMemberRepository` is the active customer adapter and supplies synthetic latency plus hardcoded identity, menu, pricing, loyalty, rewards, vouchers, offers and promotions.
+## No longer mock authority on TASK-AUTH-001 branch
 
-## Customer mock authority that must move server-side
+The implemented auth/member path no longer uses `MockMemberRepository` as authority for:
 
-- authentication/session and sign-up member provisioning;
-- member IDs/member codes and student verification;
-- menu/category/size/add-on data, availability, ratings and prices;
-- points/stamps/reward costs/voucher state/offer eligibility;
-- cart quote/line/subtotal/total;
-- order number/timestamp/status/receipt/history;
-- payment acceptance/status;
-- reward/voucher issue/use/expiry decisions.
+- email/password sign-up/sign-in;
+- password reset request;
+- persisted auth session gate/logout;
+- signed-in member ID/member code;
+- member display name/email/student status.
 
-## Local/session-only behavior
+These now come from Supabase Auth plus `user_profiles`/`members` under RLS. Signup no longer generates `m_<timestamp>` IDs or random member codes in Flutter.
 
-Auth boolean, profile edits, selected navigation/filter state, favourites, cart, order history, item configuration, payment selection and daily check-in. Logout does not explicitly clear all stores.
+## Still preview/mock authority
+
+`MockMemberRepository` remains a deliberate temporary source for feature families outside TASK-AUTH-001:
+
+- menu/category/size/add-on data, ratings, availability and prices;
+- points/stamps/reward costs/reward catalogue;
+- vouchers, offers, promos and related eligibility/display data.
+
+Other local-only behavior still includes cart, order history, item configuration, payment selection, favourites and some profile-edit overlay state.
+
+These values are not production authority. Each bounded backend task must remove the relevant preview source from the feature it implements.
 
 ## Visible placeholders
 
-Social login, notifications, reward redeem, voucher apply, profile photo, stats/settings/invite/help, final logo, web scaffold metadata and Android release signing remain incomplete/placeholder areas.
-
-## Important UI-shaped assumptions
-
-Current customer prototype uses fixed categories, add-ons as menu items, uniform size deltas, narrow reward ladder, permanent displayable member code, limited student/order status models and temporary Unsplash images. Do not map these mechanically to database tables/enums.
-
-UI correlation/idempotency/cache metadata may remain client-generated only where the shared contract explicitly allows it.
+Social login, notifications, reward redeem, voucher apply, profile photo, full profile persistence, final production payment/order flows and authorized POS QR/member lookup remain incomplete.

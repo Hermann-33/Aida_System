@@ -2,31 +2,31 @@
 
 ## Application shell
 
-`src/App.tsx` mounts a TanStack `QueryClientProvider` and React Router. `ProtectedRoute` controls user-facing navigation for employee, POS and admin product scopes. These guards are not a backend authorization boundary.
+`ProtectedRoute` and preview roles control navigation/UX only. They are not backend authorization.
 
-## Current state sources
+## Admin Members path on TASK-AUTH-001 branch
 
-- React `useState`/`useMemo` for most page and POS workflow state.
-- Module-level external employee session store consumed with `useSyncExternalStore`.
-- `sessionStorage` for preview identity and terminal enrolment state.
+```text
+AdminMembersLoyaltyReportPage
+  -> fetchAdminMembers()
+  -> GET /api/v1/admin/members with credentials: include
+  -> [trusted staff/admin BFF/session NOT YET IMPLEMENTED]
+  -> public.list_admin_members() as authenticated admin/owner under RLS
+  -> member rows
+```
+
+The browser layer has no member fixture fallback and no Supabase privileged credential. Loading, authorization and server errors fail visibly instead of reverting to sample members.
+
+The database capability is live, but the missing BFF/session means this remains a planned transport contract rather than an end-to-end production flow.
+
+## Other dashboard state sources
+
+- React component state for most workflows.
+- Preview employee/terminal session adapters and session storage.
 - Module memory for preview shift state.
-- Deterministic fixtures under `src/preview/`, especially catalogue/transactions/members/org data.
-- TanStack Query is configured but no production query/mutation layer currently owns application data.
-
-## POS flow today
-
-Preview catalogue -> client modifier validation/price calculation -> local cart/held ticket -> optional fixture member/reward selection -> simulated tender/payment -> generated local receipt/order -> local orders/action state.
-
-None of these outcomes are durable shared records.
-
-## Admin flow today
-
-Preview fixtures -> derived reports/tables -> selected pages copy values into React state -> local add/edit/toggle/transfer/publish simulations. Reload/remount loses many mutations.
-
-## Employee/terminal flow
-
-Preview identity and terminal adapters support local session simulation. Non-preview code anticipates credentialed same-origin HTTP sessions and HttpOnly terminal credentials, but a live shared backend is not currently available.
+- Deterministic fixtures under `src/preview/` for unintegrated domains.
+- Rewards Activity, POS, catalogue, orders, payments, loyalty, inventory and reporting remain preview/local.
 
 ## Real connection direction
 
-Introduce capability-specific data/services backed by the shared contract. TanStack Query can own server query/mutation cache if retained. Route guards consume verified session/role/branch state, while RLS/server operations independently authorize each request. POS mutation flows require idempotency and reconciliation semantics; admin writes require audit and stale/conflict handling.
+TASK-AUTH-002 must establish the server-side session/API boundary before privileged dashboard reads. Subsequent feature tasks should continue replacing each fixture/local source with capability-specific shared-backend queries/mutations, without broad browser privilege.

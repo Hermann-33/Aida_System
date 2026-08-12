@@ -38,7 +38,7 @@ begin
 
   if v_standard.member_type <> 'standard'
      or v_standard.student_status <> 'not_submitted'
-     or v_standard.member_code = 'FORGED' then
+     or v_standard.member_code !~ '^AIDA-[A-Z0-9]{10}$' then
     raise exception 'standard signup provisioning failed';
   end if;
 
@@ -48,7 +48,7 @@ begin
 
   if v_student.member_type <> 'student'
      or v_student.student_status <> 'pending'
-     or v_student.member_code = 'FORGED' then
+     or v_student.member_code !~ '^AIDA-[A-Z0-9]{10}$' then
     raise exception 'student signup provisioning/tamper protection failed';
   end if;
 
@@ -62,13 +62,60 @@ begin
 end;
 $$;
 
-select 'admin member directory exists and is not executable by anon' as check_name
-where to_regprocedure('public.list_admin_members()') is not null
-  and not has_function_privilege('anon', 'public.list_admin_members()', 'execute')
-  and has_function_privilege('authenticated', 'public.list_admin_members()', 'execute');
+do $$
+begin
+  if to_regprocedure('public.list_admin_members()') is null
+     or has_function_privilege('anon', 'public.list_admin_members()', 'execute')
+     or not has_function_privilege('authenticated', 'public.list_admin_members()', 'execute') then
+    raise exception 'admin member-directory function privileges are incorrect';
+  end if;
 
-select 'admin helper is private' as check_name
-where to_regprocedure('private.is_admin_or_owner()') is not null
-  and to_regprocedure('public.is_admin_or_owner()') is null;
+  if to_regprocedure('private.is_admin_or_owner()') is null
+     or to_regprocedure('public.is_admin_or_owner()') is not null then
+    raise exception 'admin role helper is not private';
+  end if;
+end;
+$$;
+
+-- Promote one synthetic user through trusted DB state to exercise the admin
+-- capability. Public signup itself proved above that it cannot perform this.
+update public.user_profiles
+set app_role = 'admin'
+where user_id = '10000000-0000-0000-0000-000000000001';
+
+set local role authenticated;
+
+do $$
+declare
+  v_count integer;
+begin
+  perform set_config(
+    'request.jwt.claims',
+    '{"sub":"10000000-0000-0000-0000-000000000001","role":"authenticated"}',
+    true
+  );
+
+  select count(*) into v_count
+  from public.list_admin_members();
+
+  if v_count <> 2 then
+    raise exception 'admin directory expected 2 rows, got %', v_count;
+  end if;
+
+  perform set_config(
+    'request.jwt.claims',
+    '{"sub":"10000000-0000-0000-0000-000000000002","role":"authenticated"}',
+    true
+  );
+
+  begin
+    perform * from public.list_admin_members();
+    raise exception 'customer unexpectedly read admin member directory';
+  exception
+    when insufficient_privilege then
+      null;
+  end;
+end;
+$$;
 
 rollback;

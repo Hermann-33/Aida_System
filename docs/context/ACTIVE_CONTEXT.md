@@ -1,34 +1,44 @@
 # Active Context
 
 **As of:** 2026-08-12
-**Current task:** `TASK-WF-003` — synchronized dual-repository project context and governance
+**Setup status:** COMPLETE on task branches; merge stack pending
+**Next implementation task:** `TASK-DB-002 — shared menu/catalogue foundation`
 
-## Repository state
+## Project topology
 
-### Customer
+### Customer application
 
 - Repo: `Hermann-33/Aida_System`
 - Default branch: `master`
-- Latest implementation baseline branch: `codex/task-db-001-supabase-foundation`
-- Current documentation branch: `codex/task-wf-003-cross-repo-context-sync`
-- Scrap branch `team1/aida-pos-admin-ui` is explicitly ignored.
+- Runtime: Flutter / Dart / Material 3 / Riverpod
+- Current integration state: frontend prototype; `MockMemberRepository` is still active and no Flutter Supabase client is wired.
+- Canonical Supabase migration workspace: `supabase/` in this repository.
 
-### Dashboard
+### POS/Admin dashboard
 
 - Repo: `Hermann-33/Aida_System-Dashboard`
 - Default branch: `main`
-- Imported/audited baseline branch: `codex/task-wf-002-dashboard-import`
-- Current documentation branch: `codex/task-wf-003-cross-repo-context-sync`
+- Runtime: React 19 / TypeScript 6 / Vite 8 / React Router
+- Current integration state: broad employee/POS/admin frontend preview using fixtures, component/module state and session storage; no Supabase SDK or durable transactional backend is wired.
 
-## Current runtime reality
+### Shared backend
 
-- Customer: Flutter/Dart + Material 3 + Riverpod. `MockMemberRepository` remains the active adapter; auth, cart, favourites, profile edits and order history are local/session simulation.
-- Dashboard: React 19 + TypeScript 6 + Vite 8 + React Router. Employee, POS and admin surfaces are broad but use preview fixtures, React/module state and session storage. TanStack Query is configured but not currently the live data layer.
-- Neither frontend currently connects to Supabase.
+- Platform: Supabase
+- Project: **Aida System**
+- Ref: `eswovqxqzfevcdwwcmuh`
+- Region: `ap-southeast-1`
 
-## Shared Supabase reality
+Both frontends are consumers of one backend contract. Neither frontend is authoritative for identity, roles, branch scope, member verification, catalogue pricing, order/payment state, loyalty, inventory, reporting, audit or other trusted business outcomes.
 
-Project: **Aida System** (`eswovqxqzfevcdwwcmuh`, `ap-southeast-1`).
+## Completed setup tasks
+
+- `TASK-WF-001` — customer frontend audit and repository governance baseline.
+- `TASK-DB-001` — version-controlled Supabase identity/membership foundation.
+- `TASK-WF-002` — POS/Admin dashboard source import and audit.
+- `TASK-WF-003` — synchronized dual-repository context, ADRs, security review, shared backend contract, workflow and handoff.
+- `TASK-WF-003` closeout — permanent `SESSION_BOOTSTRAP.md` added so new chats can recover project context from repository truth.
+
+## Supabase implementation reality
 
 `TASK-DB-001` created and remotely applied:
 
@@ -36,12 +46,42 @@ Project: **Aida System** (`eswovqxqzfevcdwwcmuh`, `ap-southeast-1`).
 - `public.members`
 - `public.student_verifications`
 - enums `app_user_role`, `member_type`, `student_verification_status`
-- auth provisioning trigger and helper functions
-- forced RLS on the three foundation tables
+- Auth provisioning trigger and supporting functions
+- forced RLS on all three foundation tables
+- private trusted role helpers
 
-Security advisor after hardening: 0 lints. Performance advisor has only expected unused-index INFO findings on the no-traffic foundation.
+Security advisor after hardening: 0 lints. Performance advisor had only expected unused-index INFO findings on the new no-traffic schema.
 
-Canonical migration workspace is currently `Aida_System/supabase/`.
+No catalogue, quote/order, payment, loyalty, inventory, marketing/reporting or POS operational persistence exists yet.
+
+## Documentation state
+
+Project-level governance is mirrored across both repositories. The canonical mirrored set includes:
+
+- root `AGENTS.md`
+- `docs/README.md`
+- `docs/context/`
+- `docs/decisions/`
+- `docs/contracts/`
+- `docs/frontend/`
+- `docs/dashboard/`
+- `docs/database/`
+- `docs/security/`
+
+Repository-local screenshots, old design specs, generated evidence and import/audit artifacts may differ.
+
+`docs/context/SESSION_BOOTSTRAP.md` contains the permanent new-chat prompt.
+
+## Open PR stack
+
+Merge in this dependency order:
+
+1. Dashboard PR #1 — `TASK-WF-002` dashboard import -> `main`.
+2. Customer PR #2 — `TASK-DB-001` Supabase foundation -> `master`.
+3. Customer PR #3 — `TASK-WF-003` synchronized project docs, stacked on DB-001.
+4. Dashboard PR #2 — `TASK-WF-003` synchronized project docs, stacked on WF-002.
+
+After predecessor merges, retarget/rebase the stacked WF-003 PRs if GitHub does not resolve the base automatically. Future implementation work should branch from the updated default branches only after this stack is integrated.
 
 ## Verification baselines
 
@@ -62,25 +102,17 @@ Dashboard import baseline:
 - API-backed E2E: not run because backend environment is unavailable.
 - Dependency audit: 1 moderate and 4 high findings; no automated upgrades applied.
 
-## Immediate priorities
+## Open architectural/product decisions
 
-1. Merge task dependencies in order: dashboard import PR, customer DB foundation PR, then the two stacked WF-003 documentation PRs.
-2. Run local Supabase reset/lint/RLS scenarios from a developer checkout.
-3. Begin `TASK-DB-002` only after using both customer and dashboard catalogue requirements to define the shared menu contract.
-4. Keep frontend wiring out of the menu-foundation task unless explicitly expanded.
-5. Track customer analyzer/golden cleanup and dashboard dependency findings as separate bounded work.
-
-## Open decisions
-
-- Final payment/provider/device model, including student wallet semantics.
-- Scheduled-order rules and capacity/cutoff behavior.
+- Final payment/provider/device model, including student-wallet semantics.
+- Scheduled-order rules, capacity and cutoff behavior.
 - Staff/admin role assignment, manager approval and branch-scope administration.
 - Terminal credential lifecycle and production employee authentication method.
-- Full student-verification review/evidence policy.
-- Inventory accounting/depletion model.
+- Full student-verification evidence/review policy.
+- Inventory accounting and depletion model.
 - Account deletion/anonymization and retention.
 - Production reporting/business-day semantics and marketing approval workflow.
 
-## Scope protection
+## Next action after setup merge
 
-Do not claim either frontend is backend-connected. Do not treat preview fixture IDs, branch IDs, prices, receipt/order numbers, rewards, payments, manager approvals, inventory or report totals as production truth. Do not create a second database migration history in the dashboard repo.
+Start `TASK-DB-002: shared menu/catalogue foundation` only after reading both customer and dashboard backend-integration docs and the shared backend contract. Do not mechanically map either preview fixture model into database tables, and do not wire either frontend in that schema-foundation task unless its scope is explicitly expanded.

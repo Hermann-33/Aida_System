@@ -11,10 +11,40 @@ Updated: 2026-08-13
 
 Customer catalogue now fails visibly if the backend is unavailable; it does not fall back to sample menu data.
 
-## Test-only
+## Test-only catalogue data
 
-`test/support/test_catalogue_repository.dart` is an explicit 4-category/16-item test fixture and is never wired as a production fallback. Its values exist to keep isolated widget/golden coverage representative of the canonical seed.
+`test/support/test_catalogue_repository.dart` is an explicit 4-category/16-item test fixture and is never wired as a production fallback. Its values exist only to keep isolated widget/golden coverage representative of the canonical seed.
 
-## Still preview/untrusted
+## Order/checkout placeholders that must now be removed by frontend integration
 
-Loyalty/rewards/offers/promos, local cart/checkout/order tracking/history and other not-yet-integrated domains remain preview until their bounded backend tasks.
+The backend for orders/scheduling is live, so the following customer runtime behaviors are now obsolete placeholders rather than acceptable long-term preview authority:
+
+- random local order-number generation in checkout;
+- local-only `PastOrder` persistence/history as order truth;
+- the fixed local `OrderStatus.ready` model;
+- the timer-driven confirmation timeline that automatically moves through preparing/ready;
+- cart-derived subtotal being treated as the final trusted order total;
+- payment-method copy that implies Cash/Card/E-wallet/Student Wallet was actually processed;
+- absence of server-policy-backed ASAP/Schedule-for-later selection.
+
+Codex frontend integration should replace those with ADR-0010 and `ORDER_AND_SCHEDULING_CONTRACT.md`, while preserving the existing visual design.
+
+## Allowed local UI state after integration
+
+The following may remain local because they are interaction state, not trusted business authority:
+
+- current cart selections before quote;
+- selected item/variant/add-on/quantity/note choices;
+- selected ASAP vs scheduled option before server validation;
+- temporary loading/error/expanded/collapsed state;
+- a placement `clientRequestId` retained across retries of the same intended order.
+
+Once quoted/placed, displayed commercial totals/order number/status must come from the backend response.
+
+## Payment demo boundary
+
+Until a real payment task exists, use an explicit `Pay at counter`/unpaid demo path. Do not fake payment-success state or a processor transaction.
+
+## Still preview/untrusted beyond this task
+
+Loyalty/rewards/offers/promotions, real payment/refund handling, inventory, branch-capacity scheduling, tax/accounting, notifications and reporting remain preview/unimplemented until their bounded trusted backend tasks.

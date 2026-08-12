@@ -4,8 +4,6 @@ import '../../core/error/failures.dart';
 import '../../core/error/result.dart';
 import '../../domain/model/loyalty.dart';
 import '../../domain/model/member.dart';
-import '../../domain/model/menu_category.dart';
-import '../../domain/model/menu_item.dart';
 import '../../domain/model/offer.dart';
 import '../../domain/model/promo.dart';
 import '../../domain/model/reward.dart';
@@ -15,9 +13,8 @@ import 'mock_member_repository.dart';
 
 /// Real Supabase implementation for customer authentication and membership.
 ///
-/// Features that have not reached their backend-integration task yet still
-/// delegate to the existing preview repository. Auth and member identity never
-/// delegate: those values are trusted only when returned by Supabase.
+/// Loyalty/offers/promotions remain preview-backed until their own tasks.
+/// Catalogue is intentionally not part of this repository anymore.
 class SupabaseMemberRepository implements MemberRepository {
   SupabaseMemberRepository(
     this._client, {
@@ -81,7 +78,6 @@ class SupabaseMemberRepository implements MemberRepository {
     }
   }
 
-  /// Clears the Supabase session. AuthGate also invalidates user-scoped reads.
   Future<Result<void>> logOut() async {
     try {
       await _client.auth.signOut();
@@ -97,8 +93,6 @@ class SupabaseMemberRepository implements MemberRepository {
       await _client.auth.resetPasswordForEmail(email.trim());
       return const Ok(null);
     } on AuthException {
-      // Deliberately return the same result for unknown/invalid accounts so
-      // this endpoint cannot be used for account enumeration.
       return const Ok(null);
     } catch (_) {
       return const Err(ServerFailure('Unable to send a reset email right now'));
@@ -173,9 +167,6 @@ class SupabaseMemberRepository implements MemberRepository {
     return const AuthFailure('Authentication failed');
   }
 
-  // Pending backend features remain explicitly delegated to preview data until
-  // their bounded integration tasks replace them. This prevents auth/member
-  // work from silently inventing catalogue, loyalty, or promotion state.
   @override
   Future<Result<Points>> getPoints() => _pendingFeatures.getPoints();
 
@@ -192,21 +183,5 @@ class SupabaseMemberRepository implements MemberRepository {
   Future<Result<List<Offer>>> getOffers() => _pendingFeatures.getOffers();
 
   @override
-  Future<Result<MenuItem?>> getFeaturedItem() =>
-      _pendingFeatures.getFeaturedItem();
-
-  @override
   Future<Result<List<Promo>>> getPromos() => _pendingFeatures.getPromos();
-
-  @override
-  Future<Result<List<MenuCategory>>> getCategories() =>
-      _pendingFeatures.getCategories();
-
-  @override
-  Future<Result<List<MenuItem>>> getPopularItems() =>
-      _pendingFeatures.getPopularItems();
-
-  @override
-  Future<Result<List<MenuItem>>> getMenuItems() =>
-      _pendingFeatures.getMenuItems();
 }

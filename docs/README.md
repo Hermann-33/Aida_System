@@ -34,13 +34,13 @@ Codex may work with both directories open in one project. Each repository must t
 
 ## Setup closeout
 
-The initial AIDA project setup/governance phase is complete on the current task branches:
+The initial AIDA project setup/governance phase is complete and merged into both default branches. The integrated baseline includes:
 
-- customer frontend audit and governance baseline;
+- customer frontend audit and governance;
 - POS/Admin source import and audit;
 - Supabase identity/membership foundation;
 - dual-repository/shared-backend architecture;
 - mirrored context, ADRs, security review, backend contract and handoff;
 - permanent new-session bootstrap prompt.
 
-The open stacked PRs still need to be merged in their documented dependency order. After that, future implementation work should start from updated default branches and use the same bounded-task/branch/documentation discipline.
+Future implementation work should start from fresh task branches based on `master` and `main`, with project-level documentation kept mirrored as changes occur.

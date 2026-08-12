@@ -7,48 +7,132 @@
 
 ## Identity/membership
 
-Existing TASK-DB-001/TASK-AUTH-001 objects remain live, including forced-RLS `user_profiles`, `members`, `student_verifications` and admin/owner member-directory RPC.
+Existing identity/member objects remain live with forced RLS:
+
+- `user_profiles`
+- `members`
+- `student_verifications`
+
+Trusted role helpers and admin/owner member-directory functions remain unchanged.
+
+Current live identity count after TASK-DEMO-ORDER-001 regression cleanup:
+
+- Auth users: 0
+- profiles: 0
+- members: 0
 
 ## Catalogue — TASK-MENU-001
 
-Applied canonical migrations:
+Live catalogue objects remain:
 
-1. `20260812231500_create_shared_catalogue.sql`
-2. `20260812235000_harden_catalogue_rls_policies.sql`
-
-Live objects:
 - `catalogue_categories`
 - `catalogue_items`
 - `catalogue_item_variants`
 - `catalogue_item_addons`
 - `catalogue_revision`
 - `catalogue_audit_events`
-- `get_catalogue()`
-- `save_catalogue_category(jsonb)`
-- `save_catalogue_item(jsonb)`
 
-Seed: 4 categories, 16 items, 27 variants, 27 compatible add-on links. Only `catalogue_revision` is in the `supabase_realtime` publication.
+Seed baseline remains:
 
-Canonical catalogue SQL regression passed live in a rolled-back transaction: public read, admin create/update, revision advance, audit evidence, customer mutation denial and unpublished-item hiding.
+- 4 categories
+- 16 items
+- 27 variants
+- 27 compatible add-on links
+- catalogue revision 1
 
-Canonical Auth/member SQL regression also passed live in a rolled-back transaction. Independent cleanup checks found zero synthetic Auth users, regression catalogue rows, or regression audit rows.
+Catalogue authority and regression behavior are unchanged by TASK-DEMO-ORDER-001.
 
-An anonymous-role contract query returned 4 categories, 16 items, 27 variants and 27 compatible add-on links with every field required by the Flutter adapter. Revision is 1 and `catalogue_revision` has exactly one publication entry.
+## Orders and scheduling — TASK-DEMO-ORDER-001
 
-Security advisor: **0 lints**. Performance advisor: six `unused_index` INFO notices only:
+Canonical repository migrations are now aligned exactly to their live ledger versions:
 
-- `members_student_status_idx`
-- `student_verifications_member_id_idx`
-- `student_verifications_status_idx`
-- `student_verifications_reviewed_by_idx`
-- `catalogue_item_addons_addon_idx`
-- `catalogue_audit_events_entity_idx`
+1. `20260812182212_create_authoritative_orders_and_scheduling.sql`
+2. `20260812183029_index_order_foreign_keys.sql`
 
-These are informational on the current low/no-traffic schema and were not removed during validation.
+Live tables:
 
-## Migration-ledger discrepancy
+- `order_schedule_settings`
+- `orders`
+- `order_lines`
+- `order_line_addons`
+- `order_events`
 
-The live ledger uses the following application versions for the canonical repository files:
+All five have RLS enabled and FORCE RLS.
+
+Live public RPC contract:
+
+- `get_ordering_policy()`
+- `quote_order(jsonb)`
+- `place_customer_order(jsonb)`
+- `place_pos_order(jsonb)`
+- `get_order(uuid)`
+- `get_my_orders(integer)`
+- `list_orders(text[], integer)`
+- `transition_order_status(uuid,text,bigint,text)`
+- `save_ordering_policy(jsonb)`
+
+Private SECURITY DEFINER helpers perform narrowly scoped controlled persistence behind SECURITY INVOKER public entrypoints with explicit caller/role checks. Ordinary authenticated clients have no direct INSERT/UPDATE grants on order commercial tables.
+
+Current scheduling singleton:
+
+```text
+timezone                 Asia/Kuala_Lumpur
+schedule_enabled         true
+minimum_lead_minutes     15
+slot_interval_minutes    15
+maximum_advance_days     7
+```
+
+Branch-specific opening hours/closures/capacity are not modeled in the current schema.
+
+Current retained order state after regression rollback:
+
+- orders: 0
+- order lines: 0
+- order-line add-ons: 0
+- order events: 0
+
+The numeric identity sequence may contain gaps after transactional regression because PostgreSQL sequences are non-transactional; order-number uniqueness/authority is unaffected and no synthetic order row remains.
+
+## Realtime
+
+`supabase_realtime` currently publishes exactly the two intended mutable signals:
+
+- `catalogue_revision`
+- `orders`
+
+Catalogue clients re-fetch the full catalogue after revision change. Order clients re-fetch an authorized full order snapshot after an order-header change. Immutable order lines/add-ons are not separately published.
+
+## TASK-DEMO-ORDER-001 validation
+
+`supabase/tests/order_integration.sql` passed transactionally against the live project and rolled back all synthetic users/orders.
+
+It proved:
+
+- anonymous authoritative quote access;
+- no anonymous placement/status capability;
+- no direct authenticated order-table DML;
+- forged client price/total fields ignored;
+- live `CF-SCL` Medium + Oat Milk price resolution;
+- incompatible add-on rejection;
+- past schedule rejection;
+- customer scheduled placement with trusted member derivation;
+- immutable line/add-on snapshots;
+- idempotent retry and key-reuse conflict;
+- customer owner-scoped history;
+- customer status-mutation denial;
+- staff queue and POS guest order creation;
+- versioned legal status transitions;
+- stale/illegal transition rejection;
+- admin-only scheduling policy update.
+
+Security advisor after both migrations: **0 lints**.
+
+Performance advisor initially identified four unindexed new foreign keys. The second forward migration added covering indexes. Final performance findings are `unused_index` INFO only, which is expected on a new/empty order dataset; there are no remaining unindexed-FK findings.
+
+## Historical migration-ledger drift
+
+The pre-order identity/catalogue migrations retain the previously documented historical filename/live-version differences:
 
 | Repository version | Live version | Name |
 |---|---|---|
@@ -61,12 +145,18 @@ The live ledger uses the following application versions for the canonical reposi
 | `20260812231500` | `20260812152607` | `create_shared_catalogue` |
 | `20260812235000` | `20260812154805` | `harden_catalogue_rls_policies` |
 
-The live ledger exposes stored statements rather than a checksum. Read-only comparison found the first three files text-identical after line-ending/final-newline normalization; all eight have identical SQL after removing comments and normalizing whitespace/operator formatting. The mismatch is harmless historical timestamp/comment drift from applying the statements before their canonical repository filenames were fixed, not schema drift. Do not rename or rewrite applied migrations and do not manufacture a reconciliation migration. Future work must create and commit the timestamped migration before applying that same version.
+Those eight were already proven semantically equivalent and are not schema drift. Do not rewrite applied historical migrations.
 
-Four older ledger rows remain (`create_aida_cafe_app_pos_loyalty_schema`, storage hardening, and a create/drop connection-test pair), but their described legacy public objects and storage buckets are absent. Current inventory is exactly three identity/member and six catalogue public tables, all with RLS enabled; there are no public views or storage buckets, and only `catalogue_revision` is in `supabase_realtime`.
+For TASK-DEMO-ORDER-001, the migration source was committed before live application and then the repository filename was aligned to the exact version returned by the migration ledger without changing SQL contents. The order migration ledger and canonical filenames therefore match exactly.
 
-## TASK-AUTH-003 live preflight
+## Current public schema inventory
 
-Read-only preflight on 2026-08-13 found 0 Auth users, 0 confirmed users, 0 profiles, and 0 members. Catalogue state remains revision 1 with 4 categories, 16 items, 27 variants, and 27 add-on links; `catalogue_revision` has one Realtime publication entry. No identity, schema, catalogue, or audit data was changed.
+Current active public base tables consist of:
 
-The intended visible mutation baseline is SKU `CF-SCL`, item ID `4287b72b-5c01-4c98-8f7b-2e4babfb1cd4`, 1290 sen, available and published. No before/after revision exists because no trusted admin identity or deployed dashboard is available.
+- 3 identity/member tables
+- 6 catalogue tables
+- 5 order/scheduling tables
+
+Total: 14 public base tables, all within the accepted shared-backend architecture.
+
+Legacy ledger rows describing older removed objects remain historical ledger evidence; they are not current live public schema authority.

@@ -57,8 +57,6 @@ $$;
 
 reset role;
 
--- Synthetic identities exercise trusted database role state. Public signup
--- itself cannot self-promote; TASK-AUTH-001 covers that regression separately.
 insert into auth.users (id, email, raw_user_meta_data, created_at, updated_at)
 values
   ('20000000-0000-0000-0000-000000000001', 'catalogue-admin@example.test', '{}'::jsonb, now(), now()),
@@ -85,15 +83,10 @@ begin
   );
 
   select revision into v_before_revision
-  from public.catalogue_revision
-  where id = 1;
+  from public.catalogue_revision where id = 1;
 
   select public.save_catalogue_category(
-    jsonb_build_object(
-      'name', 'Regression Category',
-      'sortOrder', 999,
-      'isActive', true
-    )
+    '{"name":"Regression Category","sortOrder":999,"isActive":true}'::jsonb
   ) into v_category_id;
 
   select public.save_catalogue_item(
@@ -129,17 +122,8 @@ begin
     raise exception 'admin catalogue save did not return server IDs';
   end if;
 
-  if not exists (
-    select 1 from public.catalogue_audit_events
-    where actor_user_id = '20000000-0000-0000-0000-000000000001'
-      and entity_id in (v_category_id, v_item_id)
-  ) then
-    raise exception 'catalogue writes did not create audit evidence';
-  end if;
-
   select revision into v_after_revision
-  from public.catalogue_revision
-  where id = 1;
+  from public.catalogue_revision where id = 1;
   if v_after_revision <= v_before_revision then
     raise exception 'catalogue revision did not advance after admin writes';
   end if;
@@ -152,8 +136,6 @@ begin
     raise exception 'admin catalogue snapshot did not include saved item';
   end if;
 
-  -- Unpublish through the same mutation capability. Public snapshot below must
-  -- remove the item instead of leaving stale client-visible data.
   perform public.save_catalogue_item(
     jsonb_build_object(
       'id', v_item_id,
@@ -191,13 +173,10 @@ begin
   );
 
   begin
-    perform public.save_catalogue_category(
-      jsonb_build_object('name', 'Forbidden Customer Category')
-    );
+    perform public.save_catalogue_category('{"name":"Forbidden Customer Category"}'::jsonb);
     raise exception 'customer unexpectedly mutated catalogue';
   exception
-    when insufficient_privilege then
-      null;
+    when insufficient_privilege then null;
   end;
 
   select public.get_catalogue() into v_snapshot;
@@ -206,6 +185,22 @@ begin
     where item ->> 'id' = v_item_id::text
   ) then
     raise exception 'customer/public catalogue exposed unpublished item';
+  end if;
+end;
+$$;
+
+-- Audit rows intentionally have no client table grant. Inspect them only after
+-- leaving the impersonated authenticated role.
+reset role;
+
+do $$
+begin
+  if not exists (
+    select 1 from public.catalogue_audit_events
+    where actor_user_id = '20000000-0000-0000-0000-000000000001'
+      and snapshot ->> 'sku' = 'RG-DRK'
+  ) then
+    raise exception 'catalogue writes did not create audit evidence';
   end if;
 end;
 $$;

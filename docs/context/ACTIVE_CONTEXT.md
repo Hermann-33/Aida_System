@@ -1,94 +1,86 @@
 # Active Context
 
-**As of:** 2026-08-11
-**Repository:** `Hermann-33/Aida_System`
-**Default branch:** `master`
-**Active task branch:** `codex/task-db-001-supabase-foundation`
-**Current task:** `TASK-DB-001`—Supabase migration and database foundation
+**As of:** 2026-08-12
+**Current task:** `TASK-WF-003` — synchronized dual-repository project context and governance
 
-## Current reality
+## Repository state
 
-- One active source application exists: `apps/customer`, a Flutter/Dart customer app.
-- `main.dart` starts `ProviderScope` and a Material 3 `MaterialApp`.
-- Riverpod owns app/session state. Navigation is an `AuthGate`, five-tab `IndexedStack`, and imperative `Navigator`/`MaterialPageRoute` pushes.
-- `go_router` is declared but no `GoRouter` usage or route configuration exists.
-- Customer app data remains bound to `MockMemberRepository`.
-- No POS, staff, or admin app source is present.
-- `TASK-DB-001` adds the first real Supabase database foundation, but the Flutter frontend is still not wired to it.
+### Customer
 
-## Latest completed/active work
+- Repo: `Hermann-33/Aida_System`
+- Default branch: `master`
+- Latest implementation baseline branch: `codex/task-db-001-supabase-foundation`
+- Current documentation branch: `codex/task-wf-003-cross-repo-context-sync`
+- Scrap branch `team1/aida-pos-admin-ui` is explicitly ignored.
 
-`TASK-WF-001` established repository governance and frontend audit documentation.
+### Dashboard
 
-`TASK-DB-001` now establishes:
+- Repo: `Hermann-33/Aida_System-Dashboard`
+- Default branch: `main`
+- Imported/audited baseline branch: `codex/task-wf-002-dashboard-import`
+- Current documentation branch: `codex/task-wf-003-cross-repo-context-sync`
 
-- Supabase CLI/config foundation under `supabase/`;
-- remote verification for Aida System project `eswovqxqzfevcdwwcmuh`;
-- version-controlled migrations for profile/member/student-verification foundation;
-- RLS policies and role-helper hardening;
-- RLS/schema check script;
-- database documentation under `docs/database/SCHEMA_FOUNDATION.md`.
+## Current runtime reality
 
-## Verified database state
+- Customer: Flutter/Dart + Material 3 + Riverpod. `MockMemberRepository` remains the active adapter; auth, cart, favourites, profile edits and order history are local/session simulation.
+- Dashboard: React 19 + TypeScript 6 + Vite 8 + React Router. Employee, POS and admin surfaces are broad but use preview fixtures, React/module state and session storage. TanStack Query is configured but not currently the live data layer.
+- Neither frontend currently connects to Supabase.
 
-Remote project:
+## Shared Supabase reality
 
-- Name: Aida System
-- Project ref: `eswovqxqzfevcdwwcmuh`
-- Region: `ap-southeast-1`
+Project: **Aida System** (`eswovqxqzfevcdwwcmuh`, `ap-southeast-1`).
 
-Pre-migration reset state was verified:
+`TASK-DB-001` created and remotely applied:
 
-- `public` base tables: 0
-- `public` enum types: 0
-- `public` functions: 0
-- old proof buckets `menu-images` and `marketing-assets`: absent
+- `public.user_profiles`
+- `public.members`
+- `public.student_verifications`
+- enums `app_user_role`, `member_type`, `student_verification_status`
+- auth provisioning trigger and helper functions
+- forced RLS on the three foundation tables
 
-Current foundation state:
+Security advisor after hardening: 0 lints. Performance advisor has only expected unused-index INFO findings on the no-traffic foundation.
 
-- tables: `user_profiles`, `members`, `student_verifications`
-- enums: `app_user_role`, `member_type`, `student_verification_status`
-- RLS: enabled and forced on all foundation tables
-- security advisor: 0 security lints after hardening
-- performance advisor: only unused-index INFO lints remain, expected on a new schema with no traffic
+Canonical migration workspace is currently `Aida_System/supabase/`.
 
-## Current test/build state
+## Verification baselines
 
-Repository-side Flutter checks were not rerun by this GitHub/Supabase connector task because no checked-out runtime was available. Previous frontend audit baseline remains:
+Customer audit baseline:
 
-- Flutter: 3.44.7 stable; Dart 3.12.2.
-- `flutter analyze --no-pub`: failed with one warning—unused `_stockChocolate` in `mock_member_repository.dart:213`.
-- Full `flutter test --no-pub`: 24 tests passed and four golden comparisons failed.
-- Non-golden command `flutter test --no-pub test\domain test\widgets test\widget_test.dart`: all 24 tests passed.
+- Flutter 3.44.7 / Dart 3.12.2.
+- `flutter analyze --no-pub`: one unused `_stockChocolate` warning.
+- Non-golden tests: 24/24 passed.
+- Full test run: four golden comparison failures.
 
-Supabase checks performed remotely:
+Dashboard import baseline:
 
-- clean reset queries before migration;
-- migration application;
-- table/type/function/policy inventory queries;
-- security advisor;
-- performance advisor.
+- `npm run lint`: passed with 5 warnings.
+- `npm run typecheck`: passed.
+- `npm test`: 14 files / 62 tests passed.
+- `npm run build`: passed with bundle-size warning.
+- Preview E2E: 6/6 passed.
+- API-backed E2E: not run because backend environment is unavailable.
+- Dependency audit: 1 moderate and 4 high findings; no automated upgrades applied.
 
 ## Immediate priorities
 
-1. Review and merge PR for `TASK-DB-001` after checking migration files.
-2. Run local Supabase CLI validation from a checkout: `supabase db reset`, `supabase db lint`, and `supabase/tests/rls_foundation.sql`.
-3. Decide the next narrow foundation task before Flutter wiring. Recommended: menu/catalogue schema and published read policy.
-4. Separately fix the existing `_stockChocolate` analyzer warning and review golden diffs; that is frontend cleanup, not database foundation.
+1. Merge task dependencies in order: dashboard import PR, customer DB foundation PR, then the two stacked WF-003 documentation PRs.
+2. Run local Supabase reset/lint/RLS scenarios from a developer checkout.
+3. Begin `TASK-DB-002` only after using both customer and dashboard catalogue requirements to define the shared menu contract.
+4. Keep frontend wiring out of the menu-foundation task unless explicitly expanded.
+5. Track customer analyzer/golden cleanup and dashboard dependency findings as separate bounded work.
 
-## Assumptions and unknowns
+## Open decisions
 
-- **Assumption:** Supabase remains the selected platform for auth, database and storage.
-- **Unknown:** final launch payment model, scheduled-order rules, full student-verification review process, account-deletion policy, and POS/admin ownership.
-- **Unknown:** whether `staff`, `admin`, and `owner` roles will be managed manually, by an admin app, or by a controlled function in a later task.
-- **Unknown:** whether current golden differences are intended UI evolution or environment/font rendering drift.
+- Final payment/provider/device model, including student wallet semantics.
+- Scheduled-order rules and capacity/cutoff behavior.
+- Staff/admin role assignment, manager approval and branch-scope administration.
+- Terminal credential lifecycle and production employee authentication method.
+- Full student-verification review/evidence policy.
+- Inventory accounting/depletion model.
+- Account deletion/anonymization and retention.
+- Production reporting/business-day semantics and marketing approval workflow.
 
 ## Scope protection
 
-Until an accepted task changes this context:
-
-- do not claim the frontend is connected to Supabase;
-- do not claim menu, cart, order, loyalty, reward, payment, POS, or admin persistence exists;
-- do not expose service-role keys or database credentials;
-- do not trust client-generated prices, member codes, order numbers, verification status, role claims, or loyalty values;
-- do not wire Flutter features before the relevant database contract and RLS behavior are reviewed.
+Do not claim either frontend is backend-connected. Do not treat preview fixture IDs, branch IDs, prices, receipt/order numbers, rewards, payments, manager approvals, inventory or report totals as production truth. Do not create a second database migration history in the dashboard repo.

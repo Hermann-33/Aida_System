@@ -1,122 +1,56 @@
 # Current Handoff
 
-Updated: 2026-08-11
+Updated: 2026-08-12
 
 ## Current task
 
-`TASK-DB-001: Verify the reset Supabase project and establish the version-controlled migration, local-development, schema, and RLS testing foundation—without frontend feature wiring.`
+`TASK-WF-003: Establish synchronized dual-repository AIDA project context and governance documentation.`
 
 ## Starting state
 
-- Repository transferred to `Hermann-33/Aida_System`; default branch `master`.
-- Scrap branch `team1/aida-pos-admin-ui` exists and was ignored.
-- Governance docs from `TASK-WF-001` were present on `master`.
-- Frontend was still a Flutter customer prototype bound to `MockMemberRepository`.
-- Supabase project was expected to be reset/clean, but repository docs still treated it as unverified.
+- Customer governance existed only in `Hermann-33/Aida_System` and described POS/Admin as absent.
+- Customer DB foundation branch `codex/task-db-001-supabase-foundation` contains the first real Supabase migrations.
+- Dashboard source was imported to `Hermann-33/Aida_System-Dashboard`; task branch `codex/task-wf-002-dashboard-import` contains a 299-line import audit.
+- Both applications are still frontend previews and neither is connected to Supabase.
 
-## Completed work
+## WF-003 outcome
 
-- Created task branch `codex/task-db-001-supabase-foundation`.
-- Verified the remote Aida System Supabase reset state before migration.
-- Applied three Supabase migrations to remote project `eswovqxqzfevcdwwcmuh`.
-- Added version-controlled Supabase CLI/config and migration files.
-- Added RLS/schema posture check script.
-- Added `docs/database/SCHEMA_FOUNDATION.md`.
-- Updated architecture, active context, Supabase status, codebase map, roadmap, audit log and this handoff.
-- Added `ADR-0005: Database migration and identity foundation`.
+- Created `codex/task-wf-003-cross-repo-context-sync` in both repos, stacked on the latest relevant task branch.
+- Established one project topology: customer repo + dashboard repo + shared Supabase.
+- Added project-wide architecture/system map, cross-repo workflow and shared backend contract.
+- Added dashboard audit/screen/data/mock/backend/fragility docs to the mirrored governance set.
+- Preserved customer frontend docs and database decision history.
+- Defined canonical database migration ownership in `Aida_System/supabase/` until superseded.
+- Defined mirrored-doc governance: canonical project docs must remain synchronized; source-specific screenshots/specs are exempt.
+- Added ADR-0006 and ADR-0007 for the cross-repo/backend and documentation decisions.
 
-## Behavior changed
+## Behavior/data/infrastructure changes
 
-No Flutter behavior changed. No frontend package, lockfile, UI, route, provider, screen, model or asset was changed.
+None in WF-003. No customer or dashboard runtime code, dependencies, Supabase objects, migrations, policies, buckets or environment values are changed by this task.
 
-## Database and infrastructure changes
+## Pre-existing implementation state
 
-Remote Supabase project changed from clean/reset state to initial foundation state.
+Supabase currently has `user_profiles`, `members`, `student_verifications` and associated enums/functions/RLS from TASK-DB-001. Security advisor was 0 lints after hardening.
 
-Created:
+Dashboard import checks passed lint (with 5 warnings), typecheck, 62 tests, build and 6/6 preview E2E; API E2E remains blocked by missing backend. Customer baseline still has one analyzer warning and four golden failures.
 
-- `public.user_profiles`
-- `public.members`
-- `public.student_verifications`
-- `public.app_user_role`
-- `public.member_type`
-- `public.student_verification_status`
-- `public.set_updated_at()`
-- `public.generate_member_code()`
-- `public.handle_new_auth_user()`
-- `private.current_app_role()`
-- `private.is_staff_or_above()`
-- Auth trigger `on_auth_user_created_aida_profile`
+## Branch/PR dependency order
 
-Security/RLS:
+1. Dashboard `TASK-WF-002` import PR -> `main`.
+2. Customer `TASK-DB-001` PR -> `master`.
+3. WF-003 customer documentation PR, stacked on DB-001.
+4. WF-003 dashboard documentation PR, stacked on WF-002.
 
-- RLS enabled and forced on all foundation tables.
-- Anonymous users have no direct table grants.
-- Customer access is owner-scoped.
-- Staff/admin/owner access uses trusted `user_profiles.app_role` through private RLS helpers.
-- Public RPC role helpers were removed from the exposed public schema.
-
-## Verification evidence
-
-Remote Supabase checks:
-
-- Pre-migration `public` base table inventory: empty.
-- Pre-migration `public` enum inventory: empty.
-- Pre-migration `public` function inventory: empty.
-- Old proof buckets `menu-images` and `marketing-assets`: absent.
-- Post-migration tables: `members`, `student_verifications`, `user_profiles`.
-- Post-migration enums: `app_user_role`, `member_type`, `student_verification_status`.
-- Post-migration public functions: `generate_member_code`, `handle_new_auth_user`, `set_updated_at`.
-- Post-migration policies: six foundation policies across the three tables.
-- Supabase security advisor after hardening: 0 lints.
-- Supabase performance advisor: only unused-index INFO lints remain, expected on a new no-traffic schema.
-
-Repository checks:
-
-- GitHub connector verified admin/write access to `Hermann-33/Aida_System`.
-- Branch list inspected; `team1/aida-pos-admin-ui` ignored as instructed.
-- Migration/config/docs created on task branch.
-
-Not run:
-
-- Flutter tests/analyze, because no local checkout/runtime execution was available through this connector task.
-- Local `supabase db reset`, because this task used the connected remote Supabase project and GitHub API rather than a local CLI checkout.
-
-## Branch and PR
-
-- Branch: `codex/task-db-001-supabase-foundation`
-- Base: `master`
-- PR: opened by this task if connector PR creation succeeded.
+After predecessor merges, retarget/rebase as needed without rewriting accepted task evidence.
 
 ## Exact next action
 
-Review the PR diff, especially:
-
-1. `supabase/migrations/`
-2. `docs/context/SUPABASE_STATUS.md`
-3. `docs/database/SCHEMA_FOUNDATION.md`
-4. `docs/decisions/ADR-0005-database-migration-and-identity-foundation.md`
-
-Then run local validation from a checkout if available:
-
-```bash
-supabase start
-supabase db reset
-supabase db lint
-```
-
-Recommended next implementation task after merge:
-
-`TASK-DB-002: Design and migrate the published menu/catalogue foundation with public read policy, admin ownership boundary, and image/storage decision.`
+Review and merge the predecessor and WF-003 PRs in dependency order. Then begin `TASK-DB-002` from updated default branches, using both client requirement docs before designing the catalogue schema.
 
 ## Known risks
 
-- Existing Flutter analyzer warning `_stockChocolate` and golden failures remain unresolved because this was a database task.
-- RLS behavior needs local/CI tests with seeded auth users in a later task.
-- Staff/admin role assignment has no UI or controlled admin operation yet.
-- Menu/order/loyalty schemas are intentionally absent.
-- Flutter is not wired to Supabase yet.
-
-## Do-not-touch boundaries
-
-Do not wire Flutter directly to the foundation tables until auth/session adapter contracts, typed failures, local cache/logout behavior, and RLS tests are reviewed. Do not add menu/order/loyalty/POS tables without separate bounded tasks.
+- Both clients currently calculate or simulate sensitive outcomes locally.
+- Dashboard dependency audit has unresolved 1 moderate / 4 high findings.
+- Customer analyzer/golden issues remain.
+- Seeded cross-user/staff/admin RLS tests still need local/CI execution.
+- Payment, staff/terminal role model, inventory and retention rules remain undecided.

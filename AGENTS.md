@@ -1,93 +1,103 @@
-# AIDA Café Repository Instructions
+# AIDA Café Project Instructions
 
-This repository currently contains the AIDA Café customer frontend and product documentation. Before implementation, read these files in order:
+AIDA Café is one product implemented across two source repositories and one shared Supabase backend. These instructions are project-wide and are mirrored in both repositories.
+
+## Project topology
+
+- Customer app: `Hermann-33/Aida_System` — Flutter/Dart, default branch `master`.
+- POS/Admin dashboard: `Hermann-33/Aida_System-Dashboard` — React/TypeScript/Vite, default branch `main`.
+- Shared backend: Supabase project **Aida System**, ref `eswovqxqzfevcdwwcmuh`, region `ap-southeast-1`.
+- Canonical database migration workspace, until superseded by ADR: `Hermann-33/Aida_System/supabase/`.
+
+Neither frontend owns business truth. Both clients consume the same backend contract.
+
+## Mandatory reads before implementation
+
+Read in this order:
 
 1. `docs/context/ACTIVE_CONTEXT.md`
 2. `docs/context/PROJECT_BRIEF.md`
 3. `docs/context/ARCHITECTURE.md`
-4. `docs/context/SUPABASE_STATUS.md`
-5. `docs/context/CODEBASE_MAP.md`
-6. `docs/context/ROADMAP.md`
-7. `docs/context/WORKFLOW.md`
-8. `docs/context/HANDOFF.md`
-9. Relevant `docs/decisions/ADR-*.md`
+4. `docs/context/SYSTEM_MAP.md`
+5. `docs/context/SUPABASE_STATUS.md`
+6. `docs/contracts/SHARED_BACKEND_CONTRACT.md`
+7. `docs/context/CODEBASE_MAP.md`
+8. `docs/context/ROADMAP.md`
+9. `docs/context/WORKFLOW.md`
+10. `docs/context/HANDOFF.md`
+11. Relevant `docs/decisions/ADR-*.md`
+12. Relevant customer docs under `docs/frontend/` and dashboard docs under `docs/dashboard/`.
 
 ## Authority order
 
-When sources conflict, use this order:
+When sources conflict:
 
 1. Accepted ADRs
 2. `ACTIVE_CONTEXT.md`
 3. `ARCHITECTURE.md`
-4. `SUPABASE_STATUS.md`
-5. `PROJECT_BRIEF.md`
-6. `CODEBASE_MAP.md`
-7. `ROADMAP.md`
-8. Current task instruction
-9. Chat history
+4. `SYSTEM_MAP.md`
+5. `SUPABASE_STATUS.md`
+6. `SHARED_BACKEND_CONTRACT.md`
+7. `PROJECT_BRIEF.md`
+8. `CODEBASE_MAP.md`
+9. `ROADMAP.md`
+10. Current bounded task instruction
+11. Chat history
 
-Product specs and the unified PRD are evidence and requirements inputs, but their historical “Live” or “Complete” claims are not proof of the contents of this checkout or of current infrastructure.
+Historical PRD/spec/status claims are evidence and requirements inputs, not proof of current code or infrastructure.
 
 ## Before changing anything
 
-Provide a short pre-change summary containing:
+Provide a short pre-change summary covering scope, non-goals, affected repository/repositories, likely files and runtime boundaries, current evidence, checks, database/security impact, and unresolved assumptions.
 
-- the task scope and explicit non-goals;
-- files and runtime boundaries likely to change;
-- current implementation evidence;
-- tests/checks to run;
-- database, security, and migration impact;
-- unresolved assumptions requiring confirmation.
+If a shared concept changes—identity, member code, roles, branch scope, menu IDs, prices, modifiers, orders, payments, loyalty, vouchers, inventory, marketing, reporting, audit, realtime, or migrations—inspect both client repositories before implementation.
 
-Do not begin implementation until the relevant current-context files and ADRs have been read. If a requested change conflicts with a higher-authority source, stop and report the conflict.
+## Cross-repository rules
 
-## Do-not-touch boundaries
+- One bounded task ID per outcome.
+- Create a dedicated branch in every affected repository. Use the same task ID/slug when the task spans both repos.
+- Do not implement directly on `master` or `main`.
+- Keep customer-only, dashboard-only, and backend changes separated unless the task explicitly requires coordinated cross-stack work.
+- Database migrations are canonical in `Aida_System/supabase/`; do not create a second independent migration history in the dashboard repository.
+- Shared contract changes require compatibility review for both clients before completion.
+- Project-level governance docs are mirrored in both repos. A material task is not complete if the shared copies drift.
+- Repository-local screenshots, generated evidence, design specs, and source-specific QA artifacts may differ; they are not part of the mirrored governance set.
 
-- Do not treat `MockMemberRepository` data as production data or silently convert UI calculations into business authority.
-- Do not trust client-computed prices, totals, points, stamps, reward eligibility, roles, verification state, member codes, order numbers, or voucher validity.
-- Do not add or infer a Supabase schema from the old PRD. The reset database has no assumed production schema until migrations in this repository prove one.
-- Do not expose or commit secrets, service-role keys, access tokens, passwords, private URLs, or credentials. A public frontend may use only the approved public/publishable client configuration.
-- Do not casually change `lib/application/providers.dart`, `lib/domain/repository/member_repository.dart`, money/cart models, navigation in `main.dart` and `features/shell/app_shell.dart`, or QR semantics. These are integration and trust boundaries.
-- Do not add POS, staff, admin, backend, schema, or migration work to a customer-frontend task without explicit scope.
-- Do not update golden baselines merely to make a failing test green; review the visual differences first.
+## Trust boundaries
 
-## Completion gate
+Never treat client-computed or preview values as authority for:
 
-A feature is not complete because its UI exists. Where applicable, completion requires:
+- identity, roles, branch/location scope, verification, terminal credentials or manager approval;
+- member codes, QR possession, voucher validity or reward eligibility;
+- catalogue prices, modifier compatibility, discounts, taxes/fees or totals;
+- order/receipt identifiers, payment state, status transitions or refunds;
+- points, stamps, ledgers, inventory, marketing publication, reporting or audit facts.
 
-- customer/staff/admin UI and client state;
-- service or repository integration;
-- authoritative persistence and business rules;
-- authentication, authorization, RLS, and abuse controls;
-- success, failure, retry, and offline behavior;
-- automated tests and reviewed visual changes;
-- updated context, handoff, audit log, and any decision record.
+The trusted Supabase/server boundary must validate and persist those outcomes.
 
-Use only these verdicts: `COMPLETE`, `PARTIAL`, or `FAIL`. Never claim production readiness or full-stack completion without evidence for every applicable layer.
+## Protected customer boundaries
 
-## Documentation updates
+Do not casually change `apps/customer/lib/application/providers.dart`, `member_repository.dart`, `mock_member_repository.dart`, auth/navigation lifecycle, money/cart models, QR semantics, or golden baselines. Do not update goldens merely to make tests green.
 
-- Update `ACTIVE_CONTEXT.md` and `HANDOFF.md` after every material task.
-- Append a dated entry to `AUDIT_LOG.md` for audits and verification baselines.
-- Update `CODEBASE_MAP.md` when files, apps, routes, models, services, tests, or fragile boundaries change.
-- Update `SUPABASE_STATUS.md` with each verified schema/migration/security milestone.
-- Update `ROADMAP.md` only when phase status or scope changes.
-- Create an ADR for a durable, cross-cutting, costly-to-reverse decision; do not use ADRs as task diaries.
-- Keep current reality separate from planned architecture, and label assumptions and unknowns.
+## Protected dashboard boundaries
 
-## Git discipline
-
-- Inspect `git status` before and after work. Preserve unrelated user changes.
-- Keep changes scoped; do not mix documentation, generated artifacts, dependency updates, and behavior changes without explicit approval.
-- Do not commit, push, rewrite history, or update a pull request unless requested after the diff is reviewed.
-- Commit lockfiles when dependencies are intentionally changed. Do not change dependencies during documentation-only tasks.
-- Report the branch, changed/untracked files, checks, failures, and whether commit/push occurred.
+Do not casually change employee/session adapters, `ProtectedRoute`, terminal enrolment/credential semantics, POS pricing/cart/payment flow, manager approval, branch scope, preview/live gates, or admin mutation boundaries. Preview fixtures must not become production defaults.
 
 ## Security rules
 
-- Never copy secret values into code, docs, logs, screenshots, fixtures, or chat.
-- Frontends must never receive Supabase secret/service-role keys.
-- Enable RLS on every exposed table and authorize by ownership or explicit operational role, not merely by an authenticated role.
-- Do not use user-editable profile metadata for authorization.
-- Treat QR payloads as shareable identifiers, not proof of identity or authorization.
-- Validate prices, modifiers, totals, loyalty changes, voucher use, order transitions, and staff/admin actions on a trusted boundary.
+- Never commit secrets, service-role keys, access tokens, private database URLs, employee PINs/passwords, terminal credentials, payment secrets or private certificates.
+- Public clients receive only approved public/publishable configuration.
+- RLS is mandatory on exposed tables; authentication alone is not authorization.
+- User-editable metadata cannot grant staff/admin/owner roles or student verification.
+- Privileged operations require explicit trusted authorization, idempotency where relevant, and audit.
+- QR/member code is an identifier, not authentication.
+
+## Completion gate
+
+Use only `COMPLETE`, `PARTIAL`, or `FAIL`.
+
+Where applicable, completion requires UI/client behavior, service/adapter contract, authoritative persistence/business rules, authentication/authorization/RLS, abuse and failure handling, operations/fulfilment, tests, and synchronized documentation. A polished preview is not a complete feature.
+
+## Documentation updates
+
+After material work update `ACTIVE_CONTEXT.md`, `HANDOFF.md`, and `AUDIT_LOG.md`; update architecture, system map, Supabase status, contract, codebase map, roadmap, security review or ADRs when their facts change. Shared governance updates must be applied to both repositories in the same task.

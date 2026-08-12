@@ -4,46 +4,24 @@ Updated: 2026-08-12
 
 ## Authority
 
-- Shared authority: Supabase Auth/Postgres/RLS plus controlled server/BFF operations.
-- Canonical migrations: `Hermann-33/Aida_System/supabase/` until superseded by ADR.
-- Frontend fixture/model shapes are not database authority.
+Supabase Auth/Postgres/RLS plus controlled BFF/RPC operations are authoritative. Canonical migrations live in `Hermann-33/Aida_System/supabase/`.
 
-## Customer identity and membership
+## Catalogue contract
 
-- Customer identity comes from Supabase Auth.
-- Auth signup provisions `user_profiles` + `members` server-side.
-- Public signup cannot self-assign app role, verified student status or member code.
-- Member code is server-generated/stable.
-- Customer profile/member reads are owner scoped.
+- Category/item/variant/add-on IDs are server-owned UUIDs.
+- Catalogue prices and variant deltas are integer sen.
+- Customer/public reads use `get_catalogue()` under RLS.
+- Public/customer clients see active categories and published items only.
+- Admin/owner writes use `save_catalogue_category(jsonb)` and `save_catalogue_item(jsonb)` with caller JWT; frontend-provided IDs/prices are input, not authority until validated/persisted by the server.
+- `catalogue_revision` is an invalidation signal. Clients re-fetch authoritative state after it changes.
+- Unpublished items are not customer-visible; availability is a distinct sold-out state.
+- Compatible add-ons are normalized server links; category names never authorize add-ons.
+- Ratings and loyalty bonus values are not catalogue fields.
 
-## Dashboard employee/admin session contract
+## Security
 
-Accepted in ADR-0008:
+No service-role key, DB secret or privileged bearer token enters a client bundle. Admin route guards are UX only; BFF checks, trusted roles and RLS/RPC checks are authoritative.
 
-- Browser calls same-origin BFF with `credentials: include`.
-- Password login: `POST /api/v1/auth/employee/login`.
-- Session restore/refresh: `GET /api/v1/auth/employee/session`.
-- Logout: `POST /api/v1/auth/employee/logout`.
-- Access/refresh tokens are HttpOnly cookies and never application-storage/browser JSON fields.
-- BFF revalidates Supabase Auth identity and the caller's trusted `user_profiles.app_role`/`disabled_at`.
-- `customer` cannot become an employee session by authenticating successfully.
-- Disabled employees are rejected.
-- Terminal credentials are separate from employee/admin identity.
+## Pricing boundary
 
-## Admin member directory
-
-`GET /api/v1/admin/members` requires an authenticated admin/owner BFF session. The BFF calls `public.list_admin_members()` with the caller Supabase JWT. The RPC is `SECURITY INVOKER`; RLS and trusted role checks remain active. Ordinary staff and customers cannot list the member directory.
-
-Returned fields are limited to trusted member/profile directory data: IDs, member code, display name, email, member type, student verification status, active status and creation time. Loyalty balances are not fabricated into this response.
-
-## Secrets
-
-Service-role keys, DB passwords, employee passwords/PINs, terminal credentials and provider secrets never enter Flutter/browser bundles or mirrored docs. The BFF needs only `AIDA_SUPABASE_URL` and a public/publishable Supabase key plus caller session cookies.
-
-## Other shared domains
-
-Catalogue/pricing, quotes/orders, payments, loyalty/vouchers, inventory, branches/terminals/employees, marketing/reporting/audit and realtime behavior remain governed by the existing shared-authority rules and require their own bounded tasks.
-
-## Completion gate
-
-A shared feature is not `COMPLETE` merely because source code exists. Applicable authorization, tests, deployment/executable path and cross-client behavior must be proven under ADR-0004.
+Displaying catalogue prices does not make the client cart an authoritative quote. Future order creation must revalidate item publication, availability, variant/add-on compatibility and final price server-side.

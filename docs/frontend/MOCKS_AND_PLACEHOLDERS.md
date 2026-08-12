@@ -1,31 +1,20 @@
-> Scope note: customer Flutter mock register. Dashboard mocks are separately documented under `docs/dashboard/MOCKS_AND_PLACEHOLDERS.md`.
+# Customer Mocks and Placeholders Register
 
-# Mocks and Placeholders Register
+Updated: 2026-08-12
 
-## No longer mock authority on TASK-AUTH-001 branch
+## Removed from production runtime
 
-The implemented auth/member path no longer uses `MockMemberRepository` as authority for:
+- hardcoded menu categories/items/prices/availability/images;
+- static Small/Medium/Large `ItemSize` enum and deltas;
+- category-name logic for whether sizes/add-ons apply;
+- fake catalogue ratings and bonus-point presentation.
 
-- email/password sign-up/sign-in;
-- password reset request;
-- persisted auth session gate/logout;
-- signed-in member ID/member code;
-- member display name/email/student status.
+Customer catalogue now fails visibly if the backend is unavailable; it does not fall back to sample menu data.
 
-These now come from Supabase Auth plus `user_profiles`/`members` under RLS. Signup no longer generates `m_<timestamp>` IDs or random member codes in Flutter.
+## Test-only
 
-## Still preview/mock authority
+`test/support/test_catalogue_repository.dart` is an explicit test fixture and is never wired as production fallback.
 
-`MockMemberRepository` remains a deliberate temporary source for feature families outside TASK-AUTH-001:
+## Still preview/untrusted
 
-- menu/category/size/add-on data, ratings, availability and prices;
-- points/stamps/reward costs/reward catalogue;
-- vouchers, offers, promos and related eligibility/display data.
-
-Other local-only behavior still includes cart, order history, item configuration, payment selection, favourites and some profile-edit overlay state.
-
-These values are not production authority. Each bounded backend task must remove the relevant preview source from the feature it implements.
-
-## Visible placeholders
-
-Social login, notifications, reward redeem, voucher apply, profile photo, full profile persistence, final production payment/order flows and authorized POS QR/member lookup remain incomplete.
+Loyalty/rewards/offers/promos, local cart/checkout/order tracking/history and other not-yet-integrated domains remain preview until their bounded backend tasks.

@@ -1,46 +1,27 @@
-# AIDA Café Implementation Roadmap
+# Roadmap
 
 Updated: 2026-08-12
 
-## Phase 1 — Governance/source baselines
+## Completed foundations
 
-WF-001/002/003/004: COMPLETE.
+- WF governance/import tasks: COMPLETE.
+- DB-001 identity/member foundation: COMPLETE for scoped DB foundation.
 
-## Phase 2 — Shared Supabase foundation
+## Auth/member
 
-Identity/profile/member/student-verification foundation: COMPLETE for scoped foundation. Broader business domains remain.
+Source implementation exists across customer + dashboard BFF, but final validation/deployment E2E remains deferred. Formal status: PARTIAL under ADR-0004.
 
-## Phase 3 — Authentication, membership and staff/admin access
+## Shared catalogue — TASK-MENU-001
 
-### Implemented source
+Implemented:
+- authoritative Supabase catalogue schema + RLS/audit/revision;
+- former customer hardcoded 16-item menu seeded live;
+- Flutter reads the shared catalogue and responds to revision invalidation;
+- Admin Menu creates/updates shared categories/items/variants/add-on compatibility through caller-JWT BFF;
+- production customer menu hardcodes and `ItemSize` removed.
 
-- Customer Supabase Auth and member/profile bootstrap.
-- Server-issued member identity/code and hardened student declaration.
-- Admin/owner-only member-directory RPC.
-- Admin Members live API client with no fixture fallback.
-- Same-origin dashboard BFF for password employee/admin sessions, refresh/logout and member directory.
-- HttpOnly token transport, trusted role/disabled checks and caller-JWT RLS preservation.
-- Terminal-independent admin login.
+Live database regression/security checks pass. Client/toolchain/deployed E2E validation was explicitly deferred, so formal status remains PARTIAL.
 
-### Remaining completion gates
+## Next product phase
 
-- full repository npm checks blocked by GitHub runner billing condition;
-- deploy AIDA dashboard+BFF same-origin;
-- create/assign a real trusted admin/owner identity through an approved operator path;
-- execute real customer signup -> DB member -> admin login -> Admin Members E2E.
-
-**Status:** PARTIAL under ADR-0004.
-
-## Phase 4 — Catalogue/publication
-
-Not started. Shared published catalogue/modifiers/prices remains the next product domain after auth operational closure.
-
-## Later phases
-
-Quote/order/payment; loyalty/vouchers; operations/inventory; reporting/marketing/hardening remain not started except preview UI.
-
-## Exact next task
-
-`TASK-AUTH-003 — dashboard deployment + admin bootstrap + live auth/member E2E closure`.
-
-After that passes, resume `TASK-DB-002 — shared menu/catalogue foundation`.
+`TASK-ORDER-001 — authoritative quote/cart/order foundation` should establish server-owned pricing validation, quote/order IDs, idempotency and legal order transitions. Payment, loyalty, inventory and reporting follow later.

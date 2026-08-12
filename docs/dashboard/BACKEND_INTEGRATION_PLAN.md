@@ -2,25 +2,14 @@
 
 Updated: 2026-08-12
 
-## Implemented auth/member slice
+## Admin catalogue — implemented source/data
 
-- Same-origin BFF source for Supabase Auth password login, session validation/refresh and logout.
-- HttpOnly employee tokens; no browser bearer-token persistence.
-- Trusted `user_profiles.app_role`/`disabled_at` check on employee/admin access.
-- Separate `/admin/login`; admin browser access does not require POS terminal enrolment.
-- `GET /api/v1/admin/members` uses authenticated admin/owner caller JWT -> `public.list_admin_members()` under RLS.
-- Admin Members has no fixture fallback and does not invent loyalty values.
-- Same handlers run through Vite dev/preview middleware and root `/api` deployment adapters.
+Admin Menu now reads `/api/v1/admin/catalogue` and writes category/item mutations through `/api/v1/admin/catalogue/*`. The BFF validates the existing employee/admin HttpOnly session and calls Supabase catalogue RPCs with the caller JWT.
 
-## Still required for auth/operations
+Admin can create categories/items and edit item name/SKU/category/type/description/base price/publication/availability/featured/bestseller/student eligibility/image/volume/prep route/sort, per-item variants and compatible add-ons.
 
-- production deployment/E2E and admin bootstrap;
-- badge/PIN authentication;
-- terminal enrolment/revocation backend;
-- branch assignments/global-manager/dual-role policy beyond the narrow current role mapping;
-- employee role/status administration and audit;
-- manager approval.
+Admin Menu no longer imports the preview catalogue/modifier fixtures.
 
-## Other backend domains
+## POS
 
-Shared catalogue -> quote/order/payment -> loyalty/member operations -> inventory -> marketing/reporting/integrations remain future tasks. Do not create dashboard-only authority for those domains.
+The checkout workspace still contains preview transaction/catalogue wiring. Do not treat it as catalogue authority. Replace it as part of authoritative quote/order/POS integration so prices and cart/order transitions are validated together.

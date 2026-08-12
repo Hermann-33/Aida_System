@@ -2,24 +2,16 @@
 
 Updated: 2026-08-12
 
-## Implemented auth/member slice
+## Auth/member
 
-- Supabase Auth sign-up/sign-in/recovery/session restore/logout.
-- Auth trigger provisions `user_profiles` + `members`.
-- Signed-in customer reads own profile/member under RLS.
-- Member code is server-generated; signup cannot self-promote role/verification.
-- Student declaration becomes pending until trusted review.
-- Dashboard side now has source implementation for an admin/owner authenticated member directory through the same shared backend.
+Supabase Auth and owner-scoped member/profile source exist on the auth stack; final validation remains deferred.
 
-## Remaining customer backend work
+## Catalogue — implemented source/data
 
-- profile writes beyond current narrow read/bootstrap behavior as separately scoped;
-- full student verification evidence/review UX;
-- catalogue/availability/images;
-- authoritative quote/order/payment;
-- loyalty ledger/rewards/vouchers;
-- promotions/notifications and cache/offline policy.
+Customer menu now uses `CatalogueRepository` -> Supabase `get_catalogue()`. One snapshot feeds categories, featured/popular and menu items. `catalogue_revision` Realtime events invalidate that snapshot. Base prices, sold-out state, images, size/variant deltas and compatible add-ons come from DB records.
 
-## Cross-client dependency
+Production runtime no longer has hardcoded menu items or `ItemSize`. Test-only catalogue fixtures live under `test/support/` and are explicit provider overrides.
 
-Auth/member source is implemented across both clients, but full-stack closure still requires a deployed dashboard BFF plus a trusted admin/owner identity and live customer-signup -> Admin Members E2E proof. Do not replace that with client fixtures or privileged browser credentials.
+## Next backend needs
+
+Trusted quote/order creation must re-price all catalogue selections server-side. Loyalty, profile writes, student evidence/review, notifications and offline/cache policy remain future tasks.

@@ -1,41 +1,21 @@
 # AIDA Café Security Review
 
 Updated: 2026-08-12
-**Verdict:** secured identity/member foundation plus implemented customer auth and dashboard BFF source; product not yet production-ready.
+**Verdict:** catalogue authority is hardened; overall product remains pre-release and partially validated.
 
-## Current positive controls
+## Catalogue controls
 
-- Foundation tables use forced RLS; anonymous foundation-table grants are absent.
-- Trusted app roles live in `user_profiles`, not editable Auth metadata.
-- Customer signup cannot self-promote role, verification or member code.
-- `public.list_admin_members()` is `SECURITY INVOKER`, anon execute false, with explicit admin/owner check plus RLS.
-- Dashboard employee/admin BFF stores Supabase access/refresh tokens only in HttpOnly, SameSite=Lax cookies.
-- Browser JSON/storage never receives privileged bearer tokens or service-role credentials.
-- BFF validates Auth identity plus caller-owned trusted `user_profiles.app_role`/`disabled_at`.
-- Customer identities are rejected from employee sessions; disabled employee profiles are rejected.
-- Admin member directory denies ordinary staff before the RPC call and invokes the RPC with the caller JWT.
-- State-changing cookie endpoints require same origin; authenticated responses are `Cache-Control: no-store`.
-- Admin login is separate from POS terminal identity.
-- Live Supabase security advisor: 0 lints.
+- Forced RLS on all catalogue tables.
+- Anonymous/customer access is read-only and publication-scoped.
+- Admin/owner mutation RPCs are `SECURITY INVOKER` and explicitly check trusted DB role state.
+- Dashboard mutations use the administrator caller JWT through the same-origin HttpOnly-session BFF; no service-role bypass.
+- State-changing BFF catalogue routes require same origin.
+- Catalogue audit table has no ordinary client table grant.
+- `catalogue_revision` is read-only to clients and used only for invalidation.
+- Server owns UUIDs/slugs and validates price ranges, item kinds, routes, variant defaults and add-on targets.
+- Customer runtime has no hardcoded production menu fallback.
+- Live Supabase security advisor: 0 lints after forward RLS hardening.
 
-## Remaining security/product gaps
+## Remaining release gates
 
-- A real deployment has not been exercised, so cookie/proxy/hosting behavior still needs live verification.
-- No production admin/owner identity exists in the current empty Supabase project; operator bootstrap/role assignment needs an approved path and audit policy.
-- Badge/PIN auth, branch assignments, terminal credential lifecycle, manager approval and employee administration remain unimplemented production domains.
-- Catalogue/order/payment/loyalty/inventory/reporting business authority is still mostly preview/not implemented.
-- Full privacy/retention/account-deletion and audit policy remain open.
-- Full dashboard dependency/build checks are blocked until GitHub runner billing or another repository-capable toolchain is available.
-
-## Secret handling
-
-Never expose Supabase secret/service-role keys, DB passwords, employee passwords/PINs, terminal credentials, payment/provider secrets or private certificates in clients or repository docs. TASK-AUTH-002 server configuration requires only the Supabase URL and publishable key; employee tokens are per-session HttpOnly cookies.
-
-## Required auth/member closure gates
-
-- deploy same-origin dashboard+BFF;
-- prove Secure/HttpOnly cookie issuance/refresh/logout in the deployed environment;
-- bootstrap a trusted admin/owner without public self-promotion;
-- create a real customer through the app and prove Admin Members receives that DB row;
-- prove staff/customer/disabled denial;
-- run dashboard lint/typecheck/tests/build and customer applicable checks.
+Client analyzer/lint/typecheck/tests/build and deployed cross-client E2E remain deferred. Quote/order/payment authority is not implemented; local cart totals cannot be trusted for payment/order persistence. Auth deployment/admin bootstrap validation also remains open.

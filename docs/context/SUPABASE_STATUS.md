@@ -5,48 +5,30 @@
 **Ref:** `eswovqxqzfevcdwwcmuh`
 **Region:** `ap-southeast-1`
 
-## Implemented identity/membership objects
+## Identity/membership
 
-Tables:
+Existing TASK-DB-001/TASK-AUTH-001 objects remain live, including forced-RLS `user_profiles`, `members`, `student_verifications` and admin/owner member-directory RPC.
 
-- `public.user_profiles`
-- `public.members`
-- `public.student_verifications`
+## Catalogue — TASK-MENU-001
 
-Key functions/helpers:
+Applied canonical migrations:
 
-- `public.generate_member_code`
-- `public.handle_new_auth_user`
-- `public.list_admin_members()`
-- private trusted role helpers
+1. `20260812231500_create_shared_catalogue.sql`
+2. `20260812235000_harden_catalogue_rls_policies.sql`
 
-All foundation tables use forced RLS. Customer reads are owner-scoped. Bulk profile/member access and the member-directory RPC are admin/owner controlled.
+Live objects:
+- `catalogue_categories`
+- `catalogue_items`
+- `catalogue_item_variants`
+- `catalogue_item_addons`
+- `catalogue_revision`
+- `catalogue_audit_events`
+- `get_catalogue()`
+- `save_catalogue_category(jsonb)`
+- `save_catalogue_item(jsonb)`
 
-## TASK-AUTH-001 migrations
+Seed: 4 categories, 16 items, 27 variants, 27 compatible add-on links. Only `catalogue_revision` is in the `supabase_realtime` publication.
 
-1. `20260812191500_integrate_customer_auth_member_directory.sql`
-2. `20260812192500_fix_signup_member_code_generation.sql`
-3. `20260812195500_make_admin_member_directory_security_invoker.sql`
+Canonical catalogue SQL regression passed live in a rolled-back transaction: public read, admin create/update, revision advance, audit evidence, customer mutation denial and unpublished-item hiding.
 
-Canonical files remain in `Hermann-33/Aida_System/supabase/`.
-
-## TASK-AUTH-002
-
-No schema migration was required. The dashboard BFF authenticates via Supabase Auth using only a project publishable key, validates the caller's own `user_profiles` record, and calls `list_admin_members()` with the caller access token. It does not use a service-role bypass.
-
-Latest live verification:
-
-- `list_admin_members()` is `SECURITY INVOKER`.
-- anon execute: false.
-- authenticated execute: true, subject to function/RLS admin/owner checks.
-- security advisor: 0 lints.
-- retained counts: 0 Auth users, 0 profiles, 0 members, 0 student verifications.
-
-## Client connection state
-
-- Customer auth/member path: real Supabase integration on TASK-AUTH-001 stack.
-- Dashboard admin auth/member path: same-origin BFF source implemented on TASK-AUTH-002 stack; Vite dev/preview middleware and serverless `/api` adapters share one core.
-
-## Remaining operational gate
-
-No real admin/owner Auth identity or connected AIDA deployment exists yet, so deployed browser E2E remains unproven. This is not a reason to weaken RLS or expose privileged credentials.
+Security advisor: **0 lints**. Performance advisor: only unused-index INFO on the new no-traffic schema.

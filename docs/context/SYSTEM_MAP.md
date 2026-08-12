@@ -1,40 +1,27 @@
-# AIDA Café System Map
+# System Map
 
 Updated: 2026-08-12
 
-## Source systems
-
-| System | Repository/runtime | Current auth/member source |
+| System | Runtime | Current trusted source |
 |---|---|---|
-| Customer | `Hermann-33/Aida_System` — Flutter | Supabase Auth + owner-scoped `user_profiles`/`members` on TASK-AUTH-001 stack |
-| POS/Admin | `Hermann-33/Aida_System-Dashboard` — React/Vite | same-origin BFF cookie session + live admin-member API on TASK-AUTH-002 stack |
-| Shared backend | Supabase `eswovqxqzfevcdwwcmuh` | Auth/Postgres/forced RLS/RPC |
+| Customer | Flutter/Riverpod | Supabase Auth/member stack + shared catalogue |
+| Admin | React/Vite | same-origin BFF + shared catalogue/member RPCs |
+| Backend | Supabase | Auth, Postgres, forced RLS, controlled RPCs |
 
-## Auth/member flow
+## Catalogue flow
 
 ```text
-Customer sign-up
-  -> Supabase Auth
-  -> Auth trigger
-  -> user_profiles + members
-  -> server-issued member_code
-
-Admin browser
-  -> POST /api/v1/auth/employee/login
-  -> dashboard BFF
-  -> Supabase Auth + own user_profiles role/disabled check
-  -> HttpOnly session cookies
-  -> GET /api/v1/admin/members
-  -> BFF calls list_admin_members() with caller JWT
-  -> Admin Members renders trusted rows
+Admin Menu
+ -> same-origin BFF cookie session
+ -> admin/owner caller JWT
+ -> save_catalogue_* SECURITY INVOKER RPC
+ -> catalogue tables + audit + revision bump
+ -> Supabase Realtime revision event
+ -> Flutter invalidates catalogue snapshot
+ -> get_catalogue() under RLS
+ -> updated menu shown in app
 ```
 
-No member fixture fallback exists in the implemented Admin Members path.
+The production customer menu contains no hardcoded catalogue fallback. Initial live seed is the 16 entries formerly hardcoded in the customer app.
 
-## Still preview/not authoritative
-
-Catalogue/pricing, quote/order/payment, loyalty/rewards/vouchers, branch/terminal/employee administration, POS operational state, inventory, marketing, reporting and audit remain future backend domains unless separately documented as implemented.
-
-## Change-impact rule
-
-Shared identity/member/role changes require both clients plus Supabase/BFF authorization to be reviewed together. A browser screen compiling does not prove backend completion.
+POS transaction/checkout preview data is not catalogue authority and remains outside TASK-MENU-001.

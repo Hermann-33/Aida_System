@@ -26,9 +26,7 @@ Future<void> main() async {
 
   await Supabase.initialize(
     url: _supabaseUrl,
-    // 2.15.x names this parameter anonKey. A modern publishable key is the
-    // intended client-side credential; no secret/service-role key belongs here.
-    anonKey: _supabasePublishableKey,
+    publishableKey: _supabasePublishableKey,
   );
 
   runApp(const ProviderScope(child: AidaApp()));

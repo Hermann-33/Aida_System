@@ -1,30 +1,70 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'application/providers.dart';
 import 'core/theme/aida_theme.dart';
 import 'features/auth/login_screen.dart';
 import 'features/shell/app_shell.dart';
 
-void main() {
+const _supabaseUrl = String.fromEnvironment(
+  'AIDA_SUPABASE_URL',
+  defaultValue: 'https://eswovqxqzfevcdwwcmuh.supabase.co',
+);
+const _supabasePublishableKey = String.fromEnvironment(
+  'AIDA_SUPABASE_PUBLISHABLE_KEY',
+);
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  if (_supabasePublishableKey.isEmpty) {
+    runApp(const _MissingBackendConfigurationApp());
+    return;
+  }
+
+  await Supabase.initialize(
+    url: _supabaseUrl,
+    // 2.15.x names this parameter anonKey. A modern publishable key is the
+    // intended client-side credential; no secret/service-role key belongs here.
+    anonKey: _supabasePublishableKey,
+  );
+
   runApp(const ProviderScope(child: AidaApp()));
 }
 
-/// Flutter's default [MaterialScrollBehavior] only accepts touch and stylus
-/// for drag-to-scroll — a mouse click-drag is ignored. That's invisible on a
-/// real phone, but on the web build (a mouse, not a finger) it makes every
-/// swipeable widget — the promo carousel above all — look completely dead:
-/// vertical lists still respond to the mouse *wheel* (a separate mechanism),
-/// so only horizontal, swipe-only widgets appear broken.
+class _MissingBackendConfigurationApp extends StatelessWidget {
+  const _MissingBackendConfigurationApp();
+
+  @override
+  Widget build(BuildContext context) {
+    return const MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        body: Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Text(
+              'AIDA backend configuration is missing. '
+              'Provide AIDA_SUPABASE_PUBLISHABLE_KEY at build/run time.',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _AidaScrollBehavior extends MaterialScrollBehavior {
   @override
   Set<PointerDeviceKind> get dragDevices => {
-    PointerDeviceKind.touch,
-    PointerDeviceKind.stylus,
-    PointerDeviceKind.mouse,
-    PointerDeviceKind.trackpad,
-  };
+        PointerDeviceKind.touch,
+        PointerDeviceKind.stylus,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+      };
 }
 
 class AidaApp extends StatelessWidget {
@@ -42,10 +82,8 @@ class AidaApp extends StatelessWidget {
   }
 }
 
-/// Shows the login screen until [authStateProvider] flips true, then the
-/// shell. No splash screen — nothing here needs one yet (no cached-token
-/// check, no version gate), so it would just be a delay with nothing to do
-/// during it.
+/// Session state is restored by Supabase before the app starts and then kept
+/// current by the AuthState listener. No client-only login flag survives here.
 class AuthGate extends ConsumerWidget {
   const AuthGate({super.key});
 

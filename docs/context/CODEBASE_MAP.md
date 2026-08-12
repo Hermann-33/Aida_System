@@ -1,18 +1,20 @@
 # Codebase Map
 
-## Repository root
+Updated: 2026-08-11
 
-`C:\code\Aida_System` contains one Git repository on `master` at the audit baseline.
+## Repository root
 
 | Path | Purpose |
 |---|---|
 | `apps/customer/` | Active Flutter customer application |
-| `docs/screenshots/` | Sixteen customer UI reference captures |
+| `supabase/` | Supabase CLI config, migrations, and database check scripts added by `TASK-DB-001` |
+| `docs/database/` | Database foundation reference documentation |
+| `docs/screenshots/` | Customer UI reference captures |
 | `docs/superpowers/specs/` | Customer design and cart/ordering specifications |
 | `Aida_System_Unified_PRD_v2.0.md` | Mixed historical/current product requirements; not runtime proof |
-| `docs/context/`, `docs/decisions/`, `docs/frontend/`, `docs/security/` | Governance baseline created by TASK-WF-001 |
+| `docs/context/`, `docs/decisions/`, `docs/frontend/`, `docs/security/` | Governance, ADR, frontend audit and security documentation |
 
-No backend, Supabase, POS/staff, or admin source folder was found.
+No POS/staff/admin source folder is present.
 
 ## Active app: `apps/customer`
 
@@ -44,7 +46,7 @@ See `docs/frontend/UI_SCREEN_MAP.md` for navigation/data/status details.
 
 ### Domain models and entities
 
-`lib/domain/model/` contains:
+`apps/customer/lib/domain/model/` contains customer-facing prototype entities:
 
 - `Member`, `StudentStatus`;
 - `Points`, `StampCard`;
@@ -67,47 +69,51 @@ There are no DTOs, JSON serializers, generated database types, transaction ledge
 | `lib/core/error/result.dart` | `Result`, `Ok`, `Err` |
 | `lib/core/error/failures.dart` | Typed failure taxonomy, mostly not exercised by current adapter |
 
-No HTTP/API service, Supabase service, secure storage, cache, analytics, notifications, realtime, image upload, or payment service exists.
+No HTTP/API service, Supabase Flutter service, secure storage, cache, analytics, notifications, realtime, image upload, or payment service exists.
 
-### Theme, assets, and reusable components
+## Supabase folder
 
-| Area | Paths |
+| Path | Purpose |
 |---|---|
-| Palette/theme/type | `lib/core/theme/aida_colors.dart`, `aida_theme.dart`, `aida_type.dart` |
-| Logo | `lib/core/theme/aida_logo.dart`—placeholder `LOGO` widget |
-| Core widgets | `product_image.dart`, `neumorphic_control.dart`, `entrance.dart` |
-| Feature widgets | category strip/chip/grid item, popular cards, promo carousel, stamp/reward visuals, floating cart bar, order status pill, auth fields |
-| Fonts | bundled Playfair Display and Plus Jakarta Sans in `assets/fonts/` |
-| Images | auth hero art, coffee cup, and category cut-outs in `assets/images/` |
-| Network images | temporary Unsplash URLs in `mock_member_repository.dart` |
+| `supabase/config.toml` | Local Supabase CLI stack configuration; no secrets |
+| `supabase/README.md` | Project reference, migration ledger and local commands |
+| `supabase/migrations/20260811101100_create_identity_membership_foundation.sql` | Initial identity/profile/member/student-verification schema, grants, triggers and RLS |
+| `supabase/migrations/20260811102200_harden_foundation_role_helpers.sql` | Moves RLS helper functions to the non-exposed `private` schema |
+| `supabase/migrations/20260811102700_optimize_foundation_rls_policies.sql` | Optimizes RLS policies and adds reviewed-by index |
+| `supabase/tests/rls_foundation.sql` | Lightweight SQL checks for schema/RLS posture on local/reset database |
 
-Color values and the final logo are provisional. The web manifest retains Flutter scaffold naming/colors.
+The migrations were also applied to remote project `eswovqxqzfevcdwwcmuh` during `TASK-DB-001`.
 
-### Tests
+## Database documentation
+
+| Path | Purpose |
+|---|---|
+| `docs/database/SCHEMA_FOUNDATION.md` | Current schema reference, RLS posture, advisor results and next database task |
+
+## Tests
 
 | Path | Coverage |
 |---|---|
-| `test/domain/money_test.dart` | integer-sen formatting/comparison |
-| `test/domain/cart_test.dart` | size, merge, add-on, line/subtotal calculations |
-| `test/widget_test.dart` | boot smoke check and membership QR/member rendering |
-| `test/widgets/category_strip_test.dart` | responsive strip behavior |
-| `test/widgets/popular_item_grid_test.dart` | popular grid behavior |
-| `test/widgets/item_detail_navigation_test.dart` | item route/back and sold-out state |
-| `test/widgets/cart_flow_test.dart` | configured item through checkout/cart clear |
-| `test/golden/screens_golden_test.dart` | Home, scrolled Home, selected Menu, membership card baselines |
+| `apps/customer/test/domain/money_test.dart` | integer-sen formatting/comparison |
+| `apps/customer/test/domain/cart_test.dart` | size, merge, add-on, line/subtotal calculations |
+| `apps/customer/test/widget_test.dart` | boot smoke check and membership QR/member rendering |
+| `apps/customer/test/widgets/category_strip_test.dart` | responsive strip behavior |
+| `apps/customer/test/widgets/popular_item_grid_test.dart` | popular grid behavior |
+| `apps/customer/test/widgets/item_detail_navigation_test.dart` | item route/back and sold-out state |
+| `apps/customer/test/widgets/cart_flow_test.dart` | configured item through checkout/cart clear |
+| `apps/customer/test/golden/screens_golden_test.dart` | Home, scrolled Home, selected Menu, membership card baselines |
+| `supabase/tests/rls_foundation.sql` | SQL posture checks for tables, RLS and grants |
 
-There are no integration-test target, real data-adapter tests, auth security tests, RLS tests, offline/cache tests, POS/admin tests, or deployment smoke tests.
+There are still no Flutter integration-test target, real data-adapter tests, auth security tests, POS/admin tests, or deployment smoke tests.
 
-### Build and configuration
+## Build and configuration files
 
-- `pubspec.yaml` / `pubspec.lock`: Dart `^3.7.0`, Flutter, Riverpod, QR, clock, and unused `go_router` dependency.
-- `analysis_options.yaml`: `flutter_lints` defaults; no strict analyzer language settings.
-- `android/`: Gradle/Kotlin runner; release currently uses debug signing and contains a setup TODO.
-- `ios/`: Xcode runner and CocoaPods config.
-- `web/`: Flutter web bootstrap, manifest, scaffold icons.
-- No committed native Windows/macOS/Linux runner and no CI workflow was found.
+- `apps/customer/pubspec.yaml` / `pubspec.lock`: Flutter/Riverpod/QR/clock/go_router dependencies. No Supabase Flutter dependency yet.
+- `apps/customer/analysis_options.yaml`: `flutter_lints` defaults.
+- `supabase/config.toml`: local Supabase CLI configuration.
+- No committed CI workflow was found in the audit baseline.
 
-Repository-discovered commands:
+Repository-discovered customer app commands:
 
 ```powershell
 cd apps/customer
@@ -116,26 +122,33 @@ flutter test
 flutter test --update-goldens  # only after visual review and explicit approval
 ```
 
-This audit used `--no-pub` to prevent lockfile changes.
+Supabase commands:
 
-## Existing docs and specifications
-
-- `Aida_System_Unified_PRD_v2.0.md`: broad product requirements and legacy deployment narrative. It contains internal contradictions with the current checkout and must be interpreted through current governance.
-- `docs/superpowers/specs/2026-07-10-aida-customer-app-design.md`: customer architecture and offline/security intent; several planned pieces such as secure storage/cache are not implemented.
-- `docs/superpowers/specs/2026-07-13-cart-ordering-design.md`: explicitly authorizes an in-memory checkout prototype with placeholder pricing.
-- `docs/screenshots/01-login.png` through `16-edit-profile.png`: visual snapshots of current customer surfaces.
+```bash
+supabase start
+supabase db reset
+supabase migration list
+supabase db lint
+```
 
 ## Fragile and important files
 
 Do not change casually:
 
-- `lib/application/providers.dart`: navigation, data binding, and session state in one file.
-- `lib/domain/repository/member_repository.dart`: current backend seam, but incomplete for writes.
-- `lib/data/repository/mock_member_repository.dart`: mock data shapes many UI assumptions.
-- `lib/main.dart` and `features/shell/app_shell.dart`: auth and navigation lifecycle.
-- `lib/domain/model/money.dart`, `cart.dart`, `item_size.dart`: monetary/configuration behavior.
-- `features/cart/cart_screen.dart`: client totals, order generation, payment simulation, and history coupling.
-- `features/card/membership_card_screen.dart`: QR payload and offline claim.
-- `features/home/home_screen.dart`: large, stateful, tightly coupled composition.
-- `features/menu/item_detail_screen.dart`: large UI/state/calculation/navigation surface.
-- golden images under `test/golden/goldens/`: approval artifacts, not disposable outputs.
+- `apps/customer/lib/application/providers.dart`: navigation, data binding, and session state in one file.
+- `apps/customer/lib/domain/repository/member_repository.dart`: current backend seam, but incomplete for writes.
+- `apps/customer/lib/data/repository/mock_member_repository.dart`: mock data shapes many UI assumptions.
+- `apps/customer/lib/main.dart` and `features/shell/app_shell.dart`: auth and navigation lifecycle.
+- `apps/customer/lib/domain/model/money.dart`, `cart.dart`, `item_size.dart`: monetary/configuration behavior.
+- `apps/customer/features/cart/cart_screen.dart`: client totals, order generation, payment simulation, and history coupling.
+- `apps/customer/features/card/membership_card_screen.dart`: QR payload and offline claim.
+- `supabase/migrations/`: append-only migration history; do not edit applied migrations after merge except through a superseding migration.
+- `supabase/config.toml`: local stack settings; do not add secrets.
+- `test/golden/goldens/`: approval artifacts, not disposable outputs.
+
+## Do not touch without explicit scope
+
+- Do not wire Flutter to Supabase in database-foundation tasks.
+- Do not create menu/order/loyalty/POS schema in identity-foundation tasks.
+- Do not add storage buckets without a storage and image-ownership decision.
+- Do not add secrets or local `.env` content to the repository.

@@ -1,12 +1,14 @@
-# Current Frontend Architecture
+# Current Architecture
 
-This document describes the inspected repository as it exists on 2026-08-11. Future boundaries are labeled; they are not implemented.
+Updated: 2026-08-11
+
+This document describes the accepted current AIDA Café architecture. Current implementation reality and future plans are separated deliberately.
 
 ## Runtime diagram
 
 ```mermaid
 flowchart TD
-    A["Flutter main.dart"] --> B["ProviderScope + MaterialApp"]
+    A["Flutter apps/customer main.dart"] --> B["ProviderScope + MaterialApp"]
     B --> C["AuthGate"]
     C -->|"authState = false"| D["Unified Login / Sign-up UI"]
     C -->|"authState = true"| E["Five-tab AppShell"]
@@ -17,105 +19,100 @@ flowchart TD
     H --> I["MockMemberRepository"]
     I --> J["Hardcoded demo member, menu, loyalty, promos, vouchers"]
     G --> K["In-memory auth, edits, favorites, cart, order history"]
-    J --> L["Temporary Unsplash URLs + bundled assets"]
+
+    S["Supabase Auth"] --> P["public.user_profiles"]
+    P --> M["public.members"]
+    M --> V["public.student_verifications"]
+    R["private role helper functions"] --> P
+    R --> M
+    R --> V
+
+    G -. "not wired yet" .-> S
 ```
 
-Evidence: `apps/customer/lib/main.dart`, `lib/features/shell/app_shell.dart`, `lib/application/providers.dart`, and `lib/data/repository/mock_member_repository.dart`.
-
-## Active applications and runtimes
+## Active applications
 
 | Area | Current state |
 |---|---|
-| Customer | Flutter app in `apps/customer`; Android, iOS, and web runners committed |
-| Windows/macOS/Linux | No runner directories committed |
+| Customer | Flutter app in `apps/customer` |
 | POS/staff | Not present |
 | Admin | Not present |
-| Backend/API | Not present |
-| Supabase | No client/config/schema/migration present |
+| Backend/API | No custom API source present |
+| Supabase | Initial database foundation exists; frontend not connected |
 
-The inspected toolchain can see Windows, Chrome, and Edge devices, but repository support and build prerequisites are separate from device detection.
+## Frontend boundary
 
-## Frontend boundaries
+The Flutter app remains a prototype frontend. Riverpod state and `MockMemberRepository` still provide customer identity, menu, loyalty, voucher, order and profile behavior in memory/source code. No Supabase dependency or client initialization exists in the Flutter app.
 
-The code approximates feature-first clean layering:
+Protected frontend integration files remain:
 
-- `features/`: screens and widgets.
-- `application/providers.dart`: Riverpod orchestration and mutable session state.
-- `domain/model/`: Dart entities/value types.
-- `domain/repository/`: the `MemberRepository` port.
-- `data/repository/`: the mock adapter.
-- `core/`: errors, theme, and reusable widgets.
+- `apps/customer/lib/application/providers.dart`
+- `apps/customer/lib/domain/repository/member_repository.dart`
+- `apps/customer/lib/data/repository/mock_member_repository.dart`
+- `apps/customer/lib/main.dart`
+- `apps/customer/lib/features/shell/app_shell.dart`
+- money/cart/QR-related domain models and screens
 
-The boundary is incomplete: screen code directly performs cart price arithmetic, order creation, generated IDs, and session persistence. The single `MemberRepository` is broad and contains no cart/order/profile-write/redeem operations.
+## Supabase foundation boundary
 
-## Navigation and routing
+`TASK-DB-001` establishes the first trusted persistence boundary in Supabase.
 
-- Root: `MaterialApp(home: AuthGate())`.
-- Auth selection: boolean `authStateProvider` selects `LoginScreen` or `AppShell`.
-- Primary navigation: `selectedTabProvider` selects an `IndexedStack` of Home, Rewards, QR, Menu, and Profile.
-- Secondary navigation: direct `Navigator.push` with `MaterialPageRoute` for item detail, cart, order confirmation, order history/detail, and edit profile.
-- Modal surfaces: forgot-password and payment-method bottom sheets; reward details bottom sheet.
-- `go_router` is installed but unused. There are no named routes, deep links, or centralized guards.
+Implemented database foundation:
 
-## State management
+- `public.user_profiles`: trusted application profile and role record keyed by `auth.users(id)`.
+- `public.members`: server-issued membership identity and member code.
+- `public.student_verifications`: student declaration and trusted review workflow.
+- `private.current_app_role()` and `private.is_staff_or_above()`: non-exposed RLS helper functions.
+- Auth trigger: new `auth.users` rows provision profile/member foundation records.
 
-Riverpod 3 providers in `lib/application/providers.dart` own:
+This foundation is intentionally narrow. It does not implement menu, orders, quote, loyalty ledger, vouchers, payments, POS/admin operations, marketing, reporting, storage, or Flutter wiring.
 
-- repository binding and repository-backed `FutureProvider` reads;
-- auth boolean;
-- selected tab/category and favorites filter;
-- session profile overlay;
-- cart lines;
-- favorite item IDs;
-- session order history.
+## Authentication and authorization
 
-The Home daily check-in is local widget state in `home_screen.dart`, not a provider or repository operation. Item-detail size/add-ons/quantity/note and payment selection are local widget state.
+Current frontend auth is still a local boolean and must not be treated as real authentication.
 
-## Data and repository layer
+Accepted direction:
 
-`MemberRepository` defines auth, reset request, member, points, stamps, rewards, vouchers, offers, featured item, promos, categories, popular items, and menu reads. `MockMemberRepository` is the only implementation. Typed `Result`/`Failure` types exist, but the mock returns successful results and most failure variants have no exercised adapter path.
+- Supabase Auth owns identity/session lifecycle.
+- `public.user_profiles` owns trusted app role, not user-editable metadata.
+- RLS policies enforce owner and staff/admin access.
+- Frontend receives only public/publishable configuration in a later task.
+- Service-role keys remain server-only and must never enter Flutter/web builds.
 
-There are no DTOs, serialization, HTTP client, Supabase client, cache, secure token store, local database, or repository-backed write operations.
+## Current data ownership
 
-## Current mock/local/session behavior
-
-- Mock: member identity, menu, categories, prices, ratings, sizes, add-ons, loyalty, rewards, vouchers, offers, promotions, and stock images.
-- Session: auth, sign-up identity overlay, profile edits, favorites, cart, order history.
-- Widget-local: check-in days, item configuration, payment method, timed order status.
-- Client-generated: new member ID/code, order number, timestamps, cart subtotal, ready status.
-
-See `docs/frontend/MOCKS_AND_PLACEHOLDERS.md` for the detailed register.
-
-## Intended Supabase/backend boundary—future, not implemented
-
-A concrete data adapter may implement domain ports with Supabase Auth, Postgres/Data API or controlled RPC/Edge Function calls, Storage, and durable local caching. The trusted boundary must own identity, authorization, prices, availability, quotes, totals, order numbers/state transitions, points/stamps, voucher issuance/use, verification, and staff/admin roles. UI providers should orchestrate server results, not reproduce those rules.
-
-The existing broad repository will likely need to be split or extended by capability before integration; “replace one class and change nothing else” is an aspiration, not proven by current write-path gaps.
-
-## Authentication direction
-
-Current auth is a boolean with no session bootstrap. The intended direction is Supabase Auth-backed session restoration, refresh/revocation handling, verified current-user reads, secure platform storage where needed, cache isolation by user, and authorization enforced by RLS/server logic. User-editable metadata must not authorize roles or student verification.
-
-## Domain boundaries
-
-- **Menu:** business-owned catalogue, variants/modifiers, prices, images, and availability; current data is mock.
-- **Cart/quote:** current cart is client state; a server quote must validate configuration and return authoritative totals.
-- **Orders:** current placement/history/status are session simulations; real state must be persisted and operationally updated.
-- **Loyalty:** current values are displayed as mock data; issuance, redemption, expiry, idempotency, and ledgers must be server-controlled.
-- **Membership/QR:** a static member identifier is rendered; it is shareable and must never confer authority by itself.
+| Data area | Current authority |
+|---|---|
+| User identity/session | Future Supabase Auth; frontend currently mock/local |
+| Trusted profile/app role | `public.user_profiles` |
+| Member code/QR identity | `public.members` |
+| Student verification state | `public.student_verifications` |
+| Menu/catalogue/pricing | Still mock; future schema required |
+| Cart/quote/order | Still local simulation; future trusted operation required |
+| Loyalty/rewards/vouchers | Still mock/display-only; future ledger/operation required |
+| POS/admin/staff actions | Not present; future app/service required |
 
 ## Security boundaries
 
 - The Flutter/web client is untrusted.
-- Supabase secret/service-role credentials must never enter the client.
-- Exposed database objects require RLS and ownership/role-aware policies.
-- Staff/admin capabilities require server-verifiable authorization, not hidden UI.
-- Payment instruments should remain with approved providers; the current selector does not process funds.
+- Client-computed prices, totals, points, roles, QR payloads, verification status, member codes and order numbers are not authoritative.
+- Public tables require RLS and explicit ownership or trusted operational role predicates.
+- Role helper functions are outside the exposed `public` API schema.
+- Anonymous access has no direct table grants in the foundation schema.
 
 ## Deferred architecture
 
-Schema, API style, offline cache, secure storage, realtime order updates, background notifications, analytics, image pipeline, multi-app code sharing, POS/admin deployment, and observability remain undecided/unimplemented.
+Deferred until later tasks:
+
+- Supabase Flutter client package/configuration.
+- Auth session bootstrap/refresh/logout wiring.
+- Local secure/durable member-code cache.
+- Menu/catalogue schema and storage/image policy.
+- Server-side cart quote/order operations and idempotency.
+- Loyalty ledger, rewards, voucher issuance/use, and audit trail.
+- POS/staff/admin app or service boundary.
+- Reporting, marketing, observability, backup/restore and deployment runbooks.
 
 ## Fragile boundaries
 
-The highest-risk integration files are `application/providers.dart`, `member_repository.dart`, `mock_member_repository.dart`, `main.dart`, `app_shell.dart`, `cart.dart`, `cart_screen.dart`, `membership_card_screen.dart`, and visual golden baselines. See `docs/frontend/FRAGILE_BOUNDARIES.md`.
+The highest-risk boundary is now the seam between the mock Flutter prototype and the new Supabase foundation. Do not wire UI directly to tables until repository ports, typed failures, cache/logout behavior, and RLS tests are reviewed.

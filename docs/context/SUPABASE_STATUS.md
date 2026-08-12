@@ -1,60 +1,153 @@
 # Supabase Status
 
 **Status date:** 2026-08-11
-**Implementation state:** not connected
-**Schema confidence:** none from this repository
+**Implementation state:** database foundation created; Flutter frontend not connected
+**Remote project:** Aida System
+**Project ref:** `eswovqxqzfevcdwwcmuh`
+**Region:** `ap-southeast-1`
 
-## Verified repository facts
+## Verdict
 
-- `pubspec.yaml` has no Supabase dependency.
-- No Supabase initialization or client call exists under `apps/customer/lib`.
-- No `supabase/`, `migrations/`, `schemas/`, `config.toml`, seed, generated database types, or environment file was found.
-- The active provider binds `MockMemberRepository`; all returned data is in Dart source.
-- No repository file proves any table, policy, function, bucket, auth provider, or deployed project exists.
+`TASK-DB-001` verified the reset project, created the first version-controlled Supabase migration foundation, and applied it to the remote Aida System project.
 
-## Project-owner context
+The frontend still does **not** connect to Supabase. No Flutter behavior, dependency, environment file, or client configuration was changed.
 
-The current task states that the Supabase database has been reset/cleaned for actual implementation and positions Supabase as the upcoming persistence boundary. This is authoritative planning context, but the database was not connected or inspected during this documentation-only task.
+## Pre-migration reset verification
 
-Therefore:
+Before applying the foundation migrations, the remote project was verified as clean:
 
-- treat the database as reset/clean and schema state as **unknown/unverified**;
-- assume no production schema until reviewed migrations in this repository prove it;
-- do not claim that any old proof, demo, or legacy tables still exist;
-- do not use the PRD’s historical Node/Express/Neon descriptions as current Supabase evidence.
+| Area | Verified result |
+|---|---|
+| `public` base tables | 0 |
+| `public` enum types | 0 |
+| `public` functions | 0 |
+| `menu-images` bucket | absent |
+| `marketing-assets` bucket | absent |
+
+No old proof/demo schema or storage bucket remains.
+
+## Migration ledger
+
+| Migration | Remote applied | Purpose |
+|---|---:|---|
+| `20260811101100_create_identity_membership_foundation.sql` | Yes | Creates identity/profile/member/student-verification foundation, triggers, grants and first RLS policies |
+| `20260811102200_harden_foundation_role_helpers.sql` | Yes | Moves role helper functions into non-exposed `private` schema |
+| `20260811102700_optimize_foundation_rls_policies.sql` | Yes | Adds reviewed-by index and optimizes RLS calls to avoid auth init-plan warnings |
+
+Repository files live under:
+
+```text
+supabase/migrations/
+supabase/config.toml
+supabase/tests/rls_foundation.sql
+docs/database/SCHEMA_FOUNDATION.md
+```
+
+## Current database objects
+
+### Tables
+
+```text
+public.user_profiles
+public.members
+public.student_verifications
+```
+
+### Enums
+
+```text
+public.app_user_role
+public.member_type
+public.student_verification_status
+```
+
+### Functions
+
+Public operational/trigger functions:
+
+```text
+public.set_updated_at
+public.generate_member_code
+public.handle_new_auth_user
+```
+
+Private RLS helper functions:
+
+```text
+private.current_app_role
+private.is_staff_or_above
+```
+
+The role helper functions were intentionally moved out of the exposed `public` API schema.
+
+## Access and RLS posture
+
+- RLS is enabled and forced on all foundation tables.
+- Anonymous users have no direct table grants.
+- Authenticated customers can select their own profile/member records.
+- Authenticated customers can update only basic profile columns through column-level grants.
+- Authenticated customers can insert pending student-verification submissions only for their own member record.
+- Staff/admin/owner access uses trusted `user_profiles.app_role`, not user-editable Auth metadata.
+- Student-verification review updates require staff/admin/owner role.
+- New Supabase Auth users trigger creation of a `user_profiles` row and a server-issued `members.member_code`.
+
+## Advisor findings
+
+Security advisor after hardening:
+
+```text
+0 security lints
+```
+
+Performance advisor after optimization:
+
+```text
+No auth RLS init-plan warnings remain.
+Only unused-index INFO lints remain, expected because the schema has no traffic yet.
+```
 
 ## Frontend connection status
 
-The frontend does not connect to Supabase. There is no auth session, database query, realtime subscription, storage access, function call, or public client configuration. `MemberRepository` is an integration seam, not an integration.
+The customer frontend still has no Supabase dependency, client initialization, auth session bootstrap, database query, storage access, realtime subscription, or Edge Function call.
 
-## Security and RLS expectations
+`MemberRepository` remains bound to `MockMemberRepository`. The database is ready for the next implementation phase, but no UI path is wired to it.
 
-Before exposing data to the client:
+## Local development notes
 
-- enable RLS on every table in an exposed schema;
-- grant Data API access deliberately and separately from RLS;
-- use ownership/tenant/operational predicates—`authenticated` alone is not authorization;
-- include `USING` and `WITH CHECK` where an update must preserve ownership;
-- never authorize from user-editable metadata; use trusted app metadata or database role records with freshness considerations;
-- keep secret/service-role keys out of Flutter and web builds;
-- protect privileged functions, views, and storage objects; prefer invoker semantics and explicit grants;
-- test customer, staff, admin, anonymous, cross-user, and revoked-session access paths.
+Use Supabase CLI locally. Do not commit secrets.
 
-These are expectations, not implemented policies.
+```bash
+supabase start
+supabase db reset
+supabase migration list
+supabase db lint
+supabase gen types typescript --local > supabase/types/database.types.ts
+```
 
-## Required verification before database implementation
+Remote linking is local-only:
 
-1. Confirm the Supabase organization/project reference, region, environments, and access owners without recording secrets in docs.
-2. Inspect the live reset state and enabled Auth providers/extensions/Data API settings.
-3. Decide declarative versus imperative migration workflow and commit the configuration first.
-4. Translate product concepts into an reviewed schema; do not mirror UI models mechanically.
-5. Define identity/profile/member separation, staff/admin authorization source, and student-verification workflow.
-6. Define money, quote, order, loyalty-ledger, voucher, idempotency, and audit invariants.
-7. Design and test RLS before client integration.
-8. Decide Storage buckets and image ownership/validation.
-9. Establish local development, seed/test data, type generation, rollback, and advisor/test commands.
-10. Update this file with verified evidence and migration paths.
+```bash
+supabase login
+supabase link --project-ref eswovqxqzfevcdwwcmuh
+```
 
-## Unknowns
+## Current non-goals
 
-Project reference, Auth provider configuration, schema objects, migration history, extensions, buckets, RLS posture, API exposure, backups, and retention are all unknown in this repository baseline.
+This foundation does not implement:
+
+- menu/catalogue schema;
+- cart, quote, or order schema;
+- loyalty ledger, rewards, or voucher schema;
+- POS/staff/admin workflows;
+- payment processing;
+- storage buckets;
+- reporting or marketing tables;
+- Flutter integration.
+
+## Next required work
+
+Recommended next database task:
+
+`TASK-DB-002: Design and migrate the published menu/catalogue foundation with public read policy, admin ownership boundary, and image/storage decision.`
+
+Do not wire Flutter before the relevant schema, RLS, and adapter contract are reviewed.

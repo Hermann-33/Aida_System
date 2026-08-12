@@ -5,69 +5,59 @@ Updated: 2026-08-12
 ## Customer repository — `Hermann-33/Aida_System`
 
 - `apps/customer/`: Flutter customer app.
-- `apps/customer/lib/features/`: auth, home, rewards, membership card, menu, cart/order, history, profile and shell.
-- `apps/customer/lib/application/providers.dart`: Riverpod binding and session/local application state.
+- `apps/customer/lib/features/auth/login_screen.dart`: real Supabase email/password sign-up/sign-in UI path on TASK-AUTH-001 branch.
+- `apps/customer/lib/application/providers.dart`: Riverpod bindings; auth state now follows Supabase session on TASK-AUTH-001 branch.
+- `apps/customer/lib/data/repository/supabase_member_repository.dart`: real auth/session/member adapter; delegates only not-yet-integrated feature families to preview repository.
+- `apps/customer/lib/data/repository/mock_member_repository.dart`: still preview authority for catalogue/loyalty/promotions and other domains not covered by TASK-AUTH-001; no longer auth/member authority on the task branch.
 - `apps/customer/lib/domain/`: models and `MemberRepository` port.
-- `apps/customer/lib/data/repository/mock_member_repository.dart`: active hardcoded adapter.
 - `apps/customer/test/`: domain/widget/golden tests.
 - `supabase/`: canonical Supabase config, migrations and SQL checks.
-- `docs/screenshots/`, `docs/superpowers/specs/`, unified PRD: customer-specific evidence/specification inputs.
 
-Customer fragile boundaries are detailed in `docs/frontend/FRAGILE_BOUNDARIES.md`.
+TASK-AUTH-001 migrations/tests:
+
+- `supabase/migrations/20260812191500_integrate_customer_auth_member_directory.sql`
+- `supabase/migrations/20260812192500_fix_signup_member_code_generation.sql`
+- `supabase/migrations/20260812195500_make_admin_member_directory_security_invoker.sql`
+- `supabase/tests/auth_membership_integration.sql`
 
 ## Dashboard repository — `Hermann-33/Aida_System-Dashboard`
 
-- `src/main.tsx`, `src/App.tsx`: React root, Query provider and route tree.
-- `src/auth/`: employee identity/session, permission and terminal adapter boundaries.
-- `src/layouts/`: employee, POS and admin layouts.
-- `src/features/pos/`: counter cart/modifiers/member/reward/payment/receipt/orders/shifts/terminal/help workflows.
-- `src/features/admin/`: overview, reports, transactions, members, locations, terminals, shifts, employees, menu, inventory, loyalty, marketing, audit, integrations, settings and table preview.
-- `src/preview/`: preview mode, deterministic fixtures and local/session repositories.
-- `e2e/`: preview closure and API-backed test suites.
-- `scripts/`: build/security assertions and screenshot tooling.
-- `docs/screenshots/`, `docs_screenshots/`: dashboard-specific UI evidence.
-- `DASHBOARD_IMPORT_AUDIT.md`: source import audit from `TASK-WF-002`.
+- `src/auth/`: employee/session boundaries; production same-origin HttpOnly session contract exists conceptually but server runtime is not implemented.
+- `src/features/admin/AdminMembersLoyaltyReportPage.tsx`: Members tab now renders backend-shaped member data and no longer imports `PREVIEW_MEMBERS`; Rewards Activity remains preview-only.
+- `src/features/admin/memberDirectory.ts`: same-origin `GET /api/v1/admin/members` client with `credentials: include`; no fixture fallback.
+- `src/features/admin/memberDirectory.test.ts`: adapter contract/error/authorization tests.
+- `src/preview/`: remaining preview fixtures/repositories for unintegrated domains.
+- `e2e/`: preview and API-backed suites.
 
-Dashboard fragile boundaries are detailed in `docs/dashboard/FRAGILE_BOUNDARIES.md`.
+## Shared backend ownership
 
-## Shared backend workspace
+Canonical migrations remain only in the customer repository's `supabase/` workspace. Do not create dashboard-local migration history without a superseding ADR.
 
-Canonical migration source currently exists only in customer repo:
-
-- `supabase/config.toml`
-- `supabase/migrations/20260811101100_create_identity_membership_foundation.sql`
-- `supabase/migrations/20260811102200_harden_foundation_role_helpers.sql`
-- `supabase/migrations/20260811102700_optimize_foundation_rls_policies.sql`
-- `supabase/tests/rls_foundation.sql`
-
-## Toolchains and checks
+## Standard checks
 
 Customer:
 
-```powershell
+```bash
 cd apps/customer
+flutter pub get
 flutter analyze
 flutter test
 ```
 
 Dashboard:
 
-```powershell
+```bash
 npm run lint
 npm run typecheck
 npm test
 npm run build
-npm run test:e2e
 ```
 
 Supabase:
 
 ```bash
-supabase start
 supabase db reset
 supabase db lint
 ```
 
-## Repository-specific evidence exception
-
-The mirrored project docs coexist with source-specific screenshots/specs. Do not delete or clone large screenshot evidence merely to make repository trees identical; only the canonical governance paths in `docs/README.md` must mirror.
+Live remote checks are supplemental; local reset/lint remains required before a database task is considered release-ready.

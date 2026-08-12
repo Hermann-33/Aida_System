@@ -4,7 +4,7 @@
 
 **Verdict:** COMPLETE for audit/documentation; product remained prototype.
 
-Key evidence: Flutter customer app only in that repository; `MockMemberRepository` active; local/mock auth/cart/orders/loyalty; Flutter 3.44.7/Dart 3.12.2; one `_stockChocolate` analyzer warning; 24 non-golden tests passed; four golden comparisons failed.
+Flutter customer app audited with `MockMemberRepository`, local/mock auth/cart/orders/loyalty and the recorded analyzer/test baseline.
 
 ---
 
@@ -12,9 +12,7 @@ Key evidence: Flutter customer app only in that repository; `MockMemberRepositor
 
 **Verdict:** COMPLETE for scoped database foundation.
 
-Verified clean reset state, then applied three version-controlled migrations creating `user_profiles`, `members`, `student_verifications`, enums, auth provisioning and forced RLS. Public role-helper exposure and RLS performance warnings were hardened. Supabase security advisor ended at 0 lints; only unused-index INFO findings remained. No frontend wiring was performed.
-
-Canonical migration branch: `codex/task-db-001-supabase-foundation` in customer repo.
+Created and remotely applied `user_profiles`, `members`, `student_verifications`, enums, auth provisioning and forced RLS. Public role-helper exposure and RLS performance warnings were hardened. Security advisor ended at 0 lints.
 
 ---
 
@@ -22,13 +20,7 @@ Canonical migration branch: `codex/task-db-001-supabase-foundation` in customer 
 
 **Verdict:** COMPLETE.
 
-Imported React 19 / TypeScript 6 / Vite 8 POS/Admin source into `Hermann-33/Aida_System-Dashboard` and audited employee access, terminal enrolment, POS, payments, members/QR, loyalty, shifts, locations, terminals, employees, catalogue, inventory, marketing, reporting, audit, integrations and settings.
-
-Current dashboard data is fixture/local/session preview data; no Supabase SDK or durable transactional backend exists.
-
-Checks reported: lint passed with 5 warnings; typecheck passed; 14 test files / 62 tests passed; build passed with bundle warning; preview E2E 6/6 passed; API E2E not run because backend unavailable; dependency audit reported 1 moderate and 4 high findings.
-
-Branch: `codex/task-wf-002-dashboard-import`.
+Imported and audited the React/TypeScript/Vite POS/Admin source. Dashboard business outcomes remained fixture/local/session preview data.
 
 ---
 
@@ -36,18 +28,7 @@ Branch: `codex/task-wf-002-dashboard-import`.
 
 **Verdict:** COMPLETE for scoped governance/documentation work.
 
-Actions:
-
-- verified both task branches and dashboard import evidence;
-- established identical project-level context for customer, dashboard and shared Supabase;
-- recorded cross-client shared-backend architecture and canonical migration ownership;
-- added dashboard-specific audit/integration documentation to both repos;
-- added mirrored-doc workflow and cross-repo ADRs;
-- preserved source-specific evidence as repository-local exceptions;
-- added `SESSION_BOOTSTRAP.md` with the permanent new-chat prompt;
-- opened and then merged the synchronized WF-003 PRs after their prerequisites.
-
-No runtime, dependency, migration or Supabase change was made by WF-003.
+Established mirrored project context, shared-backend architecture, security/workflow rules and cross-repo ADRs.
 
 ---
 
@@ -55,15 +36,40 @@ No runtime, dependency, migration or Supabase change was made by WF-003.
 
 **Verdict:** COMPLETE.
 
-Purpose: make the default-branch documentation reflect the fact that the entire setup stack has been merged and remove stale “merge pending” handoff language.
+Finalized setup wording after the governance/database/import stack merged to both defaults.
 
-Merged setup record:
+---
 
-- Dashboard PR #1 — `TASK-WF-002` — merge commit `386f0fd5a10fe57f7bad4e2f350cd280cf639e39`.
-- Customer PR #2 — `TASK-DB-001` — merge commit `561d0d6fe4ec0ecc0c357784810ed806d6ef4e08`.
-- Customer PR #3 — `TASK-WF-003` — merge commit `84b766c23addb0163131f9c2f3b15e595bc98c65`.
-- Dashboard PR #2 — `TASK-WF-003` — merge commit `ffe2056589d9a128a5584b58da5e0fca68ec1df5`.
+## 2026-08-12 — TASK-AUTH-001 — Customer auth + member integration
 
-Finalization updates `ACTIVE_CONTEXT.md`, `HANDOFF.md`, `ROADMAP.md`, `docs/README.md`, `SESSION_BOOTSTRAP.md` and this audit log in both repositories. No application runtime, dependency or Supabase object was changed.
+**Verdict:** PARTIAL.
 
-The setup/governance phase is now fully integrated. The next implementation task is `TASK-DB-002 — shared menu/catalogue foundation`.
+### Implemented
+
+- Customer Flutter auth path now uses Supabase Auth for sign-up/sign-in/recovery/session restore/logout.
+- Customer member/profile identity reads now come from live `user_profiles` and `members` under owner RLS.
+- Local signup-generated member IDs/codes were removed from the implemented path.
+- Server signup provisioning accepts only display name and student declaration as untrusted input; role, verification and member code remain trusted/server-owned.
+- Added admin/owner-only member-directory capability `public.list_admin_members()` and tightened bulk profile/member reads from staff-wide to admin/owner.
+- Admin Members removed `PREVIEW_MEMBERS` and now targets a same-origin credentialed API contract with no fixture fallback.
+- Member points/stamps/rewards were removed from that Members tab because no trusted loyalty backend exists yet.
+
+### Live database verification
+
+The first provisioning test exposed a regression: the initial replacement trigger omitted explicit member-code generation and would fail signup because `members.member_code` has no column default. A forward corrective migration restored `public.generate_member_code()`; the migration history was not rewritten.
+
+A subsequent security-advisor pass flagged the admin member-directory RPC as an authenticated `SECURITY DEFINER` function. A second forward hardening migration changed it to `SECURITY INVOKER`, retaining explicit admin/owner checks plus RLS. Security advisor returned to 0 lints.
+
+Rolled-back live tests then verified standard signup, student-pending signup, forged role/verification/member-code rejection, admin directory access and customer rejection. Production counts remained zero after rollback.
+
+### Remaining blocker
+
+The dashboard has no production staff/admin BFF/session runtime. `/api/v1/admin/members` is therefore only a client contract, not an executable end-to-end endpoint. Under ADR-0004 the requested signup -> Admin Members outcome is not yet full-stack complete.
+
+### Branches
+
+Both repositories: `codex/task-auth-001-auth-member-integration`.
+
+### Exact next task
+
+`TASK-AUTH-002 — trusted staff/admin session and member-directory API`.

@@ -2,76 +2,68 @@
 
 Updated: 2026-08-12
 
-Statuses describe verified project reality, not historical PRD deployment claims.
+Statuses describe verified system reality, not UI polish.
 
 ## Phase 1 — Governance and source baselines
 
-- `TASK-WF-001`: customer frontend audit/governance — COMPLETE.
-- `TASK-WF-002`: POS/Admin source import and audit — COMPLETE and merged.
-- `TASK-WF-003`: mirrored dual-repository project context and shared-backend governance — COMPLETE and merged.
-- `TASK-WF-004`: post-merge setup finalization and permanent session bootstrap — COMPLETE.
-
-Exit criterion is met: both default branches independently describe the full AIDA system, share authority/workflow rules, contain customer and dashboard context, reference one backend contract, and include a repeatable new-session bootstrap.
-
-Status: COMPLETE.
+`TASK-WF-001` through `TASK-WF-004`: COMPLETE and merged.
 
 ## Phase 2 — Shared Supabase foundation
 
-`TASK-DB-001` created the identity/profile/member/student-verification foundation with forced RLS and 0 security-advisor lints.
+`TASK-DB-001`: identity/profile/member/student-verification foundation with forced RLS — COMPLETE for its bounded scope.
 
-Still required:
-
-- local reset/lint and seeded role/RLS scenarios;
-- branches/locations/terminals/employees authorization model;
-- published catalogue/modifier/storage model;
-- quote/order lifecycle;
-- loyalty/voucher ledger;
-- inventory and audit foundations.
-
-Status: PARTIAL.
+Broader domain persistence remains PARTIAL/not started.
 
 ## Phase 3 — Authentication, membership and staff access integration
 
-Customer: Supabase Auth session bootstrap, profile/member reads/edits, server-issued member code, logout/cache isolation, recovery and verification state.
+### `TASK-AUTH-001 — customer auth + member integration`
 
-Dashboard: employee/staff/admin identity, branch scope, dual-role rules, terminal credential lifecycle, manager approval and session revocation.
+Status: **PARTIAL**.
 
-Both must use trusted roles and compatible member/verification semantics.
+Implemented:
 
-Status: not started; UI previews exist.
+- real customer Supabase Auth sign-up/sign-in/recovery/session/logout wiring on task branch;
+- owner-scoped member/profile reads;
+- server-owned signup provisioning and member codes;
+- student declaration constrained to pending;
+- admin/owner DB member-directory capability;
+- dashboard Members fixture removed and replaced with a same-origin API client contract.
+
+Missing completion gate:
+
+- production staff/admin BFF + HttpOnly session;
+- server implementation of `GET /api/v1/admin/members`;
+- end-to-end signup -> DB member -> Admin Members proof;
+- local Flutter/dashboard toolchain checks.
+
+### `TASK-AUTH-002 — trusted staff/admin session and member-directory API`
+
+Status: **recommended next task**.
+
+Must establish trusted staff/admin authentication/session/revocation, implement the member-directory API against the shared backend, and complete the cross-client membership visibility path without browser privileged secrets.
 
 ## Phase 4 — Catalogue and publication
 
-Create server-owned categories/items/variants/modifier groups/options, integer-sen prices, availability, routing metadata, publication/versioning and managed images. Customer reads published catalogue; POS uses the same IDs/prices; admin mutations are privileged and audited.
+`TASK-DB-002: shared menu/catalogue foundation` remains the next major database-domain task after the auth/member access path is closed.
 
-Status: not started. This is the recommended next database domain.
+Status: not started.
 
 ## Phase 5 — Quote, order, fulfilment and payment
-
-Authoritative quote validation, idempotent order creation, pickup/scheduling rules if approved, POS/KDS fulfilment transitions, immutable receipt snapshots, payment/provider records, refunds/void/cancel controls and customer status/history.
 
 Status: not started; both clients simulate these flows.
 
 ## Phase 6 — Loyalty, rewards, vouchers and promotions
 
-Ledger-derived balances/stamps, reward catalogue, atomic redemption/voucher consumption, eligibility, promotions and customer/dashboard publication controls.
-
-Status: not started; both clients contain preview values.
+Status: not started; current values remain preview-only.
 
 ## Phase 7 — Operations and inventory
-
-Branches/sales points, terminals, shifts/cash movements, employee access, stock ledger, recipes, depletion, wastage, transfers and operational audit.
 
 Status: not started; dashboard previews exist.
 
 ## Phase 8 — Reporting, marketing, hardening and release
 
-Trusted financial/operational aggregates, exports, marketing publication, MyInvois/integrations as approved, notification strategy, dependency remediation, accessibility/performance/offline review, observability, backups, UAT and deployment runbooks.
-
 Status: not started.
 
-## Next recommended task
+## Exact recommended next task
 
-`TASK-DB-002: shared menu/catalogue foundation`.
-
-Start from fresh task branches based on `master` and `main`. Before SQL, inspect both `docs/frontend/BACKEND_INTEGRATION_PLAN.md` and `docs/dashboard/BACKEND_INTEGRATION_PLAN.md` plus `docs/contracts/SHARED_BACKEND_CONTRACT.md`. Do not map either preview model mechanically into tables, and do not wire either frontend unless that task is explicitly expanded.
+`TASK-AUTH-002: trusted staff/admin session and member-directory API`.

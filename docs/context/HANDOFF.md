@@ -2,82 +2,76 @@
 
 Updated: 2026-08-12
 
-## Setup phase status
+## Current task
 
-The initial AIDA project setup/governance phase is COMPLETE and integrated into both default branches. No implementation task is currently active.
+`TASK-AUTH-001 — customer auth + member integration`
 
-Completed setup work:
+**Verdict:** PARTIAL.
 
-- `TASK-WF-001` — customer frontend audit and governance baseline.
-- `TASK-DB-001` — Supabase identity/membership foundation with version-controlled migrations and RLS.
-- `TASK-WF-002` — POS/Admin dashboard import and audit.
-- `TASK-WF-003` — synchronized dual-repository project context, architecture, ADRs, security, workflow and shared backend contract.
-- `TASK-WF-004` — post-merge setup finalization and permanent session bootstrap.
+Task branches in both repositories:
 
-## Current system reality
+`codex/task-auth-001-auth-member-integration`
 
-- Customer repo: `Hermann-33/Aida_System`, default branch `master`, Flutter/Dart/Riverpod prototype, no Supabase client wiring yet.
-- Dashboard repo: `Hermann-33/Aida_System-Dashboard`, default branch `main`, React/TypeScript/Vite employee/POS/admin preview, no durable backend wiring yet.
-- Shared backend: Supabase **Aida System**, ref `eswovqxqzfevcdwwcmuh`, region `ap-southeast-1`.
-- Canonical executable migrations: `Hermann-33/Aida_System/supabase/` until superseded by ADR.
-- Project-level governance docs are mirrored in both repositories.
+## Implemented
 
-## Supabase foundation currently implemented
+### Customer
 
-- `public.user_profiles`
-- `public.members`
-- `public.student_verifications`
-- trusted application-role/member/student-verification enums and helpers
-- Auth provisioning trigger
-- forced RLS on the three foundation tables
-- hardened private role helpers
-- security advisor baseline: 0 lints after hardening
+- Added Supabase Flutter integration for email/password sign-up, sign-in, password recovery, persisted session bootstrap and logout.
+- Replaced the local auth boolean as identity authority with Supabase Auth session state.
+- Replaced mock member identity reads with owner-scoped `user_profiles` + `members` reads.
+- Removed local signup generation of member IDs/codes from the implemented auth path.
+- Student checkbox is now only a backend `pending` declaration; it never creates verified status.
+- Runtime requires a public/publishable Supabase client key through `AIDA_SUPABASE_PUBLISHABLE_KEY`; no service-role or secret key is committed.
+- Non-auth domains still use preview data until their own tasks.
 
-No catalogue, order/payment, loyalty, inventory, marketing/reporting or POS operational persistence exists yet.
+### Shared Supabase
 
-## Setup merge record
+Applied three canonical TASK-AUTH-001 migrations from `Hermann-33/Aida_System/supabase/`:
 
-Merged successfully:
+1. `20260812191500_integrate_customer_auth_member_directory.sql`
+2. `20260812192500_fix_signup_member_code_generation.sql`
+3. `20260812195500_make_admin_member_directory_security_invoker.sql`
 
-- Dashboard PR #1 — `TASK-WF-002` import.
-- Customer PR #2 — `TASK-DB-001` foundation.
-- Customer PR #3 — `TASK-WF-003` synchronized project context.
-- Dashboard PR #2 — `TASK-WF-003` synchronized project context.
+They harden signup provisioning, preserve server-issued member codes, restrict profile/member bulk reads to admin/owner, and expose authenticated admin member-directory RPC `public.list_admin_members()` under RLS.
 
-`TASK-WF-004` finalizes the default-branch wording after those merges.
+Live verification passed for:
 
-## Permanent new-session entry point
+- standard signup provisioning;
+- student pending provisioning;
+- forged role/member-code/verified-status metadata rejection;
+- server member-code format;
+- authenticated admin directory read;
+- ordinary customer directory rejection;
+- security advisor 0 lints;
+- rollback/no retained synthetic users.
 
-Use `docs/context/SESSION_BOOTSTRAP.md`. It contains the constant prompt to paste into a new ChatGPT/Codex chat and directs the agent to read repository-resident context before making changes.
+### Dashboard
 
-The repository docs, not prior chat history, are authoritative.
+- Admin Members removed `PREVIEW_MEMBERS` as its data source.
+- Added a capability-specific client for same-origin `GET /api/v1/admin/members` using cookie credentials.
+- No fixture fallback exists for the Members tab.
+- Points/stamps/reward values were removed from the Members tab because trusted loyalty persistence does not exist yet.
+- Rewards Activity remains explicitly preview-only pending the loyalty task.
 
-## Known outstanding technical debt
+## Why the task is not COMPLETE
 
-Customer baseline:
+The dashboard repository has no production staff/admin server/BFF and no AIDA deployment providing the required same-origin HttpOnly employee session. Therefore `/api/v1/admin/members` is not implemented server-side and a customer signup cannot yet be demonstrated end-to-end in the production Admin Members screen.
 
-- one unused `_stockChocolate` analyzer warning;
-- four golden comparison failures;
-- no real auth/session/profile/menu/order/loyalty adapter yet.
+Do not bypass this with:
 
-Dashboard baseline:
+- Supabase service-role keys in the browser;
+- browser-stored privileged tokens;
+- anonymous bulk member policies;
+- customer-auth tokens treated as staff/admin authority.
 
-- lint passes with 5 warnings;
-- dependency audit reported 1 moderate and 4 high findings;
-- API-backed E2E is blocked until a real backend environment exists;
-- transaction, payment, inventory, employee/admin mutation and reporting behavior remains preview/local.
+## Verification/tooling debt
 
-Database/testing:
+- Live Supabase SQL authorization/provisioning checks passed.
+- Flutter dependency lock regeneration, analyzer/tests and a real signup/sign-in smoke test still require a Flutter-capable checkout/runtime.
+- Dashboard unit/typecheck/build checks still require execution from a checkout/toolchain; source tests were added for the member-directory client.
 
-- seeded customer/cross-user/staff/admin RLS scenarios still need local/CI execution;
-- broader domain migrations are not implemented.
+## Exact next task
 
-## Open product/architecture decisions
+`TASK-AUTH-002: trusted staff/admin session and member-directory API`
 
-Payment/provider/device model, student wallet semantics, scheduled-order rules, employee/staff authorization model, terminal credential lifecycle, manager approval, student-verification evidence policy, inventory accounting/depletion, retention/account deletion, reporting business-day semantics and marketing approval workflow remain unresolved until bounded tasks decide them.
-
-## Exact next implementation task
-
-`TASK-DB-002: shared menu/catalogue foundation`
-
-Create fresh task branches from `master` and `main` as required. Inspect customer and dashboard catalogue requirements together, define one published catalogue contract and security model, create canonical migrations only in the customer repo's `supabase/` workspace, update mirrored docs in both repos, and avoid frontend wiring unless explicitly included in scope.
+Exit criterion: a real customer signup provisions the member in Supabase, a real authorized admin session can call `GET /api/v1/admin/members`, the dashboard renders that member from the API with no fixture fallback, unauthorized users are rejected, and relevant client/server/security checks pass.

@@ -8,9 +8,12 @@ Statuses describe verified project reality, not historical PRD deployment claims
 
 - `TASK-WF-001`: customer frontend audit/governance — COMPLETE.
 - `TASK-WF-002`: POS/Admin source import and audit — COMPLETE on task branch; merge pending.
-- `TASK-WF-003`: mirrored dual-repository project context — current task.
+- `TASK-WF-003`: mirrored dual-repository project context and shared-backend governance — COMPLETE on task branches; merge pending.
+- Setup closeout: permanent session bootstrap prompt and final handoff recorded — COMPLETE on task branches.
 
-Exit criterion: both repositories independently describe the full system, share authority/workflow rules, and link each client to the same backend contract.
+Exit criterion has been met on the setup branches: both repositories independently describe the full system, share authority/workflow rules, contain customer and dashboard context, reference one backend contract, and include a repeatable new-session bootstrap.
+
+Integration status: the setup PR stack still needs to be merged in the dependency order documented in `ACTIVE_CONTEXT.md` and `HANDOFF.md`.
 
 ## Phase 2 — Shared Supabase foundation
 
@@ -41,7 +44,7 @@ Status: not started; UI previews exist.
 
 Create server-owned categories/items/variants/modifier groups/options, integer-sen prices, availability, routing metadata, publication/versioning and managed images. Customer reads published catalogue; POS uses the same IDs/prices; admin mutations are privileged and audited.
 
-Status: not started. Recommended next database task.
+Status: not started. This is the recommended next database domain.
 
 ## Phase 5 — Quote, order, fulfilment and payment
 
@@ -69,6 +72,8 @@ Status: not started.
 
 ## Next recommended task
 
+After the setup PR stack is merged:
+
 `TASK-DB-002: shared menu/catalogue foundation`.
 
-Before SQL, inspect both `docs/frontend/BACKEND_INTEGRATION_PLAN.md` and `docs/dashboard/BACKEND_INTEGRATION_PLAN.md`; do not map either preview model mechanically into tables.
+Before SQL, inspect both `docs/frontend/BACKEND_INTEGRATION_PLAN.md` and `docs/dashboard/BACKEND_INTEGRATION_PLAN.md` plus `docs/contracts/SHARED_BACKEND_CONTRACT.md`. Do not map either preview model mechanically into tables, and do not wire either frontend unless that task is explicitly expanded.

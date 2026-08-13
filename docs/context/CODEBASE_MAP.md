@@ -1,10 +1,13 @@
 # Codebase Map
 
-Updated: 2026-08-13
+Updated: 2026-08-14
 
 ## Customer repository — `Hermann-33/Aida_System`
 
 ### Existing identity/catalogue runtime
+
+- `apps/customer/android/app/src/main/AndroidManifest.xml` — production Android permissions, including required Supabase network access.
+- `apps/customer/test/android_release_manifest_test.dart` and `test/data/supabase_member_repository_test.dart` — release-network and Auth error-mapping regressions.
 
 - `apps/customer/lib/data/repository/supabase_member_repository.dart` — Supabase Auth plus owner member/profile reads and minimum cached member-code fallback.
 - `apps/customer/lib/data/cache/offline_member_cache.dart` — per-user durable member ID/code cache only; excludes roles, verification, loyalty and pricing authority.

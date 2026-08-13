@@ -55,7 +55,7 @@ class SupabaseMemberRepository implements MemberRepository {
       await _setActiveUser(response.session!.user.id);
       return const Ok(null);
     } on AuthException catch (error) {
-      return Err(_mapAuthFailure(error));
+      return Err(mapAuthFailure(error));
     } catch (_) {
       return const Err(ServerFailure('Unable to sign in right now'));
     }
@@ -85,7 +85,7 @@ class SupabaseMemberRepository implements MemberRepository {
       }
       return const Ok(null);
     } on AuthException catch (error) {
-      return Err(_mapAuthFailure(error));
+      return Err(mapAuthFailure(error));
     } catch (_) {
       return const Err(
         ServerFailure('Unable to create your account right now'),
@@ -219,8 +219,21 @@ class SupabaseMemberRepository implements MemberRepository {
     _ => StudentStatus.none,
   };
 
-  Failure _mapAuthFailure(AuthException error) {
+  /// Kept public so transport and server-response mappings can be protected by
+  /// focused tests without exercising the network.
+  static Failure mapAuthFailure(AuthException error) {
     final message = error.message.toLowerCase();
+    if (error is AuthRetryableFetchException ||
+        message.contains('clientexception') ||
+        message.contains('socketexception') ||
+        message.contains('failed host lookup') ||
+        message.contains('network is unreachable') ||
+        message.contains('connection refused') ||
+        message.contains('connection timed out')) {
+      return const NetworkFailure(
+        'Unable to reach AIDA. Check your internet connection and try again.',
+      );
+    }
     if (message.contains('invalid login credentials')) {
       return const AuthFailure('Incorrect email or password');
     }
@@ -247,9 +260,7 @@ class SupabaseMemberRepository implements MemberRepository {
     if (message.contains('invalid email') ||
         message.contains('unable to validate email') ||
         message.contains('email address is invalid')) {
-      return const ValidationFailure({
-        'email': 'Enter a valid email address',
-      });
+      return const ValidationFailure({'email': 'Enter a valid email address'});
     }
     if (message.contains('rate limit') ||
         message.contains('too many requests') ||
@@ -279,11 +290,14 @@ class SupabaseMemberRepository implements MemberRepository {
     // a generic message. Normalize and cap it so the operator can correlate the
     // exact server reason without rendering an unbounded upstream payload.
     final normalized = error.message.trim().replaceAll(RegExp(r'\s+'), ' ');
-    final detail = normalized.length > 180
-        ? '${normalized.substring(0, 177)}...'
-        : normalized;
+    final detail =
+        normalized.length > 180
+            ? '${normalized.substring(0, 177)}...'
+            : normalized;
     return AuthFailure(
-      detail.isEmpty ? 'Authentication failed' : 'Authentication failed: $detail',
+      detail.isEmpty
+          ? 'Authentication failed'
+          : 'Authentication failed: $detail',
     );
   }
 

@@ -1,5 +1,17 @@
 # Audit Log
 
+## 2026-08-14 — TASK-AUTH-006 — Android release APK network/Auth failure
+
+**Verdict:** PARTIAL pending physical-device Auth validation.
+
+Audited `codex/task-auth-006-android-release-network` at base HEAD `20bb8496010b6c97b37e3be033388613de030a35`. The active Supabase project is healthy and its URL matches Flutter’s public client configuration. Source inspection found INTERNET only in debug/profile manifests. A clean release build was initially blocked before packaging by the repository’s AGP 8.7.0 versus resolved AndroidX’s AGP 8.9.1 minimum, but the independent `processReleaseMainManifest` task completed and proved `android.permission.INTERNET` absent from the pre-fix release merged manifest. The reported phone failure therefore occurred before Supabase and had no corresponding Auth request.
+
+Added INTERNET to the main manifest and a focused regression. Added a narrowly scoped Auth transport mapping so retryable/socket/client/host-resolution failures show `Unable to reach AIDA. Check your internet connection and try again.` without raw upstream details; existing credential, email-confirmation, duplicate-signup, rate-limit and provisioning mappings remain distinct and tested.
+
+Flutter 3.44.9 `pub get` passed, analyze found no issues, and 44/44 tests passed. A fresh release APK was built with preserved local Gradle/AGP compatibility settings, and Android SDK `aapt` confirmed the final APK declares INTERNET. Artifact: `apps/customer/build/app/outputs/flutter-apk/app-release.apk`, 63,863,395 bytes, SHA-256 `3A7B5F027B846F4BE58865C09ABADBC63DD7B3EAE446331D708EA2FC67AF1201`.
+
+No Android device was connected (`adb devices` empty), so install, customer Auth/member/catalogue proof and confirmation that the old host-lookup error is gone remain outstanding. No schema/RLS/role/data change occurred and no service-role/secret credential was introduced. The dashboard documentation mirror remains required because this task was restricted to the customer repository.
+
 ## 2026-08-13 — TASK-AUTH-004 — Customer Auth runtime + protected Admin access
 
 **Verdict:** PARTIAL pending physical-device signup and a real trusted Admin identity.

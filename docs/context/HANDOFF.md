@@ -1,109 +1,43 @@
 # Current Handoff
 
-Updated: 2026-08-13
+Updated: 2026-08-14
 
 ## Current task
 
-`TASK-AUTH-004 — customer Auth runtime + dashboard protected Admin access`
+`TASK-AUTH-006 — Android release APK network/Auth failure`
 
-**Overall verdict:** PARTIAL.
+**Verdict:** PARTIAL pending physical-device validation.
 
-Shared branch in both repositories:
+Branch: `codex/task-auth-006-android-release-network`
 
-`codex/task-auth-004-runtime-access-fix`
-
-Stack:
-
-`codex/task-demo-order-001-order-scheduling-backend`
-→ `codex/fix-auth-signup-diagnostics`
-→ `codex/task-auth-004-runtime-access-fix`
+Stack base: `codex/task-auth-004-runtime-access-fix`
 
 Do not merge the stack out of order.
 
-## Problem reproduced from current evidence
+## Proven root cause and fix
 
-### Customer
+The phone’s release APK could not resolve the Supabase hostname because the production Android manifest omitted `android.permission.INTERNET`. Debug/profile declared it only in their development overlays. The pre-fix Gradle release merged manifest independently proved the permission absent.
 
-The installed phone app still showed the generic Auth fallback. Fresh Supabase checks showed zero Auth users and no corresponding live identity/member row. The connector Auth log did not provide a recent signup event to correlate, so the old binary could not reveal the actual hosted Auth reason.
+The main manifest now declares INTERNET before `<application>`. Auth retryable/socket/client/host-resolution failures now show a bounded connection message rather than raw exception/URL details, while genuine credential, email-confirmation, duplicate-signup, rate-limit and provisioning responses remain distinct.
 
-### Dashboard
+No Supabase schema, RLS, identity, role, catalogue/order data or credential was changed. The Flutter client continues using the active project URL and public publishable key only.
 
-Members/Menu are protected Admin routes. `ProtectedRoute` performs a server session refresh; with no authenticated Admin session it correctly redirects away after the initial loading state. The live project currently has zero Auth users and zero trusted admin/owner profiles, so there is no valid identity that can satisfy that route today.
+## Validation
 
-This is not a reason to make Members public or bypass the route guard.
+- Flutter 3.44.9
+- `flutter pub get`: passed
+- `flutter analyze`: no issues
+- `flutter test`: 44/44 passed
+- `flutter build apk --release`: passed with preserved local AGP/Gradle compatibility settings
+- final `aapt dump permissions`: `android.permission.INTERNET` present
+- APK path: `apps/customer/build/app/outputs/flutter-apk/app-release.apk`
+- APK size: 63,863,395 bytes
+- SHA-256: `3A7B5F027B846F4BE58865C09ABADBC63DD7B3EAE446331D708EA2FC67AF1201`
 
-## Changes on this branch
+The repository currently pins AGP 8.7.0, while the resolved AndroidX artifacts require 8.9.1+. Preserved local compatibility settings were used only to package the APK and are deliberately excluded from this network-fix change. Reproducible release-toolchain alignment remains a separate bounded task.
 
-### Customer repo
+## Exact next action
 
-- `apps/customer/lib/main.dart`
-  - active AIDA Supabase URL remains the default;
-  - active AIDA **publishable** key is now also a safe public default;
-  - explicit `--dart-define` values can still override both;
-  - no service-role/secret key is present.
-- `apps/customer/lib/data/repository/supabase_member_repository.dart`
-  - known Auth errors retain explicit mapping;
-  - unknown `AuthException` messages are normalized/capped and shown so the next physical-device attempt exposes the real upstream reason.
+Manually transfer and install the recorded APK on the reporting Android phone. With an approved customer account, verify sign-in/session, member/profile and shared catalogue loading; then log out and perform a disposable customer signup if appropriate. Confirm specifically that `SocketException / Failed host lookup` no longer appears. Do not use employee demo identities as customer/member evidence and do not bypass email confirmation.
 
-### Dashboard repo
-
-- `vite.config.ts`
-  - local BFF receives the active AIDA URL/publishable key by default;
-  - explicit env values override defaults;
-  - no service-role/secret key.
-- `src/auth/ProtectedRoute.tsx`
-  - still fail-closed;
-  - redirects unauthenticated Admin navigation to `/admin/login` with selected destination + session error context.
-- `src/pages/AdminLoginPage.tsx`
-  - tells the operator why Members/Menu require Admin sign-in;
-  - returns to the originally selected Admin route after successful login;
-  - distinguishes credentials, authorization, disabled-account, local BFF config and network errors.
-
-## Supabase status
-
-Fresh live state on 2026-08-13:
-
-- Auth users: 0
-- admin/owner profiles: 0
-- security advisor: 0 lints
-- provisioning trigger/function/member-code authority unchanged
-
-No direct `auth.users` SQL insert was used.
-
-A temporary exact-account Admin-API bootstrap Edge Function was deployed for investigation, but the tool environment could not invoke the public function URL. No user was created. The function was immediately superseded by a disabled HTTP-410 version.
-
-## Required local validation
-
-### Customer
-
-From the customer checkout:
-
-1. fetch/switch/pull `codex/task-auth-004-runtime-access-fix`;
-2. `cd apps/customer`;
-3. run `flutter pub get`, `flutter analyze`, `flutter test`;
-4. rebuild/install the app on the physical Android phone;
-5. attempt signup again.
-
-If signup still fails, report the **new exact Auth text**. Do not report only the old generic message; that means the phone is still running an older binary.
-
-### Dashboard
-
-From the dashboard checkout:
-
-1. fetch/switch/pull `codex/task-auth-004-runtime-access-fix`;
-2. `npm ci`;
-3. `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`;
-4. restart `npm run dev`;
-5. select Members or Menu.
-
-Expected behavior without an identity: explicit redirect to Admin sign-in, not an unexplained disappearing tab.
-
-Expected behavior after a trusted Admin/owner identity exists: sign in once, then return to the selected Members/Menu route and load through the existing caller-JWT BFF/RLS path.
-
-## Identity bootstrap gate
-
-The remaining blocker is a real Auth identity. Once customer signup succeeds (or an Auth user is created through the Supabase Auth Admin surface), the intended operator can be promoted through the trusted DB/operator boundary to `admin`/`owner`. Do not allow public signup metadata or a browser request to self-assign that role.
-
-## Next product task after AUTH-004 validation
-
-Resume the dashboard half of `TASK-DEMO-ORDER-001`: authoritative POS quote/place plus the live Scheduled/Confirmed/Preparing/Ready order board and status transitions. Keep payment, loyalty, inventory and reporting authority out of scope until the order flow closes end to end.
+After device proof, mirror these shared task facts into the dashboard repository. Customer-only checkout scope prevented byte-for-byte mirrored documentation in this task.

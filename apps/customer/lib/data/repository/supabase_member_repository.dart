@@ -274,8 +274,16 @@ class SupabaseMemberRepository implements MemberRepository {
         'password': 'Password does not meet the account requirements',
       });
     }
-    return const AuthFailure(
-      'Authentication failed. Check your email and account settings, then try again.',
+
+    // During live integration, do not erase an unrecognized Auth response behind
+    // a generic message. Normalize and cap it so the operator can correlate the
+    // exact server reason without rendering an unbounded upstream payload.
+    final normalized = error.message.trim().replaceAll(RegExp(r'\s+'), ' ');
+    final detail = normalized.length > 180
+        ? '${normalized.substring(0, 177)}...'
+        : normalized;
+    return AuthFailure(
+      detail.isEmpty ? 'Authentication failed' : 'Authentication failed: $detail',
     );
   }
 

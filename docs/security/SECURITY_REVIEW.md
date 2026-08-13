@@ -1,124 +1,146 @@
 # AIDA Café Security Review
 
-Updated: 2026-08-13
+Updated: 2026-08-14
 
-**Verdict:** identity, catalogue, and new order/scheduling authority are hardened at the backend boundary; overall demo feature remains `PARTIAL` until frontend integration and real-identity E2E.
+**Current verdict:** the implemented identity/member, employee-session, catalogue and order backend boundaries are hardened and have live evidence; the current tranche remains `PARTIAL` until Dashboard order frontend integration, clean Android build reproducibility and final cross-client order E2E/merge checks pass.
 
-## Existing identity/catalogue controls
+## Identity and membership
 
-- Supabase Auth plus trusted `user_profiles`/`members` remain authoritative for identity and membership.
-- Public signup cannot self-promote role/member/verification state.
-- Catalogue tables use FORCE RLS.
-- Public/customer catalogue reads are publication-scoped.
-- Catalogue admin/owner writes use trusted caller identity; no service-role browser bypass.
-- Dashboard privileged flows retain same-origin HttpOnly employee sessions and caller-JWT Supabase access.
-- Customer runtime has no production hardcoded catalogue fallback; dashboard POS has no preview catalogue fallback.
+- Supabase Auth is the authentication authority.
+- `user_profiles.app_role` plus `disabled_at` are trusted employee/Admin authorization state.
+- `members` is trusted customer membership state.
+- Public signup is forced to customer role and cannot self-promote to staff/admin/owner.
+- User-editable metadata cannot assign member code or verified student status.
+- Member code generation is server-owned.
+- Customer profile/member reads are owner-scoped.
+- Employee identities and customer membership are separate concepts.
 
-## TASK-DEMO-ORDER-001 order controls
+Dated 2026-08-14 closeout evidence shows 9 Auth users/profiles, 6 customer members and one profile each for owner/admin/staff. The three employee identities are not member rows.
 
-All new order/scheduling tables use RLS + FORCE RLS:
+The user physically validated customer signup from the installed Android release app and subsequent member visibility through the protected Dashboard Admin/owner member-directory path.
 
-- `order_schedule_settings`
-- `orders`
-- `order_lines`
-- `order_line_addons`
-- `order_events`
+## Dashboard privileged session boundary
 
-Authenticated browser/mobile roles have no direct INSERT/UPDATE grants on order commercial tables. Controlled persistence occurs only through bounded RPC helpers with explicit caller/role validation.
+ADR-0008 remains authoritative:
 
-### Pricing and identity
+- same-origin browser/BFF boundary;
+- HttpOnly employee access/refresh cookies;
+- Secure cookies on HTTPS;
+- trusted profile role/disabled-state validation;
+- caller JWT forwarded to Supabase;
+- same-origin enforcement for state-changing requests;
+- no service-role key in Vite/browser code;
+- no browser-readable employee bearer-token persistence.
 
-- `quote_order(jsonb)` ignores client price/total fields and re-prices from current published/available catalogue data.
-- Item/variant/add-on compatibility is revalidated server-side.
-- Customer/member identity is derived from `auth.uid()` plus the active member row, never request JSON.
-- POS placement requires staff-or-above.
-- Order UUID, numeric order number, price snapshots, totals, initial status, timestamps, and audit events are server-owned.
-- Persisted commercial fields are protected against later mutation by a database trigger.
+TASK-AUTH-005 fixed the preview/live session loop without weakening this model. Preview identity is local/non-authoritative; preview Members makes no privileged member request; preview Menu is public-catalogue read-only; real session expiry still clears the real employee session.
 
-### Idempotency
+## Shared catalogue controls
 
-Placement requires a `clientRequestId` UUID scoped to the authenticated actor.
+- Catalogue tables use RLS/FORCE RLS as designed.
+- Public/customer reads are publication-scoped.
+- Admin/owner writes use protected BFF + caller JWT + controlled RPCs.
+- Prices are integer sen and backend authority.
+- Variants and compatible add-ons are server relationships.
+- Mutation produces audit evidence and catalogue revision invalidation.
+- Customer runtime has no production hardcoded catalogue fallback.
+- Dashboard live Admin mutations do not use preview identity as authority.
 
-- identical retry -> returns the same persisted order;
-- same key + different payload -> conflict;
-- client retry cannot create a duplicate order for the same key.
+The user physically validated a real Owner price mutation propagating to the installed customer app. Closeout baseline catalogue revision was 15.
 
-### Scheduling
+## Android client/network security
 
-The server validates scheduled pickup against trusted server time and the singleton policy:
+TASK-AUTH-006 fixed release network access by declaring the standard Android INTERNET permission in the main manifest. The fix does not weaken TLS, use hardcoded IPs, enable cleartext HTTP or add a network-security bypass.
 
-- timezone `Asia/Kuala_Lumpur`;
-- 15-minute minimum lead;
-- 15-minute slots;
-- 7-day maximum horizon.
+Customer production configuration contains only the public Supabase project URL/publishable key. Service-role/secret keys remain prohibited.
 
-Staff cannot change policy. Admin/owner can change it only through the trusted RPC/BFF boundary.
+The user subsequently installed the fixed release app and successfully reached Supabase signup, closing the prior host-resolution transport failure.
 
-Branch hours/closures/capacity are not yet authoritative, so neither backend nor frontend may claim branch-aware schedule validation.
+Android release build reproducibility remains an engineering gate because the prior successful APK used local AGP/Gradle compatibility settings. Closeout must commit a supported reproducible build-tool configuration; no machine-specific path or secret may be introduced.
 
-### Fulfilment/status
+## Order/scheduling controls
 
-Only staff-or-above may mutate status. Legal transitions are allow-listed and require an expected `statusVersion`; stale concurrent changes fail.
+All order/scheduling commercial authority remains server-side.
 
-`order_events` records creation/status evidence and has no ordinary client write grant.
+Controls include:
 
-### Realtime
+- RLS/FORCE RLS on order/scheduling tables;
+- no ordinary authenticated direct INSERT/UPDATE grants on commercial order tables;
+- `quote_order(jsonb)` re-prices from current catalogue truth and ignores client totals;
+- item/variant/add-on compatibility revalidation;
+- trusted customer/member derivation from the authenticated session;
+- staff-or-above requirement for POS placement and status mutation;
+- server-owned order UUID/number, commercial snapshots, totals, initial status and timestamps;
+- immutable commercial fields;
+- required `clientRequestId` idempotency;
+- server schedule validation against timezone/lead/interval/horizon;
+- admin/owner-only schedule-policy mutation;
+- allow-listed fulfilment transitions with expected `statusVersion`;
+- append-only order events;
+- owner-scoped customer order visibility.
 
-Only `orders` is added for order-status Realtime. Customer visibility remains owner-scoped through RLS; staff currently sees the global queue because branch scope is not yet modeled. Clients re-fetch full authorized snapshots after order-header changes.
+Canonical order regression previously proved forged totals ignored, direct order DML denial, incompatible add-on/invalid schedule rejection, ownership, idempotency, staff queue/POS capability, admin schedule policy and stale/illegal transition failures.
 
-### Dashboard BFF
+The remaining order risk is frontend integration, not a missing backend trust boundary: Dashboard React must stop treating preview transactions/client totals/local receipt state as live trusted order authority and must use the existing same-origin order BFF.
 
-New order BFF routes:
+## Realtime/token boundary
 
-- validate the existing employee HttpOnly session;
-- forward the caller JWT, not a service-role token;
-- require same origin for POST requests;
-- do not return employee access/refresh tokens in JSON;
-- map idempotency/version conflicts to HTTP 409 for safe client recovery.
+Customer Flutter can use its own owner-scoped Supabase session for `orders` and catalogue invalidation and then refetch authorized state.
 
-No React/Vite browser module receives a service-role key or trusted staff bearer token.
+Dashboard employee JWTs remain HttpOnly. React must not expose a staff token merely to open a direct Supabase Realtime connection. The current accepted dashboard order-board strategy is short same-origin BFF polling/refetch plus immediate invalidation after local mutations.
 
-## Live security validation
+## Payment boundary
 
-Canonical `supabase/tests/order_integration.sql` passed transactionally and proved:
+No real payment processor or trusted settlement/refund state exists in this tranche.
 
-- anonymous quote allowed but privileged order capabilities denied;
-- direct authenticated order DML absent;
-- forged total ignored;
-- incompatible add-on and invalid schedule rejected;
-- customer owner/history boundary;
-- customer status mutation denied;
-- staff queue/POS placement allowed;
-- admin-only schedule-policy write;
-- legal/stale/terminal transition enforcement;
-- cleanup leaves zero synthetic identities/orders/events.
+The authoritative demo order path must use explicit **Pay at counter / unpaid** semantics. It must not claim Card, E-wallet, Student Wallet, cash settlement, refund or processor success.
 
-Supabase security advisor after both order migrations: **0 lints**.
+Order completion currently means fulfilment completion, not verified payment settlement.
 
-Performance advisor's initial four unindexed-FK INFO findings were resolved with a forward migration; final findings are only unused-index INFO expected on the empty/new dataset.
+## Current Supabase advisor state
 
-## Explicitly untrusted / deferred
+Historical migrations/tasks recorded `0 lints` at their validation time. That is no longer the current advisor state.
 
-No real payment authority exists. Card/E-wallet/Student Wallet UI must not claim successful settlement. Use an explicit `Pay at counter`/unpaid demo path until a trusted payment task exists.
+Current security advisor warning:
 
-Order completion currently represents fulfilment completion, not verified payment settlement.
+- `auth_leaked_password_protection` — leaked-password protection disabled.
 
-The following remain separate trusted domains:
+This is a hosted Supabase Auth configuration warning. The remediation is a project Auth setting, not an application RLS/schema workaround. Source code must not weaken passwords/authentication to silence the warning.
 
-- payment/refunds
-- loyalty earning/redemption
-- inventory depletion
-- promotions/discounts
-- tax/accounting
-- revenue/reporting
-- branch-scoped staff/order access
-- branch scheduling hours/capacity
-- delivery
+Performance advisor currently reports unused-index INFO notices on low-volume/new indexes. Those are not security defects and should not trigger speculative index removal during closeout.
 
-## Remaining release/E2E gates
+## Secrets and test identities
 
-- Flutter/frontend integration must remove local random order numbers, local-only order authority, fake payment completion, and timer-driven status progression.
-- Dashboard frontend must use server quote/place/queue/status endpoints rather than preview totals/order records as authority.
-- Real approved customer/staff/admin identities are still absent.
-- Existing Vercel preview still lacks its publishable Supabase runtime variables.
-- Cross-client customer placement -> dashboard status -> customer Realtime UI proof remains outstanding under ADR-0004.
+Repository source/documentation must not contain:
+
+- service-role or `sb_secret_` credentials;
+- employee passwords/PINs;
+- terminal enrolment secrets;
+- bearer access/refresh tokens;
+- payment secrets/private certificates.
+
+Dated counts and non-secret test identity existence may be recorded as evidence, but plaintext test passwords must remain outside version control.
+
+## Deferred trusted domains
+
+Separate bounded tasks remain required for:
+
+- payment capture/refunds;
+- loyalty earning/redemption;
+- inventory depletion;
+- promotions/discounts;
+- tax/accounting;
+- revenue/reporting;
+- branch-scoped staff/order access;
+- branch hours/capacity;
+- delivery.
+
+These domains must consume authoritative order/payment state rather than frontend preview values.
+
+## Remaining closeout gates
+
+Before the current tranche may be called `COMPLETE`:
+
+1. Android release build must be reproducible from committed Git.
+2. Dashboard live POS/order surfaces must consume the order BFF and remove preview transaction authority from live order flows.
+3. Customer placement -> staff status transition -> customer authorized refresh must be proven end-to-end.
+4. Final client tests, secret scans, live advisor review and mirrored documentation reconciliation must pass.

@@ -1,29 +1,38 @@
 # Supabase Status
 
-**Status date:** 2026-08-13
+**Status date:** 2026-08-14
 **Project:** Aida System
 **Ref:** `eswovqxqzfevcdwwcmuh`
 **Region:** `ap-southeast-1`
 
-## Identity/membership
+This document records architecture and dated closeout evidence. Dynamic row counts and catalogue revisions are observations, not permanent invariants.
 
-Existing identity/member objects remain live with forced RLS:
+## Current identity/membership evidence
+
+Closeout baseline observed on 2026-08-14:
+
+- Auth users: 9
+- `user_profiles`: 9
+- `members`: 6
+- trusted owners: 1
+- trusted admins: 1
+- trusted staff: 1
+
+The six member rows are customer identities. The three employee identities are intentionally not loyalty/member rows.
+
+Trusted identity/member objects remain:
 
 - `user_profiles`
 - `members`
 - `student_verifications`
 
-Trusted role helpers and admin/owner member-directory functions remain unchanged.
+Supabase Auth is authentication authority. `user_profiles.app_role` plus `disabled_at` are trusted employee/admin authorization state. Member code and membership state are server-owned. Public signup cannot self-assign employee roles, member codes or verified student state.
 
-Current live identity count after TASK-DEMO-ORDER-001 regression cleanup:
+The user physically validated fresh Android customer signup -> Auth/profile/member provisioning -> Dashboard Members visibility.
 
-- Auth users: 0
-- profiles: 0
-- members: 0
+## Catalogue
 
-## Catalogue — TASK-MENU-001
-
-Live catalogue objects remain:
+Live catalogue objects:
 
 - `catalogue_categories`
 - `catalogue_items`
@@ -32,19 +41,22 @@ Live catalogue objects remain:
 - `catalogue_revision`
 - `catalogue_audit_events`
 
-Seed baseline remains:
+The closeout baseline observed catalogue revision **15**. Historical seed structure remains 4 categories / 16 original seeded items with normalized per-item variants and compatible add-on links; live Admin edits may change mutable catalogue fields over time.
 
-- 4 categories
-- 16 items
-- 27 variants
-- 27 compatible add-on links
-- catalogue revision 1
+A real Owner mutation is present in catalogue audit evidence. The user physically validated Dashboard Admin price mutation -> shared Supabase catalogue -> installed customer app refresh.
 
-Catalogue authority and regression behavior are unchanged by TASK-DEMO-ORDER-001.
+Catalogue authority remains:
 
-## Orders and scheduling — TASK-DEMO-ORDER-001
+- public/customer published reads through `get_catalogue()` under RLS;
+- admin/owner mutations through protected caller-JWT BFF/RPC paths;
+- server UUID identifiers and integer-sen prices;
+- normalized variant/add-on relationships;
+- revision bump plus audit on mutation;
+- `catalogue_revision` Realtime invalidation followed by authoritative customer refetch.
 
-Canonical repository migrations are now aligned exactly to their live ledger versions:
+## Orders and scheduling
+
+Canonical repository migrations:
 
 1. `20260812182212_create_authoritative_orders_and_scheduling.sql`
 2. `20260812183029_index_order_foreign_keys.sql`
@@ -57,9 +69,9 @@ Live tables:
 - `order_line_addons`
 - `order_events`
 
-All five have RLS enabled and FORCE RLS.
+All use RLS/FORCE RLS as defined by the accepted order architecture.
 
-Live public RPC contract:
+Public RPC contract includes:
 
 - `get_ordering_policy()`
 - `quote_order(jsonb)`
@@ -71,7 +83,7 @@ Live public RPC contract:
 - `transition_order_status(uuid,text,bigint,text)`
 - `save_ordering_policy(jsonb)`
 
-Private SECURITY DEFINER helpers perform narrowly scoped controlled persistence behind SECURITY INVOKER public entrypoints with explicit caller/role checks. Ordinary authenticated clients have no direct INSERT/UPDATE grants on order commercial tables.
+Ordinary authenticated clients have no direct commercial-table INSERT/UPDATE authority; controlled persistence occurs through bounded RPCs with caller/role validation.
 
 Current scheduling singleton:
 
@@ -83,82 +95,74 @@ slot_interval_minutes    15
 maximum_advance_days     7
 ```
 
-Branch-specific opening hours/closures/capacity are not modeled in the current schema.
+Branch-specific opening hours, closures and capacity are not modeled and must not be claimed by clients.
 
-Current retained order state after regression rollback:
+Closeout baseline retained order state:
 
 - orders: 0
-- order lines: 0
-- order-line add-ons: 0
-- order events: 0
 
-The numeric identity sequence may contain gaps after transactional regression because PostgreSQL sequences are non-transactional; order-number uniqueness/authority is unaffected and no synthetic order row remains.
+No final cross-client order E2E had been retained at the time this baseline was recorded. TASK-CLOSEOUT-001 is responsible for closing that remaining path.
 
 ## Realtime
 
-`supabase_realtime` currently publishes exactly the two intended mutable signals:
+`supabase_realtime` publishes the intended mutable signals:
 
 - `catalogue_revision`
 - `orders`
 
-Catalogue clients re-fetch the full catalogue after revision change. Order clients re-fetch an authorized full order snapshot after an order-header change. Immutable order lines/add-ons are not separately published.
+Customer clients use authorized Supabase Realtime and refetch full trusted snapshots. Dashboard employee JWTs remain HttpOnly, so the React order board must poll/refetch the same-origin BFF rather than exposing a staff bearer token merely to connect directly to Realtime.
 
-## TASK-DEMO-ORDER-001 validation
+## Canonical regression evidence
 
-`supabase/tests/order_integration.sql` passed transactionally against the live project and rolled back all synthetic users/orders.
+Previous canonical transactional SQL regressions passed for:
 
-Customer frontend integration rechecked the live project read-only on 2026-08-13: all five customer RPCs exist; `orders` remains in `supabase_realtime`; FORCE RLS is active; anonymous placement execute is denied while authenticated execute is granted; security advisor remains 0 lints; all order tables remain empty. Performance advisor contains only unused-index INFO notices expected before real order/member traffic.
+- Auth/member provisioning and tamper resistance;
+- catalogue publication/admin mutation/revision/audit rules;
+- authoritative quote/order placement/scheduling/idempotency/ownership/status rules.
 
-It proved:
+The order regression proved, among other cases:
 
-- anonymous authoritative quote access;
-- no anonymous placement/status capability;
+- anonymous quote but no anonymous placement/status capability;
 - no direct authenticated order-table DML;
-- forged client price/total fields ignored;
-- live `CF-SCL` Medium + Oat Milk price resolution;
-- incompatible add-on rejection;
-- past schedule rejection;
-- customer scheduled placement with trusted member derivation;
-- immutable line/add-on snapshots;
+- forged client totals ignored;
+- catalogue/variant/add-on compatibility revalidated;
+- invalid schedule rejected;
+- trusted customer/member derivation;
+- immutable commercial snapshots;
 - idempotent retry and key-reuse conflict;
 - customer owner-scoped history;
 - customer status-mutation denial;
-- staff queue and POS guest order creation;
+- staff queue/POS guest-order creation;
 - versioned legal status transitions;
 - stale/illegal transition rejection;
-- admin-only scheduling policy update.
+- admin-only schedule-policy update.
 
-Security advisor after both migrations: **0 lints**.
+## Security advisor
 
-Performance advisor initially identified four unindexed new foreign keys. The second forward migration added covering indexes. Final performance findings are `unused_index` INFO only, which is expected on a new/empty order dataset; there are no remaining unindexed-FK findings.
+Current closeout advisor state is **not zero findings**.
 
-## Historical migration-ledger drift
+Security advisor reports:
 
-The pre-order identity/catalogue migrations retain the previously documented historical filename/live-version differences:
+- `auth_leaked_password_protection` — WARN — leaked-password protection disabled.
 
-| Repository version | Live version | Name |
-|---|---|---|
-| `20260811101100` | `20260811101525` | `create_identity_membership_foundation` |
-| `20260811102200` | `20260811101620` | `harden_foundation_role_helpers` |
-| `20260811102700` | `20260811101641` | `optimize_foundation_rls_policies` |
-| `20260812191500` | `20260812112337` | `integrate_customer_auth_member_directory` |
-| `20260812192500` | `20260812112457` | `fix_signup_member_code_generation` |
-| `20260812195500` | `20260812113040` | `make_admin_member_directory_security_invoker` |
-| `20260812231500` | `20260812152607` | `create_shared_catalogue` |
-| `20260812235000` | `20260812154805` | `harden_catalogue_rls_policies` |
+This is hosted Supabase Auth configuration debt. It is not a schema/RLS regression and must not be worked around by weakening application authentication.
 
-Those eight were already proven semantically equivalent and are not schema drift. Do not rewrite applied historical migrations.
-
-For TASK-DEMO-ORDER-001, the migration source was committed before live application and then the repository filename was aligned to the exact version returned by the migration ledger without changing SQL contents. The order migration ledger and canonical filenames therefore match exactly.
+Performance advisor currently contains unused-index INFO notices on new/low-volume indexes. Do not delete those indexes solely because the current dataset has not exercised them without a separate performance task and workload evidence.
 
 ## Current public schema inventory
 
-Current active public base tables consist of:
+Current active public base-table architecture consists of:
 
-- 3 identity/member tables
-- 6 catalogue tables
-- 5 order/scheduling tables
+- 3 identity/member tables;
+- 6 catalogue tables;
+- 5 order/scheduling tables.
 
-Total: 14 public base tables, all within the accepted shared-backend architecture.
+Total: 14 public base tables within the accepted shared-backend architecture.
 
-Legacy ledger rows describing older removed objects remain historical ledger evidence; they are not current live public schema authority.
+## Historical migration-ledger drift
+
+The pre-order identity/catalogue migration timestamp differences documented earlier remain historical naming drift, not schema drift. Do not rewrite applied migrations. The order migration source/ledger names were aligned before closeout.
+
+## Operational note
+
+The current accepted demo topology is local Dashboard PC -> cloud Supabase -> installed Android customer app. Hosted Vercel runtime configuration remains deferred unless a later accepted requirement makes hosted deployment part of the completion gate.

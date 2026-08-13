@@ -1,10 +1,10 @@
 # AIDA Café Project Brief
 
-Updated: 2026-08-13
+Updated: 2026-08-14
 
 ## Product purpose
 
-AIDA Café is the ordering, membership, loyalty and café-operations system for City University Malaysia. The product combines a customer application with staff POS and administration workflows over one authoritative backend.
+AIDA Café is the ordering, membership, loyalty and café-operations system for City University Malaysia. The product combines a customer application with staff POS and administration workflows over one authoritative Supabase backend.
 
 ## System components
 
@@ -12,19 +12,65 @@ AIDA Café is the ordering, membership, loyalty and café-operations system for 
 
 Repository: `Hermann-33/Aida_System`.
 
-Flutter customer UI for authentication, home/promotions, rewards/vouchers, membership QR, menu browsing/configuration, favourites, cart, payment-method selection, order tracking/history and profile. Supabase Auth/member reads, minimum per-user offline member-code caching, and the shared catalogue are wired on the current stack. Loyalty, rewards, offers/promotions, profile writes, cart/quote/order/payment and history remain mock, local, or incomplete.
+Flutter/Dart/Riverpod application for customer authentication, membership, menu browsing/customization, cart, ordering, scheduled pickup, order history/status and additional preview/deferred loyalty/profile experiences.
+
+Current trusted integrations include:
+
+- Supabase Auth sign-up/sign-in/session/logout;
+- trusted profile/member reads and server-generated member code;
+- minimum per-user offline member-code cache;
+- shared catalogue with variants/add-ons/prices/availability;
+- catalogue revision invalidation/refetch;
+- authoritative quote and customer order placement;
+- ASAP/scheduled pickup policy;
+- persisted order history/detail/status;
+- owner-scoped order Realtime invalidation followed by authorized refetch.
+
+Real payment settlement/refunds, loyalty earning/redemption, profile writes, inventory effects, reporting and other explicitly deferred domains are not complete.
 
 ### POS/Admin dashboard
 
 Repository: `Hermann-33/Aida_System-Dashboard`.
 
-React 19 + TypeScript + Vite browser application with employee access, terminal enrolment, POS, orders, payments, member/QR lookup, loyalty, shifts, branches/locations, terminals, employees/access, menu/catalogue, inventory, marketing, reporting, audit, integrations and settings. Admin and POS catalogue browsing use the shared Supabase catalogue through the same-origin BFF; preview checkout/totals/orders/payments and most other operations still use fixtures, component/module state, or session storage.
+React 19 + TypeScript + Vite browser application with employee access, terminal/POS surfaces and Admin management.
+
+Current trusted integrations include:
+
+- same-origin employee/Admin BFF session with HttpOnly cookies;
+- role/disabled-state authorization from trusted profiles;
+- protected Admin Members directory;
+- shared catalogue reads for POS;
+- protected Admin catalogue reads/mutations;
+- preview/live session separation from TASK-AUTH-005;
+- authoritative order BFF endpoints for policy, quote, POS placement, queue/detail and status transitions.
+
+At the start of TASK-CLOSEOUT-001 the remaining dashboard implementation gap is the React POS/order frontend: live authoritative quote/place, scheduling UX, order queue and versioned fulfilment controls. Existing preview/local transaction/payment objects are not trusted business authority.
 
 ### Shared backend
 
-Supabase project **Aida System**, ref `eswovqxqzfevcdwwcmuh`.
+Supabase project **Aida System**, ref `eswovqxqzfevcdwwcmuh`, region `ap-southeast-1`.
 
-The identity/member foundation and shared catalogue are implemented with RLS. Quote/order, payment, loyalty, POS operational, inventory, marketing and reporting persistence remain to be built.
+Implemented shared authority includes:
+
+- Supabase Auth;
+- identity/profile/member/student state;
+- trusted roles and role helpers;
+- shared catalogue and revision/audit signal;
+- order/scheduling policy;
+- authoritative quote engine;
+- customer/POS order placement;
+- immutable order commercial snapshots;
+- fulfilment state machine and events;
+- customer/order Realtime signals;
+- FORCE RLS and controlled RPC boundaries.
+
+Canonical executable migrations live only in `Hermann-33/Aida_System/supabase/` unless a future accepted ADR changes ownership.
+
+## Current live validation snapshot
+
+Dated 2026-08-14 evidence records 9 Auth users/profiles, 6 customer members, one owner, one admin and one staff profile, catalogue revision 15 and no retained live orders at the baseline. See `docs/context/CLOSEOUT_EVIDENCE_2026-08-14.md`.
+
+The user physically validated Android customer signup -> Dashboard member visibility and Dashboard Owner price mutation -> installed customer catalogue refresh.
 
 ## Target users
 
@@ -34,19 +80,23 @@ The identity/member foundation and shared catalogue are implemented with RLS. Qu
 
 ## Shared product rule
 
-The two frontends are views/controllers over one operational system. They must use the same identifiers, lifecycle definitions and backend rules. The customer app cannot invent a price/order/reward outcome that the POS does not recognise, and the dashboard cannot mutate data outside the same server-enforced contract.
+The two frontends are views/controllers over one operational system. They must use the same identifiers, lifecycle definitions and backend rules. The customer app cannot invent a price/order/reward outcome that the POS does not recognise, and the dashboard cannot mutate trusted data outside the same server-enforced contract.
 
-## Current maturity
+## Completion discipline
 
-- Customer UI: Supabase Auth/member and catalogue partially integrated; remaining business domains are mock/session-local.
-- Dashboard UI: shared catalogue browsing/administration integrated; broader operations remain fixture/local/session preview.
-- Supabase: real identity/membership and shared catalogue foundations exist; customer reads them and the stacked dashboard Admin catalogue uses caller-JWT BFF/RPC access.
-- Full ordering/loyalty/operations: `PARTIAL` because authoritative shared persistence and operational integration are missing.
+ADR-0004 remains authoritative: polished UI is not feature completion. A domain is complete only when applicable client, API, persistence, security, operations, tests and documentation gates pass.
 
-## Core business domains
+TASK-CLOSEOUT-001 exists to finish the currently implemented tranche before new business-domain work starts. Remaining closeout work is Android build reproducibility, Dashboard authoritative order frontend integration, cross-client order E2E and final synchronized merge-readiness checks.
 
-Identity/session, membership/student verification, branches/sales points/terminals, employees/roles, catalogue/modifiers/pricing, cart/quote, orders/fulfilment/KDS, payments/refunds, loyalty/rewards/vouchers, inventory/recipes/wastage/transfers, promotions/marketing, reporting and immutable audit.
+## Deferred domains
 
-## Success criteria
+The next product phases remain separate bounded tasks, including:
 
-AIDA succeeds when role-appropriate users complete their flows against one trusted backend with consistent IDs and state transitions, server-authoritative value calculations, secure ownership/branch/role access, audited privileged actions, usable failure/offline behavior, reproducible migrations, cross-client integration tests and current mirrored documentation.
+- trusted payment capture/refunds;
+- loyalty earning/redemption/vouchers;
+- inventory depletion/recipes/wastage/transfers;
+- promotions/discount engine;
+- branch-scoped operations and branch hours/capacity;
+- tax/accounting;
+- sales/revenue reporting;
+- delivery.

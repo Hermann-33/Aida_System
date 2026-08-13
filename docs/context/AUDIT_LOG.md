@@ -1,5 +1,19 @@
 # Audit Log
 
+## 2026-08-13 — TASK-AUTH-004 — Customer Auth runtime + protected Admin access
+
+**Verdict:** PARTIAL pending physical-device signup and a real trusted Admin identity.
+
+Created coordinated branch `codex/task-auth-004-runtime-access-fix` in both repositories, stacked on `codex/fix-auth-signup-diagnostics`. Fresh Supabase evidence showed 0 Auth users and 0 admin/owner profiles; the existing Auth provisioning trigger/function and server-generated member-code boundary remained intact, and security advisor remained 0 lints.
+
+Customer source now defaults to the active AIDA project URL and public publishable key while retaining `--dart-define` overrides, eliminating a fragile installed-build configuration dependency without embedding a secret. Unrecognized `AuthException` text is normalized/capped and surfaced so the next phone attempt exposes the actual hosted Auth reason instead of the prior generic fallback.
+
+Dashboard local Vite/BFF now receives the same public project URL/publishable key by default with explicit environment override. Protected Admin routes remain fail-closed but preserve destination/session-error context when redirecting to `/admin/login`; Admin login explains the requirement, returns to the originally selected route after success, and distinguishes credential, authorization, disabled-account, configuration and network failures.
+
+No RLS/member-directory authorization was weakened, no employee bearer token was exposed, and no service-role/secret key was shipped. A temporary exact-account Edge Function was deployed only to investigate supported Auth Admin bootstrapping; the available runtime could not invoke it, no user was created, and it was immediately superseded by an HTTP-410 disabled version. No direct `auth.users` SQL insert was used.
+
+Required closure: pull/rebuild both local clients, run their normal suites, attempt signup on the physical phone and capture the new exact Auth response; then create/promote the intended trusted operator identity and verify Dashboard Members/Menu through the existing caller-JWT BFF/RLS path.
+
 ## 2026-08-13 — TASK-DEMO-ORDER-001 — Customer Flutter integration
 
 **Verdict:** PARTIAL under ADR-0004; customer local integration is complete, but dashboard frontend and deployed real-identity cross-client E2E remain.

@@ -1,81 +1,98 @@
 # Customer Backend Integration Plan
 
-Updated: 2026-08-13
+Updated: 2026-08-14
 
-## Auth/member
+ADR-0003, ADR-0004, ADR-0009, ADR-0010 and the shared backend/order contracts remain authoritative.
 
-Supabase Auth and owner-scoped member/profile source exist on the auth stack. Canonical live SQL regression and the full Flutter suite passed before TASK-DEMO-ORDER-001. ADR-0003's minimum offline QR material is cached durably per user and cleared on logout/user switch. Deployed/device Auth E2E remains open because approved real identities are absent.
+## Auth/member — integrated and physically validated
 
-## Catalogue — integrated
+Implemented customer boundaries:
 
-Customer menu uses `CatalogueRepository` -> Supabase `get_catalogue()`. One snapshot feeds categories, featured/popular and menu items. `catalogue_revision` Realtime events invalidate that snapshot. Base prices, availability, images, per-item variants and compatible add-ons come from database records.
+- Supabase Auth sign-up/sign-in/session/logout;
+- trusted customer profile/member provisioning;
+- server-generated member code;
+- student self-declaration -> pending only;
+- owner-scoped profile/member reads;
+- minimum per-user offline member-code cache with logout/user-switch cleanup;
+- public project URL/publishable-key configuration only.
 
-Production runtime has no hardcoded migrated catalogue or `ItemSize` pricing authority.
+TASK-AUTH-006 fixed Android release networking by adding `android.permission.INTERNET` to the main manifest. The user installed the fixed release app and successfully created a real customer. The resulting trusted member appeared in Dashboard Members.
 
-## Orders and scheduled pickup — backend ready, Flutter integration next
+Account-recovery delivery/callback behavior was not part of that manual closeout evidence and must not be overstated.
 
-ADR-0010 and `docs/contracts/ORDER_AND_SCHEDULING_CONTRACT.md` are authoritative.
+## Catalogue — integrated and physically validated
 
-The live backend now provides:
+Customer menu uses `CatalogueRepository` -> Supabase `get_catalogue()`. One authoritative snapshot feeds categories, featured/popular and menu/item detail. `catalogue_revision` Realtime events invalidate/refetch that snapshot.
+
+Base prices, publication, availability, images, per-item variants and compatible add-ons come from the database. Production runtime has no hardcoded migrated catalogue or `ItemSize` price authority.
+
+The user physically validated a real Dashboard Owner price mutation -> Supabase catalogue revision/data -> installed Android customer UI update.
+
+## Orders and scheduled pickup — customer integration implemented
+
+Customer Flutter consumes:
 
 - `get_ordering_policy()`
 - `quote_order(jsonb)`
 - `place_customer_order(jsonb)`
 - `get_order(uuid)`
 - `get_my_orders(integer)`
-- owner-scoped `orders` Realtime
+- owner-scoped `orders` Realtime invalidation
 
-### Required Flutter integration
+Current behavior:
 
-1. Keep the current cart as **selection state**, not commercial authority.
-2. Build a trusted payload from catalogue item IDs, variant IDs, add-on IDs, quantities and notes.
-3. Read `get_ordering_policy()` to offer ASAP vs Schedule for later.
-4. Generate selectable scheduled slots from backend `serverNow`, timezone, lead, interval and horizon rather than a device-clock-only hardcode.
-5. Call `quote_order()` before final placement and render the returned authoritative subtotal/total/line prices.
-6. Require a signed-in customer for placement. `place_customer_order()` derives trusted customer/member identity server-side.
-7. Generate a UUID `clientRequestId` once for a placement attempt and reuse that same UUID for network retries. Generate a new UUID only when starting a genuinely new order placement.
-8. Clear the cart only after the backend returns a successful persisted order.
-9. Replace random local order numbers with `orderNumber` from the backend.
-10. Replace local-only `PastOrder` authority with `get_my_orders()`/`get_order()` snapshots.
-11. Subscribe to owner-authorized `orders` changes and re-fetch the affected order; persisted backend status replaces the current fake timer progression.
-12. Preserve the current AIDA cart, confirmation and history visual language. This is an integration, not a redesign.
+1. Cart remains selection/interaction state, not trusted commercial authority.
+2. Order payloads contain catalogue item IDs, variant IDs, add-on IDs, quantities, notes and fulfilment intent only.
+3. Checkout reads server ordering policy and supports ASAP / Schedule for later.
+4. Schedule slots derive from server policy/timezone/lead/interval/horizon.
+5. `quote_order()` runs before placement; backend line prices/subtotal/total win.
+6. Placement requires the authenticated active customer/member; identity derives server-side.
+7. A UUID `clientRequestId` is reused for retries of the same placement intent.
+8. Cart clears only after successful persisted placement and remains on failure.
+9. Server `orderNumber`, total, schedule and status replace local/random authority.
+10. Order history/detail use backend snapshots rather than local `PastOrder` truth.
+11. Owner-authorized order changes invalidate/refetch the affected backend snapshot.
+12. No client timer manufactures Preparing/Ready status.
+13. Demo payment presentation is explicit **Pay at counter / unpaid** only.
 
-### Scheduling rules the UI must reflect
+Current scheduling defaults are Asia/Kuala_Lumpur, 15-minute minimum lead, 15-minute slots and 7-day maximum advance. Branch opening hours/closures/capacity are not modeled.
 
-Current defaults:
+## Error/offline boundaries
 
-- `Asia/Kuala_Lumpur`
-- 15-minute minimum lead
-- 15-minute slots
-- 7-day maximum advance
+- Catalogue failure is visible; no production fixture fallback.
+- Quote/place validation failures retain the cart for correction/retry.
+- Realtime disconnect does not create local status authority; refresh can re-read trusted state.
+- Minimum offline member-code cache is not an offline order queue and never stores role/pricing/order authority.
+- Transport errors use bounded user-safe connectivity messages without exposing raw host/token details.
 
-Do not claim branch opening-hours/capacity validation because the backend does not yet model it.
+## Android release build — runtime fixed, reproducibility pending closeout
 
-### Payment presentation
+The fixed APK physically reaches Supabase. One engineering gate remains: release build configuration must be reproducible from committed Git.
 
-No real payment processor exists. Remove/disable UI that implies Cash/Card/E-wallet/Student Wallet was actually processed. For the demo use an explicit `Pay at counter`/unpaid flow. Do not display `Payment received` as a trusted backend state.
+At the TASK-CLOSEOUT-001 starting point the repository still pins AGP 8.7.0 while the resolved AndroidX set requires AGP 8.9.1+. The prior successful APK used preserved local build compatibility settings. Closeout must commit a supported AGP/Gradle/Kotlin combination and prove a clean-worktree release build with INTERNET permission present.
 
-## Realtime/error behavior
+## Validation evidence already available
 
-- Catalogue: `catalogue_revision` -> refetch catalogue.
-- Orders: authorized `orders` change -> refetch full order with `get_order()`.
-- If a quote/placement fails because an item/variant/add-on became unavailable, surface a theme-consistent actionable message and keep the cart for correction/retry.
-- Do not silently fall back to local totals/order history after a backend error.
+- TASK-AUTH-006 Flutter 3.44.9 analyze: pass.
+- TASK-AUTH-006 full tests: 44/44 pass.
+- Final TASK-AUTH-006 APK declared `android.permission.INTERNET`.
+- User physical customer signup succeeded from the fixed release app.
+- New customer appeared in Dashboard Members.
+- User physical Dashboard catalogue mutation -> customer app refresh succeeded.
+- Earlier customer order-focused suites passed quote/scheduling/idempotency/cart/history/status/Realtime behavior.
 
-## Customer validation result
+Dated live evidence is recorded in `docs/context/CLOSEOUT_EVIDENCE_2026-08-14.md`.
 
-Implemented on the shared task branch. Flutter 3.44.9 passes pub get, zero-issue analyze and 40/40 tests, including quote/scheduling/idempotency/cart/history-status/Realtime behavior. No golden baseline changed. Deployed real-identity cross-client proof remains external work under ADR-0004.
+## Remaining customer closeout gates
 
-## Validation required after frontend implementation
+1. Make the Android release toolchain reproducible from committed Git in a clean worktree.
+2. Rerun full Flutter analyze/tests/release build on the final closeout head.
+3. Rerun applicable Auth/catalogue/order backend/security regressions without leaving synthetic data.
+4. Coordinate with Dashboard closeout to prove customer placement -> staff transition -> customer authorized status refresh.
+5. Reconcile byte-identical mirrored shared documentation before merge.
 
-- `flutter pub get`
-- `flutter analyze`
-- full `flutter test`
-- focused quote/scheduling/idempotency/history/Realtime provider/repository tests
-- deliberate golden review for any changed cart/confirmation/history screens
-- no blind `--update-goldens`
-- cross-client demo proof once approved identities exist
+No additional manual phone validation is required merely to repeat the already-proven Android networking/Auth/catalogue paths unless closeout materially changes those runtime boundaries.
 
 ## Deferred customer backend domains
 
-Loyalty earning/redemption, real payments/refunds, notifications, student-review workflow, profile writes beyond current authority, branch-specific scheduling/capacity, inventory and reporting remain separate tasks.
+Loyalty earning/redemption, real payment/refunds, notifications, student-review workflow beyond current pending declaration, profile writes beyond current authority, branch-specific scheduling/capacity, inventory and reporting remain separate bounded tasks.

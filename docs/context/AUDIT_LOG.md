@@ -1,5 +1,21 @@
 # Audit Log
 
+## 2026-08-14 — TASK-CLOSEOUT-001 — Current tranche customer closeout
+
+**Verdict:** PARTIAL because the customer repository is validated but Dashboard PR #12 has not yet closed the authoritative order UI and deployed cross-client order journey.
+
+Worked only in the customer repository on `codex/task-closeout-001-tranche-completion`, preserving the unrelated dirty `master` checkout and all existing stashes. Inspected the stack and Dashboard PR #12 read-only. The customer branch is stacked cleanly on current `origin/master`; customer PR #13 remains draft while the shared gate is open.
+
+The user supplied physical Android evidence that the release APK installed, real customer signup succeeded, Supabase provisioned the trusted profile/member, the member appeared in Dashboard Members, an Owner catalogue price mutation appeared in the running customer UI, and the prior failed-host-lookup error did not recur. Live read-only evidence then confirmed 9 Auth users, 9 profiles, 6 members, one owner/admin/staff, zero orders and catalogue revision 15.
+
+Committed the smallest clean-checkout Android build fix already represented by the preserved local build-tool stash: AGP 8.9.1, Gradle 8.11.1 and Flutter's two legacy-DSL opt-outs. Both the task checkout and an independent clean committed worktree passed Flutter 3.44.9 dependency resolution, zero-issue analyze, 44/44 tests and release APK build. The task APK is 63,863,395 bytes with SHA-256 `FDA46A3C5CEB990BF96D65E7F3FB34505AD1734D06C3EEBCB47682DE8FAC50E0`; `aapt` confirms `android.permission.INTERNET`. No golden baseline changed.
+
+Canonical Auth/member, catalogue and order SQL regressions all passed transactionally. Their harnesses now scope assertions to their synthetic identities and derive order totals from the current live catalogue instead of assuming an empty retained directory or a historical price. Rollback and a fresh count query proved the retained baseline unchanged.
+
+Fresh live schema evidence confirmed all 14 intended public tables have RLS and FORCE RLS, all nine order RPCs exist, `orders` remains in Realtime, and direct authenticated order commercial DML is denied. Security advisor reports exactly one warning, Leaked Password Protection Disabled; performance advisor contains unused-index INFO only. Production scans introduced no service-role or secret credential.
+
+Customer Auth/member, catalogue/Realtime, Android release networking/build, authoritative quote/place/history/status and customer order Realtime code are complete for the implemented scope. Dashboard PR #12 still reports preview POS/order authority and lacks the required deployed customer placement -> employee queue/status -> running customer Realtime proof. No live order was created during this audit.
+
 ## 2026-08-14 — TASK-AUTH-006 — Android release APK network/Auth failure
 
 **Verdict:** PARTIAL pending physical-device Auth validation.

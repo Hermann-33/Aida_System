@@ -1,6 +1,6 @@
 # System Map
 
-Updated: 2026-08-13
+Updated: 2026-08-14
 
 | System | Runtime | Current trusted source |
 |---|---|---|
@@ -90,14 +90,11 @@ Legal flow is `confirmed|scheduled -> preparing -> ready -> completed`, with can
 
 Because employee JWTs remain HttpOnly, the React dashboard must not expose a staff token to connect directly to Supabase Realtime. For the current demo it should poll/refetch the same-origin `/api/v1/orders` queue at a short safe interval and invalidate immediately after local mutations. Customer Flutter can use owner-scoped Supabase Realtime directly.
 
-## Deployment state
+## Validated cross-client state
 
-Vercel project `aida-system-dashboard` exists and source builds there, but the current preview BFF is not operational until an operator configures:
+The physical Android release connects to the live Supabase project. Customer signup provisioned Auth/profile/member records visible in Dashboard Members, and an Owner catalogue price mutation propagated to the installed customer app through the revision/refetch path.
 
-- `AIDA_SUPABASE_URL`
-- `AIDA_SUPABASE_PUBLISHABLE_KEY`
-
-A service-role key remains prohibited from Vite/browser code. Local dashboard + cloud Supabase + installed customer app can be used for demo/E2E once approved staff/customer identities exist.
+Approved customer and employee identities now exist. A service-role key remains prohibited from Flutter/Vite/browser code. Dashboard PR #12 still must provide the live order-board UI and cross-client order lifecycle proof before the tranche closes.
 
 ## Deferred authority
 

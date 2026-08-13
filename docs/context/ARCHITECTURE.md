@@ -1,6 +1,6 @@
 # AIDA Café Architecture
 
-Updated: 2026-08-13
+Updated: 2026-08-14
 
 ```mermaid
 flowchart LR
@@ -72,3 +72,7 @@ The dashboard employee token remains HttpOnly, so React must not expose it merel
 ## Explicitly separate authority
 
 Real payment settlement/refunds, loyalty earning/redemption, inventory depletion, discounts/promotions, tax/accounting, revenue reporting, branch scheduling/capacity and delivery remain separate trusted backend domains. They must consume authoritative orders/payment state rather than frontend-computed totals.
+
+## Android release boundary
+
+The customer production manifest declares `android.permission.INTERNET` because Auth, member/profile, catalogue, orders, and Realtime require TLS network access. The committed Android build uses AGP 8.9.1 with Gradle 8.11.1 and Flutter's compatibility properties; release packaging has been reproduced in an independent clean worktree. Flutter contains only the project URL and public publishable key, never a service-role/secret credential.

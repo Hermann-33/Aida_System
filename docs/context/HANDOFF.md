@@ -2,42 +2,40 @@
 
 Updated: 2026-08-14
 
-## Current task
+## Task
 
-`TASK-AUTH-006 — Android release APK network/Auth failure`
+`TASK-CLOSEOUT-001 — complete and close the current AIDA implementation tranche`
 
-**Verdict:** PARTIAL pending physical-device validation.
+Customer branch: `codex/task-closeout-001-tranche-completion`
 
-Branch: `codex/task-auth-006-android-release-network`
+Customer PR: #13, draft, targeting `master`.
 
-Stack base: `codex/task-auth-004-runtime-access-fix`
+Dashboard coordination: PR #12 remains draft and currently reports its order frontend/E2E gates as outstanding.
 
-Do not merge the stack out of order.
+**Verdict:** PARTIAL.
 
-## Proven root cause and fix
+## Closed customer gates
 
-The phone’s release APK could not resolve the Supabase hostname because the production Android manifest omitted `android.permission.INTERNET`. Debug/profile declared it only in their development overlays. The pre-fix Gradle release merged manifest independently proved the permission absent.
+- Physical Android release networking/Auth passed.
+- Customer signup provisioned trusted Auth/profile/member records.
+- The new member appeared in Dashboard Members.
+- Owner catalogue mutation propagated to the installed customer app.
+- Android release builds from committed Git without stash configuration.
+- Flutter 3.44.9: pub get passed, analyze clean, 44/44 tests passed, release APK built.
+- Independent clean worktree at committed Git passed the same pipeline.
+- Final task-checkout APK contains INTERNET, is 63,863,395 bytes, SHA-256 `FDA46A3C5CEB990BF96D65E7F3FB34505AD1734D06C3EEBCB47682DE8FAC50E0`.
+- Canonical Auth/member, catalogue, and order SQL regressions pass transactionally and retain 9 Auth users, 9 profiles, 6 members, and 0 orders.
 
-The main manifest now declares INTERNET before `<application>`. Auth retryable/socket/client/host-resolution failures now show a bounded connection message rather than raw exception/URL details, while genuine credential, email-confirmation, duplicate-signup, rate-limit and provisioning responses remain distinct.
+## Live security/backend evidence
 
-No Supabase schema, RLS, identity, role, catalogue/order data or credential was changed. The Flutter client continues using the active project URL and public publishable key only.
+All intended identity, catalogue, and order tables exist with RLS + FORCE RLS. All intended ordering RPCs exist. `orders` is published to Realtime. Ordinary authenticated clients have no direct order DML grants. No service-role/secret credential is present in the Flutter production source/configuration.
 
-## Validation
+Security advisor: one WARN, **Leaked Password Protection Disabled**. See Supabase password-security remediation. No database/RLS/Auth-role change was made during closeout.
 
-- Flutter 3.44.9
-- `flutter pub get`: passed
-- `flutter analyze`: no issues
-- `flutter test`: 44/44 passed
-- `flutter build apk --release`: passed with preserved local AGP/Gradle compatibility settings
-- final `aapt dump permissions`: `android.permission.INTERNET` present
-- APK path: `apps/customer/build/app/outputs/flutter-apk/app-release.apk`
-- APK size: 63,863,395 bytes
-- SHA-256: `3A7B5F027B846F4BE58865C09ABADBC63DD7B3EAE446331D708EA2FC67AF1201`
+## Build-tool stash
 
-The repository currently pins AGP 8.7.0, while the resolved AndroidX artifacts require 8.9.1+. Preserved local compatibility settings were used only to package the APK and are deliberately excluded from this network-fix change. Reproducible release-toolchain alignment remains a separate bounded task.
+`stash@{0}` was inspected and contains only the now-committed AGP 8.9.1, Gradle 8.11.1, and equivalent Flutter compatibility properties. It is superseded and may be removed after owner review; it was not silently dropped.
 
-## Exact next action
+## Remaining blocker and next action
 
-Manually transfer and install the recorded APK on the reporting Android phone. With an approved customer account, verify sign-in/session, member/profile and shared catalogue loading; then log out and perform a disposable customer signup if appropriate. Confirm specifically that `SocketException / Failed host lookup` no longer appears. Do not use employee demo identities as customer/member evidence and do not bypass email confirmation.
-
-After device proof, mirror these shared task facts into the dashboard repository. Customer-only checkout scope prevented byte-for-byte mirrored documentation in this task.
+Dashboard PR #12 must complete authoritative POS quote/place, ASAP/scheduled UX, live order queue/status transitions, its full toolchain, and the customer placement → staff preparing/ready/completed → customer authorized refresh proof. Then copy the Dashboard MIRROR DELTA into this repository, rerun final merge-readiness checks, mark both PRs ready, and merge only after both sides are COMPLETE.

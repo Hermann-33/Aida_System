@@ -7,6 +7,7 @@ Updated: 2026-08-14
 ### Existing identity/catalogue runtime
 
 - `apps/customer/android/app/src/main/AndroidManifest.xml` — production Android permissions, including required Supabase network access.
+- `apps/customer/android/settings.gradle.kts`, `android/gradle/wrapper/gradle-wrapper.properties` and `android/gradle.properties` — committed Android release toolchain compatibility settings (AGP 8.9.1, Gradle 8.11.1 and Flutter legacy DSL opt-outs).
 - `apps/customer/test/android_release_manifest_test.dart` and `test/data/supabase_member_repository_test.dart` — release-network and Auth error-mapping regressions.
 
 - `apps/customer/lib/data/repository/supabase_member_repository.dart` — Supabase Auth plus owner member/profile reads and minimum cached member-code fallback.
@@ -34,6 +35,7 @@ Updated: 2026-08-14
 - `supabase/migrations/20260812182212_create_authoritative_orders_and_scheduling.sql` — authoritative order/schedule schema, RPCs, RLS, Realtime publication.
 - `supabase/migrations/20260812183029_index_order_foreign_keys.sql` — forward FK index hardening.
 - `supabase/tests/order_integration.sql` — canonical transactional pricing/schedule/idempotency/authorization/status regression.
+- canonical Auth and order regressions scope assertions to their own synthetic identities and derive expected totals from the live catalogue, so retained approved demo state and legitimate Admin price changes cannot make the tests brittle.
 - earlier identity/catalogue migrations remain canonical in this repository only.
 
 ### Frontend integration references

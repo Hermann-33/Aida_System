@@ -1,6 +1,6 @@
 # Customer State and Data Flow
 
-Updated: 2026-08-13
+Updated: 2026-08-14
 
 ## Catalogue
 
@@ -103,6 +103,8 @@ staff transition in dashboard
 The fixed two-second timer has been removed from `OrderConfirmationScreen`. No frontend timer may manufacture Preparing/Ready state.
 
 The UI may compute presentation-only labels such as "scheduled in 45 min" from timestamps, but persisted fulfilment status comes only from the backend.
+
+The customer side of this flow is covered by provider/repository/widget regressions. The deployed Dashboard order mutation and resulting live customer status observation remain the shared closeout gate.
 
 ## Errors and offline boundaries
 

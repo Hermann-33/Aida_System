@@ -1,6 +1,6 @@
 # Supabase Status
 
-**Status date:** 2026-08-13
+**Status date:** 2026-08-14
 **Project:** Aida System
 **Ref:** `eswovqxqzfevcdwwcmuh`
 **Region:** `ap-southeast-1`
@@ -15,11 +15,16 @@ Existing identity/member objects remain live with forced RLS:
 
 Trusted role helpers and admin/owner member-directory functions remain unchanged.
 
-Current live identity count after TASK-DEMO-ORDER-001 regression cleanup:
+Current live identity baseline after user-approved physical/device validation:
 
-- Auth users: 0
-- profiles: 0
-- members: 0
+- Auth users: 9
+- profiles: 9
+- members: 6
+- owners: 1
+- admins: 1
+- staff: 1
+
+These are dated operational counts, not schema invariants. Physical customer signup created trusted Auth/profile/member rows, and the new member appeared through Dashboard Members.
 
 ## Catalogue — TASK-MENU-001
 
@@ -38,7 +43,9 @@ Seed baseline remains:
 - 16 items
 - 27 variants
 - 27 compatible add-on links
-- catalogue revision 1
+- catalogue revision 15 at the 2026-08-14 baseline
+
+The revision advanced through real Admin activity. User validation proved an Owner price mutation became visible in the installed customer app through catalogue revision invalidation and authoritative refetch.
 
 Catalogue authority and regression behavior are unchanged by TASK-DEMO-ORDER-001.
 
@@ -107,7 +114,7 @@ Catalogue clients re-fetch the full catalogue after revision change. Order clien
 
 `supabase/tests/order_integration.sql` passed transactionally against the live project and rolled back all synthetic users/orders.
 
-Customer frontend integration rechecked the live project read-only on 2026-08-13: all five customer RPCs exist; `orders` remains in `supabase_realtime`; FORCE RLS is active; anonymous placement execute is denied while authenticated execute is granted; security advisor remains 0 lints; all order tables remain empty. Performance advisor contains only unused-index INFO notices expected before real order/member traffic.
+Customer closeout rechecked the live project read-only on 2026-08-14: all intended order RPCs exist; `orders` remains in `supabase_realtime`; all 14 intended public tables have RLS and FORCE RLS; ordinary authenticated clients have no direct order DML; and all order tables remain empty. Performance advisor contains only unused-index INFO notices expected before order traffic.
 
 It proved:
 
@@ -128,7 +135,9 @@ It proved:
 - stale/illegal transition rejection;
 - admin-only scheduling policy update.
 
-Security advisor after both migrations: **0 lints**.
+Security advisor on 2026-08-14: one WARN, **Leaked Password Protection Disabled**. Remediation: https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection
+
+This Auth setting was not changed during closeout and must not be reported as zero lints.
 
 Performance advisor initially identified four unindexed new foreign keys. The second forward migration added covering indexes. Final performance findings are `unused_index` INFO only, which is expected on a new/empty order dataset; there are no remaining unindexed-FK findings.
 

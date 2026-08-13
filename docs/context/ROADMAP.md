@@ -1,55 +1,31 @@
 # Roadmap
 
-Updated: 2026-08-13
+Updated: 2026-08-14
 
-## Completed foundations
+## Current tranche
 
-- Governance/import workflow foundations: COMPLETE.
-- DB identity/member foundation: COMPLETE for scoped DB authority.
-- Shared catalogue backend/source integration: implemented and locally validated; deployed real-identity E2E remains separate debt.
+- Governance and shared-backend ownership: COMPLETE.
+- Identity/member database foundation: COMPLETE for scoped authority.
+- Customer Supabase Auth/member integration and physical signup: COMPLETE.
+- Shared catalogue backend, Dashboard Admin/POS browsing, Flutter Realtime refresh, and physical cross-client price proof: COMPLETE.
+- Android release networking and committed build reproducibility: COMPLETE.
+- Authoritative order/scheduling backend: COMPLETE for ADR-0010 scope.
+- Customer authoritative order frontend: COMPLETE for implemented scope.
+- Dashboard authoritative POS/order-board frontend: PARTIAL; tracked by Dashboard PR #12.
+- Full cross-client order lifecycle E2E: PARTIAL pending Dashboard closeout evidence.
 
-## Auth/member operational debt — TASK-AUTH-003
+## Closeout rule
 
-PARTIAL under ADR-0004. Source/toolchain validation is strong, but live Supabase still has zero approved real identities and the Vercel preview lacks its publishable Supabase runtime variables. Real deployed Auth/member/cookie/role E2E remains outstanding.
+Customer PR #13 and Dashboard PR #12 remain draft until the Dashboard order frontend passes its toolchain and proves customer placement → dashboard status transitions → customer authorized refresh. Mirrored current governance must agree before either closeout is marked COMPLETE.
 
-## Demo ordering — TASK-DEMO-ORDER-001
+## Deferred product work
 
-Backend milestone implemented live:
+Do not add these domains to the closeout tranche:
 
-- authoritative shared quote engine;
-- customer and POS order placement;
-- immutable commercial snapshots;
-- idempotent placement;
-- ASAP and scheduled pickup policy;
-- persisted fulfilment state machine;
-- staff queue/read/status RPCs;
-- order audit events;
-- `orders` Realtime publication;
-- dashboard same-origin order BFF endpoints;
-- canonical live transactional order regression;
-- security advisor 0 lints;
-- foreign-key index hardening.
-
-Formal product-feature status: PARTIAL because Flutter and React are intentionally not integrated in the backend task.
-
-## Immediate next work
-
-Continue `TASK-DEMO-ORDER-001` on `codex/task-demo-order-001-order-scheduling-backend` with frontend integration only:
-
-1. Flutter authoritative quote + ASAP/scheduled checkout.
-2. Flutter real placement/history/status and `orders` Realtime re-fetch.
-3. Dashboard POS authoritative quote/place.
-4. Dashboard live Scheduled/Confirmed/Preparing/Ready order board and versioned transitions.
-5. Full client toolchains and cross-client E2E.
-
-The frontend must preserve the established AIDA theme/design; this is integration work, not a redesign.
-
-## After the demo order flow
-
-High-impact follow-ons should consume trusted completed orders rather than client totals:
-
-1. loyalty earning/history;
-2. demo sales KPIs/recent orders;
-3. trusted payment/tender lifecycle;
-4. inventory depletion;
-5. branch-aware hours/capacity and branch-scoped operations when branch authority is designed.
+1. trusted payment capture/refunds;
+2. loyalty earning/redemption and voucher lifecycle;
+3. inventory/recipes/depletion;
+4. promotion/discount authority;
+5. tax/accounting and trusted reporting;
+6. branch-scoped staff/order visibility and branch capacity/hours;
+7. delivery and production release signing/distribution.

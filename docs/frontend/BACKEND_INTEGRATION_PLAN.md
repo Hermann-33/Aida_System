@@ -1,10 +1,10 @@
 # Customer Backend Integration Plan
 
-Updated: 2026-08-13
+Updated: 2026-08-14
 
 ## Auth/member
 
-Supabase Auth and owner-scoped member/profile source exist on the auth stack. Canonical live SQL regression and the full Flutter suite passed before TASK-DEMO-ORDER-001. ADR-0003's minimum offline QR material is cached durably per user and cleared on logout/user switch. Deployed/device Auth E2E remains open because approved real identities are absent.
+Supabase Auth and owner-scoped member/profile reads are integrated. Canonical live SQL regression and the full Flutter suite pass. ADR-0003's minimum offline QR material is cached durably per user and cleared on logout/user switch. On 2026-08-14 the user validated physical Android installation, customer signup, trusted profile/member provisioning and Dashboard Members visibility against the live project.
 
 ## Catalogue — integrated
 
@@ -12,7 +12,7 @@ Customer menu uses `CatalogueRepository` -> Supabase `get_catalogue()`. One snap
 
 Production runtime has no hardcoded migrated catalogue or `ItemSize` pricing authority.
 
-## Orders and scheduled pickup — backend ready, Flutter integration next
+## Orders and scheduled pickup — backend and Flutter integrated
 
 ADR-0010 and `docs/contracts/ORDER_AND_SCHEDULING_CONTRACT.md` are authoritative.
 
@@ -25,7 +25,7 @@ The live backend now provides:
 - `get_my_orders(integer)`
 - owner-scoped `orders` Realtime
 
-### Required Flutter integration
+### Implemented Flutter integration
 
 1. Keep the current cart as **selection state**, not commercial authority.
 2. Build a trusted payload from catalogue item IDs, variant IDs, add-on IDs, quantities and notes.
@@ -64,9 +64,9 @@ No real payment processor exists. Remove/disable UI that implies Cash/Card/E-wal
 
 ## Customer validation result
 
-Implemented on the shared task branch. Flutter 3.44.9 passes pub get, zero-issue analyze and 40/40 tests, including quote/scheduling/idempotency/cart/history-status/Realtime behavior. No golden baseline changed. Deployed real-identity cross-client proof remains external work under ADR-0004.
+Implemented on the shared task branch. Flutter 3.44.9 passes pub get, zero-issue analyze and 44/44 tests, including Auth/member, catalogue, quote/scheduling/idempotency/cart/history-status/Realtime and release-manifest behavior. No golden baseline changed. A clean committed checkout builds the Android release APK and the final APK declares `android.permission.INTERNET`. The user also proved live signup/member provisioning and an Admin catalogue price mutation appearing in the installed app. The remaining ADR-0004 gate is the Dashboard-backed customer order -> employee queue/status -> customer Realtime journey.
 
-## Validation required after frontend implementation
+## Validation used for closeout
 
 - `flutter pub get`
 - `flutter analyze`
@@ -74,7 +74,7 @@ Implemented on the shared task branch. Flutter 3.44.9 passes pub get, zero-issue
 - focused quote/scheduling/idempotency/history/Realtime provider/repository tests
 - deliberate golden review for any changed cart/confirmation/history screens
 - no blind `--update-goldens`
-- cross-client demo proof once approved identities exist
+- cross-client order proof through the deployed Dashboard remains required
 
 ## Deferred customer backend domains
 

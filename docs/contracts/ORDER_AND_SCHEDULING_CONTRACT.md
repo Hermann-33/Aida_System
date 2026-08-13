@@ -2,6 +2,8 @@
 
 **Task:** `TASK-DEMO-ORDER-001`
 
+**Closeout status (2026-08-14):** the authoritative backend and customer Flutter integration are implemented and regression-tested. The shared tranche remains `PARTIAL` until Dashboard PR #12 proves POS quote/place, order queue/status handling, and the cross-client customer -> dashboard -> customer journey below.
+
 This contract is the implementation handoff from the completed shared backend to the customer and dashboard frontends. ADR-0010 is authoritative for architectural decisions.
 
 ## Backend state

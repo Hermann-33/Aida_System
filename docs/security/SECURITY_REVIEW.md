@@ -1,8 +1,8 @@
 # AIDA Café Security Review
 
-Updated: 2026-08-13
+Updated: 2026-08-14
 
-**Verdict:** identity, catalogue, and new order/scheduling authority are hardened at the backend boundary; overall demo feature remains `PARTIAL` until frontend integration and real-identity E2E.
+**Verdict:** identity, catalogue, order/scheduling authority and the customer Flutter integration are validated; the shared tranche remains `PARTIAL` until the Dashboard order frontend and deployed cross-client order journey are proven.
 
 ## Existing identity/catalogue controls
 
@@ -93,7 +93,7 @@ Canonical `supabase/tests/order_integration.sql` passed transactionally and prov
 - legal/stale/terminal transition enforcement;
 - cleanup leaves zero synthetic identities/orders/events.
 
-Supabase security advisor after both order migrations: **0 lints**.
+Supabase security advisor currently reports exactly one Auth warning: **Leaked Password Protection Disabled**. The exposed-schema/RLS security audit has no additional findings. Remediation is an Auth-platform setting documented at <https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection>; it does not justify weakening RLS or changing application authority.
 
 Performance advisor's initial four unindexed-FK INFO findings were resolved with a forward migration; final findings are only unused-index INFO expected on the empty/new dataset.
 
@@ -115,10 +115,9 @@ The following remain separate trusted domains:
 - branch scheduling hours/capacity
 - delivery
 
-## Remaining release/E2E gates
+## Release/E2E status
 
-- Flutter/frontend integration must remove local random order numbers, local-only order authority, fake payment completion, and timer-driven status progression.
-- Dashboard frontend must use server quote/place/queue/status endpoints rather than preview totals/order records as authority.
-- Real approved customer/staff/admin identities are still absent.
-- Existing Vercel preview still lacks its publishable Supabase runtime variables.
-- Cross-client customer placement -> dashboard status -> customer Realtime UI proof remains outstanding under ADR-0004.
+- The customer Flutter implementation uses server quote/place/history/status authority, stable idempotency, explicit Pay at counter, and no timer-manufactured order state.
+- A physical Android release install completed real customer signup and trusted profile/member provisioning; the member appeared in Dashboard Members.
+- A real Owner catalogue price mutation reached the installed customer app, and the prior Android failed-host-lookup defect did not recur.
+- Dashboard PR #12 must still prove server-backed POS placement, employee queue/status handling and the deployed customer placement -> dashboard status -> customer Realtime UI journey required by ADR-0004.

@@ -1,38 +1,54 @@
 # Active Context
 
 **As of:** 2026-08-14
-**Current implementation task:** `TASK-AUTH-006 — Android release APK network/Auth failure`
-**Current task verdict:** PARTIAL
+**Current task:** `TASK-CLOSEOUT-001 — complete and close the current AIDA implementation tranche`
+**Current verdict:** PARTIAL pending Dashboard order-frontend and cross-client order evidence
 
-## Current product reality
+## Current validated reality
 
-The shared Supabase identity/member, catalogue, ordering and scheduling boundaries remain unchanged. TASK-AUTH-006 is limited to Android release packaging and customer-safe Auth transport diagnostics.
+AIDA uses one Supabase backend for the Flutter customer app and React Dashboard/Admin/POS. Trusted identity/member, shared catalogue, authoritative ordering/scheduling, customer order UI, and Android release networking are implemented.
 
-The reported physical-phone release APK failed sign-in and sign-up with `SocketException: Failed host lookup` before any request reached Supabase. Audit proved that debug and profile manifests declared `android.permission.INTERNET`, while the main manifest and generated release merged manifest did not. Release builds do not merge the debug/profile overlays.
+User-validated physical Android evidence now closes the prior AUTH-006 gate:
 
-## TASK-AUTH-006 fix
+- the fresh release APK installed and connected successfully;
+- customer signup created a Supabase Auth user, profile, and member;
+- the member appeared in Dashboard Members;
+- an Owner catalogue price mutation appeared in the installed customer app;
+- the previous `Failed host lookup / SocketException` no longer blocked the app.
 
-Branch: `codex/task-auth-006-android-release-network`, stacked on `codex/task-auth-004-runtime-access-fix`.
+## Live baseline
 
-- `apps/customer/android/app/src/main/AndroidManifest.xml` now declares `android.permission.INTERNET` before `<application>`.
-- Retryable/network Auth failures map to `Unable to reach AIDA. Check your internet connection and try again.` without exposing raw exception, host or upstream details.
-- Existing mappings for invalid credentials, unconfirmed email, duplicate signup, rate limits and provisioning remain distinct.
-- Focused tests protect the production manifest and transport mapping.
+Read-only Supabase evidence collected on 2026-08-14:
 
-The runtime still targets `https://eswovqxqzfevcdwwcmuh.supabase.co` with a public `sb_publishable_…` client key. No service-role/secret credential, database migration, RLS policy, Auth role or data was changed.
+- Auth users: 9
+- profiles: 9
+- members: 6
+- owners: 1
+- admins: 1
+- staff: 1
+- orders: 0
+- catalogue revision: 15
 
-## Validation evidence
+These counts are a dated operational snapshot, not architectural invariants.
 
-- Supabase project status: `ACTIVE_HEALTHY`; live URL matches the Flutter default.
-- Pre-fix release merged manifest: INTERNET absent.
-- Flutter 3.44.9 analyze: no issues.
-- Flutter tests: 44/44 passed.
-- Fresh post-fix release APK built and `aapt dump permissions` reports `android.permission.INTERNET`.
-- APK: `apps/customer/build/app/outputs/flutter-apk/app-release.apk`, 63,863,395 bytes, SHA-256 `3A7B5F027B846F4BE58865C09ABADBC63DD7B3EAE446331D708EA2FC67AF1201`.
-- No physical Android device was connected; only Windows, Chrome and Edge were detected and `adb devices` was empty.
+All 14 intended public tables exist with RLS and FORCE RLS. All nine ordering RPC signatures exist. `orders` remains in `supabase_realtime`, and authenticated clients have no direct order insert/update authority.
 
-The branch’s existing AGP 8.7.0 cannot package the currently resolved AndroidX artifacts, which require AGP 8.9.1+. The final APK was produced using preserved local build-tool compatibility settings that are not part of this scoped source fix. A separate bounded build-tool task should make fresh release builds reproducible before those settings are removed permanently.
+The Supabase security advisor has one WARN: **Leaked Password Protection Disabled**. This is not fixed by application code and must not be reported as zero lints.
 
-## Remaining gate
+## Closeout changes and validation
 
-Transfer/install the new APK on the reporting Android phone, verify the old host-lookup error does not recur, then use an approved customer identity to prove session establishment, member/profile load and shared catalogue load. Until physical-device Auth succeeds, ADR-0004 keeps TASK-AUTH-006 `PARTIAL`.
+Android release configuration is now reproducible from committed Git:
+
+- Android Gradle Plugin 8.9.1
+- Gradle wrapper 8.11.1
+- Flutter Android migration compatibility properties committed
+
+Flutter 3.44.9 passes `flutter pub get`, zero-issue analysis, 44/44 tests, and release APK build in both the task checkout and an independent clean worktree. The release APK contains `android.permission.INTERNET`.
+
+Canonical Auth/member, catalogue, and order SQL regressions pass transactionally against the live project and leave retained counts unchanged. The tests now scope member-directory assertions to their synthetic rows and derive catalogue prices dynamically, so approved live identities and legitimate Admin price changes do not invalidate the regression harness.
+
+## Remaining closeout gate
+
+Dashboard PR #12 still records the POS authoritative quote/place UI, live order board/status UI, and customer-place → dashboard-transition → customer-authorized-refresh journey as outstanding. Customer PR #13 stays draft and this tranche stays PARTIAL until the Dashboard closeout provides passing toolchain/E2E evidence and its mirrored governance facts agree.
+
+Deferred product domains remain real payment/refunds, loyalty ledger/redemption, inventory, promotions, tax/accounting, reporting, branch-scoped operations/capacity, and delivery.

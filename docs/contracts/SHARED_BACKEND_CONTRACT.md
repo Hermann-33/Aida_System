@@ -1,6 +1,6 @@
 # Shared Backend Contract
 
-Updated: 2026-08-13
+Updated: 2026-08-14
 
 ## Authority
 
@@ -133,3 +133,7 @@ The following remain separate bounded tasks and must consume trusted order/payme
 - revenue/reporting
 - branch-specific scheduling/capacity
 - delivery
+
+## Closeout validation status
+
+Physical Android Auth/member provisioning and Dashboard-to-customer catalogue mutation propagation are validated. Customer order consumption and the authoritative backend are validated locally/transactionally. Dashboard PR #12 and the cross-client order lifecycle remain the only implementation-tranche gate; this status does not alter the contract above.

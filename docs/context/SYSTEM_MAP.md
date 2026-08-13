@@ -1,18 +1,53 @@
 # System Map
 
-Updated: 2026-08-13
+Updated: 2026-08-14
 
 | System | Runtime | Current trusted source |
 |---|---|---|
 | Customer | Flutter/Riverpod | Supabase Auth/member + shared catalogue + customer order RPCs |
-| Dashboard/Admin/POS | React/Vite | same-origin employee BFF + shared catalogue/member/order RPCs |
+| Dashboard/Admin/POS | React/Vite + same-origin BFF | trusted employee session + member/catalogue/order RPCs |
 | Backend | Supabase | Auth, Postgres, FORCE RLS, controlled RPCs, Realtime |
 
-## Catalogue flow
+## Current validated topology
+
+The user-validated demo topology is:
+
+```text
+Installed Android customer app
+        |
+        | public Supabase client / customer session
+        v
+Shared Supabase <------ caller JWT ------ Local Dashboard BFF
+        ^                                      ^
+        |                                      |
+        +---- catalogue/order invalidation ----+-- React Dashboard on local PC
+```
+
+The Dashboard employee access/refresh token stays HttpOnly and is not exposed to React. The customer app uses only the public project configuration and its own authenticated customer session.
+
+Dated closeout evidence on 2026-08-14 records 9 Auth users/profiles, 6 customer members, one owner, one admin, one staff profile, catalogue revision 15 and no retained live orders at the baseline. These values are observations, not architecture constants.
+
+## Auth/member flow — implemented and physically validated
+
+```text
+Android Sign Up
+ -> Supabase Auth
+ -> trusted new-user provisioning trigger
+ -> user_profiles(app_role=customer)
+ -> server-generated members row/member code
+ -> protected Dashboard Members read through Owner/Admin BFF session
+ -> new customer visible in Admin Members
+```
+
+Public signup cannot self-grant staff/admin/owner, member code or verified student state. Employee identities are separate from customer membership.
+
+The user physically validated this flow with a newly created Android customer.
+
+## Catalogue flow — implemented and physically validated
 
 ```text
 Admin Menu
- -> same-origin BFF cookie session
+ -> same-origin HttpOnly employee session
  -> admin/owner caller JWT
  -> save_catalogue_* RPC
  -> catalogue tables + audit + revision bump
@@ -22,39 +57,44 @@ Admin Menu
  -> updated menu shown
 ```
 
-The production customer menu and dashboard POS catalogue browser contain no runtime hardcoded catalogue fallback.
+The production customer menu and Dashboard POS catalogue browser contain no runtime hardcoded catalogue fallback.
 
-## Customer order flow
+The user physically validated a real Owner price mutation in Dashboard Admin Menu and observed the changed price in the installed Android app.
+
+## Customer order flow — implemented
 
 ```text
 Flutter cart selections
  -> quote_order(ids/qty/intent only)
- -> server revalidates catalogue and calculates MYR sen totals
+ -> server revalidates catalogue and calculates integer-sen totals
  -> customer chooses ASAP or server-policy-aligned scheduled pickup
  -> place_customer_order(clientRequestId + selections)
  -> trusted customer/member derived from auth session
- -> orders + immutable order_lines/order_line_addons snapshots
+ -> orders + immutable line/add-on snapshots
  -> order_events(created)
- -> order returned with server order number/status
+ -> server order number/status/total returned
+ -> owner history/detail + orders Realtime invalidation/refetch
 ```
 
-The customer cannot submit trusted prices/totals/order numbers/member IDs/status. Placement requires an active member and is idempotent per authenticated actor + `clientRequestId`.
+The customer cannot submit trusted prices, totals, order numbers, member IDs or status. Placement requires an active trusted member and is idempotent per authenticated actor + `clientRequestId`.
 
-## POS order flow
+## Dashboard POS order flow — backend implemented, React integration in closeout
+
+The trusted server/BFF path already exists:
 
 ```text
-POS cart selections
+POS selections
  -> POST /api/v1/orders/quote
  -> employee HttpOnly session validated by BFF
  -> caller JWT -> quote_order
- -> authoritative quote returned
+ -> authoritative quote
  -> POST /api/v1/orders/place
  -> caller JWT -> place_pos_order
  -> persisted guest POS order
  -> GET /api/v1/orders queue refresh
 ```
 
-The browser's preview/local cart remains selection state only. Persisted price/total/order identity comes from the backend.
+At the start of TASK-CLOSEOUT-001 the React `CounterWorkspace`/Orders rail still contains preview transaction/payment/order authority. Closeout must connect those live surfaces to the existing BFF. Until that integration lands, this diagram is the accepted trusted path, not a claim that the current React screen already completes it.
 
 ## Scheduled pickup
 
@@ -69,36 +109,39 @@ get_ordering_policy
  -> scheduled order persisted with status=scheduled
 ```
 
-Branch hours, closures and capacity are not yet authoritative and therefore are not presented as backend guarantees.
+Branch hours, closures and per-slot capacity are not authoritative and must not be presented as backend guarantees.
 
-## Fulfilment/status flow
+## Fulfilment/status flow — backend implemented, Dashboard UI pending closeout
 
 ```text
-Dashboard order board
+Dashboard live order board
  -> GET /api/v1/orders
  -> staff selects legal next state
  -> POST /api/v1/orders/status + expectedVersion
  -> transition_order_status
  -> orders row/statusVersion updated
  -> order_events appended
- -> customer receives authorized orders Realtime event
+ -> customer receives owner-authorized orders Realtime event
  -> Flutter calls get_order(orderId)
  -> UI renders persisted status
 ```
 
-Legal flow is `confirmed|scheduled -> preparing -> ready -> completed`, with cancellation allowed before ready. Completed/cancelled are terminal. Stale `statusVersion` changes fail.
+Legal flow is `confirmed|scheduled -> preparing -> ready -> completed`, with cancellation allowed before ready. Completed/cancelled are terminal. Stale `statusVersion` mutations fail.
 
-Because employee JWTs remain HttpOnly, the React dashboard must not expose a staff token to connect directly to Supabase Realtime. For the current demo it should poll/refetch the same-origin `/api/v1/orders` queue at a short safe interval and invalidate immediately after local mutations. Customer Flutter can use owner-scoped Supabase Realtime directly.
+Because employee JWTs remain HttpOnly, React must not expose a staff token for direct Supabase Realtime. The accepted live dashboard strategy is short same-origin BFF polling/refetch plus immediate invalidation after place/status mutations. Customer Flutter can use owner-scoped Supabase Realtime directly.
+
+## Android release boundary
+
+The main Android manifest now declares `android.permission.INTERNET`. The user installed the fixed release app and successfully reached live Supabase signup, closing the prior release host-resolution failure.
+
+TASK-CLOSEOUT-001 still must make the Android release build reproducible from committed Gradle/AGP configuration without a local stash/toolchain override.
 
 ## Deployment state
 
-Vercel project `aida-system-dashboard` exists and source builds there, but the current preview BFF is not operational until an operator configures:
+A Vercel project/deployment exists historically, but the hosted BFF runtime was not completed/configured. The currently validated demo path is **local Dashboard PC + cloud Supabase + installed Android app**.
 
-- `AIDA_SUPABASE_URL`
-- `AIDA_SUPABASE_PUBLISHABLE_KEY`
-
-A service-role key remains prohibited from Vite/browser code. Local dashboard + cloud Supabase + installed customer app can be used for demo/E2E once approved staff/customer identities exist.
+Hosted deployment is therefore deferred operational work, not a claim of production deployment and not a blocker for the accepted local demo closeout unless a later requirement changes that gate.
 
 ## Deferred authority
 
-Real payments/refunds, loyalty, inventory depletion, discounts, tax/accounting, revenue analytics, delivery, branch scheduling/capacity and branch-scoped operations remain separate trusted tasks.
+Real payments/refunds, loyalty, inventory depletion, discounts/promotions, tax/accounting, revenue reporting, delivery, branch scheduling/capacity and branch-scoped operations remain separate trusted tasks.

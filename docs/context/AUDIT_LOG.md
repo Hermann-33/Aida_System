@@ -1,5 +1,19 @@
 # Audit Log
 
+## 2026-08-14 — TASK-CLOSEOUT-001 — validated tranche evidence reconciliation
+
+**Verdict:** PARTIAL pending Android build reproducibility, Dashboard order frontend integration and final cross-client order E2E.
+
+Created coordinated integration branches `codex/task-closeout-001-tranche-completion` in both repositories and direct-to-default draft integration PRs: customer PR #13 -> `master` and Dashboard PR #12 -> `main`. Created a separate coordinated docs branch `codex/task-closeout-001-doc-sync` so validated evidence could be recorded without racing concurrent Codex implementation edits.
+
+Fresh live Supabase closeout evidence recorded 9 Auth users, 9 profiles, 6 customer members, one owner, one admin, one staff profile, no retained orders and catalogue revision 15. Employee identities remain separate from customer membership. Current security advisor state is one WARN, `auth_leaked_password_protection`, rather than the historical zero-finding state.
+
+The user physically installed the TASK-AUTH-006-fixed Android release path and successfully completed new customer signup. Supabase provisioned the trusted Auth/profile/member state and the customer appeared in Dashboard Members. The user then used a real Owner dashboard session to change a catalogue price and observed the changed value in the installed customer app. These observations close the old physical Android transport/Auth, signup -> Members and Admin catalogue mutation -> installed-customer refresh gates.
+
+Current remaining tranche work is deliberately narrow: make Android release builds reproducible from committed Git without stash/local-only AGP settings; finish the Dashboard React authoritative POS quote/place/order-board/status integration using the existing order BFF; prove customer placement -> staff status transition -> customer authorized refresh; rerun both client toolchains/security checks; and reconcile final mirrored docs/PR mergeability. Hosted Vercel runtime remains deferred operational work for the accepted local-PC -> cloud-Supabase -> installed-phone demo topology.
+
+No passwords, service-role keys, employee bearer tokens or other secrets were added to repository documentation.
+
 ## 2026-08-14 — TASK-AUTH-006 — Android release APK network/Auth failure
 
 **Verdict:** PARTIAL pending physical-device Auth validation.

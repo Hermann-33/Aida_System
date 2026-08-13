@@ -4,182 +4,106 @@ Updated: 2026-08-13
 
 ## Current task
 
-`TASK-DEMO-ORDER-001 — live ordering, scheduled pickup, POS queue, and Realtime fulfilment`
+`TASK-AUTH-004 — customer Auth runtime + dashboard protected Admin access`
 
-**Overall verdict:** PARTIAL under ADR-0004 because the shared backend is implemented/validated but the Flutter and React integrations are intentionally left for the next Codex frontend pass.
+**Overall verdict:** PARTIAL.
 
 Shared branch in both repositories:
 
+`codex/task-auth-004-runtime-access-fix`
+
+Stack:
+
 `codex/task-demo-order-001-order-scheduling-backend`
+→ `codex/fix-auth-signup-diagnostics`
+→ `codex/task-auth-004-runtime-access-fix`
 
-The branch is stacked on each repository's `codex/task-auth-003-deployed-e2e` branch. Do not alter default branches or merge this stack out of order.
+Do not merge the stack out of order.
 
-## Backend implemented
+## Problem reproduced from current evidence
 
-### Supabase
+### Customer
 
-Live project: `eswovqxqzfevcdwwcmuh`.
+The installed phone app still showed the generic Auth fallback. Fresh Supabase checks showed zero Auth users and no corresponding live identity/member row. The connector Auth log did not provide a recent signup event to correlate, so the old binary could not reveal the actual hosted Auth reason.
 
-Canonical customer-repo migrations:
+### Dashboard
 
-- `20260812182212_create_authoritative_orders_and_scheduling.sql`
-- `20260812183029_index_order_foreign_keys.sql`
+Members/Menu are protected Admin routes. `ProtectedRoute` performs a server session refresh; with no authenticated Admin session it correctly redirects away after the initial loading state. The live project currently has zero Auth users and zero trusted admin/owner profiles, so there is no valid identity that can satisfy that route today.
 
-They create and secure:
+This is not a reason to make Members public or bypass the route guard.
 
-- `order_schedule_settings`
-- `orders`
-- `order_lines`
-- `order_line_addons`
-- `order_events`
+## Changes on this branch
 
-Public order RPCs:
+### Customer repo
 
-- `get_ordering_policy()`
-- `quote_order(jsonb)`
-- `place_customer_order(jsonb)`
-- `place_pos_order(jsonb)`
-- `get_order(uuid)`
-- `get_my_orders(integer)`
-- `list_orders(text[], integer)`
-- `transition_order_status(uuid,text,bigint,text)`
-- `save_ordering_policy(jsonb)`
+- `apps/customer/lib/main.dart`
+  - active AIDA Supabase URL remains the default;
+  - active AIDA **publishable** key is now also a safe public default;
+  - explicit `--dart-define` values can still override both;
+  - no service-role/secret key is present.
+- `apps/customer/lib/data/repository/supabase_member_repository.dart`
+  - known Auth errors retain explicit mapping;
+  - unknown `AuthException` messages are normalized/capped and shown so the next physical-device attempt exposes the real upstream reason.
 
-Clients submit IDs/quantities/notes/fulfilment intent only. The backend validates the current shared catalogue and owns price, totals, order IDs/numbers, trusted identity, status and schedule acceptance. Historical line/add-on commercial data is persisted as immutable snapshots.
+### Dashboard repo
 
-Placement requires a `clientRequestId` UUID. Identical retries return the same order; using the same key for different content fails.
+- `vite.config.ts`
+  - local BFF receives the active AIDA URL/publishable key by default;
+  - explicit env values override defaults;
+  - no service-role/secret key.
+- `src/auth/ProtectedRoute.tsx`
+  - still fail-closed;
+  - redirects unauthenticated Admin navigation to `/admin/login` with selected destination + session error context.
+- `src/pages/AdminLoginPage.tsx`
+  - tells the operator why Members/Menu require Admin sign-in;
+  - returns to the originally selected Admin route after successful login;
+  - distinguishes credentials, authorization, disabled-account, local BFF config and network errors.
 
-### Scheduling
+## Supabase status
 
-Current server policy:
+Fresh live state on 2026-08-13:
 
-- timezone `Asia/Kuala_Lumpur`
-- enabled
-- minimum lead 15 minutes
-- slot interval 15 minutes
-- maximum advance 7 days
+- Auth users: 0
+- admin/owner profiles: 0
+- security advisor: 0 lints
+- provisioning trigger/function/member-code authority unchanged
 
-Branch-hours/closures/capacity are not yet authoritative and therefore are not enforced or claimed by this task.
+No direct `auth.users` SQL insert was used.
 
-### Fulfilment / Realtime
+A temporary exact-account Admin-API bootstrap Edge Function was deployed for investigation, but the tool environment could not invoke the public function URL. No user was created. The function was immediately superseded by a disabled HTTP-410 version.
 
-Statuses:
+## Required local validation
 
-`confirmed`, `scheduled`, `preparing`, `ready`, `completed`, `cancelled`.
+### Customer
 
-Legal staff transitions:
+From the customer checkout:
 
-```text
-confirmed -> preparing | cancelled
-scheduled -> preparing | cancelled
-preparing -> ready | cancelled
-ready -> completed
-```
+1. fetch/switch/pull `codex/task-auth-004-runtime-access-fix`;
+2. `cd apps/customer`;
+3. run `flutter pub get`, `flutter analyze`, `flutter test`;
+4. rebuild/install the app on the physical Android phone;
+5. attempt signup again.
 
-Transitions use expected `statusVersion` concurrency and append `order_events` evidence.
+If signup still fails, report the **new exact Auth text**. Do not report only the old generic message; that means the phone is still running an older binary.
 
-`orders` is published to Supabase Realtime alongside the existing `catalogue_revision`. Clients re-fetch an authorized full snapshot after an order-header change.
+### Dashboard
 
-### Dashboard server/BFF
+From the dashboard checkout:
 
-No React UI was changed.
+1. fetch/switch/pull `codex/task-auth-004-runtime-access-fix`;
+2. `npm ci`;
+3. `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`;
+4. restart `npm run dev`;
+5. select Members or Menu.
 
-New server endpoints:
+Expected behavior without an identity: explicit redirect to Admin sign-in, not an unexplained disappearing tab.
 
-- `GET /api/v1/orders/policy`
-- `GET /api/v1/orders`
-- `GET /api/v1/orders/detail?id=<uuid>`
-- `POST /api/v1/orders/quote`
-- `POST /api/v1/orders/place`
-- `POST /api/v1/orders/status`
-- `POST /api/v1/admin/orders/policy`
+Expected behavior after a trusted Admin/owner identity exists: sign in once, then return to the selected Members/Menu route and load through the existing caller-JWT BFF/RLS path.
 
-Privileged calls use the existing HttpOnly employee session, same-origin POSTs, the publishable Supabase project key, and the caller JWT. No service-role credential or employee token is exposed to browser JavaScript.
+## Identity bootstrap gate
 
-## Backend validation evidence
+The remaining blocker is a real Auth identity. Once customer signup succeeds (or an Auth user is created through the Supabase Auth Admin surface), the intended operator can be promoted through the trusted DB/operator boundary to `admin`/`owner`. Do not allow public signup metadata or a browser request to self-assign that role.
 
-Canonical `supabase/tests/order_integration.sql` passed transactionally against the live project.
+## Next product task after AUTH-004 validation
 
-Proved:
-
-- forged client price/total values are ignored;
-- `2 × Salted Caramel Latte / Medium / Oat Milk` resolves from live catalogue truth to 3080 sen;
-- incompatible add-ons and invalid past schedules fail;
-- customer scheduled placement persists trusted immutable snapshots;
-- same `clientRequestId` retry does not duplicate;
-- changed payload with reused idempotency key fails;
-- customer history is owner-scoped;
-- customer direct order DML and status transition fail;
-- staff sees queue and can create a guest POS order;
-- `scheduled -> preparing -> ready -> completed` works;
-- stale status versions and illegal terminal transitions fail;
-- staff cannot update scheduling policy; admin can;
-- regression rollback leaves zero synthetic identities/orders/events.
-
-Supabase security advisor: **0 lints**.
-
-Performance advisor: only `unused_index` INFO after a forward migration added all missing foreign-key covering indexes.
-
-Dashboard `server/orderBff.ts` passes isolated strict TypeScript 5.8.3 compilation under the repository server compiler rules. `server/orderBff.test.ts` adds contract coverage for publishable-key public policy reads, staff caller-JWT queue/quote/place, same-origin rejection, optimistic-conflict mapping, and admin-only policy writes.
-
-## Frontend integration state
-
-### Customer Flutter — locally complete
-
-The customer now consumes ADR-0010:
-
-- authoritative quote runs before placement and supplies the rendered final total;
-- ASAP / Schedule-for-later reads `get_ordering_policy()` and derives timezone-aware slots;
-- placement reuses one `clientRequestId` across failed retries and resets it after success;
-- `place_customer_order()` returns the persisted snapshot that clears the cart;
-- backend snapshots replace random order numbers and local `PastOrder` authority;
-- confirmation/history/detail render persisted status with no client timer;
-- owner-scoped `orders` Realtime invalidates and re-fetches full snapshots;
-- existing AIDA visual language is retained with explicit `Pay at counter` copy.
-
-Flutter 3.44.9: pub get passed, analyze has zero issues, full suite passes 40/40. Live read-only verification found all five customer RPCs, `orders` in Realtime, FORCE RLS, anonymous placement denied, authenticated execution granted, 0 security lints, and 0 retained order rows.
-
-### Dashboard React
-
-Keep preview POS cart editing only as selection state, but make quote/place totals and persisted orders authoritative through the BFF:
-
-- quote current cart through `/api/v1/orders/quote`;
-- place ASAP or scheduled POS orders through `/api/v1/orders/place`;
-- add the live staff order board/queue using `/api/v1/orders`;
-- visually distinguish Scheduled / Confirmed / Preparing / Ready;
-- transition statuses through `/api/v1/orders/status` with `expectedVersion`;
-- refresh/refetch on order Realtime changes or a safe query invalidation strategy;
-- preserve existing AIDA dashboard components/tokens/layout conventions.
-
-No real payment processor exists. Frontend must use an explicit `Pay at counter`/unpaid demo path and must remove or disable copy that falsely implies Card/E-wallet/Student Wallet was processed.
-
-## Required frontend sources
-
-In both repos read normal governance docs first, then:
-
-- `docs/decisions/ADR-0010-authoritative-ordering-and-scheduled-fulfilment.md`
-- `docs/contracts/ORDER_AND_SCHEDULING_CONTRACT.md`
-
-Do not re-design the backend contract in frontend work unless actual repository/live evidence shows a defect.
-
-## Existing external validation debt
-
-TASK-AUTH-003 remains PARTIAL because the Vercel preview lacks its two publishable Supabase environment variables and the live project has zero approved real customer/staff/admin identities. Those operator gates will still be needed for a real-identity deployed E2E.
-
-For a local demo, the dashboard may run locally against the same Supabase project once an approved staff/admin identity exists; the customer app/device can independently use the same cloud project.
-
-## Exact next task
-
-Continue `TASK-DEMO-ORDER-001` in the dashboard repository with POS/order-board frontend integration. Once approved identities and configured deployments exist, prove:
-
-```text
-customer quote + ASAP/scheduled placement
--> persisted order
--> dashboard queue
--> staff Preparing/Ready/Completed transition
--> running customer app Realtime event
--> authorized re-fetch
--> visible status update without a fake timer
-```
-
-Do not begin payment, loyalty, inventory or analytics authority until this trusted order flow is integrated.
+Resume the dashboard half of `TASK-DEMO-ORDER-001`: authoritative POS quote/place plus the live Scheduled/Confirmed/Preparing/Ready order board and status transitions. Keep payment, loyalty, inventory and reporting authority out of scope until the order flow closes end to end.

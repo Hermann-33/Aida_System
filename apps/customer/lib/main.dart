@@ -12,8 +12,14 @@ const _supabaseUrl = String.fromEnvironment(
   'AIDA_SUPABASE_URL',
   defaultValue: 'https://eswovqxqzfevcdwwcmuh.supabase.co',
 );
+
+// Supabase publishable keys are intentionally public client configuration,
+// unlike service-role/secret keys. Keeping the active AIDA publishable key as
+// the default removes a fragile build-time requirement for installed demo
+// builds while still allowing CI/development to override it with --dart-define.
 const _supabasePublishableKey = String.fromEnvironment(
   'AIDA_SUPABASE_PUBLISHABLE_KEY',
+  defaultValue: 'sb_publishable_7WXAYCzC5ed6AdHTmskD6w_lapuztIT',
 );
 
 Future<void> main() async {

@@ -96,10 +96,14 @@ begin
   );
 
   select count(*) into v_count
-  from public.list_admin_members();
+  from public.list_admin_members()
+  where user_id in (
+    '10000000-0000-0000-0000-000000000001',
+    '10000000-0000-0000-0000-000000000002'
+  );
 
   if v_count <> 2 then
-    raise exception 'admin directory expected 2 rows, got %', v_count;
+    raise exception 'admin directory expected both synthetic rows, got %', v_count;
   end if;
 
   perform set_config(

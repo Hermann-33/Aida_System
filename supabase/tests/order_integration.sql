@@ -52,13 +52,26 @@ declare
   v_item_id uuid;
   v_variant_id uuid;
   v_addon_id uuid;
+  v_expected_unit integer;
 begin
-  select id into v_item_id from public.catalogue_items where sku = 'CF-SCL';
-  select v.id into v_variant_id
+  select id into strict v_item_id
+  from public.catalogue_items
+  where sku = 'CF-SCL';
+  select v.id into strict v_variant_id
   from public.catalogue_item_variants v
   join public.catalogue_items i on i.id = v.item_id
   where i.sku = 'CF-SCL' and v.code = 'medium';
-  select id into v_addon_id from public.catalogue_items where sku = 'AD-OAT';
+  select id into strict v_addon_id
+  from public.catalogue_items
+  where sku = 'AD-OAT';
+
+  select item.base_price_sen + variant.price_delta_sen + addon.base_price_sen
+  into strict v_expected_unit
+  from public.catalogue_items item
+  join public.catalogue_item_variants variant
+    on variant.id = v_variant_id and variant.item_id = item.id
+  join public.catalogue_items addon on addon.id = v_addon_id
+  where item.id = v_item_id;
 
   select public.quote_order(jsonb_build_object(
     'fulfillmentType', 'asap',
@@ -73,9 +86,9 @@ begin
     ))
   )) into v_quote;
 
-  if (v_quote ->> 'totalSen')::bigint <> 3080
-     or (v_quote #>> '{lines,0,unitPriceSen}')::integer <> 1540
-     or (v_quote #>> '{lines,0,lineTotalSen}')::bigint <> 3080 then
+  if (v_quote ->> 'totalSen')::bigint <> v_expected_unit::bigint * 2
+     or (v_quote #>> '{lines,0,unitPriceSen}')::integer <> v_expected_unit
+     or (v_quote #>> '{lines,0,lineTotalSen}')::bigint <> v_expected_unit::bigint * 2 then
     raise exception 'authoritative quote did not resolve expected catalogue price';
   end if;
 
@@ -147,13 +160,29 @@ declare
   v_orders jsonb;
   v_pos_order jsonb;
   v_policy jsonb;
+  v_expected_unit integer;
+  v_expected_pos_total integer;
 begin
-  select id into v_item_id from public.catalogue_items where sku = 'CF-SCL';
-  select v.id into v_variant_id
+  select id into strict v_item_id
+  from public.catalogue_items
+  where sku = 'CF-SCL';
+  select v.id into strict v_variant_id
   from public.catalogue_item_variants v
   join public.catalogue_items i on i.id = v.item_id
   where i.sku = 'CF-SCL' and v.code = 'medium';
-  select id into v_addon_id from public.catalogue_items where sku = 'AD-OAT';
+  select id into strict v_addon_id
+  from public.catalogue_items
+  where sku = 'AD-OAT';
+  select item.base_price_sen + variant.price_delta_sen + addon.base_price_sen
+  into strict v_expected_unit
+  from public.catalogue_items item
+  join public.catalogue_item_variants variant
+    on variant.id = v_variant_id and variant.item_id = item.id
+  join public.catalogue_items addon on addon.id = v_addon_id
+  where item.id = v_item_id;
+  select base_price_sen into strict v_expected_pos_total
+  from public.catalogue_items
+  where sku = 'FD-SAN';
 
   -- Two hours ahead, aligned to a whole local hour and therefore a 15-minute slot.
   v_schedule := (
@@ -185,7 +214,7 @@ begin
   if v_order_id is null
      or v_order ->> 'status' <> 'scheduled'
      or v_order ->> 'fulfillmentType' <> 'scheduled'
-     or (v_order ->> 'totalSen')::bigint <> 3080
+     or (v_order ->> 'totalSen')::bigint <> v_expected_unit::bigint * 2
      or (v_order ->> 'statusVersion')::bigint <> 1
      or jsonb_array_length(v_order -> 'lines') <> 1 then
     raise exception 'customer scheduled order snapshot is invalid';
@@ -261,7 +290,7 @@ begin
   )) into v_pos_order;
   if v_pos_order ->> 'source' <> 'pos'
      or v_pos_order ->> 'status' <> 'confirmed'
-     or (v_pos_order ->> 'totalSen')::bigint <> 1290 then
+     or (v_pos_order ->> 'totalSen')::bigint <> v_expected_pos_total then
     raise exception 'staff POS order did not persist authoritative quote';
   end if;
 
@@ -319,7 +348,17 @@ $$;
 reset role;
 
 do $$
+declare
+  v_expected_unit integer;
 begin
+  select item.base_price_sen + variant.price_delta_sen + addon.base_price_sen
+  into strict v_expected_unit
+  from public.catalogue_items item
+  join public.catalogue_item_variants variant
+    on variant.item_id = item.id and variant.code = 'medium'
+  join public.catalogue_items addon on addon.sku = 'AD-OAT'
+  where item.sku = 'CF-SCL';
+
   if (select count(*) from public.order_events where order_id in (
     select id from public.orders where created_by_user_id = '30000000-0000-0000-0000-000000000001'
   )) <> 4 then
@@ -330,7 +369,11 @@ begin
     select 1 from public.order_lines l
     join public.orders o on o.id = l.order_id
     where o.created_by_user_id = '30000000-0000-0000-0000-000000000001'
-      and (l.sku_snapshot <> 'CF-SCL' or l.unit_price_sen <> 1540 or l.line_total_sen <> 3080)
+      and (
+        l.sku_snapshot <> 'CF-SCL'
+        or l.unit_price_sen <> v_expected_unit
+        or l.line_total_sen <> v_expected_unit::bigint * 2
+      )
   ) then
     raise exception 'persisted commercial order snapshot is incorrect';
   end if;

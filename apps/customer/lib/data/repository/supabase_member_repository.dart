@@ -233,12 +233,50 @@ class SupabaseMemberRepository implements MemberRepository {
         'email': 'An account already exists for this email',
       });
     }
+    if (message.contains('email address not authorized') ||
+        message.contains('email not authorized')) {
+      return const AuthFailure(
+        'This email cannot receive sign-up mail from the current AIDA Auth configuration. Use an authorized test email or configure SMTP/email confirmation.',
+      );
+    }
+    if (message.contains('signup is disabled') ||
+        message.contains('signups not allowed') ||
+        message.contains('signup disabled')) {
+      return const AuthFailure('New account sign-up is currently disabled');
+    }
+    if (message.contains('invalid email') ||
+        message.contains('unable to validate email') ||
+        message.contains('email address is invalid')) {
+      return const ValidationFailure({
+        'email': 'Enter a valid email address',
+      });
+    }
+    if (message.contains('rate limit') ||
+        message.contains('too many requests') ||
+        message.contains('too many attempts')) {
+      return const AuthFailure(
+        'Too many authentication attempts. Try again shortly.',
+      );
+    }
+    if (message.contains('captcha')) {
+      return const AuthFailure(
+        'Authentication verification failed. Try again.',
+      );
+    }
+    if (message.contains('database error saving new user') ||
+        message.contains('database error creating new user')) {
+      return const ServerFailure(
+        'Account provisioning failed on the server. Try again or check the Auth logs.',
+      );
+    }
     if (message.contains('password')) {
       return const ValidationFailure({
         'password': 'Password does not meet the account requirements',
       });
     }
-    return const AuthFailure('Authentication failed');
+    return const AuthFailure(
+      'Authentication failed. Check your email and account settings, then try again.',
+    );
   }
 
   @override

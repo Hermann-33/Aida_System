@@ -1,54 +1,110 @@
 # Active Context
 
-**As of:** 2026-08-14
+**As of:** 2026-08-17
 **Current task:** `TASK-CLOSEOUT-001 — complete and close the current AIDA implementation tranche`
-**Current verdict:** PARTIAL pending Dashboard order-frontend and cross-client order evidence
+**Current verdict:** PARTIAL — implementation is complete; one live cross-client order E2E gate remains.
 
-## Current validated reality
+## Current product reality
 
-AIDA uses one Supabase backend for the Flutter customer app and React Dashboard/Admin/POS. Trusted identity/member, shared catalogue, authoritative ordering/scheduling, customer order UI, and Android release networking are implemented.
+AIDA Café uses one Supabase backend for the Flutter customer app and the React Dashboard/Admin/POS. The current tranche now has implemented, tested authority for customer Auth/member provisioning, protected employee/Admin sessions, shared catalogue, authoritative ordering/scheduling, customer order history/status, Dashboard POS quote/place/order queue/status transitions, and Android release networking/build reproducibility.
 
-User-validated physical Android evidence now closes the prior AUTH-006 gate:
+## Validated physical/manual evidence
 
-- the fresh release APK installed and connected successfully;
-- customer signup created a Supabase Auth user, profile, and member;
-- the member appeared in Dashboard Members;
-- an Owner catalogue price mutation appeared in the installed customer app;
-- the previous `Failed host lookup / SocketException` no longer blocked the app.
+The user has already validated on a physical Android phone and local Dashboard:
 
-## Live baseline
+- release APK installation and Supabase connectivity;
+- new customer signup;
+- trusted Auth/profile/member provisioning;
+- the new member appearing in protected Dashboard Members;
+- real Owner Dashboard login;
+- Owner catalogue price mutation;
+- the installed customer app observing the updated catalogue value.
 
-Read-only Supabase evidence collected on 2026-08-14:
+The previous Android `Failed host lookup / SocketException` release defect is closed.
+
+## Last verified live Supabase baseline
+
+Read-only evidence collected on 2026-08-14:
 
 - Auth users: 9
 - profiles: 9
 - members: 6
-- owners: 1
-- admins: 1
-- staff: 1
-- orders: 0
+- trusted roles: 1 owner, 1 admin, 1 staff
+- retained orders: 0
 - catalogue revision: 15
 
-These counts are a dated operational snapshot, not architectural invariants.
+These counts are dated evidence, not architectural invariants. Employee identities are intentionally separate from customer/member rows.
 
-All 14 intended public tables exist with RLS and FORCE RLS. All nine ordering RPC signatures exist. `orders` remains in `supabase_realtime`, and authenticated clients have no direct order insert/update authority.
+All intended identity, catalogue and order tables retain RLS/FORCE RLS; the ordering RPC surface exists; `orders` remains published to Realtime; ordinary customer clients do not have direct commercial order DML authority.
 
-The Supabase security advisor has one WARN: **Leaked Password Protection Disabled**. This is not fixed by application code and must not be reported as zero lints.
+## Customer implementation status
 
-## Closeout changes and validation
+COMPLETE for the current tranche:
 
-Android release configuration is now reproducible from committed Git:
+- Supabase Auth/session/signup/logout and trusted profile/member provisioning;
+- server-owned member code and student pending declaration boundary;
+- minimum per-user offline member-code cache with logout/user-switch isolation;
+- shared catalogue, variants/add-ons and revision invalidation/refetch;
+- authoritative quote-before-place and server-owned totals;
+- retry-stable idempotent customer placement;
+- ASAP/scheduled pickup from server policy;
+- explicit `Pay at counter`/unpaid semantics;
+- persisted server order number/status/history/detail;
+- owner-scoped order Realtime invalidation followed by authorized refetch;
+- Android production INTERNET permission;
+- reproducible Android release build from committed Git.
 
-- Android Gradle Plugin 8.9.1
-- Gradle wrapper 8.11.1
-- Flutter Android migration compatibility properties committed
+Customer validation: Flutter 3.44.9, pub get PASS, analyze PASS, 44/44 tests PASS, release APK PASS in the task checkout and an independent clean committed worktree. Canonical Auth/member, catalogue and order SQL regressions pass transactionally.
 
-Flutter 3.44.9 passes `flutter pub get`, zero-issue analysis, 44/44 tests, and release APK build in both the task checkout and an independent clean worktree. The release APK contains `android.permission.INTERNET`.
+## Dashboard implementation status
 
-Canonical Auth/member, catalogue, and order SQL regressions pass transactionally against the live project and leave retained counts unchanged. The tests now scope member-directory assertions to their synthetic rows and derive catalogue prices dynamically, so approved live identities and legitimate Admin price changes do not invalidate the regression harness.
+COMPLETE for the current tranche:
+
+- same-origin employee/Admin BFF with HttpOnly session cookies and caller-JWT Supabase access;
+- protected Admin Members;
+- shared catalogue reads and protected Admin mutations;
+- TASK-AUTH-005 preview/live session separation;
+- typed same-origin order client;
+- POS cart mapped to server-trusted IDs/quantity/note intent only;
+- server quote rendered as commercial authority;
+- stable `clientRequestId` for placement retries;
+- ASAP/scheduled pickup derived from server policy;
+- cart cleared only after persisted placement;
+- explicit `Pay at counter`/unpaid semantics;
+- live order queue polling every ~2.5 seconds with no preview-order fallback;
+- legal versioned status transitions and 409 conflict refetch;
+- no browser employee bearer-token persistence.
+
+Dashboard validation: lint PASS with two existing Fast Refresh warnings, typecheck PASS, 25 Vitest files / 111 tests PASS, build PASS, Playwright 8/8 PASS, `git diff --check` PASS, and final `npm audit` 0 vulnerabilities.
 
 ## Remaining closeout gate
 
-Dashboard PR #12 still records the POS authoritative quote/place UI, live order board/status UI, and customer-place → dashboard-transition → customer-authorized-refresh journey as outstanding. Customer PR #13 stays draft and this tranche stays PARTIAL until the Dashboard closeout provides passing toolchain/E2E evidence and its mirrored governance facts agree.
+The only remaining ADR-0004 gate is a fresh supported live order journey:
 
-Deferred product domains remain real payment/refunds, loyalty ledger/redemption, inventory, promotions, tax/accounting, reporting, branch-scoped operations/capacity, and delivery.
+customer authoritative placement
+→ persisted Supabase order
+→ Dashboard queue observation
+→ staff preparing
+→ staff ready
+→ customer authorized refresh observes changed persisted status
+→ staff completed
+→ customer authorized refresh observes completion.
+
+Use approved demo credentials only through ephemeral runtime input. Do not commit passwords, reset durable demo credentials, use service role, or insert an order directly with SQL.
+
+## Security and deployment
+
+Current Supabase security advisor evidence has one hosted Auth warning: `auth_leaked_password_protection` / **Leaked Password Protection Disabled**. This is operational project configuration debt, not an RLS regression.
+
+Hosted/Vercel deployment remains **DEFERRED**. The accepted current demo topology is local Dashboard PC → cloud Supabase → installed customer phone.
+
+## Integration PRs
+
+- Customer PR #13 → `master`: draft, mergeable.
+- Dashboard PR #12 → `main`: draft, mergeable.
+
+Both remain draft until the final live order E2E is recorded, mirrored docs are reconciled after that run, and final merge-readiness checks pass.
+
+## Deferred product domains
+
+Real payment/refunds, loyalty ledger/redemption, inventory, promotions/discount authority, tax/accounting, trusted reporting, branch-scoped operations/capacity, delivery and production deployment/release operations remain future bounded tasks.

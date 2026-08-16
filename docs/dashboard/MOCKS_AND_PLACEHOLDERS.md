@@ -1,52 +1,67 @@
 # POS/Admin Mocks and Placeholders Register
 
-Updated: 2026-08-13
+Updated: 2026-08-17
 
-## No longer preview in Admin Menu or POS browsing
+## No longer preview in trusted current paths
 
-Admin Menu categories/items/prices/publication/availability/variants/add-on compatibility come from the shared Supabase catalogue through the BFF. POS menu/category cards and modifier choices use the same shared snapshot. `PREVIEW_MENU`, `PREVIEW_CATEGORIES` and `PREVIEW_MODIFIER_GROUPS` are not runtime catalogue authority.
+The following are live/shared-backend integrations rather than preview authority:
 
-## Order/POS placeholders that must now be replaced by frontend integration
+- protected Admin Members directory;
+- Admin Menu categories/items/prices/publication/availability/variants/add-on compatibility;
+- POS catalogue browsing/customization;
+- authoritative POS quote/place;
+- ASAP/scheduled pickup policy;
+- live order queue/detail;
+- versioned fulfilment status transitions.
 
-The authoritative order/scheduling backend is live, so these runtime concepts can remain only as temporary UI interaction state—not trusted persistence/business truth:
+`PREVIEW_MENU`, `PREVIEW_CATEGORIES`, `PREVIEW_MODIFIER_GROUPS` and preview transaction/order records are not runtime authority for those trusted paths.
 
-- client-computed POS cart/order totals shown as if final;
+## Removed order/POS preview authority
+
+The active POS placement and Orders rail no longer treat these as trusted persistence/business truth:
+
+- client-computed cart/order totals shown as final;
 - preview/local order records standing in for persisted orders;
 - preview order-number generation;
-- fake checkout completion/tender/payment success;
+- fake checkout/tender/payment success;
 - local-only order lifecycle/status;
-- absence of the live Scheduled/Confirmed/Preparing/Ready staff queue;
-- absence of server-policy-backed ASAP/Schedule-for-later placement.
+- preview orders as queue fallback;
+- fake status progression or local completion authority.
 
-Codex must connect the existing POS surfaces to `/api/v1/orders/*` without redesigning the application.
+The existing POS surfaces use `/api/v1/orders/*` without replacing the established AIDA design system.
 
-## Allowed local UI state after integration
+## Allowed local UI state
 
 The browser may keep:
 
 - current unsaved cart selections;
 - item/variant/add-on/quantity/note interaction state;
+- local estimate before server quote;
 - selected ASAP/scheduled intent before quote;
 - view/filter/dialog/loading/error state;
 - one `clientRequestId` reused across retries of the same intended placement.
 
-But the persisted quote total, order number, schedule acceptance and order status must come from the BFF/backend.
+Persisted quote total, order number, schedule acceptance and order status come from the BFF/backend.
 
 ## Payment demo boundary
 
-No trusted processor exists. Use an explicit `Pay at counter`/unpaid path. Existing tender/payment previews must not be presented as settled real transactions in the integrated demo order flow.
+No trusted processor exists. Use explicit `Pay at counter`/unpaid semantics. Existing tender/payment previews must not be presented as settled real transactions.
 
-## Still preview beyond TASK-DEMO-ORDER-001
+## Still preview/deferred beyond TASK-CLOSEOUT-001
 
 - loyalty/rewards;
-- terminal/shift authority not already backed by trusted identity;
-- branches/branch scope;
+- terminal/device enrolment authority beyond current preview/local behavior;
+- shift/cash authority;
+- branches/branch scope and employee-management mutations not yet backed by trusted server contracts;
 - inventory and depletion;
-- marketing;
+- marketing publication;
 - real payment/refund processing;
 - tax/accounting;
 - sales/revenue reporting;
 - branch opening-hours/capacity scheduling;
-- most settings.
+- many settings/integration/audit presentation surfaces;
+- hosted production deployment/release operations.
 
-Admin Inventory and Sales Performance may still intentionally derive fake/demo rows from preview fixtures; they must remain clearly outside production inventory/reporting authority and must not be used as order/catalogue truth.
+Admin Inventory and Sales Performance may intentionally derive demo rows from preview fixtures; those rows remain outside production inventory/reporting authority and must not be used as order/catalogue truth.
+
+The final live order E2E validates the current trusted order path only; it does not promote these deferred domains.

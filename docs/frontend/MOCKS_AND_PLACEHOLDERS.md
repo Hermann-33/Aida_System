@@ -1,50 +1,55 @@
 # Customer Mocks and Placeholders Register
 
-Updated: 2026-08-14
+Updated: 2026-08-17
 
 ## Removed from production runtime
 
 - hardcoded menu categories/items/prices/availability/images;
 - static Small/Medium/Large `ItemSize` enum and deltas;
 - category-name logic for whether sizes/add-ons apply;
-- fake catalogue ratings and bonus-point presentation.
-
-Customer catalogue now fails visibly if the backend is unavailable; it does not fall back to sample menu data.
-
-## Test-only catalogue data
-
-`test/support/test_catalogue_repository.dart` is an explicit 4-category/16-item test fixture and is never wired as a production fallback. Its values exist only to keep isolated widget/golden coverage representative of the canonical seed.
-
-## Removed order/checkout placeholders
-
-The live customer runtime no longer uses these obsolete placeholders:
-
-- random local order-number generation in checkout;
+- fake catalogue ratings and bonus-point presentation;
+- random local order-number generation;
 - local-only `PastOrder` persistence/history as order truth;
-- the fixed local `OrderStatus.ready` model;
-- the timer-driven confirmation timeline that automatically moves through preparing/ready;
-- cart-derived subtotal being treated as the final trusted order total;
-- payment-method copy that implies Cash/Card/E-wallet/Student Wallet was actually processed;
+- fixed/local order status authority;
+- timer-driven fulfilment progression;
+- cart-derived subtotal as final trusted order total;
+- payment-method copy implying a processor payment succeeded;
 - absence of server-policy-backed ASAP/Schedule-for-later selection.
 
-ADR-0010 and `ORDER_AND_SCHEDULING_CONTRACT.md` now replace them while preserving the existing visual design. The explicit test repository remains test-only.
+Customer catalogue/order flows now fail visibly when the backend boundary fails; they do not fall back to sample commercial/order authority.
 
-## Allowed local UI state after integration
+## Test-only data
 
-The following may remain local because they are interaction state, not trusted business authority:
+`test/support/test_catalogue_repository.dart` is an explicit catalogue fixture used only for isolated test/golden coverage. `test/support/test_order_repository.dart` is likewise test-only order coverage. Neither is wired as a production fallback.
 
-- current cart selections before quote;
+## Allowed local UI state
+
+The following may remain local because they are interaction state rather than trusted business authority:
+
+- cart selections before quote;
 - selected item/variant/add-on/quantity/note choices;
 - selected ASAP vs scheduled option before server validation;
 - temporary loading/error/expanded/collapsed state;
-- a placement `clientRequestId` retained across retries of the same intended order.
+- local display estimates before authoritative quote;
+- one placement `clientRequestId` retained across retries of the same intended order;
+- local favourites and other explicitly non-authoritative presentation state.
 
-Once quoted/placed, displayed commercial totals/order number/status must come from the backend response.
+Once quoted/placed, displayed commercial totals, order number and fulfilment status come from the backend response/snapshot.
 
 ## Payment demo boundary
 
-Until a real payment task exists, use an explicit `Pay at counter`/unpaid demo path. Do not fake payment-success state or a processor transaction.
+Until a real payment task exists, use explicit `Pay at counter`/unpaid semantics. Do not fake payment-success state, processor transactions or refunds.
 
-## Still preview/untrusted beyond this task
+## Still preview/untrusted beyond this tranche
 
-Loyalty/rewards/offers/promotions, real payment/refund handling, inventory, branch-capacity scheduling, tax/accounting, notifications and reporting remain preview/unimplemented until their bounded trusted backend tasks.
+- loyalty/rewards/offers/promotions;
+- real payment/refund handling;
+- inventory/depletion;
+- branch-capacity scheduling;
+- tax/accounting;
+- notifications;
+- trusted reporting;
+- several profile/settings/support surfaces;
+- hosted production deployment/release operations.
+
+The final live order E2E validates the current trusted Auth/catalogue/order boundary but does not promote these deferred areas to production authority.

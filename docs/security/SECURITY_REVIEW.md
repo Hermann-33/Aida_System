@@ -1,8 +1,8 @@
 # AIDA Café Security Review
 
-Updated: 2026-08-14
+Updated: 2026-08-17
 
-**Verdict:** identity, catalogue, order/scheduling authority and the customer Flutter integration are validated; the shared tranche remains `PARTIAL` until the Dashboard order frontend and deployed cross-client order journey are proven.
+**Verdict:** identity, catalogue and order/scheduling authority are hardened across the dashboard boundary; the credential-bound cross-client order E2E passes.
 
 ## Existing identity/catalogue controls
 
@@ -16,7 +16,7 @@ Updated: 2026-08-14
 
 ## TASK-DEMO-ORDER-001 order controls
 
-All new order/scheduling tables use RLS + FORCE RLS:
+All order/scheduling tables use RLS + FORCE RLS:
 
 - `order_schedule_settings`
 - `orders`
@@ -32,7 +32,7 @@ Authenticated browser/mobile roles have no direct INSERT/UPDATE grants on order 
 - Item/variant/add-on compatibility is revalidated server-side.
 - Customer/member identity is derived from `auth.uid()` plus the active member row, never request JSON.
 - POS placement requires staff-or-above.
-- Order UUID, numeric order number, price snapshots, totals, initial status, timestamps, and audit events are server-owned.
+- Order UUID, numeric order number, price snapshots, totals, initial status, timestamps and audit events are server-owned.
 - Persisted commercial fields are protected against later mutation by a database trigger.
 
 ### Idempotency
@@ -68,7 +68,7 @@ Only `orders` is added for order-status Realtime. Customer visibility remains ow
 
 ### Dashboard BFF
 
-New order BFF routes:
+Order BFF routes:
 
 - validate the existing employee HttpOnly session;
 - forward the caller JWT, not a service-role token;
@@ -93,9 +93,11 @@ Canonical `supabase/tests/order_integration.sql` passed transactionally and prov
 - legal/stale/terminal transition enforcement;
 - cleanup leaves zero synthetic identities/orders/events.
 
-Supabase security advisor currently reports exactly one Auth warning: **Leaked Password Protection Disabled**. The exposed-schema/RLS security audit has no additional findings. Remediation is an Auth-platform setting documented at <https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection>; it does not justify weakening RLS or changing application authority.
+At TASK-DEMO-ORDER-001 migration-validation time, the schema/RLS advisor returned **0 lints**. The current hosted project advisor state is not zero findings: it has the leaked-password-protection WARN described below.
 
-Performance advisor's initial four unindexed-FK INFO findings were resolved with a forward migration; final findings are only unused-index INFO expected on the empty/new dataset.
+Performance advisor's initial four unindexed-FK INFO findings were resolved with a forward migration; final findings are only unused-index INFO expected on the new dataset.
+
+The 2026-08-17 live E2E authenticated a real customer/member through Supabase Auth and a real Owner through the Dashboard HttpOnly BFF. Customer placement derived identity/member server-side and trusted only catalogue IDs/quantity/note. Dashboard status mutations used the same-origin BFF and expected status versions. Customer-owned reads observed `preparing`, `ready` and `completed`; the Dashboard observed the identical server record. Independent database verification confirms order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`) remains `completed` at version 4 with the expected event sequence. No service role, direct SQL insert, password reset, browser employee token persistence or credential-bearing repository file was used. Ephemeral credential variables were removed after the run.
 
 ## Explicitly untrusted / deferred
 
@@ -117,7 +119,17 @@ The following remain separate trusted domains:
 
 ## Release/E2E status
 
-- The customer Flutter implementation uses server quote/place/history/status authority, stable idempotency, explicit Pay at counter, and no timer-manufactured order state.
-- A physical Android release install completed real customer signup and trusted profile/member provisioning; the member appeared in Dashboard Members.
-- A real Owner catalogue price mutation reached the installed customer app, and the prior Android failed-host-lookup defect did not recur.
-- Dashboard PR #12 must still prove server-backed POS placement, employee queue/status handling and the deployed customer placement -> dashboard status -> customer Realtime UI journey required by ADR-0004.
+- Flutter authoritative order integration and Android reproducible build gates are complete for the current tranche.
+- Dashboard active POS uses server quote/place/queue/status endpoints rather than preview totals/order records as authority.
+- Approved real identities exist (9 Auth users; 1 owner, 1 admin, 1 staff; 6 members at the 2026-08-17 verification); demo credentials remain external ephemeral test inputs and are not repository data.
+- Physical Android signup → Dashboard Members and Owner catalogue mutation → installed-phone refresh are validated.
+- Customer placement → Dashboard observation/versioned transitions → customer authorized status refresh is validated with retained order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`).
+- Hosted deployment remains DEFERRED, not complete.
+
+## Current advisor state
+
+The Supabase security advisor reports one WARN: `auth_leaked_password_protection` / **Leaked Password Protection Disabled**. This is hosted Auth configuration debt, not a reason to weaken Auth or fabricate a source-code fix. Current documentation must not claim zero advisor findings.
+
+Remediation: <https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection>.
+
+The 2026-08-14 npm closeout audit initially reported 1 moderate and 4 high dependency advisories. Compatible lockfile updates remediated them without a major dependency upgrade; the final npm audit reports 0 vulnerabilities.

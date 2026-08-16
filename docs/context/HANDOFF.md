@@ -1,41 +1,88 @@
 # Current Handoff
 
-Updated: 2026-08-14
+Updated: 2026-08-17
 
 ## Task
 
 `TASK-CLOSEOUT-001 — complete and close the current AIDA implementation tranche`
 
-Customer branch: `codex/task-closeout-001-tranche-completion`
+Coordinated branches:
 
-Customer PR: #13, draft, targeting `master`.
+- customer: `codex/task-closeout-001-tranche-completion`
+- dashboard: `codex/task-closeout-001-tranche-completion`
 
-Dashboard coordination: PR #12 remains draft and currently reports its order frontend/E2E gates as outstanding.
+Integration PRs:
 
-**Verdict:** PARTIAL.
+- customer PR #13 → `master`
+- dashboard PR #12 → `main`
 
-## Closed customer gates
+Both are draft and technically mergeable.
 
-- Physical Android release networking/Auth passed.
-- Customer signup provisioned trusted Auth/profile/member records.
-- The new member appeared in Dashboard Members.
-- Owner catalogue mutation propagated to the installed customer app.
-- Android release builds from committed Git without stash configuration.
-- Flutter 3.44.9: pub get passed, analyze clean, 44/44 tests passed, release APK built.
-- Independent clean worktree at committed Git passed the same pipeline.
-- Final task-checkout APK contains INTERNET, is 63,863,395 bytes, SHA-256 `FDA46A3C5CEB990BF96D65E7F3FB34505AD1734D06C3EEBCB47682DE8FAC50E0`.
-- Canonical Auth/member, catalogue, and order SQL regressions pass transactionally and retain 9 Auth users, 9 profiles, 6 members, and 0 orders.
+**Verdict:** PARTIAL — all implementation/toolchain gates are closed; one live cross-client order E2E gate remains.
 
-## Live security/backend evidence
+## Closed implementation gates
 
-All intended identity, catalogue, and order tables exist with RLS + FORCE RLS. All intended ordering RPCs exist. `orders` is published to Realtime. Ordinary authenticated clients have no direct order DML grants. No service-role/secret credential is present in the Flutter production source/configuration.
+### Customer
 
-Security advisor: one WARN, **Leaked Password Protection Disabled**. See Supabase password-security remediation. No database/RLS/Auth-role change was made during closeout.
+- physical Android networking/Auth/signup works;
+- trusted profile/member provisioning works and appears in Dashboard Members;
+- shared catalogue refresh from a real Owner mutation works on the installed phone;
+- authoritative quote/place, ASAP/scheduled pickup, Pay at counter, persisted history/detail/status and owner-scoped status refetch are implemented;
+- Android release builds reproducibly from committed Git with AGP 8.9.1 and Gradle 8.11.1;
+- Flutter 3.44.9 pub get/analyze/44 tests/release build pass;
+- independent clean-worktree release build passes;
+- canonical Auth/member, catalogue and order SQL regressions pass transactionally.
 
-## Build-tool stash
+### Dashboard
 
-`stash@{0}` was inspected and contains only the now-committed AGP 8.9.1, Gradle 8.11.1, and equivalent Flutter compatibility properties. It is superseded and may be removed after owner review; it was not silently dropped.
+- real employee/Admin same-origin HttpOnly BFF path is implemented;
+- protected Members and shared catalogue Admin mutation are implemented and physically validated;
+- TASK-AUTH-005 preview/live regression remains fixed;
+- authoritative POS quote/place and server-policy scheduling are implemented;
+- live order board polls the BFF and has no preview-order fallback;
+- legal versioned status transitions and 409 conflict refetch are implemented;
+- active order semantics are Pay at counter/unpaid only;
+- lint/typecheck/25 Vitest files with 111 tests/build/8 Playwright tests/diff check pass;
+- final `npm audit` reports 0 vulnerabilities.
 
-## Remaining blocker and next action
+## Last verified backend evidence
 
-Dashboard PR #12 must complete authoritative POS quote/place, ASAP/scheduled UX, live order queue/status transitions, its full toolchain, and the customer placement → staff preparing/ready/completed → customer authorized refresh proof. Then copy the Dashboard MIRROR DELTA into this repository, rerun final merge-readiness checks, mark both PRs ready, and merge only after both sides are COMPLETE.
+Dated 2026-08-14:
+
+- 9 Auth users;
+- 9 profiles;
+- 6 members;
+- 1 owner;
+- 1 admin;
+- 1 staff;
+- 0 retained orders at baseline;
+- catalogue revision 15.
+
+Current advisor evidence: one WARN for leaked-password protection being disabled. Hosted deployment remains DEFERRED for the accepted local-PC → cloud-Supabase → installed-phone workflow.
+
+## Only remaining closeout action
+
+Run one credential-backed supported order lifecycle using approved demo accounts supplied ephemerally:
+
+1. authenticate as a real customer/member;
+2. place through the supported customer ordering boundary;
+3. observe the persisted order in the Dashboard queue;
+4. transition it to preparing;
+5. confirm the customer authorized read/refetch observes preparing;
+6. transition to ready;
+7. confirm the customer observes ready;
+8. transition to completed;
+9. confirm the customer observes completed.
+
+Do not commit credentials, reset durable demo passwords, use service role, or insert an order directly with SQL.
+
+## After that run
+
+- record the order E2E evidence in both mirrored governance sets;
+- rerun final diff/status/secret/security and PR mergeability checks;
+- change both PR titles from `[PARTIAL]` only if every gate remains green;
+- mark both PRs ready for review;
+- merge the coordinated integration PRs rather than the old stacked task PRs;
+- close/supersede obsolete draft PRs after successful integration.
+
+Do not start the next business-domain feature before this closeout is complete.

@@ -6,6 +6,8 @@ Updated: 2026-08-17
 
 `TASK-CLOSEOUT-001 — complete and close the current AIDA implementation tranche`
 
+**Verdict:** COMPLETE.
+
 Coordinated branches:
 
 - customer: `codex/task-closeout-001-tranche-completion`
@@ -16,9 +18,7 @@ Integration PRs:
 - customer PR #13 → `master`
 - dashboard PR #12 → `main`
 
-Both are draft and technically mergeable.
-
-**Verdict:** PARTIAL — all implementation/toolchain gates are closed; one live cross-client order E2E gate remains.
+Both implementation branches are independently verified mergeable. Their titles no longer carry `[PARTIAL]`.
 
 ## Closed implementation gates
 
@@ -45,9 +45,9 @@ Both are draft and technically mergeable.
 - lint/typecheck/25 Vitest files with 111 tests/build/8 Playwright tests/diff check pass;
 - final `npm audit` reports 0 vulnerabilities.
 
-## Last verified backend evidence
+## Current backend evidence
 
-Dated 2026-08-14:
+Independently rechecked on 2026-08-17:
 
 - 9 Auth users;
 - 9 profiles;
@@ -55,34 +55,27 @@ Dated 2026-08-14:
 - 1 owner;
 - 1 admin;
 - 1 staff;
-- 0 retained orders at baseline;
-- catalogue revision 15.
+- catalogue revision 15;
+- 1 retained completed order.
 
-Current advisor evidence: one WARN for leaked-password protection being disabled. Hosted deployment remains DEFERRED for the accepted local-PC → cloud-Supabase → installed-phone workflow.
+Current security-advisor evidence: one WARN for leaked-password protection being disabled. Hosted deployment remains DEFERRED for the accepted local-PC → cloud-Supabase → installed-phone workflow.
 
-## Only remaining closeout action
+## Final live order evidence
 
-Run one credential-backed supported order lifecycle using approved demo accounts supplied ephemerally:
+On 2026-08-17 the approved customer authenticated with an active member, quoted a live published Sandwich at 1,290 sen and placed ASAP order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`) through `place_customer_order`.
 
-1. authenticate as a real customer/member;
-2. place through the supported customer ordering boundary;
-3. observe the persisted order in the Dashboard queue;
-4. transition it to preparing;
-5. confirm the customer authorized read/refetch observes preparing;
-6. transition to ready;
-7. confirm the customer observes ready;
-8. transition to completed;
-9. confirm the customer observes completed.
+The real Owner authenticated through the same-origin HttpOnly Dashboard BFF. The queue observed the exact persisted order, then the BFF persisted `confirmed` v1 → `preparing` v2 → `ready` v3 → `completed` v4. The customer's authorized `get_order` read observed preparing, ready and completed. Independent database verification confirms the completed order and matching event sequence.
 
-Do not commit credentials, reset durable demo passwords, use service role, or insert an order directly with SQL.
+Credentials remained process-local and were removed after authenticated work. No service role, direct SQL order insert, password reset or employee bearer-token persistence was used.
 
-## After that run
+## Merge handoff
 
-- record the order E2E evidence in both mirrored governance sets;
-- rerun final diff/status/secret/security and PR mergeability checks;
-- change both PR titles from `[PARTIAL]` only if every gate remains green;
-- mark both PRs ready for review;
-- merge the coordinated integration PRs rather than the old stacked task PRs;
-- close/supersede obsolete draft PRs after successful integration.
+TASK-CLOSEOUT-001 has no remaining implementation or validation blocker. The next repository action is the coordinated integration merge:
 
-Do not start the next business-domain feature before this closeout is complete.
+1. merge customer PR #13 into `master`;
+2. merge Dashboard PR #12 into `main`;
+3. verify both default branches contain the final mirrored governance state;
+4. close/supersede obsolete stacked draft PRs;
+5. start the next bounded product-domain task only after that merge housekeeping is complete.
+
+Hosted deployment, payments, loyalty, inventory, reporting and the other deferred domains are not blockers for this tranche.

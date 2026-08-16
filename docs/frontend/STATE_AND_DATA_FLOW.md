@@ -1,6 +1,6 @@
 # Customer State and Data Flow
 
-Updated: 2026-08-14
+Updated: 2026-08-17
 
 ## Catalogue
 
@@ -34,7 +34,7 @@ Menu item + variant + add-on IDs + quantity + note
  -> authoritative line/unit/subtotal/total sen
 ```
 
-Do not promote local `Money` arithmetic into persisted order authority. The local cart may show an interim estimate before a quote if necessary, but checkout/final order display must clearly switch to the backend quote and must handle catalogue drift/unavailability.
+Local `Money` arithmetic is not persisted order authority. The cart may show an interim estimate, but checkout/final order display switches to the backend quote and handles catalogue drift/unavailability.
 
 ## ASAP / scheduled pickup
 
@@ -51,9 +51,7 @@ get_ordering_policy()
  -> quote_order validates again
 ```
 
-ASAP omits/nulls `requestedPickupAt`. Scheduled pickup sends an ISO-8601 timestamp aligned to the policy. Device clock alone is not schedule authority.
-
-Branch hours/capacity are not modeled; do not derive fake capacity approval.
+ASAP omits/nulls `requestedPickupAt`. Scheduled pickup sends a policy-aligned timestamp. Device clock alone is not schedule authority. Branch hours/capacity are not modeled.
 
 ## Placement / idempotency
 
@@ -68,9 +66,7 @@ successful quote + current cart selections
  -> clear cart only after success
 ```
 
-If transport fails after submitting placement, retry the same intended payload with the **same** `clientRequestId`. A new intended order gets a new UUID. Never generate a new idempotency key for each retry.
-
-If placement fails validation, keep the cart and let the user correct/requote it.
+A transport retry of the same intended placement reuses the same `clientRequestId`. A genuinely new intended order gets a new UUID. Validation failure retains the cart for correction/requote.
 
 ## Order history / detail
 
@@ -85,34 +81,33 @@ select order
  -> order detail / confirmation status
 ```
 
-The removed local `PastOrder` list is no longer order truth. Historical product names/prices come from immutable backend snapshots, not current catalogue records.
+Historical product names/prices come from immutable backend snapshots, not current catalogue records.
 
 ## Realtime status
 
 ```text
 place_customer_order returns order
- -> subscribe/read owner-visible orders row(s)
+ -> owner-visible orders subscription
 
-staff transition in dashboard
+staff transition in Dashboard
  -> orders row status/statusVersion changes
  -> Supabase Realtime authorized event
  -> customer provider invalidates/re-fetches get_order(orderId)
  -> confirmation/order detail renders persisted status
 ```
 
-The fixed two-second timer has been removed from `OrderConfirmationScreen`. No frontend timer may manufacture Preparing/Ready state.
+No frontend timer manufactures Preparing/Ready state. Presentation-only relative-time labels may be computed locally, but persisted fulfilment status comes only from the backend.
 
-The UI may compute presentation-only labels such as "scheduled in 45 min" from timestamps, but persisted fulfilment status comes only from the backend.
-
-The customer side of this flow is covered by provider/repository/widget regressions. The deployed Dashboard order mutation and resulting live customer status observation remain the shared closeout gate.
+The full live boundary was validated on 2026-08-17: customer order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`) was placed as `confirmed` v1; Dashboard transitions persisted `preparing` v2, `ready` v3 and `completed` v4; customer-authorized `get_order` reads observed each changed status.
 
 ## Errors and offline boundaries
 
-- Catalogue read may use existing explicit failure state; no production fixture fallback.
-- Customer order placement requires an authenticated active member; do not create anonymous/guest customer placement as a frontend shortcut.
-- If Realtime disconnects, manual/provider refresh may re-fetch the order; do not advance local status optimistically beyond the persisted backend response.
-- Existing minimum offline member-code cache is not an offline order queue and must never become price/order authority.
+- Catalogue read uses explicit failure state; no production fixture fallback.
+- Customer order placement requires an authenticated active member; no anonymous/guest customer-placement shortcut.
+- Realtime disconnect does not advance local status; refresh re-fetches persisted authority.
+- The minimum offline member-code cache is not an offline order queue and never becomes price/order authority.
+- Transport/Auth messages do not expose tokens or raw upstream stack traces.
 
 ## Payment boundary
 
-The current backend has no payment-settlement state. Customer checkout should use a clear `Pay at counter`/unpaid demo path. `Payment received` must not be generated as a fake stage.
+The backend has no payment-settlement state. Customer checkout uses explicit `Pay at counter`/unpaid semantics. `Payment received` is not generated as fake backend state.

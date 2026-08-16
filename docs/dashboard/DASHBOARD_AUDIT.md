@@ -1,48 +1,83 @@
 # POS/Admin Dashboard Audit
 
-**Source audit:** TASK-MENU-001 validation, 2026-08-13, commit `238e0ff211fe550f42ec4d4423724e3642282295`
-**Repository:** `Hermann-33/Aida_System-Dashboard`
-**Verdict:** shared catalogue browsing/administration integrated; broader dashboard remains preview and not production-transactional.
+Updated: 2026-08-17
+
+## Current verdict
+
+`COMPLETE` for the trusted Auth/member/catalogue/order tranche defined by TASK-CLOSEOUT-001. Broader payment, loyalty, inventory, reporting, branch/terminal/shift and hosted-production domains remain preview/deferred and are not promoted by this verdict.
 
 ## Runtime
 
-React 19.2.7, TypeScript 6.0.3, Vite 8.1.5, React Router DOM 7.18.1, Tailwind CSS 4, Radix/shadcn-style components, TanStack Query provider/Table, Vitest and Playwright. npm with lockfile.
+React 19.2.7, TypeScript 6.0.3, Vite 8.1.5, React Router DOM 7.18.1, Tailwind CSS 4, Radix/shadcn-style components, TanStack Query, Vitest and Playwright. npm with lockfile.
 
-## Major surfaces
+## Trusted current surfaces
 
-- Employee access, terminal enrolment and role selection.
-- POS sale/cart/modifiers/member lookup/rewards/payments/receipts/orders/shifts/terminal/help.
-- Admin overview, sales/transactions/member reports, branches/locations, terminals, shifts, employees/access, menu/catalogue, inventory, loyalty, marketing, audit, integrations and settings.
+- same-origin employee/Admin authentication/session BFF with HttpOnly cookies;
+- trusted role/disabled-state checks from shared profiles;
+- protected Admin Members directory;
+- shared public/POS catalogue read;
+- protected Admin catalogue management;
+- TASK-AUTH-005 preview/live session separation;
+- authoritative POS quote/place with stable idempotency;
+- server-policy ASAP/scheduled pickup;
+- explicit Pay-at-counter/unpaid order semantics;
+- live BFF-backed order queue;
+- legal versioned fulfilment transitions with conflict refetch.
 
-## Current data model
+The browser does not receive a service-role credential or persistent employee bearer token. Route guards remain presentation/access-routing logic, not backend authorization authority.
 
-The app is intentionally preview-first outside catalogue. Admin and POS catalogue browsing use the shared Supabase catalogue through the same-origin BFF, and Admin mutations use the authenticated caller JWT. No runtime fallback to `PREVIEW_MENU`, `PREVIEW_CATEGORIES`, or `PREVIEW_MODIFIER_GROUPS` remains. Most other operational data comes from deterministic fixtures, component/module memory or `sessionStorage`.
+## Current non-authoritative/deferred behavior
 
-The browser does not receive a service-role credential or call Supabase directly. The BFF uses the publishable key/caller session and RLS/security-invoker RPCs.
+The following remain outside the trusted tranche unless separately backed by a current contract:
 
-## Critical non-authoritative behavior
+- payment settlement/refunds;
+- loyalty/reward balances and redemptions;
+- inventory/recipes/depletion/transfers;
+- branch scope and branch opening-hours/capacity;
+- terminal enrolment/device authority beyond current preview/local behavior;
+- shift/cash-movement authority;
+- employee/branch management surfaces not yet backed by a trusted server contract;
+- marketing publication;
+- sales/revenue/tax/accounting reporting;
+- several settings/integration/audit display surfaces.
 
-- Client-calculated POS price/reward outcomes.
-- Local/generated receipt/order IDs.
-- Simulated member QR scan.
-- Simulated cash/non-cash payment state.
-- Preview manager PIN approval and local action log.
-- Non-durable orders, shifts, cash moves and held tickets.
-- Session-only admin mutations for employees/branches/terminals/inventory/marketing.
-- Fixture reports, statistics, audit rows and loyalty balances.
+Preview/local fixtures in these domains must not be used as catalogue/order/member/payment truth.
 
-## Verification baseline
+## Final verification baseline
 
-- lint passed;
-- typecheck passed;
-- 85 tests passed;
-- build passed;
-- preview E2E 6/6 passed;
-- public catalogue BFF returned 4 categories / 16 items / 27 variants;
-- anonymous Admin endpoints returned 401, cross-origin mutations returned 403, and authenticated non-admin catalogue mutation was rejected;
-- Supabase security advisor returned 0 lints;
-- deployed Auth/Menu cross-client E2E was not run because real identities and deployment are absent.
+TASK-CLOSEOUT-001 Dashboard validation:
 
-## Backend dependency
+- lint: PASS with two established Fast Refresh warnings;
+- typecheck: PASS;
+- Vitest: PASS, 25 files / 111 tests;
+- production build: PASS;
+- legacy token/localStorage safety assertion: PASS;
+- Playwright: PASS, 8/8;
+- `npm audit`: PASS, 0 vulnerabilities;
+- `git diff --check`: PASS;
+- no service-role/secret/browser employee-token persistence introduced.
 
-Real operation still requires shared server authority for employee/session/branch/terminal scope, trusted quote/order pricing, orders, payments/refunds, member lookup, loyalty/vouchers, shifts/cash, inventory, marketing, reporting and immutable audit. The integrated browsing catalogue does not make preview checkout/totals/orders/payments authoritative. See `BACKEND_INTEGRATION_PLAN.md` and `SHARED_BACKEND_CONTRACT.md`.
+## Cross-client evidence
+
+Physical/manual proof:
+
+- Android customer signup → trusted member → protected Dashboard Members;
+- real Owner catalogue mutation → installed customer catalogue refresh.
+
+Final live order proof on 2026-08-17:
+
+- customer quoted Sandwich ASAP at 1,290 sen;
+- customer placed order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`) as `confirmed` v1;
+- authenticated Owner Dashboard queue observed the same order;
+- Dashboard persisted `preparing` v2 → `ready` v3 → `completed` v4;
+- customer-authorized reads observed each status.
+
+One completed order remains retained as closeout evidence.
+
+## Security/operations
+
+Current Supabase security advisor has one WARN: leaked-password protection disabled. Hosted/Vercel deployment remains DEFERRED for the accepted local Dashboard PC → cloud Supabase → installed-phone topology.
+
+## Historical baseline note
+
+The original TASK-WF-002/TASK-MENU-001 audits correctly described a much earlier preview-first state. Those measurements remain historical evidence only. Current system truth is maintained in `docs/context/ACTIVE_CONTEXT.md`, `SUPABASE_STATUS.md`, `CLOSEOUT_EVIDENCE_2026-08-17.md`, the accepted ADRs/contracts, and this updated audit.

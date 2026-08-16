@@ -18,13 +18,14 @@ Implemented and validated to the current closeout standard:
 - customer authoritative quote/place/history/detail/status frontend;
 - Dashboard authoritative POS quote/place and server-policy scheduling;
 - Dashboard live polled order queue and versioned fulfilment transitions;
-- customer and Dashboard full local toolchain/test/build gates for the implemented tranche.
+- customer and Dashboard full local toolchain/test/build gates;
+- credential-backed live cross-client order lifecycle.
 
 ## Current status
 
-`TASK-CLOSEOUT-001`: **PARTIAL** only because the fresh credential-backed cross-client order lifecycle has not yet been executed against the live project.
+`TASK-CLOSEOUT-001`: **COMPLETE** for implementation and applicable ADR-0004 validation.
 
-Required final proof:
+Live proof completed on 2026-08-17:
 
 customer placement
 → persisted order
@@ -36,11 +37,11 @@ customer placement
 → completed
 → customer authorized refresh.
 
-Approved demo credentials must be supplied ephemerally and must not be committed.
+The retained evidence is order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`), authoritative total 1,290 sen, completed at status version 4. Approved demo credentials were process-local, were not committed and were removed after the run.
 
-## Merge gate
+## Merge state
 
-Customer PR #13 and Dashboard PR #12 are technically mergeable but remain draft until the final live order E2E is recorded and mirrored documentation/final merge-readiness checks pass.
+Customer PR #13 and Dashboard PR #12 are independently verified mergeable and have completed the closeout gates. Final merge is repository housekeeping, not an implementation blocker.
 
 Hosted/Vercel deployment is **DEFERRED** for the accepted local-PC + cloud-Supabase + installed-phone demo topology.
 
@@ -48,9 +49,9 @@ Hosted/Vercel deployment is **DEFERRED** for the accepted local-PC + cloud-Supab
 
 Current Supabase security-advisor evidence has one WARN: leaked-password protection is disabled. Enabling it is hosted Auth configuration work and does not justify weakening application Auth/RLS boundaries.
 
-## Deferred product domains
+## Next bounded product work
 
-Do not start these during closeout:
+Do not conflate these deferred domains with the completed closeout tranche. Future bounded tasks include:
 
 1. trusted payment capture/refunds;
 2. loyalty earning/redemption and voucher lifecycle;

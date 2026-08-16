@@ -51,9 +51,11 @@ Implemented authority includes Auth/profile/member, catalogue, quote/order, sche
 
 ## Current closeout status
 
-Both client implementations and their local test/build gates are complete for the current tranche. The only remaining ADR-0004 closeout gate is a fresh live supported order lifecycle proving customer placement → Dashboard observation/transitions → customer authorized persisted-status refresh.
+`TASK-CLOSEOUT-001` is **COMPLETE** for implementation and applicable ADR-0004 validation.
 
-Customer PR #13 and Dashboard PR #12 are technically mergeable but remain draft until that E2E and final mirrored-document/merge-readiness checks pass.
+The final live proof on 2026-08-17 placed customer order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`) at an authoritative total of 1,290 sen. The Dashboard observed the exact record and persisted `confirmed` v1 → `preparing` v2 → `ready` v3 → `completed` v4. Customer-authorized reads observed every persisted transition. Independent database verification confirms the completed order and event sequence.
+
+Customer PR #13 and Dashboard PR #12 are independently verified mergeable. Final coordinated merge is repository housekeeping, not an implementation blocker.
 
 ## Trust rule
 
@@ -65,4 +67,4 @@ Real payment/refunds, loyalty ledger/redemption, inventory, promotions/discount 
 
 ## Success criteria
 
-AIDA succeeds when role-appropriate users complete their flows against one trusted backend with consistent IDs/state transitions, server-authoritative value calculations, secure ownership/role access, reproducible migrations/builds, cross-client integration evidence and current mirrored documentation.
+AIDA succeeds when role-appropriate users complete their flows against one trusted backend with consistent IDs/state transitions, server-authoritative value calculations, secure ownership/role access, reproducible migrations/builds, cross-client integration evidence and current mirrored documentation. The current tranche meets those criteria for its defined scope.

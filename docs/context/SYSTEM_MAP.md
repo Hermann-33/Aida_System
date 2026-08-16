@@ -1,6 +1,6 @@
 # System Map
 
-Updated: 2026-08-14
+Updated: 2026-08-17
 
 | System | Runtime | Current trusted source |
 |---|---|---|
@@ -22,14 +22,14 @@ Admin Menu
  -> updated menu shown
 ```
 
-The production customer menu and dashboard POS catalogue browser contain no runtime hardcoded catalogue fallback.
+The production customer menu and Dashboard POS catalogue browser contain no runtime hardcoded catalogue fallback. Physical validation proved a real Owner catalogue price mutation propagated to the installed Android customer app.
 
 ## Customer order flow
 
 ```text
 Flutter cart selections
  -> quote_order(ids/qty/intent only)
- -> server revalidates catalogue and calculates MYR sen totals
+ -> server revalidates catalogue and calculates integer-sen totals
  -> customer chooses ASAP or server-policy-aligned scheduled pickup
  -> place_customer_order(clientRequestId + selections)
  -> trusted customer/member derived from auth session
@@ -54,7 +54,7 @@ POS cart selections
  -> GET /api/v1/orders queue refresh
 ```
 
-The browser's preview/local cart remains selection state only. Persisted price/total/order identity comes from the backend.
+The Dashboard renders the server quote as commercial authority, keeps one `clientRequestId` across retry of the same intended placement, clears the sale only after persisted success, and labels the current non-processor path `Pay at counter`/unpaid. Preview/local cart state is selection state only and is never a live order fallback.
 
 ## Scheduled pickup
 
@@ -69,7 +69,7 @@ get_ordering_policy
  -> scheduled order persisted with status=scheduled
 ```
 
-Branch hours, closures and capacity are not yet authoritative and therefore are not presented as backend guarantees.
+Branch hours, closures and capacity are not yet authoritative and are not presented as backend guarantees.
 
 ## Fulfilment/status flow
 
@@ -88,14 +88,38 @@ Dashboard order board
 
 Legal flow is `confirmed|scheduled -> preparing -> ready -> completed`, with cancellation allowed before ready. Completed/cancelled are terminal. Stale `statusVersion` changes fail.
 
-Because employee JWTs remain HttpOnly, the React dashboard must not expose a staff token to connect directly to Supabase Realtime. For the current demo it should poll/refetch the same-origin `/api/v1/orders` queue at a short safe interval and invalidate immediately after local mutations. Customer Flutter can use owner-scoped Supabase Realtime directly.
+Because employee JWTs remain HttpOnly, React does not expose a staff token to connect directly to Supabase Realtime. The Orders rail polls the same-origin BFF about every 2.5 seconds, invalidates after place/status mutations, shows legal next actions only and refetches on version conflict. Customer Flutter uses owner-scoped Supabase Realtime directly and re-fetches the authorized order snapshot.
 
 ## Validated cross-client state
 
-The physical Android release connects to the live Supabase project. Customer signup provisioned Auth/profile/member records visible in Dashboard Members, and an Owner catalogue price mutation propagated to the installed customer app through the revision/refetch path.
+Physical/manual validation proved:
 
-Approved customer and employee identities now exist. A service-role key remains prohibited from Flutter/Vite/browser code. Dashboard PR #12 still must provide the live order-board UI and cross-client order lifecycle proof before the tranche closes.
+- Android release connectivity and customer signup;
+- trusted profile/member provisioning visible in protected Dashboard Members;
+- real Owner Admin login;
+- Owner catalogue mutation → installed Android catalogue refresh.
+
+Final live order E2E on 2026-08-17 proved:
+
+```text
+customer Auth/member
+ -> quote Sandwich ASAP at 1,290 sen
+ -> place order 100006 / 7cf027dc-3ff0-4604-a3fd-c7a943aac603
+ -> Dashboard observes confirmed v1
+ -> Dashboard preparing v2
+ -> customer authorized refresh sees preparing
+ -> Dashboard ready v3
+ -> customer refresh sees ready
+ -> Dashboard completed v4
+ -> customer refresh sees completed
+```
+
+One completed E2E order remains intentionally retained as evidence.
+
+## Deployment state
+
+Hosted/Vercel deployment remains **DEFERRED** and is not a blocker for the accepted local Dashboard PC + cloud Supabase + installed Android phone topology. Do not claim hosted BFF operation until its runtime configuration/routes are separately proven. Service-role credentials remain prohibited from Flutter/Vite/browser code.
 
 ## Deferred authority
 
-Real payments/refunds, loyalty, inventory depletion, discounts, tax/accounting, revenue analytics, delivery, branch scheduling/capacity and branch-scoped operations remain separate trusted tasks.
+Real payments/refunds, loyalty, inventory depletion, discounts/promotions, tax/accounting, revenue analytics, branch scheduling/capacity, branch-scoped operations, delivery and hosted production release operations remain separate trusted tasks.

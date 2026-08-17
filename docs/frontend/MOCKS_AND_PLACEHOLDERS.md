@@ -1,30 +1,55 @@
-> Scope note: customer Flutter mock register. Dashboard mocks are separately documented under `docs/dashboard/MOCKS_AND_PLACEHOLDERS.md`.
+# Customer Mocks and Placeholders Register
 
-# Mocks and Placeholders Register
+Updated: 2026-08-17
 
-`MockMemberRepository` is the active customer adapter and supplies synthetic latency plus hardcoded identity, menu, pricing, loyalty, rewards, vouchers, offers and promotions.
+## Removed from production runtime
 
-## Customer mock authority that must move server-side
+- hardcoded menu categories/items/prices/availability/images;
+- static Small/Medium/Large `ItemSize` enum and deltas;
+- category-name logic for whether sizes/add-ons apply;
+- fake catalogue ratings and bonus-point presentation;
+- random local order-number generation;
+- local-only `PastOrder` persistence/history as order truth;
+- fixed/local order status authority;
+- timer-driven fulfilment progression;
+- cart-derived subtotal as final trusted order total;
+- payment-method copy implying a processor payment succeeded;
+- absence of server-policy-backed ASAP/Schedule-for-later selection.
 
-- authentication/session and sign-up member provisioning;
-- member IDs/member codes and student verification;
-- menu/category/size/add-on data, availability, ratings and prices;
-- points/stamps/reward costs/voucher state/offer eligibility;
-- cart quote/line/subtotal/total;
-- order number/timestamp/status/receipt/history;
-- payment acceptance/status;
-- reward/voucher issue/use/expiry decisions.
+Customer catalogue/order flows now fail visibly when the backend boundary fails; they do not fall back to sample commercial/order authority.
 
-## Local/session-only behavior
+## Test-only data
 
-Auth boolean, profile edits, selected navigation/filter state, favourites, cart, order history, item configuration, payment selection and daily check-in. Logout does not explicitly clear all stores.
+`test/support/test_catalogue_repository.dart` is an explicit catalogue fixture used only for isolated test/golden coverage. `test/support/test_order_repository.dart` is likewise test-only order coverage. Neither is wired as a production fallback.
 
-## Visible placeholders
+## Allowed local UI state
 
-Social login, notifications, reward redeem, voucher apply, profile photo, stats/settings/invite/help, final logo, web scaffold metadata and Android release signing remain incomplete/placeholder areas.
+The following may remain local because they are interaction state rather than trusted business authority:
 
-## Important UI-shaped assumptions
+- cart selections before quote;
+- selected item/variant/add-on/quantity/note choices;
+- selected ASAP vs scheduled option before server validation;
+- temporary loading/error/expanded/collapsed state;
+- local display estimates before authoritative quote;
+- one placement `clientRequestId` retained across retries of the same intended order;
+- local favourites and other explicitly non-authoritative presentation state.
 
-Current customer prototype uses fixed categories, add-ons as menu items, uniform size deltas, narrow reward ladder, permanent displayable member code, limited student/order status models and temporary Unsplash images. Do not map these mechanically to database tables/enums.
+Once quoted/placed, displayed commercial totals, order number and fulfilment status come from the backend response/snapshot.
 
-UI correlation/idempotency/cache metadata may remain client-generated only where the shared contract explicitly allows it.
+## Payment demo boundary
+
+Until a real payment task exists, use explicit `Pay at counter`/unpaid semantics. Do not fake payment-success state, processor transactions or refunds.
+
+## Still preview/untrusted beyond this tranche
+
+- loyalty/rewards/offers/promotions;
+- real payment/refund handling;
+- inventory/depletion;
+- branch-capacity scheduling;
+- tax/accounting;
+- notifications;
+- trusted reporting;
+- several profile/settings/support surfaces;
+- hosted production deployment/release operations.
+
+The final live order E2E validates the current trusted Auth/catalogue/order boundary but does not promote these deferred areas to production authority.

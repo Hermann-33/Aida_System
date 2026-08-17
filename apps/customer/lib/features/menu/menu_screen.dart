@@ -14,14 +14,12 @@ import 'widgets/menu_grid_item.dart';
 
 /// The menu. CUS-09.
 ///
-/// Filtering happens on the client over the already-loaded list. The menu is
-/// small, so a request per category would be slower than filtering in place —
-/// and it would break browsing on a bad connection, which is most of campus.
+/// Filtering happens on the client over one RLS-filtered catalogue snapshot.
+/// Admin changes also invalidate this snapshot through the Realtime catalogue
+/// revision stream.
 class MenuScreen extends ConsumerWidget {
   const MenuScreen({super.key});
 
-  /// Groups [items] by category in server order. When a single category is
-  /// filtered, one section is returned with that name.
   static List<(String title, List<MenuItem> items)> _groupSections(
     List<MenuItem> items,
     List<MenuCategory>? categories,
@@ -66,9 +64,8 @@ class MenuScreen extends ConsumerWidget {
         child: RefreshIndicator(
           color: AidaColors.coffee,
           onRefresh: () async {
-            ref
-              ..invalidate(categoriesProvider)
-              ..invalidate(menuItemsProvider);
+            ref.invalidate(catalogueProvider);
+            await ref.read(catalogueProvider.future);
           },
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -89,57 +86,48 @@ class MenuScreen extends ConsumerWidget {
                       ),
                       _FavoritesToggle(
                         active: favoritesOnly,
-                        onTap:
-                            () =>
-                                ref
-                                    .read(favoritesOnlyProvider.notifier)
-                                    .toggle(),
+                        onTap: () => ref
+                            .read(favoritesOnlyProvider.notifier)
+                            .toggle(),
                       ),
                     ],
                   ),
                 ),
               ),
-
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
                 sliver: SliverToBoxAdapter(
                   child: categories.when(
-                    data:
-                        (list) => CategoryStrip(
-                          categories: list,
-                          selectedId: selected,
-                          showAll: true,
-                          keyPrefix: 'menu_cat',
-                          onSelect:
-                              (id) => ref
-                                  .read(selectedCategoryProvider.notifier)
-                                  .select(id),
-                        ),
-                    loading:
-                        () => const SizedBox(height: CategoryChip.height + 20),
+                    data: (list) => CategoryStrip(
+                      categories: list,
+                      selectedId: selected,
+                      showAll: true,
+                      keyPrefix: 'menu_cat',
+                      onSelect: (id) => ref
+                          .read(selectedCategoryProvider.notifier)
+                          .select(id),
+                    ),
+                    loading: () =>
+                        const SizedBox(height: CategoryChip.height + 20),
                     error: (_, __) => const SizedBox.shrink(),
                   ),
                 ),
               ),
-
               items.when(
                 data: (all) {
-                  final categoryName =
-                      categories.value
-                          ?.where((c) => c.id == selected)
-                          .firstOrNull
-                          ?.name;
+                  final categoryName = categories.value
+                      ?.where((c) => c.id == selected)
+                      .firstOrNull
+                      ?.name;
 
-                  var visible =
-                      categoryName == null
-                          ? all
-                          : all
-                              .where((i) => i.category == categoryName)
-                              .toList();
+                  var visible = categoryName == null
+                      ? all
+                      : all.where((i) => i.category == categoryName).toList();
 
                   if (favoritesOnly) {
-                    visible =
-                        visible.where((i) => favorites.contains(i.id)).toList();
+                    visible = visible
+                        .where((i) => favorites.contains(i.id))
+                        .toList();
                   }
 
                   if (visible.isEmpty) {
@@ -192,8 +180,7 @@ class MenuScreen extends ConsumerWidget {
                                 final item = sections[i].$2[j];
                                 return MenuGridItem(
                                   item: item,
-                                  onTap:
-                                      () => openItemDetail(context, item),
+                                  onTap: () => openItemDetail(context, item),
                                 );
                               },
                             ),
@@ -203,20 +190,18 @@ class MenuScreen extends ConsumerWidget {
                     ),
                   );
                 },
-                loading:
-                    () => const SliverToBoxAdapter(
-                      child: Padding(
-                        padding: EdgeInsets.only(top: 60),
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            color: AidaColors.coffee,
-                          ),
-                        ),
+                loading: () => const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.only(top: 60),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: AidaColors.coffee,
                       ),
                     ),
-                error:
-                    (_, __) =>
-                        const SliverToBoxAdapter(child: _MenuUnavailable()),
+                  ),
+                ),
+                error: (_, __) =>
+                    const SliverToBoxAdapter(child: _MenuUnavailable()),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 170)),
             ],

@@ -1,121 +1,111 @@
 # Active Context
 
-**As of:** 2026-08-12
-**Setup status:** COMPLETE and merged to default branches
-**Current implementation task:** none
-**Next implementation task:** `TASK-DB-002 — shared menu/catalogue foundation`
+**As of:** 2026-08-17
+**Current task:** `TASK-CLOSEOUT-001 — complete and close the current AIDA implementation tranche`
+**Current verdict:** COMPLETE — implementation, live cross-client order E2E and final cross-repository verification gates pass.
 
-## Project topology
+## Current product reality
 
-### Customer application
+AIDA Café uses one Supabase backend for the Flutter customer app and the React Dashboard/Admin/POS. The current tranche has implemented, tested authority for customer Auth/member provisioning, protected employee/Admin sessions, shared catalogue, authoritative ordering/scheduling, customer order history/status, Dashboard POS quote/place/order queue/status transitions, and Android release networking/build reproducibility.
 
-- Repo: `Hermann-33/Aida_System`
-- Default branch: `master`
-- Runtime: Flutter / Dart / Material 3 / Riverpod
-- Current integration state: frontend prototype; `MockMemberRepository` is still active and no Flutter Supabase client is wired.
-- Canonical Supabase migration workspace: `supabase/` in this repository.
+## Validated physical/manual evidence
 
-### POS/Admin dashboard
+The user validated on a physical Android phone and local Dashboard:
 
-- Repo: `Hermann-33/Aida_System-Dashboard`
-- Default branch: `main`
-- Runtime: React 19 / TypeScript 6 / Vite 8 / React Router
-- Current integration state: broad employee/POS/admin frontend preview using fixtures, component/module state and session storage; no Supabase SDK or durable transactional backend is wired.
+- release APK installation and Supabase connectivity;
+- new customer signup;
+- trusted Auth/profile/member provisioning;
+- the new member appearing in protected Dashboard Members;
+- real Owner Dashboard login;
+- Owner catalogue price mutation;
+- the installed customer app observing the updated catalogue value.
 
-### Shared backend
+The previous Android `Failed host lookup / SocketException` release defect is closed.
 
-- Platform: Supabase
-- Project: **Aida System**
-- Ref: `eswovqxqzfevcdwwcmuh`
-- Region: `ap-southeast-1`
+## Current live Supabase evidence
 
-Both frontends are consumers of one backend contract. Neither frontend is authoritative for identity, roles, branch scope, member verification, catalogue pricing, order/payment state, loyalty, inventory, reporting, audit or other trusted business outcomes.
+Independently rechecked on 2026-08-17:
 
-## Completed and integrated setup tasks
+- Auth users: 9
+- profiles: 9
+- members: 6
+- trusted roles: 1 owner, 1 admin, 1 staff
+- retained orders: 1
+- catalogue revision: 15
 
-- `TASK-WF-001` — customer frontend audit and repository governance baseline.
-- `TASK-DB-001` — version-controlled Supabase identity/membership foundation.
-- `TASK-WF-002` — POS/Admin dashboard source import and audit.
-- `TASK-WF-003` — synchronized dual-repository context, ADRs, security review, shared backend contract, workflow and handoff.
-- `TASK-WF-004` — post-merge setup finalization and durable new-session bootstrap.
+These counts are dated operational evidence, not architectural invariants. Employee identities are intentionally separate from customer/member rows.
 
-The setup/governance phase is closed. Future work starts from `master` in the customer repo and `main` in the dashboard repo, using new bounded task branches.
+The retained order is `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`), customer source, authoritative total 1,290 sen, final status `completed`, status version 4. Its event ledger records creation as confirmed followed by preparing, ready and completed transitions.
 
-## Supabase implementation reality
+All intended identity, catalogue and order tables retain RLS/FORCE RLS; the ordering RPC surface exists; `orders` remains published to Realtime; ordinary customer clients do not have direct commercial order DML authority.
 
-`TASK-DB-001` created and remotely applied:
+## Customer implementation status
 
-- `public.user_profiles`
-- `public.members`
-- `public.student_verifications`
-- enums `app_user_role`, `member_type`, `student_verification_status`
-- Auth provisioning trigger and supporting functions
-- forced RLS on all three foundation tables
-- private trusted role helpers
+COMPLETE for the current tranche:
 
-Security advisor after hardening: 0 lints. Performance advisor had only expected unused-index INFO findings on the new no-traffic schema.
+- Supabase Auth/session/signup/logout and trusted profile/member provisioning;
+- server-owned member code and student pending declaration boundary;
+- minimum per-user offline member-code cache with logout/user-switch isolation;
+- shared catalogue, variants/add-ons and revision invalidation/refetch;
+- authoritative quote-before-place and server-owned totals;
+- retry-stable idempotent customer placement;
+- ASAP/scheduled pickup from server policy;
+- explicit `Pay at counter`/unpaid semantics;
+- persisted server order number/status/history/detail;
+- owner-scoped order Realtime invalidation followed by authorized refetch;
+- Android production INTERNET permission;
+- reproducible Android release build from committed Git.
 
-No catalogue, quote/order, payment, loyalty, inventory, marketing/reporting or POS operational persistence exists yet.
+Customer validation: Flutter 3.44.9, pub get PASS, analyze PASS, 44/44 tests PASS, release APK PASS in the task checkout and an independent clean committed worktree. Canonical Auth/member, catalogue and order SQL regressions pass transactionally.
 
-## Documentation state
+## Dashboard implementation status
 
-Project-level governance is mirrored across both repositories. The canonical mirrored set includes:
+COMPLETE for the current tranche:
 
-- root `AGENTS.md`
-- `docs/README.md`
-- `docs/context/`
-- `docs/decisions/`
-- `docs/contracts/`
-- `docs/frontend/`
-- `docs/dashboard/`
-- `docs/database/`
-- `docs/security/`
+- same-origin employee/Admin BFF with HttpOnly session cookies and caller-JWT Supabase access;
+- protected Admin Members;
+- shared catalogue reads and protected Admin mutations;
+- TASK-AUTH-005 preview/live session separation;
+- typed same-origin order client;
+- POS cart mapped to server-trusted IDs/quantity/note intent only;
+- server quote rendered as commercial authority;
+- stable `clientRequestId` for placement retries;
+- ASAP/scheduled pickup derived from server policy;
+- cart cleared only after persisted placement;
+- explicit `Pay at counter`/unpaid semantics;
+- live order queue polling every ~2.5 seconds with no preview-order fallback;
+- legal versioned status transitions and 409 conflict refetch;
+- no browser employee bearer-token persistence.
 
-Repository-local screenshots, old design specs, generated evidence and import/audit artifacts may differ.
+Dashboard validation: lint PASS with two existing Fast Refresh warnings, typecheck PASS, 25 Vitest files / 111 tests PASS, build PASS, Playwright 8/8 PASS, `git diff --check` PASS, and final `npm audit` 0 vulnerabilities.
 
-`docs/context/SESSION_BOOTSTRAP.md` contains the permanent new-chat prompt.
+## Final live order E2E
 
-## Setup merge record
+Completed on 2026-08-17 through supported customer and Dashboard BFF boundaries using approved demo credentials supplied only as process-local environment variables:
 
-The setup stack was merged in dependency order:
+- customer Auth and active-member validation passed;
+- live published Sandwich catalogue item quoted for ASAP pickup at an authoritative total of 1,290 sen;
+- customer `place_customer_order` persisted order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`) as `confirmed`, version 1;
+- the authenticated Owner Dashboard queue observed the same UUID, order number, total, status and version;
+- Dashboard transitions persisted `preparing` version 2, `ready` version 3 and `completed` version 4;
+- the customer's authorized `get_order` read observed each persisted status;
+- the final all-status Dashboard queue contained exactly one retained order, the completed E2E order.
 
-1. Dashboard PR #1 — `TASK-WF-002` import — merged to `main`.
-2. Customer PR #2 — `TASK-DB-001` foundation — merged to `master`.
-3. Customer PR #3 — `TASK-WF-003` synchronized docs — merged to `master`.
-4. Dashboard PR #2 — `TASK-WF-003` synchronized docs — merged to `main`.
+No service role, direct SQL order insertion, password reset, client-trusted price/status or browser employee bearer-token persistence was used. The credential variables were removed after authenticated work and were never committed.
 
-`TASK-WF-004` exists only to remove the now-stale “merge pending” wording and finalize the default-branch handoff.
+## Security and deployment
 
-## Verification baselines
+The current Supabase security advisor has one hosted Auth warning: `auth_leaked_password_protection` / **Leaked Password Protection Disabled**. This is operational project configuration debt, not an RLS regression. Remediation: <https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection>.
 
-Customer audit baseline:
+Hosted/Vercel deployment remains **DEFERRED**. The accepted current demo topology is local Dashboard PC → cloud Supabase → installed customer phone.
 
-- Flutter 3.44.7 / Dart 3.12.2.
-- `flutter analyze --no-pub`: one unused `_stockChocolate` warning.
-- Non-golden tests: 24/24 passed.
-- Full test run: four golden comparison failures.
+## Integration PRs
 
-Dashboard import baseline:
+- Customer PR #13 → `master`: COMPLETE and mergeable.
+- Dashboard PR #12 → `main`: COMPLETE and mergeable.
 
-- `npm run lint`: passed with 5 warnings.
-- `npm run typecheck`: passed.
-- `npm test`: 14 files / 62 tests passed.
-- `npm run build`: passed with bundle-size warning.
-- Preview E2E: 6/6 passed.
-- API-backed E2E: not run because backend environment is unavailable.
-- Dependency audit: 1 moderate and 4 high findings; no automated upgrades applied.
+Both have completed the implementation and applicable ADR-0004 validation gates. Final coordinated merge remains a repository operation, not an implementation blocker.
 
-## Open architectural/product decisions
+## Deferred product domains
 
-- Final payment/provider/device model, including student-wallet semantics.
-- Scheduled-order rules, capacity and cutoff behavior.
-- Staff/admin role assignment, manager approval and branch-scope administration.
-- Terminal credential lifecycle and production employee authentication method.
-- Full student-verification evidence/review policy.
-- Inventory accounting and depletion model.
-- Account deletion/anonymization and retention.
-- Production reporting/business-day semantics and marketing approval workflow.
-
-## Next action
-
-Start `TASK-DB-002: shared menu/catalogue foundation` from fresh task branches based on the updated default branches. Read both customer and dashboard backend-integration docs plus the shared backend contract before designing SQL. Do not mechanically map either preview fixture model into database tables, and do not wire either frontend unless that task is explicitly expanded.
+Real payment/refunds, loyalty ledger/redemption, inventory, promotions/discount authority, tax/accounting, trusted reporting, branch-scoped operations/capacity, delivery and hosted production deployment/release operations remain future bounded tasks.

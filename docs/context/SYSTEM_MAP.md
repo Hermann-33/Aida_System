@@ -1,53 +1,125 @@
-# AIDA Café System Map
+# System Map
 
-Updated: 2026-08-12
+Updated: 2026-08-17
 
-## Source repositories
+| System | Runtime | Current trusted source |
+|---|---|---|
+| Customer | Flutter/Riverpod | Supabase Auth/member + shared catalogue + customer order RPCs |
+| Dashboard/Admin/POS | React/Vite | same-origin employee BFF + shared catalogue/member/order RPCs |
+| Backend | Supabase | Auth, Postgres, FORCE RLS, controlled RPCs, Realtime |
 
-| System | Repository | Default branch | Current local directory evidence | Runtime |
-|---|---|---|---|---|
-| Customer app | `Hermann-33/Aida_System` | `master` | `C:\code\Aida_System` | Flutter/Dart |
-| POS/Admin | `Hermann-33/Aida_System-Dashboard` | `main` | `C:\code\Aida_system Dash\pos-admin-web` | React/TypeScript/Vite |
-| Shared backend | Supabase `eswovqxqzfevcdwwcmuh` | managed service | shared external project | Auth/Postgres/RLS; future Storage/Realtime/functions |
+## Catalogue flow
 
-## Customer surfaces
+```text
+Admin Menu
+ -> same-origin BFF cookie session
+ -> admin/owner caller JWT
+ -> save_catalogue_* RPC
+ -> catalogue tables + audit + revision bump
+ -> catalogue_revision Realtime
+ -> Flutter invalidates catalogue snapshot
+ -> get_catalogue() under RLS
+ -> updated menu shown
+```
 
-Auth/sign-up/reset, Home, Rewards, Membership QR, Menu, item configuration, favourites, Cart, payment-method selection, order tracking/history, Profile and edit profile.
+The production customer menu and Dashboard POS catalogue browser contain no runtime hardcoded catalogue fallback. Physical validation proved a real Owner catalogue price mutation propagated to the installed Android customer app.
 
-Current source of most displayed business data: `MockMemberRepository` plus Riverpod/widget memory.
+## Customer order flow
 
-## Dashboard surfaces
+```text
+Flutter cart selections
+ -> quote_order(ids/qty/intent only)
+ -> server revalidates catalogue and calculates integer-sen totals
+ -> customer chooses ASAP or server-policy-aligned scheduled pickup
+ -> place_customer_order(clientRequestId + selections)
+ -> trusted customer/member derived from auth session
+ -> orders + immutable order_lines/order_line_addons snapshots
+ -> order_events(created)
+ -> order returned with server order number/status
+```
 
-Employee access and terminal enrolment; POS sale/cart/modifiers/member/reward lookup/payments/receipts/orders/shifts/terminal/help; Admin executive dashboard, sales/transactions/member reporting, branches/locations, terminals, shifts, employees/access, menu/catalogue, inventory, loyalty, marketing, audit, integrations and settings.
+The customer cannot submit trusted prices/totals/order numbers/member IDs/status. Placement requires an active member and is idempotent per authenticated actor + `clientRequestId`.
 
-Current source of most business data: preview fixtures, React state, module state and session storage.
+## POS order flow
 
-## Shared domain intersections
+```text
+POS cart selections
+ -> POST /api/v1/orders/quote
+ -> employee HttpOnly session validated by BFF
+ -> caller JWT -> quote_order
+ -> authoritative quote returned
+ -> POST /api/v1/orders/place
+ -> caller JWT -> place_pos_order
+ -> persisted guest POS order
+ -> GET /api/v1/orders queue refresh
+```
 
-| Shared concept | Customer today | Dashboard today | Required shared authority |
-|---|---|---|---|
-| User/member | mock/session member | fixture member lookup | Auth/profile/member foundation |
-| Member code / QR | client/mock display | simulated scan/search | server-issued member code + authorized lookup |
-| Student status | mock/session field | fixture verification status | trusted verification workflow |
-| Catalogue | mock repository | preview menu fixtures | published catalogue contract |
-| Price/modifiers | client mock calculation | client preview calculation | server quote/current catalogue |
-| Orders | process-local | fixture/local receipts/orders | durable order + transition model |
-| Payments | local method label | simulated cash/non-cash | approved payment/provider record |
-| Loyalty | mock values | fixture eligibility/calculation | ledger + atomic redemption/use |
-| Promotions | mock carousel | local campaign/banner state | publication/eligibility contract |
-| Branch/location | absent in customer UX | preview org/branch IDs | shared branch/sales-point model |
-| Inventory | absent | local preview | stock ledger/operations |
-| Staff roles | absent | preview guards/roles | trusted employee/role/branch authorization |
-| Reporting/audit | absent | sample aggregates/events | trusted aggregate + immutable audit |
+The Dashboard renders the server quote as commercial authority, keeps one `clientRequestId` across retry of the same intended placement, clears the sale only after persisted success, and labels the current non-processor path `Pay at counter`/unpaid. Preview/local cart state is selection state only and is never a live order fallback.
 
-## Data flow target
+## Scheduled pickup
 
-1. A client submits intent and stable IDs, never claimed authority.
-2. Trusted backend authenticates identity and checks ownership/role/branch scope.
-3. Backend validates current business rules and applies atomic/idempotent changes.
-4. Both clients read the same resulting records/events.
-5. Operational actions from POS/admin become customer-visible state only through the shared backend.
+```text
+get_ordering_policy
+ -> Asia/Kuala_Lumpur
+ -> 15-minute minimum lead
+ -> 15-minute slots
+ -> 7-day horizon
+ -> selected scheduled timestamp
+ -> quote_order validates server time/horizon/slot
+ -> scheduled order persisted with status=scheduled
+```
 
-## Change-impact rule
+Branch hours, closures and capacity are not yet authoritative and are not presented as backend guarantees.
 
-Before changing any row in the table above, inspect both repositories. A backend change is not accepted merely because one UI compiles.
+## Fulfilment/status flow
+
+```text
+Dashboard order board
+ -> GET /api/v1/orders
+ -> staff selects legal next state
+ -> POST /api/v1/orders/status + expectedVersion
+ -> transition_order_status
+ -> orders row/statusVersion updated
+ -> order_events appended
+ -> customer receives authorized orders Realtime event
+ -> Flutter calls get_order(orderId)
+ -> UI renders persisted status
+```
+
+Legal flow is `confirmed|scheduled -> preparing -> ready -> completed`, with cancellation allowed before ready. Completed/cancelled are terminal. Stale `statusVersion` changes fail.
+
+Because employee JWTs remain HttpOnly, React does not expose a staff token to connect directly to Supabase Realtime. The Orders rail polls the same-origin BFF about every 2.5 seconds, invalidates after place/status mutations, shows legal next actions only and refetches on version conflict. Customer Flutter uses owner-scoped Supabase Realtime directly and re-fetches the authorized order snapshot.
+
+## Validated cross-client state
+
+Physical/manual validation proved:
+
+- Android release connectivity and customer signup;
+- trusted profile/member provisioning visible in protected Dashboard Members;
+- real Owner Admin login;
+- Owner catalogue mutation → installed Android catalogue refresh.
+
+Final live order E2E on 2026-08-17 proved:
+
+```text
+customer Auth/member
+ -> quote Sandwich ASAP at 1,290 sen
+ -> place order 100006 / 7cf027dc-3ff0-4604-a3fd-c7a943aac603
+ -> Dashboard observes confirmed v1
+ -> Dashboard preparing v2
+ -> customer authorized refresh sees preparing
+ -> Dashboard ready v3
+ -> customer refresh sees ready
+ -> Dashboard completed v4
+ -> customer refresh sees completed
+```
+
+One completed E2E order remains intentionally retained as evidence.
+
+## Deployment state
+
+Hosted/Vercel deployment remains **DEFERRED** and is not a blocker for the accepted local Dashboard PC + cloud Supabase + installed Android phone topology. Do not claim hosted BFF operation until its runtime configuration/routes are separately proven. Service-role credentials remain prohibited from Flutter/Vite/browser code.
+
+## Deferred authority
+
+Real payments/refunds, loyalty, inventory depletion, discounts/promotions, tax/accounting, revenue analytics, branch scheduling/capacity, branch-scoped operations, delivery and hosted production release operations remain separate trusted tasks.

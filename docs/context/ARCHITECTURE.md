@@ -1,86 +1,115 @@
 # AIDA Café Architecture
 
-Updated: 2026-08-12
-
-## System architecture
+Updated: 2026-08-17
 
 ```mermaid
 flowchart LR
-    C[Customer Flutter app\nHermann-33/Aida_System] -->|customer intent / reads| B[Shared Supabase / trusted operations]
-    D[POS + Admin React app\nHermann-33/Aida_System-Dashboard] -->|staff/admin operations / reads| B
-    B --> A[Supabase Auth]
-    B --> P[(Postgres + RLS)]
-    B --> S[Storage - future]
-    B --> R[Realtime / controlled RPC or Edge Functions - as required]
+  C[Customer Flutter app] -->|Supabase Auth + customer RPCs| S[Shared Supabase]
+  D[Dashboard React browser] -->|same-origin HttpOnly employee session| B[Dashboard BFF]
+  B -->|caller JWT| S
+  S --> A[Supabase Auth]
+  S --> P[(Postgres + FORCE RLS)]
+  S --> CR[catalogue_revision]
+  S --> OR[orders Realtime]
+  CR -->|invalidate + refetch catalogue| C
+  OR -->|owner-scoped change + refetch order| C
+  D -->|poll/refetch employee queue; no browser staff token| B
 ```
 
-The clients are separate deployables but one product. No client is authoritative for money, identity, authorization or operational state.
+## Repository/runtime topology
 
-## Customer runtime
+- Customer: `Hermann-33/Aida_System`, Flutter/Dart/Riverpod, default branch `master`.
+- Dashboard/Admin/POS: `Hermann-33/Aida_System-Dashboard`, React/TypeScript/Vite, default branch `main`.
+- Shared backend: Supabase project `Aida System`, ref `eswovqxqzfevcdwwcmuh`.
+- Canonical executable Supabase migrations live only in the customer repository `supabase/` workspace unless a future accepted ADR changes ownership.
 
-- Flutter/Dart, Material 3, Riverpod.
-- Android, iOS and web source.
-- `AuthGate`, five-tab `IndexedStack`, imperative `Navigator` detail routes.
-- `MemberRepository` abstraction bound only to `MockMemberRepository` today.
-- Client/session simulation for authentication, profile edits, favourites, cart, checkout/order tracking and history.
+## Shared identity/member authority
 
-## Dashboard runtime
+Supabase Auth owns authentication. Trusted employee/admin authorization lives in `user_profiles.app_role` plus `disabled_at`; customer membership identity/code lives in `members`. Client metadata, route guards and browser storage do not grant trusted role/member authority.
 
-- React 19, TypeScript 6, Vite 8, Tailwind CSS 4.
-- React Router with employee, POS and admin layouts.
-- React component/module state, preview fixtures and session storage.
-- TanStack Query provider exists but live queries/mutations are not yet the data layer.
-- Preview/non-preview auth and terminal adapters anticipate same-origin HTTP APIs and HttpOnly credentials; production API behavior is not yet implemented against the shared Supabase system.
+The Dashboard keeps privileged employee credentials behind the ADR-0008 same-origin BFF. The browser receives HttpOnly cookies, while the BFF validates the employee and forwards that caller JWT to Supabase. No service-role credential or browser-readable employee bearer token is part of the architecture.
 
-## Shared backend foundation
+Customer Flutter uses the public/publishable Supabase client configuration and customer-scoped RLS/RPC authority. Public signup cannot self-promote to employee roles or assign trusted member codes/verification state.
 
-Supabase Auth is the intended identity source. Current Postgres foundation:
+## Shared catalogue
 
-- `public.user_profiles`: trusted profile/application role record.
-- `public.members`: server-owned membership identity and stable member code.
-- `public.student_verifications`: declaration and trusted review workflow.
-- private role helpers for RLS.
-- auth trigger provisions profile/member rows.
+ADR-0009 makes Supabase Postgres the catalogue authority. `catalogue_categories`, `catalogue_items`, `catalogue_item_variants` and `catalogue_item_addons` store publication, price, availability and customization data. Money is integer sen.
 
-All exposed foundation tables have forced RLS.
+Customer reads use `get_catalogue()` under RLS. Dashboard Admin mutations use `save_catalogue_category(jsonb)` and `save_catalogue_item(jsonb)` through the BFF with the caller JWT.
 
-## Canonical database ownership
+`catalogue_revision` is an invalidation signal. Customer clients re-read authoritative data after a revision change. The production customer menu and Dashboard POS catalogue browser have no runtime hardcoded catalogue fallback.
 
-Until superseded by ADR, version-controlled migrations live in `Hermann-33/Aida_System/supabase/`. The dashboard repository consumes the resulting shared contract but does not maintain a duplicate migration chain.
+## Authoritative order and scheduling boundary
 
-Database tasks may require coordinated client-contract analysis in both repos even when SQL changes are committed only to the migration-owning repo.
+ADR-0010 makes the same Supabase project authoritative for customer and POS order pricing, persistence, scheduling and fulfilment status.
 
-## Authoritative ownership
+```mermaid
+flowchart TD
+  CC[Customer cart selections] --> Q[quote_order]
+  PC[POS cart selections] --> QB[Dashboard order BFF]
+  QB --> Q
+  Q --> CAT[(Shared catalogue)]
+  Q --> V[Validated server quote]
+  V --> CO[place_customer_order]
+  V --> PO[place_pos_order]
+  CO --> O[(orders + immutable line snapshots)]
+  PO --> O
+  O --> E[(order_events)]
+  STAFF[Staff Dashboard] -->|caller JWT via BFF| T[transition_order_status]
+  T --> O
+  O --> RT[orders Realtime]
+  RT --> CUSTOMER[Customer refetches authorized order]
+```
 
-| Domain | Authority |
-|---|---|
-| Auth identity/session | Supabase Auth / trusted session boundary |
-| Customer profile/app role | `user_profiles` foundation; future controlled role operations |
-| Member code / verification | `members` + `student_verifications` |
-| Branches, terminals, employees | Future shared backend |
-| Catalogue/prices/modifiers | Future shared backend |
-| Quote/totals/discounts | Future controlled server operation |
-| Orders/status/receipt facts | Future shared persistence + controlled transitions |
-| Payments/refunds | Approved provider/device + trusted server record |
-| Loyalty/rewards/vouchers | Future auditable ledger and atomic operations |
-| Inventory | Future stock ledger/operations |
-| Marketing/reporting/audit | Future trusted publication/aggregate/audit boundaries |
+Clients submit IDs, quantities, notes and fulfilment intent only. They are not authority for product names, prices, totals, customer/member identity, order numbers, status or payment state. `quote_order(jsonb)` revalidates the current published/available catalogue, variants and compatible add-ons before deriving integer-sen totals.
 
-## Cross-client contract rule
+`orders`, `order_lines` and `order_line_addons` persist server-owned commercial snapshots. Placement is idempotent through `clientRequestId`. Staff-only fulfilment transitions use an expected `statusVersion` and append `order_events` evidence.
 
-Stable IDs and lifecycle enums are backend contracts, not UI implementation details. Customer and dashboard adapters must map to the same contract and be updated together when a breaking contract changes.
+The current schedule policy is `Asia/Kuala_Lumpur`, 15-minute minimum lead, 15-minute slots and seven-day horizon. Branch hours, closures, capacity and branch-scoped queues remain deferred.
 
-Examples: member code, branch/sales-point ID, menu item/variant/modifier ID, quote/order ID, order status, payment status/reference, reward/voucher ID and status, employee role, terminal ID and inventory location.
+## Dashboard order integration
 
-## Security architecture
+TASK-CLOSEOUT-001 completed the React order path over the existing BFF:
 
-- Customer and dashboard browsers/apps are untrusted.
-- Staff/admin UI guards are usability controls only; RLS/server authorization remains mandatory.
-- Branch scoping and global-manager privileges must be verified server-side.
-- Terminal enrolment/credentials and manager approval require trusted credential lifecycle and audit.
-- Service-role keys never enter Flutter or browser bundles.
-- Privileged business operations should use controlled RPC/Edge Function/server boundaries when direct table mutation cannot safely express authorization, atomicity or idempotency.
+- typed same-origin policy/quote/place/queue/detail/status adapter;
+- POS cart mapped to catalogue IDs, quantity, optional note and fulfilment intent only;
+- server quote rendered as commercial authority;
+- stable `clientRequestId` reused for the same placement retry;
+- ASAP/scheduled choices derived from server policy;
+- cart cleared only after persisted placement;
+- explicit `Pay at counter`/unpaid semantics;
+- live order queue polled every ~2.5 seconds with no preview-order fallback;
+- legal versioned transitions with conflict refetch.
 
-## Deferred architecture
+## Realtime boundary
 
-Catalogue/storage, branch/terminal/employee schema, quote/order/payment model, loyalty ledger, inventory, marketing, reporting, realtime subscriptions, notification delivery, production offline sync, observability, backups and deployment runbooks remain future bounded decisions/tasks.
+`supabase_realtime` publishes:
+
+- `catalogue_revision` — catalogue invalidation;
+- `orders` — authorized order-header changes.
+
+Immutable order lines/add-ons are not separately published. Customer clients subscribe with their Supabase session and refetch the authorized order after a header change.
+
+The Dashboard employee token remains HttpOnly, so React does not expose it to open a direct Supabase Realtime connection. The Dashboard polls/refetches the same-origin order BFF and invalidates after local place/status mutations.
+
+## Android release boundary
+
+The customer production manifest declares `android.permission.INTERNET` because Auth, member/profile, catalogue, orders and Realtime require TLS network access. The committed Android build uses AGP 8.9.1 with Gradle 8.11.1 and Flutter compatibility properties; release packaging was reproduced in an independent clean worktree. Flutter contains only public project configuration, never a service-role/secret credential.
+
+## Validated end-to-end boundary
+
+TASK-CLOSEOUT-001 final live E2E proved the supported chain:
+
+customer Auth/member
+→ authoritative quote
+→ `place_customer_order`
+→ persisted order
+→ Dashboard BFF queue
+→ `confirmed` v1 → `preparing` v2 → `ready` v3 → `completed` v4
+→ customer-authorized `get_order` refresh after each transition.
+
+The retained evidence is order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`), authoritative total 1,290 sen.
+
+## Explicitly separate authority
+
+Real payment settlement/refunds, loyalty earning/redemption, inventory depletion, discounts/promotions, tax/accounting, revenue reporting, branch scheduling/capacity, delivery and hosted production deployment remain separate trusted domains. They must consume authoritative order/payment state rather than frontend-computed values.

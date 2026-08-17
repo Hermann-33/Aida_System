@@ -1,83 +1,81 @@
 # Current Handoff
 
-Updated: 2026-08-12
+Updated: 2026-08-17
 
-## Setup phase status
+## Task
 
-The initial AIDA project setup/governance phase is COMPLETE and integrated into both default branches. No implementation task is currently active.
+`TASK-CLOSEOUT-001 — complete and close the current AIDA implementation tranche`
 
-Completed setup work:
+**Verdict:** COMPLETE.
 
-- `TASK-WF-001` — customer frontend audit and governance baseline.
-- `TASK-DB-001` — Supabase identity/membership foundation with version-controlled migrations and RLS.
-- `TASK-WF-002` — POS/Admin dashboard import and audit.
-- `TASK-WF-003` — synchronized dual-repository project context, architecture, ADRs, security, workflow and shared backend contract.
-- `TASK-WF-004` — post-merge setup finalization and permanent session bootstrap.
+Coordinated branches:
 
-## Current system reality
+- customer: `codex/task-closeout-001-tranche-completion`
+- dashboard: `codex/task-closeout-001-tranche-completion`
 
-- Customer repo: `Hermann-33/Aida_System`, default branch `master`, Flutter/Dart/Riverpod prototype, no Supabase client wiring yet.
-- Dashboard repo: `Hermann-33/Aida_System-Dashboard`, default branch `main`, React/TypeScript/Vite employee/POS/admin preview, no durable backend wiring yet.
-- Shared backend: Supabase **Aida System**, ref `eswovqxqzfevcdwwcmuh`, region `ap-southeast-1`.
-- Canonical executable migrations: `Hermann-33/Aida_System/supabase/` until superseded by ADR.
-- Project-level governance docs are mirrored in both repositories.
+Integration PRs:
 
-## Supabase foundation currently implemented
+- customer PR #13 → `master`
+- dashboard PR #12 → `main`
 
-- `public.user_profiles`
-- `public.members`
-- `public.student_verifications`
-- trusted application-role/member/student-verification enums and helpers
-- Auth provisioning trigger
-- forced RLS on the three foundation tables
-- hardened private role helpers
-- security advisor baseline: 0 lints after hardening
+Both implementation branches are independently verified mergeable. Their titles no longer carry `[PARTIAL]`.
 
-No catalogue, order/payment, loyalty, inventory, marketing/reporting or POS operational persistence exists yet.
+## Closed implementation gates
 
-## Setup merge record
+### Customer
 
-Merged successfully:
+- physical Android networking/Auth/signup works;
+- trusted profile/member provisioning works and appears in Dashboard Members;
+- shared catalogue refresh from a real Owner mutation works on the installed phone;
+- authoritative quote/place, ASAP/scheduled pickup, Pay at counter, persisted history/detail/status and owner-scoped status refetch are implemented;
+- Android release builds reproducibly from committed Git with AGP 8.9.1 and Gradle 8.11.1;
+- Flutter 3.44.9 pub get/analyze/44 tests/release build pass;
+- independent clean-worktree release build passes;
+- canonical Auth/member, catalogue and order SQL regressions pass transactionally.
 
-- Dashboard PR #1 — `TASK-WF-002` import.
-- Customer PR #2 — `TASK-DB-001` foundation.
-- Customer PR #3 — `TASK-WF-003` synchronized project context.
-- Dashboard PR #2 — `TASK-WF-003` synchronized project context.
+### Dashboard
 
-`TASK-WF-004` finalizes the default-branch wording after those merges.
+- real employee/Admin same-origin HttpOnly BFF path is implemented;
+- protected Members and shared catalogue Admin mutation are implemented and physically validated;
+- TASK-AUTH-005 preview/live regression remains fixed;
+- authoritative POS quote/place and server-policy scheduling are implemented;
+- live order board polls the BFF and has no preview-order fallback;
+- legal versioned status transitions and 409 conflict refetch are implemented;
+- active order semantics are Pay at counter/unpaid only;
+- lint/typecheck/25 Vitest files with 111 tests/build/8 Playwright tests/diff check pass;
+- final `npm audit` reports 0 vulnerabilities.
 
-## Permanent new-session entry point
+## Current backend evidence
 
-Use `docs/context/SESSION_BOOTSTRAP.md`. It contains the constant prompt to paste into a new ChatGPT/Codex chat and directs the agent to read repository-resident context before making changes.
+Independently rechecked on 2026-08-17:
 
-The repository docs, not prior chat history, are authoritative.
+- 9 Auth users;
+- 9 profiles;
+- 6 members;
+- 1 owner;
+- 1 admin;
+- 1 staff;
+- catalogue revision 15;
+- 1 retained completed order.
 
-## Known outstanding technical debt
+Current security-advisor evidence: one WARN for leaked-password protection being disabled. Hosted deployment remains DEFERRED for the accepted local-PC → cloud-Supabase → installed-phone workflow.
 
-Customer baseline:
+## Final live order evidence
 
-- one unused `_stockChocolate` analyzer warning;
-- four golden comparison failures;
-- no real auth/session/profile/menu/order/loyalty adapter yet.
+On 2026-08-17 the approved customer authenticated with an active member, quoted a live published Sandwich at 1,290 sen and placed ASAP order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`) through `place_customer_order`.
 
-Dashboard baseline:
+The real Owner authenticated through the same-origin HttpOnly Dashboard BFF. The queue observed the exact persisted order, then the BFF persisted `confirmed` v1 → `preparing` v2 → `ready` v3 → `completed` v4. The customer's authorized `get_order` read observed preparing, ready and completed. Independent database verification confirms the completed order and matching event sequence.
 
-- lint passes with 5 warnings;
-- dependency audit reported 1 moderate and 4 high findings;
-- API-backed E2E is blocked until a real backend environment exists;
-- transaction, payment, inventory, employee/admin mutation and reporting behavior remains preview/local.
+Credentials remained process-local and were removed after authenticated work. No service role, direct SQL order insert, password reset or employee bearer-token persistence was used.
 
-Database/testing:
+## Merge handoff
 
-- seeded customer/cross-user/staff/admin RLS scenarios still need local/CI execution;
-- broader domain migrations are not implemented.
+TASK-CLOSEOUT-001 has no remaining implementation or validation blocker. The next repository action is the coordinated integration merge:
 
-## Open product/architecture decisions
+1. merge customer PR #13 into `master`;
+2. merge Dashboard PR #12 into `main`;
+3. verify both default branches contain the final mirrored governance state;
+4. close/supersede obsolete stacked draft PRs;
+5. start the next bounded product-domain task only after that merge housekeeping is complete.
 
-Payment/provider/device model, student wallet semantics, scheduled-order rules, employee/staff authorization model, terminal credential lifecycle, manager approval, student-verification evidence policy, inventory accounting/depletion, retention/account deletion, reporting business-day semantics and marketing approval workflow remain unresolved until bounded tasks decide them.
-
-## Exact next implementation task
-
-`TASK-DB-002: shared menu/catalogue foundation`
-
-Create fresh task branches from `master` and `main` as required. Inspect customer and dashboard catalogue requirements together, define one published catalogue contract and security model, create canonical migrations only in the customer repo's `supabase/` workspace, update mirrored docs in both repos, and avoid frontend wiring unless explicitly included in scope.
+Hosted deployment, payments, loyalty, inventory, reporting and the other deferred domains are not blockers for this tranche.

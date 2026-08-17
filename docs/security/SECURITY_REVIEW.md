@@ -1,78 +1,135 @@
 # AIDA Café Security Review
 
-Updated: 2026-08-12
-**Verdict:** prototype/front-end preview plus narrow secured database foundation; not production-ready.
+Updated: 2026-08-17
 
-## Current positive controls
+**Verdict:** identity, catalogue and order/scheduling authority are hardened across the dashboard boundary; the credential-bound cross-client order E2E passes.
 
-- Supabase foundation tables have forced RLS.
-- Anonymous table grants are absent for foundation data.
-- Trusted app roles live in database records rather than user-editable metadata.
-- Publicly executable role-helper RPC exposure was removed; security advisor reports 0 lints.
-- Customer money model uses integer sen and repository comments identify server authority.
-- Dashboard production build rejects preview/auth-bypass configuration; preview E2E includes browser-storage secret assertions.
+## Existing identity/catalogue controls
 
-These controls do not yet secure unimplemented order/payment/loyalty/POS/admin operations.
+- Supabase Auth plus trusted `user_profiles`/`members` remain authoritative for identity and membership.
+- Public signup cannot self-promote role/member/verification state.
+- Catalogue tables use FORCE RLS.
+- Public/customer catalogue reads are publication-scoped.
+- Catalogue admin/owner writes use trusted caller identity; no service-role browser bypass.
+- Dashboard privileged flows retain same-origin HttpOnly employee sessions and caller-JWT Supabase access.
+- Customer runtime has no production hardcoded catalogue fallback; dashboard POS has no preview catalogue fallback.
 
-## Customer risks
+## TASK-DEMO-ORDER-001 order controls
 
-- Any mock sign-in succeeds; auth gate is local.
-- Client generates/uses mock identity, prices, totals, order number/status and loyalty values.
-- Logout does not explicitly clear every session-local store.
-- Static member QR can be shared and is not proof of identity.
-- Password reset/social sign-in/offline cache are not real integrations.
+All order/scheduling tables use RLS + FORCE RLS:
 
-Required: Supabase Auth lifecycle, owner RLS, per-user cache isolation, server quote/order/loyalty operations and authorized QR lookup.
+- `order_schedule_settings`
+- `orders`
+- `order_lines`
+- `order_line_addons`
+- `order_events`
 
-## Dashboard risks
+Authenticated browser/mobile roles have no direct INSERT/UPDATE grants on order commercial tables. Controlled persistence occurs only through bounded RPC helpers with explicit caller/role validation.
 
-- Route guards/preview roles are client-side usability controls, not authorization.
-- Branch IDs, employees, manager approval, terminal status and enrolment are preview/local assumptions.
-- POS prices/rewards/tenders and receipt/order IDs are client calculated/generated.
-- Non-cash payments are simulated; void/refund/cancel only affect local preview state.
-- Inventory transfers, employee/menu/location edits, marketing publication and report/audit data are non-durable preview state.
-- API-backed E2E cannot yet run against the intended shared backend.
-- Dependency audit reported 1 moderate and 4 high findings; remediation must be separately reviewed rather than blindly upgraded.
+### Pricing and identity
 
-Required: trusted employee/session/terminal/branch authorization, controlled high-risk operations, idempotent payment/order actions, durable audit and dependency remediation.
+- `quote_order(jsonb)` ignores client price/total fields and re-prices from current published/available catalogue data.
+- Item/variant/add-on compatibility is revalidated server-side.
+- Customer/member identity is derived from `auth.uid()` plus the active member row, never request JSON.
+- POS placement requires staff-or-above.
+- Order UUID, numeric order number, price snapshots, totals, initial status, timestamps and audit events are server-owned.
+- Persisted commercial fields are protected against later mutation by a database trigger.
 
-## Shared threat boundaries
+### Idempotency
 
-| Area | Required control |
-|---|---|
-| Roles/branch scope | server/RLS checks from trusted records; role removal/revocation tests |
-| QR/member lookup | staff authorization, rate limits, minimal returned data, audit |
-| Price/order | server quote, allowed modifiers, atomic/idempotent create, legal transitions |
-| Payments/refunds | provider/device boundary, no raw credentials, trusted status/reference, approval/audit |
-| Loyalty/vouchers | ledger, server time, atomic redemption/consume, replay/concurrency tests |
-| Terminal enrolment | short-lived enrolment, HttpOnly/secure credential, revocation, branch binding, audit |
-| Manager approval | trusted manager identity/credential, rate limits, action/reason binding, audit |
-| Inventory | location scope, validated units, atomic movements, approval/audit for adjustments |
-| Marketing | privileged publication, validation/versioning/expiry, safe media handling |
-| Reports/exports | admin/branch scope, privacy minimization, export audit |
-| Audit | append-only/equivalently protected records; clients cannot forge/delete operational history |
+Placement requires a `clientRequestId` UUID scoped to the authenticated actor.
 
-## Secret handling
+- identical retry -> returns the same persisted order;
+- same key + different payload -> conflict;
+- client retry cannot create a duplicate order for the same key.
 
-Never expose Supabase secret/service-role keys, database passwords, provider secrets, employee credentials, PINs or terminal credentials in either client repo/bundle. `.env` files remain local/managed-secret configuration and must not be copied into mirrored docs.
+### Scheduling
 
-## Privacy
+The server validates scheduled pickup against trusted server time and the singleton policy:
 
-Expected personal data includes names, emails, phone numbers, birthdays, campus IDs, member/order/loyalty history and possibly images. Retention, access/export, correction, account deletion/anonymization, staff visibility, verification evidence retention, backups and audit retention require explicit policy before production.
+- timezone `Asia/Kuala_Lumpur`;
+- 15-minute minimum lead;
+- 15-minute slots;
+- 7-day maximum horizon.
 
-## Payment scope
+Staff cannot change policy. Admin/owner can change it only through the trusted RPC/BFF boundary.
 
-Raw card/e-wallet credentials stay with approved providers/devices. AIDA stores only necessary provider references, trusted status, amounts and reconciliation metadata under a later approved payment architecture.
+Branch hours/closures/capacity are not yet authoritative, so neither backend nor frontend may claim branch-aware schedule validation.
 
-## Required release security gates
+### Fulfilment/status
 
-- migration-reviewed schema and RLS tests for anonymous/customer/cross-user/staff/admin/branch cases;
-- auth/session/revocation/shared-device tests;
-- terminal and manager-approval abuse tests;
-- quote/order/payment/loyalty idempotency and concurrency tests;
-- inventory authorization tests;
-- dependency and secret/bundle scanning;
-- Supabase security/performance advisors;
-- controlled audit/logging and incident/recovery plans;
-- privacy/retention decisions;
-- updated threat review before UAT/release.
+Only staff-or-above may mutate status. Legal transitions are allow-listed and require an expected `statusVersion`; stale concurrent changes fail.
+
+`order_events` records creation/status evidence and has no ordinary client write grant.
+
+### Realtime
+
+Only `orders` is added for order-status Realtime. Customer visibility remains owner-scoped through RLS; staff currently sees the global queue because branch scope is not yet modeled. Clients re-fetch full authorized snapshots after order-header changes.
+
+### Dashboard BFF
+
+Order BFF routes:
+
+- validate the existing employee HttpOnly session;
+- forward the caller JWT, not a service-role token;
+- require same origin for POST requests;
+- do not return employee access/refresh tokens in JSON;
+- map idempotency/version conflicts to HTTP 409 for safe client recovery.
+
+No React/Vite browser module receives a service-role key or trusted staff bearer token.
+
+## Live security validation
+
+Canonical `supabase/tests/order_integration.sql` passed transactionally and proved:
+
+- anonymous quote allowed but privileged order capabilities denied;
+- direct authenticated order DML absent;
+- forged total ignored;
+- incompatible add-on and invalid schedule rejected;
+- customer owner/history boundary;
+- customer status mutation denied;
+- staff queue/POS placement allowed;
+- admin-only schedule-policy write;
+- legal/stale/terminal transition enforcement;
+- cleanup leaves zero synthetic identities/orders/events.
+
+At TASK-DEMO-ORDER-001 migration-validation time, the schema/RLS advisor returned **0 lints**. The current hosted project advisor state is not zero findings: it has the leaked-password-protection WARN described below.
+
+Performance advisor's initial four unindexed-FK INFO findings were resolved with a forward migration; final findings are only unused-index INFO expected on the new dataset.
+
+The 2026-08-17 live E2E authenticated a real customer/member through Supabase Auth and a real Owner through the Dashboard HttpOnly BFF. Customer placement derived identity/member server-side and trusted only catalogue IDs/quantity/note. Dashboard status mutations used the same-origin BFF and expected status versions. Customer-owned reads observed `preparing`, `ready` and `completed`; the Dashboard observed the identical server record. Independent database verification confirms order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`) remains `completed` at version 4 with the expected event sequence. No service role, direct SQL insert, password reset, browser employee token persistence or credential-bearing repository file was used. Ephemeral credential variables were removed after the run.
+
+## Explicitly untrusted / deferred
+
+No real payment authority exists. Card/E-wallet/Student Wallet UI must not claim successful settlement. Use an explicit `Pay at counter`/unpaid demo path until a trusted payment task exists.
+
+Order completion currently represents fulfilment completion, not verified payment settlement.
+
+The following remain separate trusted domains:
+
+- payment/refunds
+- loyalty earning/redemption
+- inventory depletion
+- promotions/discounts
+- tax/accounting
+- revenue/reporting
+- branch-scoped staff/order access
+- branch scheduling hours/capacity
+- delivery
+
+## Release/E2E status
+
+- Flutter authoritative order integration and Android reproducible build gates are complete for the current tranche.
+- Dashboard active POS uses server quote/place/queue/status endpoints rather than preview totals/order records as authority.
+- Approved real identities exist (9 Auth users; 1 owner, 1 admin, 1 staff; 6 members at the 2026-08-17 verification); demo credentials remain external ephemeral test inputs and are not repository data.
+- Physical Android signup → Dashboard Members and Owner catalogue mutation → installed-phone refresh are validated.
+- Customer placement → Dashboard observation/versioned transitions → customer authorized status refresh is validated with retained order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`).
+- Hosted deployment remains DEFERRED, not complete.
+
+## Current advisor state
+
+The Supabase security advisor reports one WARN: `auth_leaked_password_protection` / **Leaked Password Protection Disabled**. This is hosted Auth configuration debt, not a reason to weaken Auth or fabricate a source-code fix. Current documentation must not claim zero advisor findings.
+
+Remediation: <https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection>.
+
+The 2026-08-14 npm closeout audit initially reported 1 moderate and 4 high dependency advisories. Compatible lockfile updates remediated them without a major dependency upgrade; the final npm audit reports 0 vulnerabilities.

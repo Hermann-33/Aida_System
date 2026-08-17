@@ -1,82 +1,139 @@
 # Supabase Status
 
-**Status date:** 2026-08-12
-**Remote project:** Aida System
-**Project ref:** `eswovqxqzfevcdwwcmuh`
+**Status date:** 2026-08-17
+**Project:** Aida System
+**Ref:** `eswovqxqzfevcdwwcmuh`
 **Region:** `ap-southeast-1`
-**Implementation state:** identity/membership database foundation created; neither frontend connected
 
-## Verified reset and migration history
+## Current live snapshot
 
-Before `TASK-DB-001`, remote `public` base tables, public enums and public functions were all verified at 0 and old proof buckets `menu-images` / `marketing-assets` were absent.
+Independently rechecked after the final cross-client E2E:
 
-Applied migrations:
+- Auth users: 9
+- profiles: 9
+- members: 6
+- trusted roles: 1 owner, 1 admin, 1 staff
+- retained orders: 1
+- catalogue revision: 15
 
-1. `20260811101100_create_identity_membership_foundation.sql`
-2. `20260811102200_harden_foundation_role_helpers.sql`
-3. `20260811102700_optimize_foundation_rls_policies.sql`
+These are dated operational counts, not schema invariants. Employee identities are intentionally not member/loyalty rows.
 
-Canonical files live in `Hermann-33/Aida_System/supabase/`.
+## Identity/membership
 
-## Current objects
+Trusted identity/member objects remain live with forced RLS:
 
-Tables:
+- `user_profiles`
+- `members`
+- `student_verifications`
 
-- `public.user_profiles`
-- `public.members`
-- `public.student_verifications`
+Trusted role helpers and Admin/owner member-directory functions remain unchanged. Physical Android signup created trusted Auth/profile/member rows and the resulting member was visible through protected Dashboard Members.
 
-Enums:
+## Catalogue
 
-- `public.app_user_role`
-- `public.member_type`
-- `public.student_verification_status`
+Live catalogue objects:
 
-Public trigger/support functions:
+- `catalogue_categories`
+- `catalogue_items`
+- `catalogue_item_variants`
+- `catalogue_item_addons`
+- `catalogue_revision`
+- `catalogue_audit_events`
 
-- `public.set_updated_at`
-- `public.generate_member_code`
-- `public.handle_new_auth_user`
+Validated catalogue baseline remains 4 categories, 16 items, 27 variants and 27 compatible add-on links. Catalogue revision was 15 at the closeout validation point. A real Owner price mutation was observed by the installed customer app through revision invalidation and authoritative refetch.
 
-Private RLS helpers:
+## Orders and scheduling
 
-- `private.current_app_role`
-- `private.is_staff_or_above`
+Canonical customer-repository migrations:
 
-## Access posture
+1. `20260812182212_create_authoritative_orders_and_scheduling.sql`
+2. `20260812183029_index_order_foreign_keys.sql`
 
-- RLS enabled and forced on every foundation table.
-- Anonymous users have no direct table grants.
-- Customer reads are owner-scoped.
-- Basic customer profile updates are column-limited.
-- Student submission is owner-scoped and pending-only.
-- Review access requires trusted staff/admin/owner role.
-- Role authorization uses trusted database records, not user-editable Auth metadata.
+Live tables:
 
-Security advisor after hardening: **0 lints**.
+- `order_schedule_settings`
+- `orders`
+- `order_lines`
+- `order_line_addons`
+- `order_events`
 
-Performance advisor after optimization: auth init-plan warnings resolved; remaining unused-index INFO notices are expected on a fresh no-traffic schema.
+All five use RLS + FORCE RLS.
 
-## Client connection state
+Live public RPC contract:
 
-### Customer
+- `get_ordering_policy()`
+- `quote_order(jsonb)`
+- `place_customer_order(jsonb)`
+- `place_pos_order(jsonb)`
+- `get_order(uuid)`
+- `get_my_orders(integer)`
+- `list_orders(text[], integer)`
+- `transition_order_status(uuid,text,bigint,text)`
+- `save_ordering_policy(jsonb)`
 
-No Supabase Flutter dependency/client initialization, session bootstrap, database query, Storage access, Realtime subscription or function call. Active adapter remains `MockMemberRepository`.
+Ordinary authenticated clients have no direct INSERT/UPDATE authority over order commercial tables. Controlled persistence occurs through the accepted RPC boundary.
 
-### Dashboard
+Current schedule policy:
 
-No Supabase SDK, migrations, policies, keys or direct Supabase calls. Current preview repositories/fixtures and planned HTTP adapters are not authoritative backend integration.
+```text
+timezone                 Asia/Kuala_Lumpur
+schedule_enabled         true
+minimum_lead_minutes     15
+slot_interval_minutes    15
+maximum_advance_days     7
+```
 
-## Migration ownership rule
+Branch-specific opening hours, closures and capacity are not modeled.
 
-Do not create a separate Supabase migration chain inside `Aida_System-Dashboard`. Database changes are committed to the canonical `Aida_System/supabase/` workspace and documented in both repositories. If backend ownership moves to a dedicated repository later, supersede the relevant ADR first.
+## Final retained E2E order
 
-## Not implemented yet
+Order `100006` / `7cf027dc-3ff0-4604-a3fd-c7a943aac603` was created on 2026-08-17 through the supported authenticated customer placement boundary.
 
-Branches/locations/terminals/employees, catalogue/modifiers/storage, quotes/orders/KDS, payments/refunds, loyalty/rewards/vouchers, inventory, marketing/publication, reporting/audit persistence and frontend integration.
+Verified properties:
 
-## Next database task
+- source: customer
+- fulfilment: ASAP
+- authoritative total: 1,290 sen
+- initial persisted status: `confirmed`, version 1
+- final persisted status: `completed`, version 4
+- event sequence: created/confirmed → preparing → ready → completed
+- customer-owned `get_order` reads observed preparing, ready and completed
+- Dashboard Owner BFF queue/detail observed the same persisted record
 
-`TASK-DB-002: Design and migrate the published menu/catalogue foundation using requirements from both customer and POS/Admin UIs, with published-read policy, privileged admin mutation boundary, stable IDs and an explicit image/storage decision.`
+The order remains intentionally retained as TASK-CLOSEOUT-001 evidence. It was not inserted directly with SQL and no service-role credential was used.
 
-Local verification still required from a developer checkout: `supabase db reset`, `supabase db lint`, and seeded RLS scenarios.
+## Realtime
+
+`supabase_realtime` publishes the intended mutable signals:
+
+- `catalogue_revision`
+- `orders`
+
+Catalogue clients re-fetch the authoritative catalogue after revision changes. Customer order clients re-fetch an authorized order snapshot after an order-header change. Immutable order line/add-on snapshots are not separately published.
+
+## Regression status
+
+Canonical Auth/member, catalogue and order SQL regressions pass transactionally against the live project. Synthetic test data is rolled back and does not alter the retained live population.
+
+The order regression proves server pricing, compatibility checks, scheduling validation, trusted customer/member derivation, idempotency, owner-scoped reads, absence of direct customer order DML/status authority, staff queue/POS capability, versioned legal transitions and Admin-only schedule-policy mutation.
+
+## Security advisor
+
+Current security advisor state has exactly one WARN:
+
+- `auth_leaked_password_protection` — **Leaked Password Protection Disabled**
+
+Remediation: <https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection>
+
+Historical zero-lint results remain valid for their earlier dates but are not the current advisor state.
+
+## Public schema inventory
+
+Current active public base tables:
+
+- 3 identity/member tables
+- 6 catalogue tables
+- 5 order/scheduling tables
+
+Total: 14 public base tables within the accepted shared-backend architecture.
+
+Historical pre-order migration filename/live-version differences remain documented history and are not current schema drift. Applied historical migrations must not be rewritten.

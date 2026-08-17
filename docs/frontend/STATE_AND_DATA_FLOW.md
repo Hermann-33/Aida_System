@@ -1,33 +1,113 @@
-> Scope note: customer Flutter state/data flow. The separate POS/Admin flow is documented under `docs/dashboard/STATE_AND_DATA_FLOW.md`.
+# Customer State and Data Flow
 
-# State and Data Flow
+Updated: 2026-08-17
 
-All application-wide providers live in `apps/customer/lib/application/providers.dart`.
-
-Key state includes `memberRepositoryProvider` -> `MockMemberRepository`, local boolean auth, selected tab/category, favourites filter/set, member edit overlay, mock async member/menu/loyalty providers, in-memory cart and in-memory order history.
-
-## Repository flow
-
-`MemberRepository` supports mock auth and customer reads for member/points/stamps/rewards/vouchers/offers/menu. It has no real service for profile writes, quote/order, check-in, redemption, voucher consumption, images, notifications or payments.
+## Catalogue
 
 ```text
-Mock constants -> domain models -> Result<T> -> Riverpod AsyncValue -> widgets
+Supabase get_catalogue()
+ -> SupabaseCatalogueRepository
+ -> catalogueProvider snapshot
+ -> categories / featured / popular / menu providers
+ -> Home + Menu + item detail
+
+Admin DB mutation
+ -> catalogue revision bump
+ -> Supabase Realtime catalogue_revision event
+ -> catalogueRevisionProvider
+ -> catalogueProvider re-fetch
+ -> UI reflects new DB state
 ```
 
-No DTO/serialization/API boundary exists.
+Item detail uses DB variants and compatible add-on IDs. Manual pull-to-refresh invalidates the full catalogue snapshot and re-fetches from Supabase.
 
-## Current auth/session
+## Cart versus trusted quote
 
-Mock login succeeds, signup generates member/code locally, logout resets only auth/member edits, process restart loses state. Real direction is Supabase Auth session lifecycle, trusted member bootstrap and per-user cache isolation.
+The cart remains client interaction state only:
 
-## Menu/cart/order
+```text
+Menu item + variant + add-on IDs + quantity + note
+ -> local cart state
+ -> order payload selections
+ -> quote_order()
+ -> server revalidates current catalogue
+ -> authoritative line/unit/subtotal/total sen
+```
 
-Mock catalogue is filtered locally. Item detail constructs local cart lines. Client calculates price, chooses local payment method, generates order number, stores history and advances confirmation on timer. Real flow must use shared catalogue IDs, trusted quote/order creation and staff-driven status from the same backend used by POS.
+Local `Money` arithmetic is not persisted order authority. The cart may show an interim estimate, but checkout/final order display switches to the backend quote and handles catalogue drift/unavailability.
 
-## Loyalty/profile/QR
+## ASAP / scheduled pickup
 
-Balances and rewards are mock reads; redeem/apply are placeholders. Profile edits are overlays. QR encodes member code with no durable cache. Real paths use owner-scoped profile/member reads, server-issued code, ledger/redemption operations and authorized dashboard/POS lookup.
+```text
+get_ordering_policy()
+ -> serverNow
+ -> timezone Asia/Kuala_Lumpur
+ -> scheduleEnabled
+ -> minimumLeadMinutes
+ -> slotIntervalMinutes
+ -> maximumAdvanceDays
+ -> UI derives selectable times
+ -> user selects ASAP or scheduled timestamp
+ -> quote_order validates again
+```
 
-## Error flow
+ASAP omits/nulls `requestedPickupAt`. Scheduled pickup sends a policy-aligned timestamp. Device clock alone is not schedule authority. Branch hours/capacity are not modeled.
 
-Typed failure classes exist but mock adapter rarely exercises them. Real adapters must cover auth/network/validation/conflict/insufficient-balance/expired-voucher/unavailable-item failures and retry/logout/cache behavior.
+## Placement / idempotency
+
+```text
+successful quote + current cart selections
+ -> create clientRequestId UUID once
+ -> place_customer_order(payload)
+ -> authenticated customer/member derived server-side
+ -> server re-quotes
+ -> persisted order + immutable commercial snapshots
+ -> response contains server orderNumber/status/total
+ -> clear cart only after success
+```
+
+A transport retry of the same intended placement reuses the same `clientRequestId`. A genuinely new intended order gets a new UUID. Validation failure retains the cart for correction/requote.
+
+## Order history / detail
+
+```text
+get_my_orders(limit)
+ -> backend order snapshots
+ -> order history screen
+
+select order
+ -> get_order(orderId)
+ -> backend snapshot
+ -> order detail / confirmation status
+```
+
+Historical product names/prices come from immutable backend snapshots, not current catalogue records.
+
+## Realtime status
+
+```text
+place_customer_order returns order
+ -> owner-visible orders subscription
+
+staff transition in Dashboard
+ -> orders row status/statusVersion changes
+ -> Supabase Realtime authorized event
+ -> customer provider invalidates/re-fetches get_order(orderId)
+ -> confirmation/order detail renders persisted status
+```
+
+No frontend timer manufactures Preparing/Ready state. Presentation-only relative-time labels may be computed locally, but persisted fulfilment status comes only from the backend.
+
+The full live boundary was validated on 2026-08-17: customer order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`) was placed as `confirmed` v1; Dashboard transitions persisted `preparing` v2, `ready` v3 and `completed` v4; customer-authorized `get_order` reads observed each changed status.
+
+## Errors and offline boundaries
+
+- Catalogue read uses explicit failure state; no production fixture fallback.
+- Customer order placement requires an authenticated active member; no anonymous/guest customer-placement shortcut.
+- Realtime disconnect does not advance local status; refresh re-fetches persisted authority.
+- The minimum offline member-code cache is not an offline order queue and never becomes price/order authority.
+- Transport/Auth messages do not expose tokens or raw upstream stack traces.
+
+## Payment boundary
+
+The backend has no payment-settlement state. Customer checkout uses explicit `Pay at counter`/unpaid semantics. `Payment received` is not generated as fake backend state.

@@ -10,11 +10,6 @@ import 'package:flutter_test/flutter_test.dart';
 /// width the browser tab happens to be, and on a wide desktop window that
 /// stretched each card's height far past what its fixed-size photo and few
 /// lines of text actually need, leaving a large dead gap.
-///
-/// Builds the grid with the exact delegate configuration home_screen.dart
-/// uses, at two very different widths, and checks the rendered card height
-/// is the same both times — rather than trusting that the delegate choice
-/// actually decouples height from width.
 void main() {
   const items = [
     MenuItem(
@@ -24,7 +19,6 @@ void main() {
       description: 'Silky espresso, caramel, a pinch of sea salt',
       price: Money.fromSen(1290),
       isAvailable: true,
-      bonusPoints: 25,
     ),
     MenuItem(
       id: 'p2',

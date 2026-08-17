@@ -1,8 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/error/result.dart';
-import '../data/repository/mock_member_repository.dart';
+import '../data/repository/supabase_catalogue_repository.dart';
+import '../data/repository/supabase_member_repository.dart';
+import '../data/repository/supabase_order_repository.dart';
 import '../domain/model/cart.dart';
+import '../domain/model/catalogue_snapshot.dart';
 import '../domain/model/loyalty.dart';
 import '../domain/model/member.dart';
 import '../domain/model/menu_category.dart';
@@ -12,43 +18,78 @@ import '../domain/model/order.dart';
 import '../domain/model/promo.dart';
 import '../domain/model/reward.dart';
 import '../domain/model/voucher.dart';
+import '../domain/repository/catalogue_repository.dart';
 import '../domain/repository/member_repository.dart';
+import '../domain/repository/order_repository.dart';
 
-/// The single seam between the app and its backend.
-///
-/// To go live: replace [MockMemberRepository] with the real implementation.
-/// That is the whole change. No screen, provider, or model is touched.
 final memberRepositoryProvider = Provider<MemberRepository>(
-  (ref) => const MockMemberRepository(),
+  (ref) => SupabaseMemberRepository(Supabase.instance.client),
 );
 
-/// Whether the customer is signed in. Starts false — [AuthGate] shows the
-/// login screen until this flips, then shows the shell. Session-only: there
-/// is no real token to persist across app restarts yet.
+/// Catalogue is a separate capability from membership. It never falls back to
+/// preview menu data when Supabase is unavailable.
+final catalogueRepositoryProvider = Provider<CatalogueRepository>(
+  (ref) => SupabaseCatalogueRepository(Supabase.instance.client),
+);
+
+final orderRepositoryProvider = Provider<OrderRepository>(
+  (ref) => SupabaseOrderRepository(Supabase.instance.client),
+);
+
 class AuthState extends Notifier<bool> {
+  StreamSubscription<bool>? _subscription;
+
   @override
-  bool build() => false;
+  bool build() {
+    final repository = ref.watch(memberRepositoryProvider);
+    _subscription?.cancel();
 
-  void logIn() => state = true;
+    if (repository is! SupabaseMemberRepository) {
+      return false;
+    }
 
-  /// Also clears any local profile edits — a fresh sign-in should see the
-  /// mock repository's own data, not a previous session's edited name.
+    _subscription = repository.authStateChanges.listen(_applySessionState);
+    ref.onDispose(() => _subscription?.cancel());
+    return repository.hasActiveSession;
+  }
+
+  void _applySessionState(bool signedIn) {
+    state = signedIn;
+    ref.read(memberEditsProvider.notifier).clear();
+    ref.invalidate(memberProvider);
+    ref.invalidate(orderUpdatesProvider);
+    ref.invalidate(orderHistoryProvider);
+  }
+
+  void logIn() {
+    final repository = ref.read(memberRepositoryProvider);
+    state =
+        repository is SupabaseMemberRepository && repository.hasActiveSession;
+    if (state) {
+      ref.read(memberEditsProvider.notifier).clear();
+      ref.invalidate(memberProvider);
+      ref.invalidate(orderUpdatesProvider);
+      ref.invalidate(orderHistoryProvider);
+    }
+  }
+
   void logOut() {
+    final repository = ref.read(memberRepositoryProvider);
     state = false;
     ref.read(memberEditsProvider.notifier).clear();
+    ref.invalidate(memberProvider);
+    ref.invalidate(orderUpdatesProvider);
+    ref.invalidate(orderHistoryProvider);
+    if (repository is SupabaseMemberRepository) {
+      unawaited(repository.logOut());
+    }
   }
 }
 
 final authStateProvider = NotifierProvider<AuthState, bool>(AuthState.new);
 
-/// Tabs, per PRD CUS-16.
 enum AppTab { home, rewards, qr, menu, profile }
 
-/// Which tab is showing.
-///
-/// Lifted out of the shell so any screen can navigate — "View All" on Home
-/// jumps to Menu, for instance. A button that looks tappable and does nothing
-/// is worse than no button.
 class SelectedTab extends Notifier<AppTab> {
   @override
   AppTab build() => AppTab.home;
@@ -60,11 +101,6 @@ final selectedTabProvider = NotifierProvider<SelectedTab, AppTab>(
   SelectedTab.new,
 );
 
-/// The category the Menu screen is filtered to. Null means "All".
-///
-/// Lives here rather than inside the Menu screen so tapping a category on Home
-/// can pre-select it — the chip then does something real instead of merely
-/// switching tabs.
 class SelectedCategory extends Notifier<String?> {
   @override
   String? build() => null;
@@ -76,12 +112,6 @@ final selectedCategoryProvider = NotifierProvider<SelectedCategory, String?>(
   SelectedCategory.new,
 );
 
-/// Whether Menu is filtered to favorites only.
-///
-/// Lives here rather than inside the Menu screen, same reason as
-/// [SelectedCategory] — Home's "Favorites" quick action can turn this on
-/// before switching to the Menu tab, landing the customer directly on their
-/// saved items instead of a plain, unfiltered menu.
 class FavoritesOnly extends Notifier<bool> {
   @override
   bool build() => false;
@@ -94,9 +124,6 @@ final favoritesOnlyProvider = NotifierProvider<FavoritesOnly, bool>(
   FavoritesOnly.new,
 );
 
-/// Unwraps a [Result] into a value or throws its failure, so Riverpod's
-/// AsyncValue can carry the error into the UI. Widgets match on the failure
-/// type rather than inspecting a message string.
 Future<T> _unwrap<T>(Future<Result<T>> future) async {
   final result = await future;
   return switch (result) {
@@ -109,9 +136,6 @@ final memberProvider = FutureProvider<Member>(
   (ref) => _unwrap(ref.watch(memberRepositoryProvider).getMember()),
 );
 
-/// Local edits from the Edit Profile form — session-only, same as cart and
-/// favorites: there is no backend yet to persist a real profile edit to, so
-/// a save applies for the rest of this session and no further.
 class MemberEdits extends Notifier<Member?> {
   @override
   Member? build() => null;
@@ -125,11 +149,6 @@ final memberEditsProvider = NotifierProvider<MemberEdits, Member?>(
   MemberEdits.new,
 );
 
-/// The member as every screen should display them: the mock repository's
-/// data, with any local session edits layered on top. Every screen that
-/// shows member details (Home's header, the membership card, Profile) reads
-/// this instead of [memberProvider] directly, so an edit shows up everywhere
-/// at once rather than only on the Profile screen that made it.
 final displayedMemberProvider = Provider<AsyncValue<Member>>((ref) {
   final base = ref.watch(memberProvider);
   final edits = ref.watch(memberEditsProvider);
@@ -149,21 +168,41 @@ final offersProvider = FutureProvider<List<Offer>>(
   (ref) => _unwrap(ref.watch(memberRepositoryProvider).getOffers()),
 );
 
-final featuredItemProvider = FutureProvider<MenuItem?>(
-  (ref) => _unwrap(ref.watch(memberRepositoryProvider).getFeaturedItem()),
-);
-
 final promosProvider = FutureProvider<List<Promo>>(
   (ref) => _unwrap(ref.watch(memberRepositoryProvider).getPromos()),
 );
 
-final categoriesProvider = FutureProvider<List<MenuCategory>>(
-  (ref) => _unwrap(ref.watch(memberRepositoryProvider).getCategories()),
+/// Supabase Realtime exposes only a singleton revision signal. Every revision
+/// change causes a fresh RLS-filtered snapshot fetch; change payloads never
+/// become catalogue authority in the client.
+final catalogueRevisionProvider = StreamProvider<int>(
+  (ref) => ref.watch(catalogueRepositoryProvider).watchRevision(),
 );
 
-final popularItemsProvider = FutureProvider<List<MenuItem>>(
-  (ref) => _unwrap(ref.watch(memberRepositoryProvider).getPopularItems()),
-);
+final catalogueProvider = FutureProvider<CatalogueSnapshot>((ref) {
+  ref.watch(catalogueRevisionProvider);
+  return _unwrap(ref.watch(catalogueRepositoryProvider).getCatalogue());
+});
+
+final featuredItemProvider = FutureProvider<MenuItem?>((ref) async {
+  final catalogue = await ref.watch(catalogueProvider.future);
+  return catalogue.featuredItem;
+});
+
+final categoriesProvider = FutureProvider<List<MenuCategory>>((ref) async {
+  final catalogue = await ref.watch(catalogueProvider.future);
+  return catalogue.categories;
+});
+
+final popularItemsProvider = FutureProvider<List<MenuItem>>((ref) async {
+  final catalogue = await ref.watch(catalogueProvider.future);
+  return catalogue.popularItems;
+});
+
+final menuItemsProvider = FutureProvider<List<MenuItem>>((ref) async {
+  final catalogue = await ref.watch(catalogueProvider.future);
+  return catalogue.items;
+});
 
 final rewardsProvider = FutureProvider<List<Reward>>(
   (ref) => _unwrap(ref.watch(memberRepositoryProvider).getRewards()),
@@ -173,20 +212,10 @@ final vouchersProvider = FutureProvider<List<Voucher>>(
   (ref) => _unwrap(ref.watch(memberRepositoryProvider).getVouchers()),
 );
 
-final menuItemsProvider = FutureProvider<List<MenuItem>>(
-  (ref) => _unwrap(ref.watch(memberRepositoryProvider).getMenuItems()),
-);
-
-/// The cart. In-memory only, cleared on app restart — see the cart design
-/// spec §2. No backend exists yet for this app to persist an order to, so
-/// this follows the same pattern as everything else: build against what's
-/// real today.
 class CartState extends Notifier<Cart> {
   @override
   Cart build() => const Cart();
 
-  /// Adds [line]. Merges into an existing line — incrementing its quantity —
-  /// only if one with the exact same configuration already exists.
   void add(CartLineItem line) {
     final lines = state.lineItems;
     final matchIndex = lines.indexWhere(line.sameConfigurationAs);
@@ -204,9 +233,6 @@ class CartState extends Notifier<Cart> {
     state = Cart(lineItems: updated);
   }
 
-  /// Sets the line at [index] to [quantity]. Zero or below removes it —
-  /// a quantity stepper going to 0 is how a customer removes an item, not a
-  /// separate action they have to find.
   void setQuantity(int index, int quantity) {
     if (quantity <= 0) {
       removeAt(index);
@@ -222,15 +248,11 @@ class CartState extends Notifier<Cart> {
     state = Cart(lineItems: updated);
   }
 
-  /// Called after a mock order is placed.
   void clear() => state = const Cart();
 }
 
 final cartProvider = NotifierProvider<CartState, Cart>(CartState.new);
 
-/// Favorited item IDs. In-memory, session-only — an explicit client choice
-/// (cart design spec §3), not an oversight: favorites reset when the app
-/// closes.
 class FavoritesState extends Notifier<Set<String>> {
   @override
   Set<String> build() => <String>{};
@@ -248,14 +270,18 @@ final favoritesProvider = NotifierProvider<FavoritesState, Set<String>>(
   FavoritesState.new,
 );
 
-/// Past orders, most recent first. In-memory, session-only — same as cart
-/// and favorites: there is no backend to persist this to yet.
-class OrderHistoryState extends Notifier<List<PastOrder>> {
-  @override
-  List<PastOrder> build() => const [];
+final orderUpdatesProvider = StreamProvider<void>(
+  (ref) => ref.watch(orderRepositoryProvider).watchMyOrders(),
+);
 
-  void add(PastOrder order) => state = [order, ...state];
-}
+/// Realtime is an invalidation signal only. The list is always rebuilt from
+/// the owner-scoped get_my_orders() snapshot RPC.
+final orderHistoryProvider = FutureProvider<List<OrderSnapshot>>((ref) {
+  ref.watch(orderUpdatesProvider);
+  return _unwrap(ref.watch(orderRepositoryProvider).getMyOrders());
+});
 
-final orderHistoryProvider =
-    NotifierProvider<OrderHistoryState, List<PastOrder>>(OrderHistoryState.new);
+final orderProvider = FutureProvider.family<OrderSnapshot, String>((ref, id) {
+  ref.watch(orderUpdatesProvider);
+  return _unwrap(ref.watch(orderRepositoryProvider).getOrder(id));
+});

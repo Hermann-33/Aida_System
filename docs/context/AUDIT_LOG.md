@@ -1,69 +1,77 @@
 # Audit Log
 
-## 2026-08-11 — TASK-WF-001 — Customer frontend audit and governance baseline
+This is the mirrored project-level chronology. Historical task verdicts describe the state at that task's completion; later entries supersede earlier open blockers without rewriting history.
 
-**Verdict:** COMPLETE for audit/documentation; product remained prototype.
-
-Key evidence: Flutter customer app only in that repository; `MockMemberRepository` active; local/mock auth/cart/orders/loyalty; Flutter 3.44.7/Dart 3.12.2; one `_stockChocolate` analyzer warning; 24 non-golden tests passed; four golden comparisons failed.
-
----
-
-## 2026-08-11 — TASK-DB-001 — Supabase identity/membership foundation
-
-**Verdict:** COMPLETE for scoped database foundation.
-
-Verified clean reset state, then applied three version-controlled migrations creating `user_profiles`, `members`, `student_verifications`, enums, auth provisioning and forced RLS. Public role-helper exposure and RLS performance warnings were hardened. Supabase security advisor ended at 0 lints; only unused-index INFO findings remained. No frontend wiring was performed.
-
-Canonical migration branch: `codex/task-db-001-supabase-foundation` in customer repo.
-
----
-
-## 2026-08-12 — TASK-WF-002 — Dashboard import and audit
+## 2026-08-17 — TASK-CLOSEOUT-001 final cross-client verification
 
 **Verdict:** COMPLETE.
 
-Imported React 19 / TypeScript 6 / Vite 8 POS/Admin source into `Hermann-33/Aida_System-Dashboard` and audited employee access, terminal enrolment, POS, payments, members/QR, loyalty, shifts, locations, terminals, employees, catalogue, inventory, marketing, reporting, audit, integrations and settings.
+Approved demo credentials were supplied only through process-local environment variables. A real customer authenticated with trusted `app_role=customer` and one active member. The live published Sandwich item was quoted for ASAP pickup at an authoritative total of 1,290 sen. `place_customer_order` persisted order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`) as `confirmed` version 1.
 
-Current dashboard data is fixture/local/session preview data; no Supabase SDK or durable transactional backend exists.
+A real Owner authenticated through the Dashboard same-origin HttpOnly BFF. The Dashboard queue observed the exact UUID, order number, total, status and version. Versioned BFF transitions persisted `preparing` version 2, `ready` version 3 and `completed` version 4; customer-authorized `get_order` reads observed each changed state. Independent database verification confirms one retained completed order and an event sequence of created/confirmed → preparing → ready → completed.
 
-Checks reported: lint passed with 5 warnings; typecheck passed; 14 test files / 62 tests passed; build passed with bundle warning; preview E2E 6/6 passed; API E2E not run because backend unavailable; dependency audit reported 1 moderate and 4 high findings.
+Final Dashboard checks passed: lint with two established Fast Refresh warnings, typecheck, 25 Vitest files / 111 tests, production build, Playwright 8/8, `npm audit` 0 vulnerabilities and `git diff --check`. Customer closeout checks already passed Flutter 3.44.9 pub get, zero-issue analyze, 44/44 tests, release build in the task checkout and an independent clean worktree, plus canonical Auth/member, catalogue and order transactional regressions.
 
-Branch: `codex/task-wf-002-dashboard-import`.
+No service role, direct SQL order insertion, password reset, browser employee bearer-token persistence, client-trusted price/status or credential-bearing repository file was used. E2E credential variables were removed after authenticated work.
 
----
+Independent closeout verification rechecked 9 Auth users, 9 profiles, 6 members, roles owner/admin/staff = 1/1/1, catalogue revision 15 and one retained completed order. The current Supabase security advisor has one WARN: `auth_leaked_password_protection` / Leaked Password Protection Disabled.
 
-## 2026-08-12 — TASK-WF-003 — Dual-repository context synchronization
+Customer PR #13 and Dashboard PR #12 are independently mergeable. TASK-CLOSEOUT-001 has no remaining implementation or applicable ADR-0004 validation blocker. Hosted deployment remains DEFERRED.
 
-**Verdict:** COMPLETE for scoped governance/documentation work.
+## 2026-08-14 — TASK-CLOSEOUT-001 implementation closeout
 
-Actions:
+**Verdict:** PARTIAL pending the final credential-backed live order lifecycle.
 
-- verified both task branches and dashboard import evidence;
-- established identical project-level context for customer, dashboard and shared Supabase;
-- recorded cross-client shared-backend architecture and canonical migration ownership;
-- added dashboard-specific audit/integration documentation to both repos;
-- added mirrored-doc workflow and cross-repo ADRs;
-- preserved source-specific evidence as repository-local exceptions;
-- added `SESSION_BOOTSTRAP.md` with the permanent new-chat prompt;
-- opened and then merged the synchronized WF-003 PRs after their prerequisites.
+Customer closeout made Android release builds reproducible from committed Git by aligning AGP 8.9.1, Gradle 8.11.1 and Flutter compatibility properties. Customer Auth/member, catalogue and authoritative order frontend regressions passed; canonical SQL tests were hardened so approved live identities and legitimate catalogue mutations do not invalidate synthetic regression assumptions.
 
-No runtime, dependency, migration or Supabase change was made by WF-003.
+Dashboard closeout replaced preview/local order authority with the existing order BFF: typed same-origin order client, selection-only payloads, server quote authority, stable idempotent placement, ASAP/server-policy scheduling, explicit Pay-at-counter semantics, live 2.5-second queue polling, legal versioned status controls and 409 conflict refetch. Dashboard lint/typecheck/Vitest/build/Playwright passed and dependency advisories were remediated to `npm audit` 0 vulnerabilities.
 
----
+Physical evidence already proved Android signup → trusted member → Dashboard Members and Owner catalogue mutation → installed customer refresh.
 
-## 2026-08-12 — TASK-WF-004 — Setup post-merge finalization
+## 2026-08-14 — TASK-AUTH-006 Android release networking
+
+**Verdict at task completion:** PARTIAL pending physical-device proof; subsequently closed by user validation.
+
+Release audit proved `android.permission.INTERNET` was absent from the main/release manifest while present in debug/profile overlays. The permission was added to the main manifest, transport errors were mapped without leaking raw exception internals, and release/Auth regression tests were added. The later physical APK signup confirmed the old host-lookup defect was closed.
+
+## 2026-08-13 — TASK-AUTH-005 preview/live Dashboard session loop
 
 **Verdict:** COMPLETE.
 
-Purpose: make the default-branch documentation reflect the fact that the entire setup stack has been merged and remove stale “merge pending” handoff language.
+Audited and fixed the loop caused by mixing preview identity from browser session storage with protected live BFF requests. Preview Members no longer requests privileged member data, preview Menu is public/read-only, preview BFF 401s no longer destroy preview identity, and real session expiry still clears real employee state. Lint/typecheck/Vitest/build/Playwright passed with no RLS or session-boundary weakening.
 
-Merged setup record:
+## 2026-08-13 — TASK-AUTH-004 runtime access
 
-- Dashboard PR #1 — `TASK-WF-002` — merge commit `386f0fd5a10fe57f7bad4e2f350cd280cf639e39`.
-- Customer PR #2 — `TASK-DB-001` — merge commit `561d0d6fe4ec0ecc0c357784810ed806d6ef4e08`.
-- Customer PR #3 — `TASK-WF-003` — merge commit `84b766c23addb0163131f9c2f3b15e595bc98c65`.
-- Dashboard PR #2 — `TASK-WF-003` — merge commit `ffe2056589d9a128a5584b58da5e0fca68ec1df5`.
+**Verdict at task completion:** PARTIAL; later physical and trusted-identity gates closed.
 
-Finalization updates `ACTIVE_CONTEXT.md`, `HANDOFF.md`, `ROADMAP.md`, `docs/README.md`, `SESSION_BOOTSTRAP.md` and this audit log in both repositories. No application runtime, dependency or Supabase object was changed.
+Customer runtime received safe active Supabase public defaults with override support and improved Auth diagnostics. Dashboard local BFF received matching public configuration defaults and fail-closed Admin login routing. No service-role key, browser employee bearer token or authorization bypass was introduced.
 
-The setup/governance phase is now fully integrated. The next implementation task is `TASK-DB-002 — shared menu/catalogue foundation`.
+## 2026-08-13 — TASK-AUTH-003 deployment/E2E preflight
+
+**Verdict:** PARTIAL; hosted deployment remains DEFERRED.
+
+A clean Vercel deployment was created but its BFF runtime lacked required public Supabase environment configuration. The accepted demo topology was later clarified as local Dashboard PC → cloud Supabase → installed phone, so hosted deployment is preserved as operational debt rather than a closeout blocker.
+
+## 2026-08-13 — TASK-DEMO-ORDER-001 authoritative ordering
+
+**Verdict at task completion:** PARTIAL under ADR-0004; later fully closed by client integration and final E2E.
+
+Canonical customer-repository migrations added FORCE-RLS order/scheduling tables, server-authoritative quote and placement, immutable commercial snapshots, idempotency, schedule policy, legal versioned fulfilment transitions, append-only events and `orders` Realtime publication. Transactional SQL regression proved forged totals ignored, schedule and compatibility validation, customer ownership, idempotency, direct-DML denial, staff queue/POS capability and legal/stale/terminal status behavior.
+
+Dashboard order BFF/API adapters were added using the existing HttpOnly employee session and caller-JWT boundary. Flutter customer integration then added quote-before-place, server totals, retry-stable UUIDs, ASAP/scheduled pickup, Pay at counter, persisted history/detail/status and owner-scoped Realtime-triggered refetch without fake timers or random order authority.
+
+## 2026-08-12 to 2026-08-13 — TASK-MENU-001 shared catalogue
+
+**Verdict at task completion:** PARTIAL under full-stack gate; later physically validated.
+
+A shared Supabase catalogue replaced customer hardcodes and Dashboard Admin/POS catalogue fixtures. The canonical seed contains 4 categories, 16 items, 27 variants and 27 compatible add-on links. Admin/owner writes use caller identity and RLS; mutations bump an audit/revision signal; Flutter listens for revision changes and re-fetches. The user later proved a real Owner price mutation propagated to the installed Android app.
+
+## 2026-08-12 to 2026-08-13 — TASK-AUTH-001 / TASK-AUTH-002
+
+**Verdict at task completion:** PARTIAL under full-stack gate; later physically validated.
+
+Customer Supabase sign-up/sign-in/session/logout and trusted profile/member reads were integrated. Signup provisioning forces customer role, generates member code server-side and ignores forged trusted metadata. Dashboard protected Members was connected to a same-origin employee BFF using HttpOnly cookies and caller-JWT/RLS semantics; customer identities are denied employee/admin access.
+
+## Foundation/governance tasks
+
+Earlier workflow/database tasks established the dual-repository/single-Supabase topology, canonical migration ownership in the customer repository, mirrored governance/documentation requirements, identity/member schema with forced RLS, accepted ADRs and the full-stack completion discipline used by this closeout.

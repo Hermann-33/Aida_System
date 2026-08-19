@@ -14,22 +14,34 @@ class OrderStatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = switch (status) {
+      OrderStatus.confirmed => 'Confirmed',
+      OrderStatus.scheduled => 'Scheduled',
+      OrderStatus.preparing => 'Preparing',
       OrderStatus.ready => 'Ready',
+      OrderStatus.completed => 'Completed',
+      OrderStatus.cancelled => 'Cancelled',
+    };
+    final color = switch (status) {
+      OrderStatus.ready || OrderStatus.completed => AidaColors.success,
+      OrderStatus.cancelled => AidaColors.error,
+      _ => AidaColors.coffee,
     };
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: AidaColors.success.withValues(alpha: 0.14),
+        color: color.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.check_circle_rounded,
+          Icon(
+            status == OrderStatus.cancelled
+                ? Icons.cancel_rounded
+                : Icons.circle_rounded,
             size: 13,
-            color: AidaColors.success,
+            color: color,
           ),
           const SizedBox(width: 4),
           Text(
@@ -37,7 +49,7 @@ class OrderStatusPill extends StatelessWidget {
             style: AidaType.sans(
               size: 11.5,
               weight: FontWeight.w700,
-              color: AidaColors.success,
+              color: color,
             ),
           ),
         ],

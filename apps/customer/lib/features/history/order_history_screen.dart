@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/providers.dart';
 import '../../core/theme/aida_colors.dart';
 import '../../core/theme/aida_type.dart';
-import '../../core/widgets/product_image.dart';
 import '../../domain/model/order.dart';
 import 'order_detail_screen.dart';
 import 'widgets/order_status_pill.dart';
@@ -28,9 +27,8 @@ const _months = [
 String formatOrderDate(DateTime dt) =>
     '${dt.day} ${_months[dt.month - 1]} ${dt.year}';
 
-/// PRD CUS-08 "Transaction history list" — a stub folder until real ordering
-/// existed to populate it. Session-only, same as the cart it's fed by: see
-/// [orderHistoryProvider].
+/// Owner-scoped order history from get_my_orders(). Realtime is used only to
+/// invalidate and refetch these authoritative snapshots.
 class OrderHistoryScreen extends ConsumerWidget {
   const OrderHistoryScreen({super.key});
 
@@ -65,21 +63,66 @@ class OrderHistoryScreen extends ConsumerWidget {
               ),
             ),
             Expanded(
-              child:
-                  orders.isEmpty
-                      ? const _EmptyHistory()
-                      : ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
-                        itemCount: orders.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 12),
-                        itemBuilder: (_, i) => _OrderCard(order: orders[i]),
+              child: orders.when(
+                loading:
+                    () => const Center(
+                      child: CircularProgressIndicator(
+                        color: AidaColors.coffee,
                       ),
+                    ),
+                error:
+                    (error, _) => _HistoryError(
+                      onRetry: () => ref.invalidate(orderHistoryProvider),
+                    ),
+                data:
+                    (values) =>
+                        values.isEmpty
+                            ? const _EmptyHistory()
+                            : RefreshIndicator(
+                              onRefresh:
+                                  () async =>
+                                      ref.refresh(orderHistoryProvider.future),
+                              child: ListView.separated(
+                                padding: const EdgeInsets.fromLTRB(
+                                  20,
+                                  4,
+                                  20,
+                                  20,
+                                ),
+                                itemCount: values.length,
+                                separatorBuilder:
+                                    (_, __) => const SizedBox(height: 12),
+                                itemBuilder:
+                                    (_, i) => _OrderCard(order: values[i]),
+                              ),
+                            ),
+              ),
             ),
           ],
         ),
       ),
     );
   }
+}
+
+class _HistoryError extends StatelessWidget {
+  const _HistoryError({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Unable to load your orders',
+          style: AidaType.sans(size: 14, color: AidaColors.textMuted),
+        ),
+        TextButton(onPressed: onRetry, child: const Text('Try again')),
+      ],
+    ),
+  );
 }
 
 class _EmptyHistory extends StatelessWidget {
@@ -131,7 +174,7 @@ class _EmptyHistory extends StatelessWidget {
 class _OrderCard extends StatelessWidget {
   const _OrderCard({required this.order});
 
-  final PastOrder order;
+  final OrderSnapshot order;
 
   @override
   Widget build(BuildContext context) {
@@ -178,7 +221,7 @@ class _OrderCard extends StatelessWidget {
                           ),
                           const SizedBox(height: 3),
                           Text(
-                            formatOrderDate(order.placedAt),
+                            formatOrderDate(order.createdAt.toLocal()),
                             style: AidaType.sans(
                               size: 12,
                               color: AidaColors.textMuted,
@@ -209,7 +252,7 @@ class _OrderCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 1),
                         Text(
-                          order.subtotal.formatted,
+                          order.total.formatted,
                           style: AidaType.sans(
                             size: 17,
                             weight: FontWeight.w800,
@@ -249,7 +292,7 @@ class _OrderCard extends StatelessWidget {
 class _ThumbnailStack extends StatelessWidget {
   const _ThumbnailStack({required this.order});
 
-  final PastOrder order;
+  final OrderSnapshot order;
 
   static const _size = 40.0;
   static const _overlap = 26.0;
@@ -257,8 +300,8 @@ class _ThumbnailStack extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shown = order.lineItems.take(_maxShown).toList();
-    final extra = order.lineItems.length - shown.length;
+    final shown = order.lines.take(_maxShown).toList();
+    final extra = order.lines.length - shown.length;
     final slots = shown.length + (extra > 0 ? 1 : 0);
 
     return SizedBox(
@@ -275,11 +318,18 @@ class _ThumbnailStack extends StatelessWidget {
                   color: AidaColors.cardWhite,
                   shape: BoxShape.circle,
                 ),
-                child: ProductImage(
-                  imageUrl: shown[i].item.imageUrl,
-                  category: shown[i].item.category,
-                  size: _size - 4,
-                  borderRadius: (_size - 4) / 2,
+                child: Container(
+                  width: _size - 4,
+                  height: _size - 4,
+                  decoration: const BoxDecoration(
+                    color: AidaColors.caramelTint,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.local_cafe_rounded,
+                    size: 18,
+                    color: AidaColors.coffee,
+                  ),
                 ),
               ),
             ),

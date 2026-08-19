@@ -1,54 +1,69 @@
+import 'menu_variant.dart';
 import 'money.dart';
 
-/// A product on the menu. PRD §12.1.
+/// A published product/add-on from the shared catalogue.
 class MenuItem {
   const MenuItem({
     required this.id,
+    this.categoryId = '',
+    this.sku = '',
+    this.kind = 'product',
     required this.name,
     required this.category,
     required this.description,
     required this.price,
     required this.isAvailable,
     this.imageUrl,
+    this.isFeatured = false,
     this.isBestSeller = false,
     this.isStudentEligible = false,
-    this.bonusPoints,
     this.compatibleAddOnIds = const [],
-    this.rating,
+    this.variants = const [],
     this.volumeMl,
   });
 
+  /// Server-owned stable identifier. Live catalogue rows always provide these
+  /// backend fields; defaults only preserve isolated widget/test construction.
   final String id;
+  final String categoryId;
+  final String sku;
+
+  /// `product` or `addon`. Category names are display data and never determine
+  /// whether an item is an add-on.
+  final String kind;
+
   final String name;
   final String category;
   final String description;
   final Money price;
   final bool isAvailable;
   final String? imageUrl;
+  final bool isFeatured;
   final bool isBestSeller;
-
-  /// Whether student-only offers may apply to this item.
   final bool isStudentEligible;
 
-  /// Campaign bonus points, shown as the gold `+25` pill in the approved
-  /// design. Null when the item carries no campaign.
-  final int? bonusPoints;
-
-  /// IDs of menu items (from the Add-ons category) this item can be ordered
-  /// with — e.g. a Latte's list includes "Extra Shot". Empty by default; a
-  /// croissant has nothing here. This is a placeholder mapping, not a
-  /// verified business rule — see the cart design spec §3.
+  /// Server-defined add-on item IDs valid for this product.
   final List<String> compatibleAddOnIds;
 
-  /// TEST DATA ONLY — there is no review system anywhere in this app, no
-  /// customer can leave a rating, and this number is not backed by anything
-  /// real. Shown purely so the detail page can be visually reviewed with a
-  /// rating in place; must not ship to a real customer without an actual
-  /// review feature behind it. Null renders nothing.
-  final double? rating;
+  /// Server-defined variants such as Small / Medium / Large. Empty means the
+  /// item has no variant choice.
+  final List<MenuVariant> variants;
 
-  /// Placeholder serving size, e.g. 240 for "240ml". Not a confirmed menu
-  /// spec — same caveat as every price and size delta in this app: real
-  /// numbers are the owner's call. Null renders nothing.
   final int? volumeMl;
+
+  /// Ratings and bonus campaigns are not catalogue facts. Compatibility
+  /// getters keep old presentation code compiling while ensuring no fake value
+  /// can leak into the live menu.
+  double? get rating => null;
+  int? get bonusPoints => null;
+
+  MenuVariant? get defaultVariant {
+    for (final variant in variants) {
+      if (variant.isDefault && variant.isAvailable) return variant;
+    }
+    for (final variant in variants) {
+      if (variant.isAvailable) return variant;
+    }
+    return null;
+  }
 }

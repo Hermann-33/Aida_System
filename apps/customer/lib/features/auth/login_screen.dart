@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,14 +5,11 @@ import '../../application/providers.dart';
 import '../../core/error/result.dart';
 import '../../core/theme/aida_colors.dart';
 import '../../core/theme/aida_type.dart';
-import '../../domain/model/member.dart';
 import 'widgets/auth_field.dart';
 import 'widgets/auth_wave_clipper.dart';
 import 'widgets/forgot_password_sheet.dart';
 
-/// Wave-header Sign In / Sign Up — coffee-beans + barista heroes, tabbed
-/// form sheet. Auth (C2) has no real backend yet — see
-/// [MemberRepository.logIn] — so Sign In accepts any filled attempt for demo.
+/// Wave-header Sign In / Sign Up backed by Supabase Auth.
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key, this.initialSignUp = false});
 
@@ -80,10 +75,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     }
   }
 
+  String? _validateRequiredPassword(String? value) {
+    if ((value ?? '').isEmpty) return 'Enter your password';
+    return null;
+  }
+
   Future<void> _submitLogin() async {
-    // No backend exists yet to check a real credential against, so this
-    // deliberately does not gate on field validation — anyone reviewing the
-    // build should be able to tap Sign In and land in the app.
+    if (!(_signInFormKey.currentState?.validate() ?? false)) return;
     setState(() => _submitting = true);
 
     final repo = ref.read(memberRepositoryProvider);
@@ -119,11 +117,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     setState(() => _submitting = true);
 
     final repo = ref.read(memberRepositoryProvider);
-    final name = _nameController.text.trim();
-    final email = _signUpEmail.text.trim();
     final result = await repo.signUp(
-      name: name,
-      email: email,
+      name: _nameController.text.trim(),
+      email: _signUpEmail.text.trim(),
       password: _signUpPassword.text,
       isStudent: _isStudent,
     );
@@ -133,21 +129,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
     switch (result) {
       case Ok():
-        final code =
-            'AIDA-${1000 + Random().nextInt(9000)}-${1000 + Random().nextInt(9000)}';
-        ref
-            .read(memberEditsProvider.notifier)
-            .apply(
-              Member(
-                id: 'm_${DateTime.now().millisecondsSinceEpoch}',
-                memberCode: code,
-                name: name,
-                email: email,
-                studentStatus:
-                    _isStudent ? StudentStatus.pending : StudentStatus.none,
-              ),
-            );
+        // Supabase may issue a session immediately or require email
+        // confirmation. AuthGate follows the backend session either way.
         ref.read(authStateProvider.notifier).logIn();
+        if (!ref.read(authStateProvider)) {
+          _showInfo('Account created. Confirm your email, then sign in.');
+          _selectTab(true);
+        }
       case Err(:final failure):
         _showError(failure.message);
     }
@@ -160,6 +148,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         SnackBar(
           behavior: SnackBarBehavior.floating,
           backgroundColor: AidaColors.error,
+          content: Text(
+            message,
+            style: AidaType.sans(size: 13, color: AidaColors.cream),
+          ),
+        ),
+      );
+  }
+
+  void _showInfo(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AidaColors.espresso,
           content: Text(
             message,
             style: AidaType.sans(size: 13, color: AidaColors.cream),
@@ -309,6 +312,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             icon: Icons.mail_outline_rounded,
             keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.next,
+            validator: validateEmail,
           ),
           const SizedBox(height: 18),
           AuthField(
@@ -316,8 +320,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             controller: _loginPassword,
             icon: Icons.lock_outline_rounded,
             obscureText: _obscureLogin,
-            onToggleObscure: () => setState(() => _obscureLogin = !_obscureLogin),
+            onToggleObscure:
+                () => setState(() => _obscureLogin = !_obscureLogin),
             textInputAction: TextInputAction.done,
+            validator: _validateRequiredPassword,
             onFieldSubmit: (_) => _submitLogin(),
           ),
           const SizedBox(height: 28),
@@ -470,18 +476,10 @@ class _AuthTabs extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: _TabLabel(
-            label: 'Sign In',
-            active: signIn,
-            onTap: onSignIn,
-          ),
+          child: _TabLabel(label: 'Sign In', active: signIn, onTap: onSignIn),
         ),
         Expanded(
-          child: _TabLabel(
-            label: 'Sign Up',
-            active: !signIn,
-            onTap: onSignUp,
-          ),
+          child: _TabLabel(label: 'Sign Up', active: !signIn, onTap: onSignUp),
         ),
       ],
     );
@@ -580,7 +578,9 @@ class _OrDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: Divider(color: AidaColors.latte.withValues(alpha: 0.9))),
+        Expanded(
+          child: Divider(color: AidaColors.latte.withValues(alpha: 0.9)),
+        ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(
@@ -588,7 +588,9 @@ class _OrDivider extends StatelessWidget {
             style: AidaType.sans(size: 12, color: AidaColors.textMuted),
           ),
         ),
-        Expanded(child: Divider(color: AidaColors.latte.withValues(alpha: 0.9))),
+        Expanded(
+          child: Divider(color: AidaColors.latte.withValues(alpha: 0.9)),
+        ),
       ],
     );
   }

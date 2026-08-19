@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -12,47 +10,7 @@ import '../../domain/model/menu_item.dart';
 import '../../domain/model/money.dart';
 import '../../domain/model/order.dart';
 import 'order_confirmation_screen.dart';
-
-/// Cash, Card, E-wallet, Student Wallet — the real methods already
-/// documented in PRD §13.3. Shown here for a complete-feeling checkout, not
-/// wired to any processor: this app records a payment method the same way
-/// the counter POS does, it never handles a real transaction.
-enum _PaymentMethod {
-  cash(
-    'Cash',
-    'Pay at the pickup counter',
-    Icons.payments_rounded,
-    AidaColors.success,
-  ),
-  card(
-    'Card',
-    'Debit or credit card',
-    Icons.credit_card_rounded,
-    AidaColors.coffee,
-  ),
-  eWallet(
-    'E-wallet',
-    'Scan and pay by QR',
-    Icons.qr_code_rounded,
-    AidaColors.espresso,
-  ),
-  studentWallet(
-    'Student Wallet',
-    'Use your student balance',
-    Icons.school_rounded,
-    AidaColors.cityRed,
-  );
-
-  const _PaymentMethod(this.label, this.subtitle, this.icon, this.accent);
-  final String label;
-  final String subtitle;
-  final IconData icon;
-
-  /// A distinct color per method, so the row reads at a glance the way a
-  /// real payment sheet's brand marks do — without us faking logos for
-  /// processors (Apple Pay, Visa, PayPal) this app doesn't integrate with.
-  final Color accent;
-}
+import 'order_checkout_sheet.dart';
 
 class CartScreen extends ConsumerStatefulWidget {
   const CartScreen({super.key});
@@ -62,52 +20,30 @@ class CartScreen extends ConsumerStatefulWidget {
 }
 
 class _CartScreenState extends ConsumerState<CartScreen> {
-  void _openPaymentSheet(Money total) {
+  void _openCheckoutSheet() {
+    final cart = ref.read(cartProvider);
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _PaymentMethodSheet(total: total, onPay: _placeOrder),
+      builder:
+          (_) => OrderCheckoutSheet(
+            repository: ref.read(orderRepositoryProvider),
+            items: cart.toOrderSelection(),
+            onPlaced: _orderPlaced,
+          ),
     );
   }
 
-  void _placeOrder(_PaymentMethod method) {
-    // Order-number generation only, not an order-management system — a mock
-    // ID is all a screen with no backend behind it needs. See cart design
-    // spec §2.
-    final orderNumber = (100000 + Random().nextInt(900000)).toString();
-
-    final cart = ref.read(cartProvider);
-    final menu = ref.read(menuItemsProvider).value ?? const <MenuItem>[];
-    final subtotal = cart.subtotal(
-      (line) => addOnTotalFor(line.addOnIds, menu),
-    );
-
-    // Recorded before the cart clears, so My Orders has a real receipt to
-    // show later — see the PastOrder doc for why status is always "ready".
-    ref
-        .read(orderHistoryProvider.notifier)
-        .add(
-          PastOrder(
-            orderNumber: orderNumber,
-            placedAt: DateTime.now(),
-            lineItems: cart.lineItems,
-            subtotal: subtotal,
-            paymentMethodLabel: method.label,
-          ),
-        );
-
-    // Cleared here, at the moment the order is placed — not on the
-    // confirmation screen's "Back to Menu" — so the cart is correctly empty
-    // regardless of how the customer navigates away from confirmation
-    // (the button, or the device back gesture).
+  void _orderPlaced(OrderSnapshot order) {
     ref.read(cartProvider.notifier).clear();
+    ref.invalidate(orderHistoryProvider);
 
     Navigator.of(context)
-      ..pop() // close the payment sheet
+      ..pop()
       ..push(
         MaterialPageRoute(
-          builder: (_) => OrderConfirmationScreen(orderNumber: orderNumber),
+          builder: (_) => OrderConfirmationScreen(order: order),
         ),
       );
   }
@@ -159,7 +95,11 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                       : ListView.separated(
                         padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
                         itemCount: cart.lineItems.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                        separatorBuilder:
+                            (_, __) => Divider(
+                              height: 17,
+                              color: AidaColors.latte.withValues(alpha: 0.5),
+                            ),
                         itemBuilder:
                             (_, i) => _CartLineCard(
                               index: i,
@@ -169,10 +109,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                       ),
             ),
             if (!cart.isEmpty)
-              _CheckoutBar(
-                subtotal: subtotal,
-                onCheckout: () => _openPaymentSheet(subtotal),
-              ),
+              _CheckoutBar(subtotal: subtotal, onCheckout: _openCheckoutSheet),
           ],
         ),
       ),
@@ -246,10 +183,11 @@ class _EmptyCart extends StatelessWidget {
   }
 }
 
-/// One line item as a self-contained card — thumbnail, name, price, and a
-/// quantity pill, with size/add-on/note details folded in as captions
-/// underneath the price rather than a separate row, since this app's real
-/// ordering options (unlike a plain candy-shop cart) can't just be dropped.
+/// One line item — thumbnail, name, price, and a quantity pill, sitting flat
+/// on the page (no card box) with size/add-on/note details folded in as
+/// captions underneath the price rather than a separate row, since this
+/// app's real ordering options (unlike a plain candy-shop cart) can't just
+/// be dropped. Swipe left to remove — see [Dismissible] below.
 class _CartLineCard extends StatelessWidget {
   const _CartLineCard({
     required this.index,
@@ -271,100 +209,112 @@ class _CartLineCard extends StatelessWidget {
       builder: (context, ref, _) {
         final notifier = ref.read(cartProvider.notifier);
 
-        return Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: AidaColors.cardWhite,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: AidaColors.espresso.withValues(alpha: 0.05),
-                blurRadius: 14,
-                offset: const Offset(0, 4),
-              ),
-            ],
+        return Dismissible(
+          // Identity, not position: the index shifts under a line once any
+          // earlier line is removed, but the item/size/add-ons/note tuple
+          // (the same identity `sameConfigurationAs` uses) doesn't.
+          key: ValueKey(
+            '${line.item.id}_${line.size?.id}_${line.addOnIds.join(',')}_${line.note}',
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ProductImage(
-                imageUrl: line.item.imageUrl,
-                category: line.item.category,
-                size: 56,
-                borderRadius: 14,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      line.item.name,
-                      style: AidaType.sans(
-                        size: 14.5,
-                        weight: FontWeight.w700,
-                        color: AidaColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      lineTotal.formatted,
-                      style: AidaType.sans(
-                        size: 13,
-                        weight: FontWeight.w700,
-                        color: AidaColors.coffee,
-                      ),
-                    ),
-                    if (configSummary != null) ...[
-                      const SizedBox(height: 4),
+          direction: DismissDirection.endToStart,
+          onDismissed: (_) => notifier.removeAt(index),
+          background: const _DeleteReveal(),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                ProductImage(
+                  imageUrl: line.item.imageUrl,
+                  category: line.item.category,
+                  size: 72,
+                  borderRadius: 16,
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        configSummary,
+                        line.item.name,
                         style: AidaType.sans(
-                          size: 12,
-                          color: AidaColors.textMuted,
+                          size: 16.5,
+                          weight: FontWeight.w700,
+                          color: AidaColors.textPrimary,
                         ),
                       ),
-                    ],
-                    if (line.note != null) ...[
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 3),
                       Text(
-                        '"${line.note}"',
+                        lineTotal.formatted,
                         style: AidaType.sans(
-                          size: 12,
-                          weight: FontWeight.w600,
+                          size: 14.5,
+                          weight: FontWeight.w700,
                           color: AidaColors.coffee,
                         ),
                       ),
+                      if (configSummary != null) ...[
+                        const SizedBox(height: 5),
+                        Text(
+                          configSummary,
+                          style: AidaType.sans(
+                            size: 13,
+                            color: AidaColors.textMuted,
+                          ),
+                        ),
+                      ],
+                      if (line.note != null) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          '"${line.note}"',
+                          style: AidaType.sans(
+                            size: 13,
+                            weight: FontWeight.w600,
+                            color: AidaColors.coffee,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  _QuantityPill(
-                    quantity: line.quantity,
-                    onDecrement:
-                        () => notifier.setQuantity(index, line.quantity - 1),
-                    onIncrement:
-                        () => notifier.setQuantity(index, line.quantity + 1),
-                  ),
-                  const SizedBox(height: 10),
-                  InkWell(
-                    onTap: () => notifier.removeAt(index),
-                    child: const Icon(
-                      Icons.delete_outline_rounded,
-                      size: 19,
-                      color: AidaColors.error,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+                const SizedBox(width: 8),
+                _QuantityPill(
+                  quantity: line.quantity,
+                  onDecrement:
+                      () => notifier.setQuantity(index, line.quantity - 1),
+                  onIncrement:
+                      () => notifier.setQuantity(index, line.quantity + 1),
+                ),
+              ],
+            ),
           ),
         );
       },
+    );
+  }
+}
+
+/// Revealed as a line is swiped left — soft, not a jarring solid-red bar, to
+/// match the flat/smooth style the rest of the row already carries.
+class _DeleteReveal extends StatelessWidget {
+  const _DeleteReveal();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.only(right: 6),
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: AidaColors.error.withValues(alpha: 0.12),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(
+          Icons.delete_outline_rounded,
+          color: AidaColors.error,
+          size: 20,
+        ),
+      ),
     );
   }
 }
@@ -394,12 +344,12 @@ class _QuantityPill extends StatelessWidget {
         children: [
           _QtyButton(icon: Icons.remove_rounded, onTap: onDecrement),
           SizedBox(
-            width: 26,
+            width: 30,
             child: Text(
               '$quantity',
               textAlign: TextAlign.center,
               style: AidaType.sans(
-                size: 13,
+                size: 14.5,
                 weight: FontWeight.w700,
                 color: AidaColors.textPrimary,
               ),
@@ -427,8 +377,8 @@ class _QtyButton extends StatelessWidget {
         onTap: onTap,
         customBorder: const CircleBorder(),
         child: Padding(
-          padding: const EdgeInsets.all(6),
-          child: Icon(icon, size: 15, color: AidaColors.textPrimary),
+          padding: const EdgeInsets.all(8),
+          child: Icon(icon, size: 17, color: AidaColors.textPrimary),
         ),
       ),
     );
@@ -491,10 +441,7 @@ class _PromoRow extends StatelessWidget {
   }
 }
 
-/// Subtotal/total summary and the button that opens [_PaymentMethodSheet].
-/// Payment method selection lives in its own sheet rather than stacked in
-/// here — cramming both into one panel is what the previous design got
-/// right feedback about.
+/// Local catalogue estimate and entry to the authoritative quote step.
 class _CheckoutBar extends StatelessWidget {
   const _CheckoutBar({required this.subtotal, required this.onCheckout});
 
@@ -524,7 +471,7 @@ class _CheckoutBar extends StatelessWidget {
           Row(
             children: [
               Text(
-                'Subtotal',
+                'Estimated subtotal',
                 style: AidaType.sans(size: 13, color: AidaColors.textMuted),
               ),
               const Spacer(),
@@ -534,28 +481,6 @@ class _CheckoutBar extends StatelessWidget {
                   size: 13,
                   weight: FontWeight.w600,
                   color: AidaColors.textMuted,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Text(
-                'Total',
-                style: AidaType.sans(
-                  size: 14,
-                  weight: FontWeight.w700,
-                  color: AidaColors.textPrimary,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                subtotal.formatted,
-                style: AidaType.sans(
-                  size: 19,
-                  weight: FontWeight.w800,
-                  color: AidaColors.textPrimary,
                 ),
               ),
             ],
@@ -574,198 +499,12 @@ class _CheckoutBar extends StatelessWidget {
                 ),
               ),
               child: Text(
-                'Checkout',
+                'Review order',
                 style: AidaType.sans(size: 15, weight: FontWeight.w700),
               ),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// Payment method picker, shown as its own modal sheet triggered from
-/// [_CheckoutBar]'s Checkout button — separated from the cart screen so
-/// each step only asks the customer for one thing at a time.
-class _PaymentMethodSheet extends StatefulWidget {
-  const _PaymentMethodSheet({required this.total, required this.onPay});
-
-  final Money total;
-  final ValueChanged<_PaymentMethod> onPay;
-
-  @override
-  State<_PaymentMethodSheet> createState() => _PaymentMethodSheetState();
-}
-
-class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
-  _PaymentMethod _method = _PaymentMethod.cash;
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-        decoration: const BoxDecoration(
-          color: AidaColors.cardWhite,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AidaColors.latte,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              'Payment method',
-              style: AidaType.serif(size: 19, color: AidaColors.textPrimary),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              "Choose how you'd like to pay",
-              style: AidaType.sans(size: 13, color: AidaColors.textMuted),
-            ),
-            const SizedBox(height: 18),
-            for (final m in _PaymentMethod.values) ...[
-              _MethodRow(
-                method: m,
-                selected: m == _method,
-                onTap: () => setState(() => _method = m),
-              ),
-              const SizedBox(height: 10),
-            ],
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Text(
-                  'Total',
-                  style: AidaType.sans(size: 13, color: AidaColors.textMuted),
-                ),
-                const Spacer(),
-                Text(
-                  widget.total.formatted,
-                  style: AidaType.sans(
-                    size: 18,
-                    weight: FontWeight.w800,
-                    color: AidaColors.textPrimary,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: () => widget.onPay(_method),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AidaColors.coffee,
-                  foregroundColor: AidaColors.cream,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                ),
-                child: Text(
-                  'Pay ${widget.total.formatted}',
-                  style: AidaType.sans(size: 15, weight: FontWeight.w700),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _MethodRow extends StatelessWidget {
-  const _MethodRow({
-    required this.method,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final _PaymentMethod method;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(18),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color:
-                selected
-                    ? AidaColors.coffee.withValues(alpha: 0.06)
-                    : AidaColors.cream,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color:
-                  selected
-                      ? AidaColors.coffee
-                      : AidaColors.latte.withValues(alpha: 0.7),
-            ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: method.accent.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(13),
-                ),
-                child: Icon(method.icon, size: 20, color: method.accent),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      method.label,
-                      style: AidaType.sans(
-                        size: 14,
-                        weight: FontWeight.w700,
-                        color: AidaColors.textPrimary,
-                      ),
-                    ),
-                    Text(
-                      method.subtitle,
-                      style: AidaType.sans(
-                        size: 11.5,
-                        color: AidaColors.textMuted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                selected
-                    ? Icons.radio_button_checked_rounded
-                    : Icons.radio_button_off_rounded,
-                size: 22,
-                color: selected ? AidaColors.coffee : AidaColors.latte,
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

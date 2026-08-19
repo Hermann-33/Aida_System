@@ -75,7 +75,10 @@ class AuthField extends StatelessWidget {
                   padding: const EdgeInsets.only(right: 10),
                   child: Icon(icon, size: 20, color: AidaColors.espresso),
                 ),
-        prefixIconConstraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+        prefixIconConstraints: const BoxConstraints(
+          minWidth: 28,
+          minHeight: 28,
+        ),
         suffixIcon:
             onToggleObscure == null
                 ? null

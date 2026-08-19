@@ -76,4 +76,11 @@ abstract final class AidaColors {
 
   /// Success, verification, confirmation.
   static const success = Color(0xFF4F6B4A);
+
+  /// A lighter tint of [success], for the same reason [coffeeLight] exists —
+  /// a gradient's light stop, not a second success colour.
+  static Color get successLight {
+    final hsl = HSLColor.fromColor(success);
+    return hsl.withLightness((hsl.lightness + 0.16).clamp(0.0, 1.0)).toColor();
+  }
 }

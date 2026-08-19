@@ -11,32 +11,22 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Renders the screens to PNG so they can be reviewed without a device, and so
-/// an unintended visual change fails a test rather than reaching the client.
-///
-/// Regenerate after an intentional design change:
-///   flutter test --update-goldens
-const _fast = MockMemberRepository(latency: Duration.zero);
+import '../support/test_catalogue_repository.dart';
 
-/// Home renders a time-of-day greeting and a Mon–Sun check-in streak from
-/// `clock.now()`. Pinned to a Friday afternoon so goldens are deterministic
-/// regardless of when the suite actually runs.
+const _fast = MockMemberRepository(latency: Duration.zero);
+const _catalogue = TestCatalogueRepository();
 final _fixedNow = DateTime(2026, 1, 16, 14);
 
-/// `flutter test` substitutes a placeholder font for everything, so goldens
-/// would render text as blank boxes. Load the real bundled fonts so the golden
-/// shows what a customer actually sees.
 Future<void> _loadFonts() async {
   Future<void> load(String family, String path) async {
     final bytes = await File(path).readAsBytes();
-    await (FontLoader(family)..addFont(Future.value(ByteData.sublistView(bytes)))).load();
+    await (FontLoader(family)
+      ..addFont(Future.value(ByteData.sublistView(bytes)))).load();
   }
 
   await load(AidaType.display, 'assets/fonts/${AidaType.display}.ttf');
   await load(AidaType.body, 'assets/fonts/${AidaType.body}.ttf');
 
-  // Icons are also stubbed out in tests. Load the real icon font from the
-  // Flutter SDK so the golden shows icons rather than empty squares.
   final flutterRoot =
       Platform.environment['FLUTTER_ROOT'] ??
       File(Platform.resolvedExecutable).parent.parent.parent.path;
@@ -55,13 +45,16 @@ void main() {
 
   Future<void> pumpApp(WidgetTester tester) async {
     tester.view
-      ..physicalSize = const Size(1170, 2532) // iPhone 13/14 at 3x
+      ..physicalSize = const Size(1170, 2532)
       ..devicePixelRatio = 3.0;
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [memberRepositoryProvider.overrideWithValue(_fast)],
+        overrides: [
+          memberRepositoryProvider.overrideWithValue(_fast),
+          catalogueRepositoryProvider.overrideWithValue(_catalogue),
+        ],
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
           theme: AidaTheme.light,
@@ -75,17 +68,23 @@ void main() {
   testWidgets('golden: home', (tester) async {
     await withClock(Clock.fixed(_fixedNow), () async {
       await pumpApp(tester);
-      await expectLater(find.byType(AppShell), matchesGoldenFile('goldens/home.png'));
+      await expectLater(
+        find.byType(AppShell),
+        matchesGoldenFile('goldens/home.png'),
+      );
     });
   });
 
-  testWidgets('golden: home scrolled (categories + popular picks)', (tester) async {
+  testWidgets('golden: home scrolled (categories + popular picks)', (
+    tester,
+  ) async {
     await withClock(Clock.fixed(_fixedNow), () async {
       await pumpApp(tester);
-
-      await tester.drag(find.byKey(const Key('home_scroll')), const Offset(0, -520));
+      await tester.drag(
+        find.byKey(const Key('home_scroll')),
+        const Offset(0, -520),
+      );
       await tester.pumpAndSettle();
-
       await expectLater(
         find.byType(AppShell),
         matchesGoldenFile('goldens/home_scrolled.png'),
@@ -96,14 +95,10 @@ void main() {
   testWidgets('golden: menu with a category selected', (tester) async {
     await withClock(Clock.fixed(_fixedNow), () async {
       await pumpApp(tester);
-
       await tester.tap(find.byKey(const ValueKey('nav_menu')));
       await tester.pumpAndSettle();
-
-      // Selecting Coffee should fill its chip and filter the list to coffee.
       await tester.tap(find.byKey(const ValueKey('menu_cat_c_coffee')));
       await tester.pumpAndSettle();
-
       await expectLater(
         find.byType(AppShell),
         matchesGoldenFile('goldens/menu_selected.png'),
@@ -114,10 +109,8 @@ void main() {
   testWidgets('golden: membership card', (tester) async {
     await withClock(Clock.fixed(_fixedNow), () async {
       await pumpApp(tester);
-
       await tester.tap(find.byKey(const ValueKey('nav_qr')));
       await tester.pumpAndSettle();
-
       await expectLater(
         find.byType(AppShell),
         matchesGoldenFile('goldens/membership_card.png'),

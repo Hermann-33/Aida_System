@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/providers.dart';
 import '../../core/theme/aida_colors.dart';
+import '../../core/theme/aida_theme.dart';
 import '../../core/theme/aida_type.dart';
 import '../../core/widgets/entrance.dart';
 import '../../domain/model/loyalty.dart';
+import '../../domain/model/member.dart';
 import '../../domain/model/reward.dart';
 import '../../domain/model/voucher.dart';
 import 'widgets/reward_ticket_card.dart';
@@ -30,11 +32,24 @@ class RewardsScreen extends ConsumerStatefulWidget {
 class _RewardsScreenState extends ConsumerState<RewardsScreen> {
   final _scrollController = ScrollController();
   final _viewportKey = GlobalKey();
+  final _earnedKey = GlobalKey();
+  final _catalogueKey = GlobalKey();
 
   @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _scrollToSection(GlobalKey key) {
+    final target = key.currentContext;
+    if (target == null) return;
+    Scrollable.ensureVisible(
+      target,
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeOutCubic,
+      alignment: 0.05,
+    );
   }
 
   void _snack(String message) {
@@ -125,6 +140,7 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
     final vouchers = ref.watch(vouchersProvider);
     final rewards = ref.watch(rewardsProvider);
     final points = ref.watch(pointsProvider);
+    final member = ref.watch(displayedMemberProvider);
 
     return Scaffold(
       backgroundColor: AidaColors.cream,
@@ -148,18 +164,24 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
                       controller: _scrollController,
                       viewportKey: _viewportKey,
                       order: 0,
-                      child: _BalanceCard(points: points),
+                      child: _BalanceCard(
+                        points: points,
+                        member: member,
+                        onVouchers: () => _scrollToSection(_earnedKey),
+                        onRedeem: () => _scrollToSection(_catalogueKey),
+                      ),
                     ),
-                    // Extra space so the overlapping circles under the
-                    // balance card aren't clipped by the next section.
-                    const SizedBox(height: 36),
+                    const SizedBox(height: 28),
                     ScrollReveal(
                       controller: _scrollController,
                       viewportKey: _viewportKey,
                       order: 1,
-                      child: _SectionTitle(
-                        title: 'Earned Rewards',
-                        subtitle: 'Show at the counter — staff apply them',
+                      child: KeyedSubtree(
+                        key: _earnedKey,
+                        child: _SectionTitle(
+                          title: 'Earned Rewards',
+                          subtitle: 'Show at the counter — staff apply them',
+                        ),
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -169,9 +191,12 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
                       controller: _scrollController,
                       viewportKey: _viewportKey,
                       order: 4,
-                      child: _SectionTitle(
-                        title: 'Redeem with Points',
-                        subtitle: 'Convert points into a voucher in-app',
+                      child: KeyedSubtree(
+                        key: _catalogueKey,
+                        child: _SectionTitle(
+                          title: 'Redeem with Points',
+                          subtitle: 'Convert points into a voucher in-app',
+                        ),
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -378,184 +403,224 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-class _BalanceCard extends StatelessWidget {
-  const _BalanceCard({required this.points});
+/// Same dark card language as the membership/QR card
+/// ([MembershipCardScreen]'s `_Card`) — coffee→espresso gradient, 28px
+/// radius, cream serif name, "MEMBER · code" footer — so the two feel like
+/// one card family rather than two unrelated designs. Layout (chip badge,
+/// hide-balance toggle, balance caption, pill action row) follows a
+/// wallet-app reference the user shared, with the actions mapped to real
+/// in-app destinations — "Vouchers"/"Redeem" scroll to the sections already
+/// on this page — rather than invented banking actions that don't apply to
+/// a café points card.
+class _BalanceCard extends StatefulWidget {
+  const _BalanceCard({
+    required this.points,
+    required this.member,
+    required this.onVouchers,
+    required this.onRedeem,
+  });
 
   final AsyncValue<Points> points;
+  final AsyncValue<Member> member;
+  final VoidCallback onVouchers;
+  final VoidCallback onRedeem;
+
+  @override
+  State<_BalanceCard> createState() => _BalanceCardState();
+}
+
+class _BalanceCardState extends State<_BalanceCard> {
+  bool _hidden = false;
 
   @override
   Widget build(BuildContext context) {
-    final balance = points.value?.formatted ?? '—';
+    final balance = widget.points.value?.formatted ?? '—';
+    final name = widget.member.value?.name ?? 'Aida Member';
+    final code = widget.member.value?.memberCode;
 
-    // Soft layered circles peeking under the card — same depth trick as
-    // the reference balance card's overlapping avatars.
-    const bubbles = <(IconData, Color)>[
-      (Icons.star_rounded, AidaColors.rewardGold),
-      (Icons.local_cafe_rounded, AidaColors.latte),
-      (Icons.card_giftcard_rounded, AidaColors.caramelTint),
-      (Icons.favorite_rounded, AidaColors.latte),
-      (Icons.workspace_premium_rounded, AidaColors.rewardGold),
-    ];
-
-    return Padding(
-      // Room for the half-circles that hang below the card.
-      padding: const EdgeInsets.only(bottom: 22),
-      child: Stack(
-        clipBehavior: Clip.none,
-        alignment: Alignment.bottomCenter,
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 36),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  AidaColors.coffeeLight,
-                  AidaColors.coffee,
-                  AidaColors.espresso,
-                ],
-                stops: const [0.0, 0.55, 1.0],
-              ),
-              borderRadius: BorderRadius.circular(32),
-              boxShadow: [
-                BoxShadow(
-                  color: AidaColors.coffee.withValues(alpha: 0.28),
-                  blurRadius: 28,
-                  offset: const Offset(0, 14),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AidaColors.cardWhite.withValues(alpha: 0.2),
-                        border: Border.all(
-                          color: AidaColors.cardWhite.withValues(alpha: 0.45),
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.star_rounded,
-                        size: 16,
-                        color: AidaColors.rewardGold,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Aida Points',
-                      style: AidaType.sans(
-                        size: 13,
-                        weight: FontWeight.w600,
-                        color: AidaColors.cardWhite.withValues(alpha: 0.92),
-                      ),
-                    ),
-                    const Spacer(),
-                    Container(
-                      width: 30,
-                      height: 30,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AidaColors.cardWhite.withValues(alpha: 0.14),
-                        border: Border.all(
-                          color: AidaColors.cardWhite.withValues(alpha: 0.28),
-                        ),
-                      ),
-                      child: Icon(
-                        Icons.info_outline_rounded,
-                        size: 15,
-                        color: AidaColors.cardWhite.withValues(alpha: 0.9),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 22),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: AidaColors.cardWhite.withValues(alpha: 0.55),
-                    ),
-                    color: AidaColors.cardWhite.withValues(alpha: 0.1),
-                  ),
-                  child: Text(
-                    'YOUR BALANCE',
-                    style: AidaType.sans(
-                      size: 11,
-                      weight: FontWeight.w700,
-                      letterSpacing: 1.2,
-                      color: AidaColors.cardWhite,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  balance,
-                  style: AidaType.serif(size: 42, color: AidaColors.cardWhite),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'points ready to redeem',
-                  style: AidaType.sans(
-                    size: 13,
-                    color: AidaColors.cardWhite.withValues(alpha: 0.78),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Positioned(
-            bottom: -18,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (var i = 0; i < bubbles.length; i++) ...[
-                  if (i > 0) const SizedBox(width: 8),
-                  _BalanceBubble(icon: bubbles[i].$1, color: bubbles[i].$2),
-                ],
-              ],
-            ),
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        gradient: const LinearGradient(
+          colors: [AidaColors.coffee, AidaColors.espresso],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AidaColors.espresso.withValues(alpha: 0.25),
+            blurRadius: 32,
+            offset: const Offset(0, 12),
           ),
         ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: Stack(
+          children: [
+            // A large, faint watermark of the café's own logo — the
+            // "premium card" texture trick real membership/bank cards use.
+            // Circular crop, zoomed in past the source photo's own cream
+            // border/edges (it's a photo of a printed sticker, not a clean
+            // isolated mark) so only the emblem itself shows, not a
+            // rectangular patch of that border reading as blank space.
+            Positioned(
+              right: -45,
+              bottom: -45,
+              child: Opacity(
+                opacity: 0.14,
+                child: ClipOval(
+                  child: SizedBox(
+                    width: 260,
+                    height: 260,
+                    child: Transform.scale(
+                      scale: 1.5,
+                      child: Image.asset(
+                        'assets/images/aida_logo.jpg',
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(22, 16, 22, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: AidaType.sans(
+                      size: 14,
+                      weight: FontWeight.w600,
+                      color: AidaColors.latte,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    _hidden ? '••••' : balance,
+                    style: AidaType.serif(
+                      size: 52,
+                      weight: FontWeight.w700,
+                      color: AidaColors.cream,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _CardPillButton(
+                          icon: Icons.confirmation_number_outlined,
+                          label: 'Vouchers',
+                          onTap: widget.onVouchers,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _CardPillButton(
+                          icon: Icons.redeem_rounded,
+                          label: 'Redeem',
+                          onTap: widget.onRedeem,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    code == null ? 'MEMBER' : 'MEMBER · $code',
+                    style: AidaTheme.sectionLabel(color: AidaColors.latte),
+                  ),
+                ],
+              ),
+            ),
+            // Floats independently of the Column above — it used to sit in
+            // its own row there, pushing the name/balance down by its own
+            // height for no reason, since it's a small corner control.
+            Positioned(
+              top: 16,
+              right: 22,
+              child: Material(
+                color: Colors.transparent,
+                shape: const CircleBorder(),
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: () => setState(() => _hidden = !_hidden),
+                  child: Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AidaColors.cardWhite.withValues(alpha: 0.14),
+                      border: Border.all(
+                        color: AidaColors.cardWhite.withValues(alpha: 0.28),
+                      ),
+                    ),
+                    child: Icon(
+                      _hidden
+                          ? Icons.visibility_off_rounded
+                          : Icons.visibility_rounded,
+                      size: 15,
+                      color: AidaColors.cardWhite.withValues(alpha: 0.9),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _BalanceBubble extends StatelessWidget {
-  const _BalanceBubble({required this.icon, required this.color});
+/// The "Request"/"Transfer" pill shape from the reference, wired to
+/// in-page navigation instead of banking actions.
+class _CardPillButton extends StatelessWidget {
+  const _CardPillButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   final IconData icon;
-  final Color color;
+  final String label;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: color,
-        border: Border.all(color: AidaColors.cardWhite, width: 2.5),
-        boxShadow: [
-          BoxShadow(
-            color: AidaColors.espresso.withValues(alpha: 0.12),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+    return Material(
+      color: AidaColors.cardWhite.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 13),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: AidaColors.cardWhite.withValues(alpha: 0.3),
+            ),
           ),
-        ],
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 16, color: AidaColors.cream),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: AidaType.sans(
+                  size: 12.5,
+                  weight: FontWeight.w700,
+                  color: AidaColors.cream,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
-      child: Icon(icon, size: 18, color: AidaColors.espresso),
     );
   }
 }

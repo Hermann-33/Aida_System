@@ -2,6 +2,42 @@
 
 This is the mirrored project-level chronology. Historical task verdicts describe the state at that task's completion; later entries supersede earlier open blockers without rewriting history.
 
+## 2026-08-20 — TASK-UI-REDESIGN-002 customer UI redesign integration
+
+**Verdict:** COMPLETE for the mobile repository integration target.
+
+Reviewed `customer-app-redesign` against current `master`. The source branch was not directly merged because it was 140 commits behind `master`, five commits ahead and carried two unrelated July admin-sidebar documentation commits. A clean `codex/ui-redesign-integration` branch was created from current `master` and only the reviewed redesign delta was carried forward.
+
+The visual redesign covers Menu, Item detail, Cart, Checkout sheet, Rewards, the floating cart bar, shared logo presentation and a small reusable control extension. `MenuGridItem` is retired in favor of `MenuListItem`; a bundled `aida_logo.jpg` asset replaces the previous logo placeholder; four repository-local screenshots are retained for Menu, Item detail, Cart and Rewards.
+
+Integration review found and corrected three source-branch regressions before merge:
+
+1. The source checkout wheel offered arbitrary minutes and imposed client-only 8am–5pm hours. The integrated wheel now receives only `derivePickupSlots(OrderingPolicy)` values, preserving schedule enablement, lead time, slot interval, maximum advance horizon and backend timezone/server time.
+2. The source Menu list ignored catalogue `imageUrl` and always showed category art. The integrated `MenuListItem` renders the live item image first and uses category art only as fallback.
+3. The source branch carried an unrelated `shared_preferences` dependency change. Integration preserves the current `master` pin (`2.5.5`) and adds only the logo asset registration.
+
+No backend schema, RPC, RLS, Auth, role, pricing, payment, loyalty, voucher, inventory, reporting, audit or order-state authority changed. Cart values remain estimates before server quote; order placement/status remain server-owned; Rewards still does not simulate authoritative redemption.
+
+Source-branch verification recorded by the colleague's environment was `flutter analyze` 0 issues and `flutter test` 40/44 passing, with four documented pre-existing golden mismatches and no golden update. This integration environment had no repository-local Flutter/Codex toolchain and the repository has no GitHub Actions workflow, so the corrected clean integration was not independently rerun through Flutter analysis/tests here. Source-level contract and diff review was completed; this limitation is explicitly preserved rather than converted into a false PASS.
+
+Cross-repository documentation sync to `Hermann-33/Aida_System-Dashboard` remains **PENDING by explicit task scope**.
+
+## 2026-08-19 — TASK-UI-REDESIGN-001 customer UI redesign documentation
+
+**Verdict:** COMPLETE for this task's mobile-repository documentation scope.
+
+Inspected a presentation-layer redesign already implemented on branch `customer-app-redesign` (pushed to `Hermann-33/Aida_System`, not yet a PR): Menu, Item detail, Cart, Checkout sheet and Rewards. Compared the branch against `hermann/master` at `fcfb179` (the 2026-08-17 `TASK-CLOSEOUT-001` state) file by file; separated genuine changes from a repository-wide `dart format` pass that also touched several unrelated files with no semantic effect (confirmed by hand for each such file).
+
+Created `docs/frontend/UI_REDESIGN_SPEC.md`: scope, design goals, design system (colors/type/spacing/shape/elevation/iconography/motion, each value cross-checked against source), shared-component inventory (new: `MenuCategoryRail`, `MenuListItem`; changed: `NeumorphicControl`, `FloatingCartBar`, `AidaLogo`; removed: `MenuGridItem`), navigation, a full screen-by-screen specification with visual and behavioral deltas kept explicitly separate, responsive/accessibility findings, known gaps and maintenance rules. Captured five new screenshots (`docs/screenshots/2026-08-19-*-redesign.png`) via a temporary widget test, without overwriting any pre-existing baseline screenshot.
+
+Updated `docs/frontend/UI_SCREEN_MAP.md` (dated note, no table/status changes — all five surfaces' data source and integration status are unchanged), `docs/frontend/FRAGILE_BOUNDARIES.md` (new contract-sensitive-assumption note), `docs/frontend/FRONTEND_AUDIT.md` (one-line scope-note pointer only, no historical finding altered), and this repository's `ACTIVE_CONTEXT.md`/`HANDOFF.md`. Left `STATE_AND_DATA_FLOW.md`, `MOCKS_AND_PLACEHOLDERS.md`, `CODEBASE_MAP.md`, all ADRs, `ARCHITECTURE.md`, `SYSTEM_MAP.md`, `SUPABASE_STATUS.md` and both backend-contract docs unmodified — inspection found no genuine architecture, trust-boundary, or backend-contract change to justify touching them.
+
+One real (not merely visual) finding at that task boundary: the checkout sheet's redesigned pickup-time picker no longer clamped minute selection to `OrderingPolicy.slotIntervalMinutes`, so it could submit a `requestedPickupAt` the backend's existing slot-alignment validation would reject; same-day scheduling also enforced a client-only 8am–5pm window with no `OrderingPolicy` counterpart. Both were documented as open items, not fixed, because TASK-UI-REDESIGN-001 was documentation-only. TASK-UI-REDESIGN-002 on 2026-08-20 subsequently corrected both before integration.
+
+Verification recorded by the source task: `flutter analyze` 0 issues; `flutter test` 40/44 passing on that branch, with the same 4 golden-image failures (`home`, `home scrolled`, `menu with a category selected`, `membership card`) documented as pre-existing. No golden baseline was updated.
+
+Cross-repository documentation sync: **PENDING** — `Hermann-33/Aida_System-Dashboard` was out of scope for the task and was not accessed.
+
 ## 2026-08-17 — TASK-CLOSEOUT-001 final cross-client verification
 
 **Verdict:** COMPLETE.
@@ -16,7 +52,7 @@ No service role, direct SQL order insertion, password reset, browser employee be
 
 Independent closeout verification rechecked 9 Auth users, 9 profiles, 6 members, roles owner/admin/staff = 1/1/1, catalogue revision 15 and one retained completed order. The current Supabase security advisor has one WARN: `auth_leaked_password_protection` / Leaked Password Protection Disabled.
 
-Customer PR #13 and Dashboard PR #12 are independently mergeable. TASK-CLOSEOUT-001 has no remaining implementation or applicable ADR-0004 validation blocker. Hosted deployment remains DEFERRED.
+Customer PR #13 and Dashboard PR #12 were independently mergeable at closeout. TASK-CLOSEOUT-001 had no remaining implementation or applicable ADR-0004 validation blocker. Hosted deployment remains DEFERRED.
 
 ## 2026-08-14 — TASK-CLOSEOUT-001 implementation closeout
 

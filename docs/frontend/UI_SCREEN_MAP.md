@@ -2,7 +2,7 @@
 
 # Customer UI Screen Map
 
-Updated: 2026-08-17
+Updated: 2026-08-20
 
 Statuses describe current runtime behavior, not design intent.
 
@@ -18,7 +18,7 @@ Statuses describe current runtime behavior, not design intent.
 | Menu | `features/menu/menu_screen.dart` | browse/filter/favorites | Supabase catalogue + Realtime invalidation; local favourites | Integrated; physical Owner price mutation observed |
 | Item detail | `features/menu/item_detail_screen.dart` | variant/add-ons/note/quantity/cart | Supabase catalogue item + widget interaction state | Integrated catalogue/local intent |
 | Cart | `features/cart/cart_screen.dart` | edit selections and enter checkout | local intent/estimate, then authoritative server quote | Integrated; local values not placement authority |
-| Checkout sheet | `features/cart/order_checkout_sheet.dart` | ASAP/scheduled selection and placement | ordering policy + quote/place RPCs | Integrated; Pay at counter only |
+| Checkout sheet | `features/cart/order_checkout_sheet.dart` | ASAP/scheduled selection and placement | ordering policy + quote/place RPCs | Integrated; scheduled values derived from server policy; Pay at counter only |
 | Order confirmation | `features/cart/order_confirmation_screen.dart` | server order number/status | authoritative order snapshot + Realtime/refetch | Integrated; no fake timer; live status E2E validated |
 | Order history | `features/history/order_history_screen.dart` | owner order history | `get_my_orders()` | Integrated owner-scoped read |
 | Order receipt/detail | `features/history/order_detail_screen.dart` | immutable order detail | `get_order()` server snapshot | Integrated owner-scoped read |
@@ -36,3 +36,9 @@ Statuses describe current runtime behavior, not design intent.
 Social sign-in, promo detail, notifications, reward redemption, voucher consumption, profile photo/stats/settings/invite/help, full verification-pending workflow, points ledger, password-change/delete-account UX, trusted profile writes and hosted production release operations remain outside the completed tranche.
 
 POS/Admin surfaces are implemented in the separate Dashboard repository and mapped under `docs/dashboard/UI_SCREEN_MAP.md`.
+
+## 2026-08-20 redesign integration note
+
+Menu, Item detail, Cart, Checkout sheet and Rewards received a presentation-layer redesign. Full design-system, component and screen-by-screen detail is in `docs/frontend/UI_REDESIGN_SPEC.md`.
+
+The original redesign branch experimented with arbitrary-minute scheduling and client-only opening hours. That implementation was rejected during integration. The integrated Checkout sheet retains the wheel-style interaction but populates it only from `derivePickupSlots(OrderingPolicy)`, so the runtime status above remains contract-compatible with `slotIntervalMinutes`, minimum lead time, maximum advance horizon and backend-provided timezone/server time.

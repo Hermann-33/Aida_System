@@ -37,32 +37,26 @@ Social sign-in, promo detail, notifications, reward redemption, voucher consumpt
 
 POS/Admin surfaces are implemented in the separate Dashboard repository and mapped under `docs/dashboard/UI_SCREEN_MAP.md`.
 
-## 2026-08-19 frontend changes needing backend follow-up
+## 2026-08-19 redesign note
 
-Menu, Item detail, Cart, Checkout sheet, and Rewards all got UI/UX
-redesigns this pass (photo-forward menu list with a category rail, flat
-swipe-to-delete cart, animated hour/minute pickup wheel, single
-consolidated add-to-cart CTA, membership-card-style rewards balance
-card). All of it is presentation-layer only — none of it changes what
-data source or RPC a surface uses, so the table above is still accurate
-as-is. Two things from the checkout-sheet rework do need backend
-awareness, though:
+Menu, Item detail, Cart, Checkout sheet and Rewards received a
+presentation-layer redesign on the `customer-app-redesign` branch. It does
+not change any row above — same file paths, same purpose, same data
+source, same integration status for all five. Full design-system,
+component and screen-by-screen detail is in
+`docs/frontend/UI_REDESIGN_SPEC.md`.
 
-- **Pickup minute selection is no longer clamped to
-  `OrderingPolicy.slotIntervalMinutes`.** Product wants every minute
-  selectable in the picker (not just the server's interval steps), on
-  the understanding that the backend will relax that interval
-  validation to match. Until then, `quoteOrder`/`placeCustomerOrder`
-  calls carrying an off-interval `requestedPickupAt` will fail
-  server-side exactly as designed today — the customer app already
-  degrades to a plain error message when that happens (no crash), but
-  every schedule attempt will hit it until the interval constraint is
-  relaxed or reworked.
-- **Same-day scheduling now also enforces an 8am–5pm café-hours
-  window, client-side only.** There's no operating-hours concept
-  anywhere in `OrderingPolicy` or the ordering RPCs yet, so this is a
-  hardcoded stopgap in `order_checkout_sheet.dart`
-  (`_cafeOpenHour`/`_cafeCloseHour`), not a real policy value. It
-  should move into the ordering policy response once that's modelled
-  server-side, both so hours can change without an app release and so
-  the server enforces the same window it accepts requests for.
+Two real interaction-boundary changes came out of that redesign and do
+affect what this table's "Checkout sheet" row's status line should be read
+alongside (status text itself is unchanged, both remain true, but
+incompletely so without this note):
+
+- Scheduled pickup's minute selection is no longer clamped to
+  `OrderingPolicy.slotIntervalMinutes` client-side. The backend's 15-minute
+  slot-alignment validation (`ORDER_AND_SCHEDULING_CONTRACT.md`) was not
+  changed, so a non-15-minute selection will fail `quote_order` today. See
+  `UI_REDESIGN_SPEC.md` §F "Checkout sheet" and
+  `FRAGILE_BOUNDARIES.md` for the full explanation.
+- Same-day scheduling now also enforces a client-only 8am–5pm window
+  (`_cafeOpenHour`/`_cafeCloseHour` in `order_checkout_sheet.dart`) with no
+  corresponding field in `OrderingPolicy` or any RPC.

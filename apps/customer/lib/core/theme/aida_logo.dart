@@ -2,50 +2,39 @@ import 'package:flutter/material.dart';
 
 import 'aida_colors.dart';
 
-/// Placeholder for the Aida Café logo, which is not final yet.
+/// The Aida Café logo — a circular photo of the printed mark, so it's
+/// clipped to a circle rather than shown as a raw rectangle (the source
+/// photo has page/table edges around the emblem that a circular crop hides).
 ///
-/// Every screen that needs the logo uses this widget, so dropping in the real
-/// asset is a one-file change: add it to `assets/`, swap the body below, and
-/// the whole app updates.
-///
-/// Renders a neutral reserved space rather than a stand-in mark — a wrong logo
-/// shown to the client is worse than an obviously empty slot.
+/// Every screen that needs the logo uses this widget, so replacing the
+/// asset (a better-quality scan, a transparent PNG, etc.) is a one-file
+/// change here.
 class AidaLogo extends StatelessWidget {
   const AidaLogo({super.key, this.height = 40, this.onDark = false});
 
   final double height;
 
-  /// Inverts the placeholder for use on espresso surfaces.
+  /// Adds a thin cream ring so the logo reads clearly against an espresso
+  /// surface instead of blending into it.
   final bool onDark;
 
   @override
   Widget build(BuildContext context) {
-    final tint = onDark ? AidaColors.cream : AidaColors.textMuted;
-
-    return SizedBox(
+    return Container(
       height: height,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: tint.withValues(alpha: 0.35),
-            style: BorderStyle.solid,
-          ),
-        ),
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: height * 0.35),
-          child: Center(
-            child: Text(
-              'LOGO',
-              style: TextStyle(
-                fontSize: height * 0.24,
-                letterSpacing: 2,
-                fontWeight: FontWeight.w600,
-                color: tint.withValues(alpha: 0.55),
-              ),
-            ),
-          ),
-        ),
+      width: height,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border:
+            onDark
+                ? Border.all(
+                  color: AidaColors.cream.withValues(alpha: 0.6),
+                  width: 1.5,
+                )
+                : null,
+      ),
+      child: ClipOval(
+        child: Image.asset('assets/images/aida_logo.jpg', fit: BoxFit.cover),
       ),
     );
   }

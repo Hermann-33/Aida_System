@@ -95,7 +95,11 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                       : ListView.separated(
                         padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
                         itemCount: cart.lineItems.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                        separatorBuilder:
+                            (_, __) => Divider(
+                              height: 17,
+                              color: AidaColors.latte.withValues(alpha: 0.5),
+                            ),
                         itemBuilder:
                             (_, i) => _CartLineCard(
                               index: i,
@@ -179,10 +183,11 @@ class _EmptyCart extends StatelessWidget {
   }
 }
 
-/// One line item as a self-contained card — thumbnail, name, price, and a
-/// quantity pill, with size/add-on/note details folded in as captions
-/// underneath the price rather than a separate row, since this app's real
-/// ordering options (unlike a plain candy-shop cart) can't just be dropped.
+/// One line item — thumbnail, name, price, and a quantity pill, sitting flat
+/// on the page (no card box) with size/add-on/note details folded in as
+/// captions underneath the price rather than a separate row, since this
+/// app's real ordering options (unlike a plain candy-shop cart) can't just
+/// be dropped. Swipe left to remove — see [Dismissible] below.
 class _CartLineCard extends StatelessWidget {
   const _CartLineCard({
     required this.index,
@@ -204,100 +209,112 @@ class _CartLineCard extends StatelessWidget {
       builder: (context, ref, _) {
         final notifier = ref.read(cartProvider.notifier);
 
-        return Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: AidaColors.cardWhite,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: AidaColors.espresso.withValues(alpha: 0.05),
-                blurRadius: 14,
-                offset: const Offset(0, 4),
-              ),
-            ],
+        return Dismissible(
+          // Identity, not position: the index shifts under a line once any
+          // earlier line is removed, but the item/size/add-ons/note tuple
+          // (the same identity `sameConfigurationAs` uses) doesn't.
+          key: ValueKey(
+            '${line.item.id}_${line.size?.id}_${line.addOnIds.join(',')}_${line.note}',
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ProductImage(
-                imageUrl: line.item.imageUrl,
-                category: line.item.category,
-                size: 56,
-                borderRadius: 14,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      line.item.name,
-                      style: AidaType.sans(
-                        size: 14.5,
-                        weight: FontWeight.w700,
-                        color: AidaColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      lineTotal.formatted,
-                      style: AidaType.sans(
-                        size: 13,
-                        weight: FontWeight.w700,
-                        color: AidaColors.coffee,
-                      ),
-                    ),
-                    if (configSummary != null) ...[
-                      const SizedBox(height: 4),
+          direction: DismissDirection.endToStart,
+          onDismissed: (_) => notifier.removeAt(index),
+          background: const _DeleteReveal(),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                ProductImage(
+                  imageUrl: line.item.imageUrl,
+                  category: line.item.category,
+                  size: 72,
+                  borderRadius: 16,
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        configSummary,
+                        line.item.name,
                         style: AidaType.sans(
-                          size: 12,
-                          color: AidaColors.textMuted,
+                          size: 16.5,
+                          weight: FontWeight.w700,
+                          color: AidaColors.textPrimary,
                         ),
                       ),
-                    ],
-                    if (line.note != null) ...[
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 3),
                       Text(
-                        '"${line.note}"',
+                        lineTotal.formatted,
                         style: AidaType.sans(
-                          size: 12,
-                          weight: FontWeight.w600,
+                          size: 14.5,
+                          weight: FontWeight.w700,
                           color: AidaColors.coffee,
                         ),
                       ),
+                      if (configSummary != null) ...[
+                        const SizedBox(height: 5),
+                        Text(
+                          configSummary,
+                          style: AidaType.sans(
+                            size: 13,
+                            color: AidaColors.textMuted,
+                          ),
+                        ),
+                      ],
+                      if (line.note != null) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          '"${line.note}"',
+                          style: AidaType.sans(
+                            size: 13,
+                            weight: FontWeight.w600,
+                            color: AidaColors.coffee,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  _QuantityPill(
-                    quantity: line.quantity,
-                    onDecrement:
-                        () => notifier.setQuantity(index, line.quantity - 1),
-                    onIncrement:
-                        () => notifier.setQuantity(index, line.quantity + 1),
-                  ),
-                  const SizedBox(height: 10),
-                  InkWell(
-                    onTap: () => notifier.removeAt(index),
-                    child: const Icon(
-                      Icons.delete_outline_rounded,
-                      size: 19,
-                      color: AidaColors.error,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+                const SizedBox(width: 8),
+                _QuantityPill(
+                  quantity: line.quantity,
+                  onDecrement:
+                      () => notifier.setQuantity(index, line.quantity - 1),
+                  onIncrement:
+                      () => notifier.setQuantity(index, line.quantity + 1),
+                ),
+              ],
+            ),
           ),
         );
       },
+    );
+  }
+}
+
+/// Revealed as a line is swiped left — soft, not a jarring solid-red bar, to
+/// match the flat/smooth style the rest of the row already carries.
+class _DeleteReveal extends StatelessWidget {
+  const _DeleteReveal();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.only(right: 6),
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: AidaColors.error.withValues(alpha: 0.12),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(
+          Icons.delete_outline_rounded,
+          color: AidaColors.error,
+          size: 20,
+        ),
+      ),
     );
   }
 }
@@ -327,12 +344,12 @@ class _QuantityPill extends StatelessWidget {
         children: [
           _QtyButton(icon: Icons.remove_rounded, onTap: onDecrement),
           SizedBox(
-            width: 26,
+            width: 30,
             child: Text(
               '$quantity',
               textAlign: TextAlign.center,
               style: AidaType.sans(
-                size: 13,
+                size: 14.5,
                 weight: FontWeight.w700,
                 color: AidaColors.textPrimary,
               ),
@@ -360,8 +377,8 @@ class _QtyButton extends StatelessWidget {
         onTap: onTap,
         customBorder: const CircleBorder(),
         child: Padding(
-          padding: const EdgeInsets.all(6),
-          child: Icon(icon, size: 15, color: AidaColors.textPrimary),
+          padding: const EdgeInsets.all(8),
+          child: Icon(icon, size: 17, color: AidaColors.textPrimary),
         ),
       ),
     );

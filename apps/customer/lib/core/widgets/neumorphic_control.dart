@@ -14,9 +14,16 @@ class NeumorphicControl extends StatefulWidget {
     this.height = 56,
     this.selected = false,
     this.accent = false,
+
+    /// Overrides the accent gradient's two colours (dark, then light) —
+    /// e.g. a transient success state. Ignored unless [accent] is true;
+    /// falls back to the coffee gradient when null.
+    this.accentColors,
+
     /// Stronger pink fill + border — use on white sheets where cream
     /// neumorphism disappears.
     this.highContrast = false,
+
     /// Decoration only; [child] handles its own taps (e.g. QTY −/+).
     this.passive = false,
     this.semanticsLabel,
@@ -30,6 +37,7 @@ class NeumorphicControl extends StatefulWidget {
   final double height;
   final bool selected;
   final bool accent;
+  final (Color, Color)? accentColors;
   final bool highContrast;
   final bool passive;
   final String? semanticsLabel;
@@ -49,17 +57,19 @@ class _NeumorphicControlState extends State<NeumorphicControl> {
 
   LinearGradient get _gradient {
     if (widget.accent) {
+      final (dark, light) =
+          widget.accentColors ?? (AidaColors.coffee, AidaColors.coffeeLight);
       if (_inset) {
         return LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [AidaColors.coffee, AidaColors.coffeeLight],
+          colors: [dark, light],
         );
       }
       return LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [AidaColors.coffeeLight, AidaColors.coffee],
+        colors: [light, dark],
       );
     }
     if (widget.highContrast) {
@@ -67,10 +77,7 @@ class _NeumorphicControlState extends State<NeumorphicControl> {
         return LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            AidaColors.latte,
-            AidaColors.caramelTint,
-          ],
+          colors: [AidaColors.latte, AidaColors.caramelTint],
         );
       }
       return LinearGradient(
@@ -128,9 +135,7 @@ class _NeumorphicControlState extends State<NeumorphicControl> {
     return [
       BoxShadow(
         color:
-            widget.highContrast
-                ? AidaColors.cardWhite
-                : AidaColors.cardWhite,
+            widget.highContrast ? AidaColors.cardWhite : AidaColors.cardWhite,
         offset: const Offset(-4, -4),
         blurRadius: 10,
       ),
@@ -153,7 +158,9 @@ class _NeumorphicControlState extends State<NeumorphicControl> {
 
   Color get _borderColor {
     if (widget.accent) {
-      return AidaColors.coffee.withValues(alpha: 0.55);
+      final (dark, _) =
+          widget.accentColors ?? (AidaColors.coffee, AidaColors.coffeeLight);
+      return dark.withValues(alpha: 0.55);
     }
     if (widget.highContrast) {
       return AidaColors.coffee.withValues(alpha: 0.22);

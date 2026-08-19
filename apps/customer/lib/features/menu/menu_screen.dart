@@ -8,9 +8,8 @@ import '../../core/theme/aida_type.dart';
 import '../../domain/model/menu_category.dart';
 import '../../domain/model/menu_item.dart';
 import 'item_detail_screen.dart';
-import 'widgets/category_chip.dart';
-import 'widgets/category_strip.dart';
-import 'widgets/menu_grid_item.dart';
+import 'widgets/menu_category_rail.dart';
+import 'widgets/menu_list_item.dart';
 
 /// The menu. CUS-09.
 ///
@@ -61,151 +60,180 @@ class MenuScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AidaColors.cream,
       body: SafeArea(
-        child: RefreshIndicator(
-          color: AidaColors.coffee,
-          onRefresh: () async {
-            ref.invalidate(catalogueProvider);
-            await ref.read(catalogueProvider.future);
-          },
-          child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                sliver: SliverToBoxAdapter(
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Menu',
-                          style: AidaType.serif(
-                            size: 28,
-                            color: AidaColors.textPrimary,
-                          ),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Menu',
+                      style: AidaType.serif(
+                        size: 28,
+                        color: AidaColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                  _FavoritesToggle(
+                    active: favoritesOnly,
+                    onTap:
+                        () => ref.read(favoritesOnlyProvider.notifier).toggle(),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  categories.when(
+                    data:
+                        (list) => MenuCategoryRail(
+                          categories: list,
+                          selectedId: selected,
+                          favoritesOnly: favoritesOnly,
+                          onSelect: (id) {
+                            ref
+                                .read(selectedCategoryProvider.notifier)
+                                .select(id);
+                            ref.read(favoritesOnlyProvider.notifier).set(false);
+                          },
+                          onSelectFavorites: () {
+                            ref
+                                .read(selectedCategoryProvider.notifier)
+                                .select(null);
+                            ref.read(favoritesOnlyProvider.notifier).set(true);
+                          },
                         ),
-                      ),
-                      _FavoritesToggle(
-                        active: favoritesOnly,
-                        onTap: () => ref
-                            .read(favoritesOnlyProvider.notifier)
-                            .toggle(),
-                      ),
-                    ],
+                    loading:
+                        () => const SizedBox(width: MenuCategoryRail.width),
+                    error:
+                        (_, __) =>
+                            const SizedBox(width: MenuCategoryRail.width),
                   ),
-                ),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
-                sliver: SliverToBoxAdapter(
-                  child: categories.when(
-                    data: (list) => CategoryStrip(
-                      categories: list,
-                      selectedId: selected,
-                      showAll: true,
-                      keyPrefix: 'menu_cat',
-                      onSelect: (id) => ref
-                          .read(selectedCategoryProvider.notifier)
-                          .select(id),
-                    ),
-                    loading: () =>
-                        const SizedBox(height: CategoryChip.height + 20),
-                    error: (_, __) => const SizedBox.shrink(),
-                  ),
-                ),
-              ),
-              items.when(
-                data: (all) {
-                  final categoryName = categories.value
-                      ?.where((c) => c.id == selected)
-                      .firstOrNull
-                      ?.name;
+                  Expanded(
+                    child: RefreshIndicator(
+                      color: AidaColors.coffee,
+                      onRefresh: () async {
+                        ref.invalidate(catalogueProvider);
+                        await ref.read(catalogueProvider.future);
+                      },
+                      child: CustomScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        slivers: [
+                          items.when(
+                            data: (all) {
+                              final categoryName =
+                                  categories.value
+                                      ?.where((c) => c.id == selected)
+                                      .firstOrNull
+                                      ?.name;
 
-                  var visible = categoryName == null
-                      ? all
-                      : all.where((i) => i.category == categoryName).toList();
+                              var visible =
+                                  categoryName == null
+                                      ? all
+                                      : all
+                                          .where(
+                                            (i) => i.category == categoryName,
+                                          )
+                                          .toList();
 
-                  if (favoritesOnly) {
-                    visible = visible
-                        .where((i) => favorites.contains(i.id))
-                        .toList();
-                  }
+                              if (favoritesOnly) {
+                                visible =
+                                    visible
+                                        .where((i) => favorites.contains(i.id))
+                                        .toList();
+                              }
 
-                  if (visible.isEmpty) {
-                    return SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: _EmptyCategory(favoritesOnly: favoritesOnly),
-                    );
-                  }
+                              if (visible.isEmpty) {
+                                return SliverFillRemaining(
+                                  hasScrollBody: false,
+                                  child: _EmptyCategory(
+                                    favoritesOnly: favoritesOnly,
+                                  ),
+                                );
+                              }
 
-                  final sections = _groupSections(
-                    visible,
-                    categories.value,
-                    categoryName,
-                  );
+                              final sections = _groupSections(
+                                visible,
+                                categories.value,
+                                categoryName,
+                              );
 
-                  return SliverToBoxAdapter(
-                    child: Container(
-                      margin: const EdgeInsets.fromLTRB(12, 0, 12, 0),
-                      padding: const EdgeInsets.fromLTRB(16, 22, 16, 16),
-                      decoration: BoxDecoration(
-                        color: AidaColors.cardWhite,
-                        borderRadius: BorderRadius.circular(28),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AidaColors.espresso.withValues(alpha: 0.08),
-                            blurRadius: 28,
-                            offset: const Offset(0, 10),
+                              return SliverPadding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  4,
+                                  12,
+                                  20,
+                                  16,
+                                ),
+                                sliver: SliverList.list(
+                                  children: [
+                                    for (
+                                      var i = 0;
+                                      i < sections.length;
+                                      i++
+                                    ) ...[
+                                      if (i > 0) const SizedBox(height: 22),
+                                      _MenuSectionHeader(
+                                        title: sections[i].$1,
+                                        count: sections[i].$2.length,
+                                      ),
+                                      const SizedBox(height: 12),
+                                      for (
+                                        var j = 0;
+                                        j < sections[i].$2.length;
+                                        j++
+                                      ) ...[
+                                        if (j > 0)
+                                          Divider(
+                                            height: 1,
+                                            color: AidaColors.latte.withValues(
+                                              alpha: 0.5,
+                                            ),
+                                          ),
+                                        MenuListItem(
+                                          item: sections[i].$2[j],
+                                          onTap:
+                                              () => openItemDetail(
+                                                context,
+                                                sections[i].$2[j],
+                                              ),
+                                        ),
+                                      ],
+                                    ],
+                                  ],
+                                ),
+                              );
+                            },
+                            loading:
+                                () => const SliverToBoxAdapter(
+                                  child: Padding(
+                                    padding: EdgeInsets.only(top: 60),
+                                    child: Center(
+                                      child: CircularProgressIndicator(
+                                        color: AidaColors.coffee,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            error:
+                                (_, __) => const SliverToBoxAdapter(
+                                  child: _MenuUnavailable(),
+                                ),
+                          ),
+                          const SliverToBoxAdapter(
+                            child: SizedBox(height: 170),
                           ),
                         ],
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          for (var i = 0; i < sections.length; i++) ...[
-                            if (i > 0) const SizedBox(height: 22),
-                            _MenuSectionHeader(title: sections[i].$1),
-                            const SizedBox(height: 14),
-                            GridView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate:
-                                  const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 3,
-                                mainAxisSpacing: 14,
-                                crossAxisSpacing: 10,
-                                childAspectRatio: 0.82,
-                              ),
-                              itemCount: sections[i].$2.length,
-                              itemBuilder: (context, j) {
-                                final item = sections[i].$2[j];
-                                return MenuGridItem(
-                                  item: item,
-                                  onTap: () => openItemDetail(context, item),
-                                );
-                              },
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  );
-                },
-                loading: () => const SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.only(top: 60),
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        color: AidaColors.coffee,
-                      ),
                     ),
                   ),
-                ),
-                error: (_, __) =>
-                    const SliverToBoxAdapter(child: _MenuUnavailable()),
+                ],
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 170)),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -213,9 +241,10 @@ class MenuScreen extends ConsumerWidget {
 }
 
 class _MenuSectionHeader extends StatelessWidget {
-  const _MenuSectionHeader({required this.title});
+  const _MenuSectionHeader({required this.title, this.count});
 
   final String title;
+  final int? count;
 
   @override
   Widget build(BuildContext context) {
@@ -232,6 +261,17 @@ class _MenuSectionHeader extends StatelessWidget {
             color: AidaColors.latte.withValues(alpha: 0.85),
           ),
         ),
+        if (count != null) ...[
+          const SizedBox(width: 10),
+          Text(
+            '$count',
+            style: AidaType.sans(
+              size: 12,
+              weight: FontWeight.w700,
+              color: AidaColors.textMuted,
+            ),
+          ),
+        ],
       ],
     );
   }

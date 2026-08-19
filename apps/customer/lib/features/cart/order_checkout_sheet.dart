@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 import '../../application/order_checkout.dart';
@@ -133,6 +134,8 @@ class _OrderCheckoutSheetState extends State<OrderCheckoutSheet> {
     final policy = _policy;
     final slots =
         policy == null ? const <DateTime>[] : derivePickupSlots(policy);
+    final canSchedule = policy?.scheduleEnabled == true && slots.isNotEmpty;
+
     return SafeArea(
       top: false,
       child: Container(
@@ -179,7 +182,7 @@ class _OrderCheckoutSheetState extends State<OrderCheckoutSheet> {
                       onTap: () => _selectFulfillment(FulfillmentType.asap),
                     ),
                   ),
-                  if (policy?.scheduleEnabled == true) ...[
+                  if (canSchedule) ...[
                     const SizedBox(width: 10),
                     Expanded(
                       child: _ChoiceChip(
@@ -192,26 +195,39 @@ class _OrderCheckoutSheetState extends State<OrderCheckoutSheet> {
                   ],
                 ],
               ),
-              if (_fulfillment == FulfillmentType.scheduled &&
-                  slots.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 42,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: slots.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
-                    itemBuilder: (_, index) {
-                      final slot = slots[index];
-                      return _ChoiceChip(
-                        label: _slotLabel(slot, policy!.timezone),
-                        selected: slot == _pickupAt,
-                        onTap: () => _selectSlot(slot),
-                      );
-                    },
-                  ),
-                ),
-              ],
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 260),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder:
+                    (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: SizeTransition(
+                        sizeFactor: animation,
+                        axisAlignment: -1,
+                        child: child,
+                      ),
+                    ),
+                child:
+                    (_fulfillment == FulfillmentType.scheduled &&
+                            policy != null &&
+                            slots.isNotEmpty &&
+                            _pickupAt != null)
+                        ? Padding(
+                          key: const ValueKey('pickup-wheel'),
+                          padding: const EdgeInsets.only(top: 10),
+                          child: _PickupSlotWheel(
+                            slots: slots,
+                            timezone: policy.timezone,
+                            selected: _pickupAt!,
+                            enabled: !_busy,
+                            onSelected: _selectSlot,
+                          ),
+                        )
+                        : const SizedBox.shrink(
+                          key: ValueKey('pickup-wheel-empty'),
+                        ),
+              ),
               const SizedBox(height: 14),
               Container(
                 padding: const EdgeInsets.all(14),
@@ -271,7 +287,9 @@ class _OrderCheckoutSheetState extends State<OrderCheckoutSheet> {
                   child: Text(
                     _busy
                         ? 'Checking…'
-                        : 'Place order · ${_quote!.total.formatted}',
+                        : _quote != null
+                        ? 'Place order · ${_quote!.total.formatted}'
+                        : 'Place order',
                     style: AidaType.sans(size: 15, weight: FontWeight.w700),
                   ),
                 ),
@@ -339,6 +357,177 @@ class _ChoiceChip extends StatelessWidget {
   );
 }
 
+/// Tactile wheel presentation over the authoritative slots produced by
+/// [derivePickupSlots]. The redesign keeps the wheel interaction without
+/// inventing local opening hours or bypassing [OrderingPolicy.slotIntervalMinutes].
+class _PickupSlotWheel extends StatefulWidget {
+  const _PickupSlotWheel({
+    required this.slots,
+    required this.timezone,
+    required this.selected,
+    required this.enabled,
+    required this.onSelected,
+  });
+
+  final List<DateTime> slots;
+  final String timezone;
+  final DateTime selected;
+  final bool enabled;
+  final ValueChanged<DateTime> onSelected;
+
+  @override
+  State<_PickupSlotWheel> createState() => _PickupSlotWheelState();
+}
+
+class _PickupSlotWheelState extends State<_PickupSlotWheel> {
+  static const _itemExtent = 48.0;
+  late FixedExtentScrollController _controller;
+  late int _selectedIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndex = _indexFor(widget.selected);
+    _controller = FixedExtentScrollController(initialItem: _selectedIndex);
+  }
+
+  int _indexFor(DateTime selected) {
+    final index = widget.slots.indexOf(selected);
+    return index < 0 ? 0 : index;
+  }
+
+  @override
+  void didUpdateWidget(covariant _PickupSlotWheel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final next = _indexFor(widget.selected);
+    if (next == _selectedIndex) return;
+    _selectedIndex = next;
+    if (_controller.hasClients) {
+      _controller.animateToItem(
+        next,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      ignoring: !widget.enabled,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 150),
+        opacity: widget.enabled ? 1 : 0.72,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+          decoration: BoxDecoration(
+            color: AidaColors.cream,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AidaColors.latte),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'PICK TIME',
+                style: AidaType.sans(
+                  size: 10.5,
+                  weight: FontWeight.w800,
+                  letterSpacing: 1.1,
+                  color: AidaColors.textMuted,
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: _itemExtent * 3,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Positioned.fill(
+                      child: ListWheelScrollView.useDelegate(
+                        controller: _controller,
+                        itemExtent: _itemExtent,
+                        physics: const FixedExtentScrollPhysics(),
+                        diameterRatio: 1.7,
+                        perspective: 0.003,
+                        useMagnifier: true,
+                        magnification: 1.06,
+                        onSelectedItemChanged: (index) {
+                          if (index == _selectedIndex) return;
+                          setState(() => _selectedIndex = index);
+                          HapticFeedback.selectionClick();
+                          widget.onSelected(widget.slots[index]);
+                        },
+                        childDelegate: ListWheelChildBuilderDelegate(
+                          childCount: widget.slots.length,
+                          builder: (context, index) {
+                            final selected = index == _selectedIndex;
+                            return Center(
+                              child: AnimatedDefaultTextStyle(
+                                duration: const Duration(milliseconds: 150),
+                                curve: Curves.easeOut,
+                                style: AidaType.sans(
+                                  size: selected ? 16 : 13,
+                                  weight:
+                                      selected
+                                          ? FontWeight.w800
+                                          : FontWeight.w600,
+                                  color:
+                                      selected
+                                          ? AidaColors.coffee
+                                          : AidaColors.textMuted.withValues(
+                                            alpha: 0.55,
+                                          ),
+                                ),
+                                child: Text(
+                                  _slotLabel(
+                                    widget.slots[index],
+                                    widget.timezone,
+                                  ),
+                                  maxLines: 1,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    IgnorePointer(
+                      child: Container(
+                        height: _itemExtent,
+                        decoration: BoxDecoration(
+                          color: AidaColors.cardWhite.withValues(alpha: 0.42),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.symmetric(
+                            horizontal: BorderSide(
+                              color: AidaColors.coffee.withValues(alpha: 0.18),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Times come from the café scheduling policy.',
+                style: AidaType.sans(size: 11, color: AidaColors.textMuted),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 String _slotLabel(DateTime slot, String timezone) {
   final local = tz.TZDateTime.from(slot, tz.getLocation(timezone));
   final hour =
@@ -349,5 +538,5 @@ String _slotLabel(DateTime slot, String timezone) {
           : local.hour;
   final minute = local.minute.toString().padLeft(2, '0');
   final suffix = local.hour < 12 ? 'AM' : 'PM';
-  return '${local.day}/${local.month} $hour:$minute $suffix';
+  return '${local.day}/${local.month}  $hour:$minute $suffix';
 }

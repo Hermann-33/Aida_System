@@ -1,81 +1,93 @@
 # Current Handoff
 
-Updated: 2026-08-17
+Updated: 2026-08-20
 
 ## Task
 
-`TASK-CLOSEOUT-001 — complete and close the current AIDA implementation tranche`
+`TASK-UI-REDESIGN-002 — review and integrate customer UI redesign`
 
-**Verdict:** COMPLETE.
+**Verdict:** COMPLETE for the mobile repository integration target.
 
-Coordinated branches:
+## Starting state
 
-- customer: `codex/task-closeout-001-tranche-completion`
-- dashboard: `codex/task-closeout-001-tranche-completion`
+The source branch `customer-app-redesign` could not be merged safely as-is:
 
-Integration PRs:
+- it was 140 commits behind current `master` and only 5 commits ahead;
+- two of those ahead commits were unrelated July admin-sidebar documentation commits;
+- its checkout picker ignored `OrderingPolicy.slotIntervalMinutes`, offered arbitrary minutes, and imposed a client-only 8am–5pm window;
+- its Menu list rows discarded live catalogue `imageUrl` values in favor of category art;
+- its `pubspec.yaml` carried an unrelated stale `shared_preferences` dependency change.
 
-- customer PR #13 → `master`
-- dashboard PR #12 → `main`
+## Integrated result
 
-Both implementation branches are independently verified mergeable. Their titles no longer carry `[PARTIAL]`.
+A clean branch, `codex/ui-redesign-integration`, was created from current `master` and contains only the reviewed redesign delta.
 
-## Closed implementation gates
+Integrated presentation changes:
 
-### Customer
+- Menu: vertical category/favorites rail and photo-forward flat list rows;
+- Item detail: consolidated quantity + `Add to cart · total` CTA with transient success state;
+- Cart: flat photo rows, swipe-to-remove, retained estimate/server-quote boundary;
+- Checkout: redesigned wheel-style scheduled selection while retaining authoritative server-policy slots;
+- Rewards: dark membership-card-family balance surface and in-page section controls;
+- floating cart: animated appearance plus cart-line thumbnails;
+- AIDA logo: bundled asset replaces the previous placeholder presentation.
 
-- physical Android networking/Auth/signup works;
-- trusted profile/member provisioning works and appears in Dashboard Members;
-- shared catalogue refresh from a real Owner mutation works on the installed phone;
-- authoritative quote/place, ASAP/scheduled pickup, Pay at counter, persisted history/detail/status and owner-scoped status refetch are implemented;
-- Android release builds reproducibly from committed Git with AGP 8.9.1 and Gradle 8.11.1;
-- Flutter 3.44.9 pub get/analyze/44 tests/release build pass;
-- independent clean-worktree release build passes;
-- canonical Auth/member, catalogue and order SQL regressions pass transactionally.
+Integration corrections:
 
-### Dashboard
+1. `order_checkout_sheet.dart` now derives every selectable scheduled value from `derivePickupSlots(OrderingPolicy)`. No local opening-hours constants or arbitrary one-minute values remain.
+2. `MenuListItem` now renders each catalogue item's `imageUrl` first and uses the bundled category asset only as fallback.
+3. The current `shared_preferences: 2.5.5` dependency pin from `master` is preserved; only the new logo asset is added to `pubspec.yaml`.
+4. The unrelated admin-sidebar commits/files from the stale source branch are not integrated.
+5. The obsolete `MenuGridItem` is removed because the redesigned Menu uses `MenuListItem`.
 
-- real employee/Admin same-origin HttpOnly BFF path is implemented;
-- protected Members and shared catalogue Admin mutation are implemented and physically validated;
-- TASK-AUTH-005 preview/live regression remains fixed;
-- authoritative POS quote/place and server-policy scheduling are implemented;
-- live order board polls the BFF and has no preview-order fallback;
-- legal versioned status transitions and 409 conflict refetch are implemented;
-- active order semantics are Pay at counter/unpaid only;
-- lint/typecheck/25 Vitest files with 111 tests/build/8 Playwright tests/diff check pass;
-- final `npm audit` reports 0 vulnerabilities.
+## Authority and security
 
-## Current backend evidence
+No backend schema, RPC, RLS, Auth, role, pricing, payment, loyalty, voucher, inventory, audit or order-state authority changed.
 
-Independently rechecked on 2026-08-17:
+The following boundaries remain intact:
 
-- 9 Auth users;
-- 9 profiles;
-- 6 members;
-- 1 owner;
-- 1 admin;
-- 1 staff;
-- catalogue revision 15;
-- 1 retained completed order.
+- Menu values come from the shared Supabase catalogue.
+- Cart totals are local estimates only.
+- Checkout displays an authoritative server quote before placement.
+- Scheduled pickup is constrained by server ordering policy.
+- Order persistence/status remains server-owned.
+- Reward redemption remains deferred and is not simulated as an authoritative mutation.
 
-Current security-advisor evidence: one WARN for leaked-password protection being disabled. Hosted deployment remains DEFERRED for the accepted local-PC → cloud-Supabase → installed-phone workflow.
+## Verification
 
-## Final live order evidence
+Source-branch evidence from the colleague's environment:
 
-On 2026-08-17 the approved customer authenticated with an active member, quoted a live published Sandwich at 1,290 sen and placed ASAP order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`) through `place_customer_order`.
+- `flutter analyze`: 0 issues;
+- `flutter test`: 40/44 passing;
+- four failures were documented as pre-existing golden mismatches (`home`, `home scrolled`, `menu with a category selected`, `membership card`); no golden baseline was updated.
 
-The real Owner authenticated through the same-origin HttpOnly Dashboard BFF. The queue observed the exact persisted order, then the BFF persisted `confirmed` v1 → `preparing` v2 → `ready` v3 → `completed` v4. The customer's authorized `get_order` read observed preparing, ready and completed. Independent database verification confirms the completed order and matching event sequence.
+Integration review performed here:
 
-Credentials remained process-local and were removed after authenticated work. No service role, direct SQL order insert, password reset or employee bearer-token persistence was used.
+- compared source branch against current `master` and isolated the actual redesign delta;
+- reviewed Menu, Item detail, Cart, Checkout, Rewards, shared control/logo and floating-cart source boundaries;
+- removed stale dependency/history changes;
+- corrected checkout schedule-policy compliance;
+- corrected Menu live-image regression;
+- reviewed the final clean branch diff against current `master`.
 
-## Merge handoff
+This repository has no GitHub Actions workflow, and the repository-operation environment used for integration did not expose a usable Flutter/Codex toolchain or local checkout. Therefore the corrected integration commit has **not** been independently rerun through `flutter analyze` or `flutter test` here. Do not record a fresh PASS for those checks without running them in a Flutter-capable environment.
 
-TASK-CLOSEOUT-001 has no remaining implementation or validation blocker. The next repository action is the coordinated integration merge:
+## Documentation
 
-1. merge customer PR #13 into `master`;
-2. merge Dashboard PR #12 into `main`;
-3. verify both default branches contain the final mirrored governance state;
-4. close/supersede obsolete stacked draft PRs;
-5. start the next bounded product-domain task only after that merge housekeeping is complete.
+Current redesign documentation:
 
-Hosted deployment, payments, loyalty, inventory, reporting and the other deferred domains are not blockers for this tranche.
+- `docs/frontend/UI_REDESIGN_SPEC.md`
+- `docs/frontend/UI_SCREEN_MAP.md`
+- `docs/context/ACTIVE_CONTEXT.md`
+- `docs/context/AUDIT_LOG.md`
+- this handoff
+
+Repository-local redesign screenshots are retained for Menu, Item detail, Cart and Rewards. The original checkout screenshot from the stale branch is intentionally excluded because it depicts the rejected non-contract-compliant picker.
+
+## Cross-repository sync
+
+`Hermann-33/Aida_System-Dashboard` documentation synchronization is **PENDING by explicit task scope**. This mobile integration does not attempt to access or modify the Dashboard repository.
+
+## Prior closeout evidence
+
+TASK-CLOSEOUT-001 remains the baseline for the previously completed Auth/member/catalogue/order/toolchain tranche, including physical Android validation, live cross-client order E2E, 44/44 customer tests at closeout, Dashboard lint/typecheck/Vitest/build/Playwright validation, canonical SQL regressions and the retained completed order `100006`.

@@ -220,6 +220,7 @@ class _OrderCheckoutSheetState extends State<OrderCheckoutSheet> {
                             slots: slots,
                             timezone: policy.timezone,
                             selected: _pickupAt!,
+                            enabled: !_busy,
                             onSelected: _selectSlot,
                           ),
                         )
@@ -364,12 +365,14 @@ class _PickupSlotWheel extends StatefulWidget {
     required this.slots,
     required this.timezone,
     required this.selected,
+    required this.enabled,
     required this.onSelected,
   });
 
   final List<DateTime> slots;
   final String timezone;
   final DateTime selected;
+  final bool enabled;
   final ValueChanged<DateTime> onSelected;
 
   @override
@@ -416,102 +419,110 @@ class _PickupSlotWheelState extends State<_PickupSlotWheel> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
-      decoration: BoxDecoration(
-        color: AidaColors.cream,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AidaColors.latte),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'PICK TIME',
-            style: AidaType.sans(
-              size: 10.5,
-              weight: FontWeight.w800,
-              letterSpacing: 1.1,
-              color: AidaColors.textMuted,
-            ),
+    return IgnorePointer(
+      ignoring: !widget.enabled,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 150),
+        opacity: widget.enabled ? 1 : 0.72,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+          decoration: BoxDecoration(
+            color: AidaColors.cream,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AidaColors.latte),
           ),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: _itemExtent * 3,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Positioned.fill(
-                  child: ListWheelScrollView.useDelegate(
-                    controller: _controller,
-                    itemExtent: _itemExtent,
-                    physics: const FixedExtentScrollPhysics(),
-                    diameterRatio: 1.7,
-                    perspective: 0.003,
-                    useMagnifier: true,
-                    magnification: 1.06,
-                    onSelectedItemChanged: (index) {
-                      if (index == _selectedIndex) return;
-                      setState(() => _selectedIndex = index);
-                      HapticFeedback.selectionClick();
-                      widget.onSelected(widget.slots[index]);
-                    },
-                    childDelegate: ListWheelChildBuilderDelegate(
-                      childCount: widget.slots.length,
-                      builder: (context, index) {
-                        if (index == null) return null;
-                        final selected = index == _selectedIndex;
-                        return Center(
-                          child: AnimatedDefaultTextStyle(
-                            duration: const Duration(milliseconds: 150),
-                            curve: Curves.easeOut,
-                            style: AidaType.sans(
-                              size: selected ? 16 : 13,
-                              weight:
-                                  selected ? FontWeight.w800 : FontWeight.w600,
-                              color:
-                                  selected
-                                      ? AidaColors.coffee
-                                      : AidaColors.textMuted.withValues(
-                                        alpha: 0.55,
-                                      ),
-                            ),
-                            child: Text(
-                              _slotLabel(
-                                widget.slots[index],
-                                widget.timezone,
-                              ),
-                              maxLines: 1,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'PICK TIME',
+                style: AidaType.sans(
+                  size: 10.5,
+                  weight: FontWeight.w800,
+                  letterSpacing: 1.1,
+                  color: AidaColors.textMuted,
                 ),
-                IgnorePointer(
-                  child: Container(
-                    height: _itemExtent,
-                    decoration: BoxDecoration(
-                      color: AidaColors.cardWhite.withValues(alpha: 0.42),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.symmetric(
-                        horizontal: BorderSide(
-                          color: AidaColors.coffee.withValues(alpha: 0.18),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: _itemExtent * 3,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Positioned.fill(
+                      child: ListWheelScrollView.useDelegate(
+                        controller: _controller,
+                        itemExtent: _itemExtent,
+                        physics: const FixedExtentScrollPhysics(),
+                        diameterRatio: 1.7,
+                        perspective: 0.003,
+                        useMagnifier: true,
+                        magnification: 1.06,
+                        onSelectedItemChanged: (index) {
+                          if (index == _selectedIndex) return;
+                          setState(() => _selectedIndex = index);
+                          HapticFeedback.selectionClick();
+                          widget.onSelected(widget.slots[index]);
+                        },
+                        childDelegate: ListWheelChildBuilderDelegate(
+                          childCount: widget.slots.length,
+                          builder: (context, index) {
+                            final selected = index == _selectedIndex;
+                            return Center(
+                              child: AnimatedDefaultTextStyle(
+                                duration: const Duration(milliseconds: 150),
+                                curve: Curves.easeOut,
+                                style: AidaType.sans(
+                                  size: selected ? 16 : 13,
+                                  weight:
+                                      selected
+                                          ? FontWeight.w800
+                                          : FontWeight.w600,
+                                  color:
+                                      selected
+                                          ? AidaColors.coffee
+                                          : AidaColors.textMuted.withValues(
+                                            alpha: 0.55,
+                                          ),
+                                ),
+                                child: Text(
+                                  _slotLabel(
+                                    widget.slots[index],
+                                    widget.timezone,
+                                  ),
+                                  maxLines: 1,
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ),
-                  ),
+                    IgnorePointer(
+                      child: Container(
+                        height: _itemExtent,
+                        decoration: BoxDecoration(
+                          color: AidaColors.cardWhite.withValues(alpha: 0.42),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.symmetric(
+                            horizontal: BorderSide(
+                              color: AidaColors.coffee.withValues(alpha: 0.18),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Times come from the café scheduling policy.',
+                style: AidaType.sans(size: 11, color: AidaColors.textMuted),
+              ),
+            ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            'Times come from the café scheduling policy.',
-            style: AidaType.sans(size: 11, color: AidaColors.textMuted),
-          ),
-        ],
+        ),
       ),
     );
   }

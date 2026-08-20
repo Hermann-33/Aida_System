@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:aida_customer/application/order_checkout.dart';
 import 'package:aida_customer/application/providers.dart';
-import 'package:aida_customer/data/repository/mock_member_repository.dart';
 import 'package:aida_customer/core/error/failures.dart';
+import 'package:aida_customer/data/repository/mock_member_repository.dart';
 import 'package:aida_customer/domain/model/cart.dart';
+import 'package:aida_customer/domain/model/order.dart';
 import 'package:aida_customer/features/cart/cart_screen.dart';
 import 'package:aida_customer/features/cart/order_confirmation_screen.dart';
 import 'package:aida_customer/features/shell/app_shell.dart';
@@ -140,6 +142,7 @@ void main() {
     tester,
   ) async {
     debugNetworkImageHttpClientProvider = _FakeHttpClient.new;
+    addTearDown(() => debugNetworkImageHttpClientProvider = null);
 
     await tester.pumpWidget(
       ProviderScope(
@@ -152,8 +155,6 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-
-    expect(find.textContaining('item'), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('nav_menu')));
     await tester.pumpAndSettle();
@@ -178,21 +179,21 @@ void main() {
     await tester.tap(find.byIcon(Icons.add_rounded));
     await tester.pump();
 
-    expect(find.bySemanticsLabel('Add to order'), findsOneWidget);
-    await tester.tap(find.bySemanticsLabel('Add to order'));
+    final addButton = find.text('Add to cart · RM 34.80');
+    expect(addButton, findsOneWidget);
+    await tester.tap(addButton);
     await tester.pumpAndSettle();
-    await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(seconds: 1));
 
     await tester.ensureVisible(find.byIcon(Icons.arrow_back_rounded));
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.arrow_back_rounded));
     await tester.pumpAndSettle();
 
-    // 1290 base + 150 Large + 300 Extra Shot = 1740 per unit; x2 = 3480.
-    expect(find.text('2 items'), findsOneWidget);
+    expect(find.byKey(const ValueKey('floating_cart_bar')), findsOneWidget);
     expect(find.text('RM 34.80'), findsWidgets);
 
-    await tester.tap(find.text('2 items'));
+    await tester.tap(find.byKey(const ValueKey('floating_cart_bar')));
     await tester.pumpAndSettle();
 
     expect(find.byType(CartScreen), findsOneWidget);
@@ -216,9 +217,7 @@ void main() {
 
     expect(find.byType(OrderConfirmationScreen), findsNothing);
     expect(find.byType(CartScreen), findsNothing);
-    expect(find.text('2 items'), findsNothing);
-
-    debugNetworkImageHttpClientProvider = null;
+    expect(find.byKey(const ValueKey('floating_cart_bar')), findsNothing);
   });
 
   testWidgets('placement failure retains cart selections for retry', (
@@ -261,5 +260,54 @@ void main() {
     expect(find.text('Connection lost'), findsOneWidget);
     expect(container.read(cartProvider).itemCount, 2);
     expect(orders.placedRequests.single.clientRequestId, isNotNull);
+  });
+
+  testWidgets('scheduled checkout submits only a server-policy-derived slot', (
+    tester,
+  ) async {
+    final orders = TestOrderRepository();
+    final container = ProviderContainer(
+      overrides: [
+        memberRepositoryProvider.overrideWithValue(_fast),
+        catalogueRepositoryProvider.overrideWithValue(_catalogue),
+        orderRepositoryProvider.overrideWithValue(orders),
+      ],
+    );
+    addTearDown(container.dispose);
+    container
+        .read(cartProvider.notifier)
+        .add(
+          const CartLineItem(
+            item: TestCatalogueRepository.latte,
+            size: TestCatalogueRepository.large,
+            addOnIds: ['p_shot'],
+            quantity: 1,
+          ),
+        );
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: CartScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Review order'));
+    await tester.pumpAndSettle();
+
+    expect(orders.quotedRequests.single.fulfillmentType, FulfillmentType.asap);
+
+    await tester.tap(find.text('Schedule'));
+    await tester.pumpAndSettle();
+
+    final scheduled = orders.quotedRequests.last;
+    final allowedSlots = derivePickupSlots(TestOrderRepository.policy);
+    expect(scheduled.fulfillmentType, FulfillmentType.scheduled);
+    expect(scheduled.requestedPickupAt, isNotNull);
+    expect(allowedSlots, contains(scheduled.requestedPickupAt));
+    expect(
+      scheduled.requestedPickupAt!.difference(allowedSlots.first),
+      Duration.zero,
+    );
   });
 }

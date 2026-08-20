@@ -1,22 +1,20 @@
 # AIDA Café Security Review
 
-Updated: 2026-08-17
+Updated: 2026-08-20
 
-**Verdict:** identity, catalogue and order/scheduling authority are hardened across the dashboard boundary; the credential-bound cross-client order E2E passes.
+**Current verdict:** identity, catalogue and order/scheduling authority remain server-controlled. TASK-SCHEDULED-OPS-001 adds scheduled-order preparation authority without moving fulfilment or authorization truth into either frontend.
 
-## Existing identity/catalogue controls
+## Core controls
 
 - Supabase Auth plus trusted `user_profiles`/`members` remain authoritative for identity and membership.
 - Public signup cannot self-promote role/member/verification state.
-- Catalogue tables use FORCE RLS.
-- Public/customer catalogue reads are publication-scoped.
-- Catalogue admin/owner writes use trusted caller identity; no service-role browser bypass.
+- Catalogue authority remains Supabase Postgres/RLS/RPC; browser/mobile clients do not own catalogue prices or compatibility.
 - Dashboard privileged flows retain same-origin HttpOnly employee sessions and caller-JWT Supabase access.
-- Customer runtime has no production hardcoded catalogue fallback; dashboard POS has no preview catalogue fallback.
+- No service-role key or browser-readable staff bearer token is introduced.
 
-## TASK-DEMO-ORDER-001 order controls
+## Order/scheduling controls
 
-All order/scheduling tables use RLS + FORCE RLS:
+All existing order/scheduling tables retain their accepted RLS/FORCE-RLS and bounded RPC model:
 
 - `order_schedule_settings`
 - `orders`
@@ -24,7 +22,7 @@ All order/scheduling tables use RLS + FORCE RLS:
 - `order_line_addons`
 - `order_events`
 
-Authenticated browser/mobile roles have no direct INSERT/UPDATE grants on order commercial tables. Controlled persistence occurs only through bounded RPC helpers with explicit caller/role validation.
+Ordinary authenticated clients still have no direct INSERT/UPDATE authority over order commercial tables. Controlled persistence remains behind trusted RPC helpers with explicit caller/role checks.
 
 ### Pricing and identity
 
@@ -32,104 +30,137 @@ Authenticated browser/mobile roles have no direct INSERT/UPDATE grants on order 
 - Item/variant/add-on compatibility is revalidated server-side.
 - Customer/member identity is derived from `auth.uid()` plus the active member row, never request JSON.
 - POS placement requires staff-or-above.
-- Order UUID, numeric order number, price snapshots, totals, initial status, timestamps and audit events are server-owned.
-- Persisted commercial fields are protected against later mutation by a database trigger.
+- Order UUID, number, commercial snapshots, totals, initial status, timestamps and events remain server-owned.
 
 ### Idempotency
 
-Placement requires a `clientRequestId` UUID scoped to the authenticated actor.
+Placement still requires a `clientRequestId` UUID scoped to the authenticated actor.
 
-- identical retry -> returns the same persisted order;
-- same key + different payload -> conflict;
-- client retry cannot create a duplicate order for the same key.
+- identical retry returns the existing order;
+- same key + different payload conflicts;
+- retry cannot duplicate an order.
 
-### Scheduling
+TASK-SCHEDULED-OPS-001 also proves an identical retry preserves the original server-owned `prepareAt` even if the scheduling policy later changes.
 
-The server validates scheduled pickup against trusted server time and the singleton policy:
+## Scheduled preparation authority
 
-- timezone `Asia/Kuala_Lumpur`;
-- 15-minute minimum lead;
-- 15-minute slots;
-- 7-day maximum horizon.
+The backend now owns two distinct schedule concepts:
 
-Staff cannot change policy. Admin/owner can change it only through the trusted RPC/BFF boundary.
+```text
+minimumLeadMinutes      -> earliest permitted pickup selection
+preparationLeadMinutes  -> operational lead before pickup
+```
 
-Branch hours/closures/capacity are not yet authoritative, so neither backend nor frontend may claim branch-aware schedule validation.
+Constraint:
 
-### Fulfilment/status
+```text
+0 <= preparationLeadMinutes <= minimumLeadMinutes
+```
 
-Only staff-or-above may mutate status. Legal transitions are allow-listed and require an expected `statusVersion`; stale concurrent changes fail.
+Only Admin/Owner can change scheduling/preparation policy through the existing trusted mutation boundary.
 
-`order_events` records creation/status evidence and has no ordinary client write grant.
+For a newly accepted scheduled order, the server snapshots:
 
-### Realtime
+```text
+prepareAt = requestedPickupAt - preparationLeadMinutes
+```
 
-Only `orders` is added for order-status Realtime. Customer visibility remains owner-scoped through RLS; staff currently sees the global queue because branch scope is not yet modeled. Clients re-fetch full authorized snapshots after order-header changes.
+`prepareAt` is included in the protected immutable order fields. A later policy change cannot rewrite an accepted order's operational due time.
 
-### Dashboard BFF
+Clients cannot submit or modify trusted `prepareAt`.
 
-Order BFF routes:
+Authorized order snapshots also expose backend-derived:
 
-- validate the existing employee HttpOnly session;
-- forward the caller JWT, not a service-role token;
-- require same origin for POST requests;
-- do not return employee access/refresh tokens in JSON;
-- map idempotency/version conflicts to HTTP 409 for safe client recovery.
+```text
+serverNow
+scheduleState = future | due | overdue | null
+```
 
-No React/Vite browser module receives a service-role key or trusted staff bearer token.
+The Dashboard must use backend `scheduleState` for operational queue classification. Device/workstation time is not business authority.
 
-## Live security validation
+### No automatic fulfilment mutation
 
-Canonical `supabase/tests/order_integration.sql` passed transactionally and proved:
+Reaching `prepareAt` does not change persisted order status.
 
-- anonymous quote allowed but privileged order capabilities denied;
-- direct authenticated order DML absent;
-- forged total ignored;
-- incompatible add-on and invalid schedule rejected;
-- customer owner/history boundary;
-- customer status mutation denied;
-- staff queue/POS placement allowed;
-- admin-only schedule-policy write;
-- legal/stale/terminal transition enforcement;
-- cleanup leaves zero synthetic identities/orders/events.
+The legal state machine remains:
 
-At TASK-DEMO-ORDER-001 migration-validation time, the schema/RLS advisor returned **0 lints**. The current hosted project advisor state is not zero findings: it has the leaked-password-protection WARN described below.
+```text
+confirmed -> preparing | cancelled
+scheduled -> preparing | cancelled
+preparing -> ready | cancelled
+ready -> completed
+```
 
-Performance advisor's initial four unindexed-FK INFO findings were resolved with a forward migration; final findings are only unused-index INFO expected on the new dataset.
+Only staff-or-above may perform status changes, using expected `statusVersion`. `scheduleState=due|overdue` means work is operationally due, not that a human has started preparation.
 
-The 2026-08-17 live E2E authenticated a real customer/member through Supabase Auth and a real Owner through the Dashboard HttpOnly BFF. Customer placement derived identity/member server-side and trusted only catalogue IDs/quantity/note. Dashboard status mutations used the same-origin BFF and expected status versions. Customer-owned reads observed `preparing`, `ready` and `completed`; the Dashboard observed the identical server record. Independent database verification confirms order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`) remains `completed` at version 4 with the expected event sequence. No service role, direct SQL insert, password reset, browser employee token persistence or credential-bearing repository file was used. Ephemeral credential variables were removed after the run.
+This prevents a timer/cron/browser from manufacturing fulfilment truth.
 
-## Explicitly untrusted / deferred
+## Realtime / queue boundary
 
-No real payment authority exists. Card/E-wallet/Student Wallet UI must not claim successful settlement. Use an explicit `Pay at counter`/unpaid demo path until a trusted payment task exists.
+`orders` remains the mutable Realtime signal for customer-owned refresh. Customer visibility remains owner-scoped.
 
-Order completion currently represents fulfilment completion, not verified payment settlement.
+Dashboard staff continues to use same-origin BFF polling/refetch because the employee access token remains HttpOnly.
 
-The following remain separate trusted domains:
+The current staff queue remains global by accepted single-café limitation; branch-scoped authorization is still deferred.
 
-- payment/refunds
-- loyalty earning/redemption
-- inventory depletion
-- promotions/discounts
-- tax/accounting
-- revenue/reporting
-- branch-scoped staff/order access
-- branch scheduling hours/capacity
-- delivery
+## Staff login / deferred terminal boundary
 
-## Release/E2E status
+Live verification confirms the Nora demo account is a valid confirmed, active `staff` identity and can authenticate through Supabase Auth.
 
-- Flutter authoritative order integration and Android reproducible build gates are complete for the current tranche.
-- Dashboard active POS uses server quote/place/queue/status endpoints rather than preview totals/order records as authority.
-- Approved real identities exist (9 Auth users; 1 owner, 1 admin, 1 staff; 6 members at the 2026-08-17 verification); demo credentials remain external ephemeral test inputs and are not repository data.
-- Physical Android signup → Dashboard Members and Owner catalogue mutation → installed-phone refresh are validated.
-- Customer placement → Dashboard observation/versioned transitions → customer authorized status refresh is validated with retained order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`).
-- Hosted deployment remains DEFERRED, not complete.
+Current post-auth POS failure is caused by Dashboard UI dependencies on terminal/shift endpoints that do not exist in the trusted backend. Supabase currently has no authoritative branch/terminal/sales-point/shift schema.
 
-## Current advisor state
+Security rule for the Dashboard fix:
 
-The Supabase security advisor reports one WARN: `auth_leaked_password_protection` / **Leaked Password Protection Disabled**. This is hosted Auth configuration debt, not a reason to weaken Auth or fabricate a source-code fix. Current documentation must not claim zero advisor findings.
+- do not create hardcoded live branch/terminal/shift identities to bypass the gap;
+- do not treat preview terminal/shift fixtures as production authorization;
+- authenticated staff may use the already-authorized single-café Sale/Orders path;
+- `/admin/login` remains Admin/Owner-only;
+- terminal/shift/branch authority stays deferred until a separate trusted backend task defines it.
 
-Remediation: <https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection>.
+Removing an unimplemented UI prerequisite is not authorization weakening because staff order capability is already enforced by the BFF/RPC role boundary.
 
-The 2026-08-14 npm closeout audit initially reported 1 moderate and 4 high dependency advisories. Compatible lockfile updates remediated them without a major dependency upgrade; the final npm audit reports 0 vulnerabilities.
+## TASK-SCHEDULED-OPS-001 live verification
+
+Applied migration:
+
+`20260820151421_add_scheduled_order_preparation_window`
+
+Focused transactional regression:
+
+`supabase/tests/scheduled_order_operations_integration.sql`
+
+Result: PASS against the live project with synthetic data/policy changes rolled back.
+
+The test covers preparation schema/bounds, scheduled placement `prepareAt`, server-derived schedule classification, idempotent preservation, Admin-only policy mutation, invalid policy rejection, scheduled POS placement and non-rewriting of prior orders.
+
+Existing scheduled orders `100007`, `100008`, `100009` were backfilled with `prepareAt` and now classify as `overdue` without any fabricated persisted status change.
+
+## Advisor state
+
+Current Supabase security advisor remains exactly one WARN:
+
+- `auth_leaked_password_protection` — **Leaked Password Protection Disabled**
+
+Remediation: https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection
+
+TASK-SCHEDULED-OPS-001 introduced no new security advisor finding.
+
+Performance advisor findings are INFO-only unused-index notices on the small dataset, including the new scheduled preparation index immediately after creation.
+
+## Explicitly deferred authority
+
+No trusted implementation currently exists for:
+
+- real payment/refunds;
+- loyalty earning/redemption;
+- inventory depletion;
+- promotions/discounts;
+- tax/accounting/reporting;
+- branch-scoped staff/order access;
+- branch scheduling hours/capacity;
+- terminal/sales-point authority;
+- shift/cash reconciliation;
+- delivery;
+- hosted production operations.
+
+Frontend presentation must not imply those domains are authoritative.

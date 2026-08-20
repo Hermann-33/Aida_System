@@ -265,6 +265,8 @@ Post-merge verification belongs to `UI_REDESIGN_AUDIT_2026-08-20.md` and the cur
 - Menu category rail stable selector coverage;
 - existing Auth/member/catalogue/order unit/data regressions through the clean release gate.
 
+Fresh local verification on 2026-08-20 used Flutter 3.44.9 / Dart 3.12.2. Dependency resolution and zero-issue analysis pass; non-golden regressions pass 41/41; the full suite passes 45/45; and a release APK builds for `com.aidacafe.aida_customer` with Internet permission. Menu-selected and Membership-card golden changes were inspected and accepted for the intentional vertical-rail/list and bundled-logo redesigns; Home baselines remained unchanged.
+
 The project does not treat source inspection alone as a fresh test PASS.
 
 ## Related documentation

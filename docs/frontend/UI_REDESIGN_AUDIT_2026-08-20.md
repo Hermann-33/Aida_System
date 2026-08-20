@@ -173,11 +173,43 @@ Attempt 2:
 
 This is a pre-run GitHub Actions execution failure, not evidence that Flutter analysis/tests/build failed. The repository is private and the connected GitHub identity has admin permissions, but the available repository API does not expose the account-level Actions billing/hosted-runner setting responsible for the rejection.
 
-The local tool environment is not a fallback build machine: it has no Flutter, Dart or Codex executable, and outbound package/toolchain downloads are blocked.
+The task was subsequently executed locally with the accepted Flutter 3.44.9 toolchain:
 
-**Verification verdict:** source/backend audit COMPLETE; executable post-redesign validation PARTIAL; release APK NOT PRODUCED.
+- Dart 3.12.2;
+- JDK 21.0.12;
+- Android SDK/platform/build-tools 36;
+- `flutter pub get`: PASS;
+- `flutter analyze`: initially found one real deprecated Flutter API in the redesigned checkout transition; after the behavior-equivalent `AlignmentDirectional.topStart` migration, PASS with no issues;
+- non-golden suite: 41/41 PASS;
+- full suite: 45/45 PASS;
+- release APK: PASS.
 
-Do not reuse the TASK-CLOSEOUT-001 APK/build result as proof of this redesigned head: that build predates the redesign.
+Two non-golden failures were classified and corrected without weakening contract tests:
+
+1. The sold-out detail test retained a pre-redesign one-label assumption. The redesigned screen intentionally shows both an unavailable badge and disabled action label, so the assertion now verifies both.
+2. `cart_flow_test.dart` restored `debugNetworkImageHttpClientProvider` in a package-test teardown callback, after Flutter's painting invariant check. It now restores the global in `finally` before the test body ends.
+
+### Visual/golden evidence
+
+- Home: PASS against existing baseline.
+- Home scrolled: PASS against existing baseline.
+- Menu selected: initial 49.12% mismatch deliberately inspected; the old baseline showed the retired horizontal rail/grid, while the actual showed the accepted vertical rail/photo-forward list. Catalogue names/prices and selected category were intact. Baseline updated intentionally.
+- Membership card: initial 0.69% mismatch deliberately inspected; layout, QR and member content were unchanged, while both placeholder `LOGO` boxes became the bundled AIDA logo. Baseline updated intentionally.
+- Rerun: 4/4 goldens PASS; only `menu_selected.png` and `membership_card.png` changed.
+
+### Release artifact evidence
+
+- package/application ID: `com.aidacafe.aida_customer`;
+- path: `apps/customer/build/app/outputs/flutter-apk/app-release.apk`;
+- size: 64,197,534 bytes;
+- build timestamp: 2026-08-20 19:45:12 +08:00;
+- SHA-256: `9C36394EA0469F74F36B6908B6148A69263612D1F99ADB9C7EFCFB4724449B75`;
+- final APK declares `android.permission.INTERNET`;
+- production source and decompressed `libapp.so` files contain no `service_role`, `sb_secret_` or `SUPABASE_SERVICE_ROLE` marker.
+
+No Android device was attached, so device smoke was not performed and is not claimed.
+
+**Verification verdict:** source/backend audit COMPLETE; executable post-redesign validation COMPLETE; reviewed visual/golden evidence COMPLETE; release APK PRODUCED. Device evidence: NOT PERFORMED (no device attached; optional gate).
 
 ## Security assessment
 

@@ -4,7 +4,7 @@ This is the mirrored project-level chronology. Historical task verdicts describe
 
 ## 2026-08-20 — TASK-UI-REDESIGN-003 post-merge redesign audit and release verification
 
-**Verdict:** PARTIAL — source/backend audit and documentation reconciliation are complete; fresh Flutter execution and release APK are blocked by a pre-step GitHub-hosted Actions failure.
+**Verdict:** COMPLETE — source/backend audit, local executable verification, deliberate golden review, release APK production and mirrored documentation reconciliation pass.
 
 Audited customer redesign merge `dcc97c481ae446d76b25bf8f91850e1d829c56f5` against the implemented Auth/member, offline member/QR, shared catalogue, authoritative order/scheduling, Realtime and payment-boundary code. No redesign regression was found in provider/repository/RPC/RLS/Auth/order authority. Menu remains shared-catalogue-backed with live `imageUrl` primary; item variants/add-ons remain server catalogue data; cart values remain local estimates; Checkout still quotes before placement and renders server total; Schedule values are sourced only from `derivePickupSlots(OrderingPolicy)`; placement idempotency, history/detail/status and owner-scoped order Realtime/refetch remain unchanged; payment remains Pay at counter/unpaid; loyalty remains deferred.
 
@@ -14,7 +14,11 @@ Documentation now explicitly records two previously under-described effects: Rew
 
 `TASK-CI-001` added `.github/workflows/customer-release-audit.yml` to customer `master` as an isolated reusable Flutter 3.44.9 gate. PR #16 triggered workflow run `32359646611` at audit head `940074b7ccf1c0ccd875dd1c1109f883bc1a91a3`. Job `96396288072` queued and failed immediately with zero executed-step records, no retained log blob and no artifacts. An explicit rerun created job `96396949294`, which failed identically before any step evidence. Because no Flutter step executed, this is recorded as an Actions execution/infrastructure failure rather than an app/test failure. The repository is private; the connector exposes repository admin permission but not the account-level Actions billing/hosted-runner setting required to diagnose the rejection.
 
-The local tool environment is not an alternate build machine: Flutter, Dart and Codex executables are absent and outbound toolchain/package downloads are blocked. Therefore no fresh redesigned APK has been produced and no fresh `flutter analyze`/test/build PASS is claimed. TASK-CLOSEOUT-001 build evidence predates the redesign and is not substituted for this gate.
+The same task branch was subsequently executed locally with Flutter 3.44.9 / Dart 3.12.2, JDK 21.0.12 and Android SDK 36. Dependency resolution passed. Analysis initially found the redesigned Checkout's deprecated `SizeTransition.axisAlignment`; the behavior-equivalent `AlignmentDirectional.topStart` migration restored a zero-issue result. The non-golden suite then exposed a stale one-label sold-out assertion and late restoration of Flutter's global test image client; both harness defects were corrected. Non-golden regressions pass 41/41 and the full suite passes 45/45.
+
+Golden evidence was isolated and reviewed before update. Home and Home-scrolled passed unchanged. Menu-selected's 49.12% mismatch was the intentional horizontal-grid to vertical-rail/list redesign. Membership-card's 0.69% mismatch was only the placeholder-to-bundled AIDA logo change; QR/layout/member content remained intact. Only those two approved baselines changed, and the final golden suite passes 4/4.
+
+A fresh redesigned release APK was produced at `apps/customer/build/app/outputs/flutter-apk/app-release.apk`: package `com.aidacafe.aida_customer`, 64,197,534 bytes, built 2026-08-20 19:45:12 +08:00, SHA-256 `9C36394EA0469F74F36B6908B6148A69263612D1F99ADB9C7EFCFB4724449B75`. `aapt` confirms `android.permission.INTERNET`; production source and decompressed Flutter app libraries contain no service-role/secret marker. No Android device was connected, so optional device smoke was not performed.
 
 Cross-repository documentation synchronization is included in TASK-UI-REDESIGN-003 on the matching Dashboard branch; Dashboard runtime code remains unchanged.
 

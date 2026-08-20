@@ -6,9 +6,9 @@ Updated: 2026-08-20
 
 `TASK-UI-REDESIGN-003 — post-merge customer redesign audit, regression verification and release build`
 
-**Verdict:** PARTIAL.
+**Verdict:** COMPLETE.
 
-Source/backend audit, test-gap fixes and documentation reconciliation are complete. Fresh Flutter execution and APK production are blocked by GitHub-hosted Actions failing before any runner step starts.
+Source/backend audit, local executable verification, deliberate golden review, release APK production and mirrored documentation reconciliation are complete. GitHub-hosted Actions still fails before runner steps start, but the exact accepted Flutter 3.44.9 gate now passes locally and supplies the required artifact evidence.
 
 ## Starting state
 
@@ -66,6 +66,12 @@ Fixes:
 
 These are regression/testability changes only. No production backend adapter/model/provider contract was changed.
 
+Local execution found three additional bounded issues and fixed them:
+
+1. Flutter 3.44.9 deprecated `SizeTransition.axisAlignment`; Checkout now uses the behavior-equivalent `AlignmentDirectional.topStart` and analysis is clean.
+2. The sold-out detail test expected one label even though the redesign intentionally exposes both an unavailable badge and disabled action label.
+3. The cart-flow test restored a global test-only image client too late for Flutter's painting invariant; it now restores it in `finally` before the test body exits.
+
 ## Documentation gaps fixed
 
 Updated/created customer docs:
@@ -108,7 +114,7 @@ The workflow is intended to run:
 - `flutter build apk --release`;
 - artifact upload `aida-customer-release-apk`.
 
-## Execution result / blocker
+## Hosted Actions history
 
 PR #16 triggered workflow run `32359646611` on head `940074b7ccf1c0ccd875dd1c1109f883bc1a91a3`.
 
@@ -126,11 +132,35 @@ Explicit rerun:
 - same pre-step failure;
 - no artifacts.
 
-This does not establish a Flutter failure because the runner never produced Flutter-step evidence. The repository is private and the GitHub connector does not expose the user/account Actions billing/hosted-runner setting required to resolve this pre-step failure.
+This does not establish a Flutter failure because the runner never produced Flutter-step evidence. The repository is private and the GitHub connector does not expose the user/account Actions billing/hosted-runner setting required to resolve this pre-step failure. The failure remains CI operational debt, but it is no longer the task verification blocker.
 
-The local execution environment also has no Flutter/Dart/Codex binary and outbound package/network access is blocked, so it cannot serve as a fallback build machine.
+## Local executable evidence
 
-**APK status: NOT PRODUCED.** Do not use the older closeout APK as redesign verification.
+Environment:
+
+- Flutter 3.44.9;
+- Dart 3.12.2;
+- JDK 21.0.12;
+- Android SDK/platform/build-tools 36.
+
+Results:
+
+- `flutter pub get`: PASS;
+- `flutter analyze`: PASS, no issues;
+- non-golden suite: 41/41 PASS;
+- full Flutter suite: 45/45 PASS;
+- release build: PASS;
+- package: `com.aidacafe.aida_customer`;
+- APK: `apps/customer/build/app/outputs/flutter-apk/app-release.apk`;
+- size: 64,197,534 bytes;
+- build timestamp: 2026-08-20 19:45:12 +08:00;
+- SHA-256: `9C36394EA0469F74F36B6908B6148A69263612D1F99ADB9C7EFCFB4724449B75`;
+- APK Internet permission: present;
+- production/decompressed-app secret marker scan: no service-role/secret marker.
+
+Golden evidence was reviewed deliberately. Home and Home-scrolled pass unchanged. Menu-selected was updated for the accepted grid-to-vertical-rail/list redesign. Membership-card was updated only for the placeholder-to-bundled-logo change; QR/layout/member identity remained intact. The rerun passes 4/4 goldens.
+
+No Android device was connected, so device smoke was not performed or claimed. This was an optional gate; existing physical Auth/member/catalogue evidence remains separate and valid.
 
 ## Dashboard documentation sync
 
@@ -138,7 +168,7 @@ Matching Dashboard branch already exists:
 
 `codex/task-ui-redesign-003-post-merge-audit`
 
-The customer redesign/governance documents are to be mirrored there without Dashboard runtime changes. Repository-local customer screenshots do not need mirroring.
+The customer redesign/governance documents are mirrored there without Dashboard runtime changes. Repository-local customer screenshots are not mirrored. Final executable/golden/APK wording must remain content-equivalent before the dashboard docs PR is marked ready.
 
 ## Prior implementation evidence
 
@@ -146,10 +176,8 @@ TASK-CLOSEOUT-001 remains valid evidence for the trusted pre-redesign Auth/membe
 
 ## Exact remaining actions
 
-1. Restore GitHub-hosted Actions execution for the private customer repository/account, or run the same workflow commands on a Flutter 3.44.9-capable machine.
-2. Re-run PR #16 until `flutter analyze`, non-golden tests and release APK build pass.
-3. Review golden candidates separately; update only after deliberate visual approval if required.
-4. Download/install the resulting APK and smoke-test the redesigned flows on the phone.
-5. Update this task's verification evidence with the actual run/artifact.
-6. Merge PR #16 only after those gates pass.
-7. Merge the Dashboard documentation PR after verifying mirrored shared docs.
+1. Commit and push the bounded local fixes, reviewed goldens and final evidence to customer PR #16.
+2. Synchronize the same canonical evidence wording to Dashboard PR #14 without runtime changes.
+3. Mark both PRs ready for review.
+4. Preserve merge order: customer PR #16 first, Dashboard docs PR #14 second.
+5. Do not merge automatically; hosted Actions runner failure remains operational CI debt, and an Android device smoke test may be performed later as extra evidence but is not required for this completed local gate.

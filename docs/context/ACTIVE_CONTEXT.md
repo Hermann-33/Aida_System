@@ -2,7 +2,7 @@
 
 **As of:** 2026-08-20
 **Current task:** `TASK-UI-REDESIGN-003 — post-merge customer redesign audit, regression verification and release build`
-**Current verdict:** PARTIAL — source/backend audit and documentation reconciliation are complete; fresh Flutter execution and release APK remain blocked by GitHub-hosted Actions failing before runner steps start.
+**Current verdict:** COMPLETE — source/backend audit, local Flutter verification, deliberate golden review, release APK production and mirrored documentation reconciliation pass.
 
 ## Current product reality
 
@@ -62,7 +62,7 @@ A reusable clean-checkout workflow was added to customer `master` by `TASK-CI-00
 
 It is configured for Flutter 3.44.9 and performs dependency resolution, static analysis, non-golden regressions, separate golden evidence, and `flutter build apk --release`, then uploads `aida-customer-release-apk`.
 
-PR #16 triggered workflow run `32359646611` on audit head `940074b7ccf1c0ccd875dd1c1109f883bc1a91a3`.
+PR #16 previously triggered workflow run `32359646611` on audit head `940074b7ccf1c0ccd875dd1c1109f883bc1a91a3`.
 
 Execution evidence:
 
@@ -72,9 +72,28 @@ Execution evidence:
 - no job log blob is available;
 - no artifacts were produced.
 
-This pattern is an Actions runner/account execution failure before Flutter steps, not evidence of a Flutter analysis/test/build failure. The repository is private and the linked GitHub identity has repository admin permissions, but the available connector does not expose the account Actions billing/runner setting that caused the pre-step rejection.
+This remains an Actions runner/account execution failure before Flutter steps, not an application failure. It no longer blocks TASK-UI-REDESIGN-003 because the exact accepted toolchain is available locally and produced executable evidence from the task branch.
 
-Therefore there is currently **no fresh APK** and no fresh post-redesign Flutter PASS to claim. The older TASK-CLOSEOUT-001 release APK/build proof predates this redesign and cannot substitute for this gate.
+Local evidence on 2026-08-20:
+
+- Flutter 3.44.9 / Dart 3.12.2;
+- `flutter pub get`: PASS;
+- `flutter analyze`: PASS with no issues after replacing deprecated `SizeTransition.axisAlignment` with the equivalent `AlignmentDirectional.topStart`;
+- non-golden regressions: 41/41 PASS;
+- full suite after reviewed golden updates: 45/45 PASS;
+- release APK build: PASS;
+- package: `com.aidacafe.aida_customer`;
+- APK: `apps/customer/build/app/outputs/flutter-apk/app-release.apk`;
+- size: 64,197,534 bytes;
+- SHA-256: `9C36394EA0469F74F36B6908B6148A69263612D1F99ADB9C7EFCFB4724449B75`;
+- final manifest declares `android.permission.INTERNET`;
+- source and decompressed Flutter app libraries contain no service-role/secret marker.
+
+The non-golden run also exposed and fixed two stale test-harness assumptions: the redesigned sold-out detail intentionally displays both a badge and disabled action label, and the test-only network-image client must be restored before Flutter painting invariants run.
+
+Golden evidence was reviewed before update. Home and Home-scrolled already passed unchanged. Menu-selected was the intentional grid-to-vertical-rail/list redesign. Membership-card differed only because placeholder logo boxes became the approved bundled AIDA logo; QR/layout/member content remained intact. Only those two baselines changed.
+
+No Android device was connected (`adb devices` empty), so no device smoke test is claimed. Device smoke was optional; the separate physical Auth/catalogue evidence remains valid.
 
 ## Prior validated implementation evidence
 
@@ -92,7 +111,7 @@ Those results prove the pre-redesign trusted backend implementation, not the new
 
 ## Dashboard documentation synchronization
 
-TASK-UI-REDESIGN-003 includes mirroring the updated customer redesign/governance documentation to `Hermann-33/Aida_System-Dashboard` on the matching branch `codex/task-ui-redesign-003-post-merge-audit`. Dashboard runtime/source code is not changed by this task.
+TASK-UI-REDESIGN-003 mirrors the updated customer redesign/governance documentation to `Hermann-33/Aida_System-Dashboard` on the matching branch `codex/task-ui-redesign-003-post-merge-audit`. Dashboard runtime/source code is unchanged. Merge order remains customer PR #16, then Dashboard docs PR #14.
 
 ## Security and deployment
 

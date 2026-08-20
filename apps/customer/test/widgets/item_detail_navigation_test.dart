@@ -84,6 +84,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Sold out'), findsOneWidget);
+    // The redesign intentionally repeats the unavailable state in the product
+    // tag and in the disabled bottom action so it remains visible at both ends
+    // of the scrollable detail screen.
+    expect(find.text('Sold out'), findsNWidgets(2));
   });
 }

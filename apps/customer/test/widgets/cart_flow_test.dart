@@ -142,82 +142,86 @@ void main() {
     tester,
   ) async {
     debugNetworkImageHttpClientProvider = _FakeHttpClient.new;
-    addTearDown(() => debugNetworkImageHttpClientProvider = null);
+    try {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            memberRepositoryProvider.overrideWithValue(_fast),
+            catalogueRepositoryProvider.overrideWithValue(_catalogue),
+            orderRepositoryProvider.overrideWithValue(TestOrderRepository()),
+          ],
+          child: const MaterialApp(home: AppShell()),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          memberRepositoryProvider.overrideWithValue(_fast),
-          catalogueRepositoryProvider.overrideWithValue(_catalogue),
-          orderRepositoryProvider.overrideWithValue(TestOrderRepository()),
-        ],
-        child: const MaterialApp(home: AppShell()),
-      ),
-    );
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('nav_menu')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Salted Caramel Latte'));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('nav_menu')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Salted Caramel Latte'));
-    await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Large'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Large'));
+      await tester.pump();
 
-    await tester.ensureVisible(find.text('Large'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Large'));
-    await tester.pump();
+      await tester.ensureVisible(find.text('Extra Shot'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Extra Shot'));
+      await tester.pump();
 
-    await tester.ensureVisible(find.text('Extra Shot'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Extra Shot'));
-    await tester.pump();
+      await tester.ensureVisible(find.byType(TextField));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'less ice please');
+      await tester.pump();
 
-    await tester.ensureVisible(find.byType(TextField));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), 'less ice please');
-    await tester.pump();
+      await tester.tap(find.byIcon(Icons.add_rounded));
+      await tester.pump();
 
-    await tester.tap(find.byIcon(Icons.add_rounded));
-    await tester.pump();
+      final addButton = find.text('Add to cart · RM 34.80');
+      expect(addButton, findsOneWidget);
+      await tester.tap(addButton);
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 1));
 
-    final addButton = find.text('Add to cart · RM 34.80');
-    expect(addButton, findsOneWidget);
-    await tester.tap(addButton);
-    await tester.pumpAndSettle();
-    await tester.pump(const Duration(seconds: 1));
+      await tester.ensureVisible(find.byIcon(Icons.arrow_back_rounded));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+      await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.byIcon(Icons.arrow_back_rounded));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.arrow_back_rounded));
-    await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('floating_cart_bar')), findsOneWidget);
+      expect(find.text('RM 34.80'), findsWidgets);
 
-    expect(find.byKey(const ValueKey('floating_cart_bar')), findsOneWidget);
-    expect(find.text('RM 34.80'), findsWidgets);
+      await tester.tap(find.byKey(const ValueKey('floating_cart_bar')));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('floating_cart_bar')));
-    await tester.pumpAndSettle();
+      expect(find.byType(CartScreen), findsOneWidget);
+      expect(find.text('Salted Caramel Latte'), findsOneWidget);
+      expect(find.textContaining('Large'), findsWidgets);
+      expect(find.textContaining('Extra Shot'), findsOneWidget);
+      expect(find.text('"less ice please"'), findsOneWidget);
 
-    expect(find.byType(CartScreen), findsOneWidget);
-    expect(find.text('Salted Caramel Latte'), findsOneWidget);
-    expect(find.textContaining('Large'), findsWidgets);
-    expect(find.textContaining('Extra Shot'), findsOneWidget);
-    expect(find.text('"less ice please"'), findsOneWidget);
+      await tester.tap(find.text('Review order'));
+      await tester.pumpAndSettle();
+      expect(find.text('Server total'), findsOneWidget);
+      expect(find.text('RM 34.80'), findsWidgets);
+      await tester.tap(find.text('Place order · RM 34.80'));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Review order'));
-    await tester.pumpAndSettle();
-    expect(find.text('Server total'), findsOneWidget);
-    expect(find.text('RM 34.80'), findsWidgets);
-    await tester.tap(find.text('Place order · RM 34.80'));
-    await tester.pumpAndSettle();
+      expect(find.byType(OrderConfirmationScreen), findsOneWidget);
+      expect(find.text('Order confirmed'), findsOneWidget);
 
-    expect(find.byType(OrderConfirmationScreen), findsOneWidget);
-    expect(find.text('Order confirmed'), findsOneWidget);
+      await tester.tap(find.text('Back to Menu'));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Back to Menu'));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(OrderConfirmationScreen), findsNothing);
-    expect(find.byType(CartScreen), findsNothing);
-    expect(find.byKey(const ValueKey('floating_cart_bar')), findsNothing);
+      expect(find.byType(OrderConfirmationScreen), findsNothing);
+      expect(find.byType(CartScreen), findsNothing);
+      expect(find.byKey(const ValueKey('floating_cart_bar')), findsNothing);
+    } finally {
+      // Flutter verifies painting debug globals before package:test teardown
+      // callbacks run, so restore this test-only image client in the body.
+      debugNetworkImageHttpClientProvider = null;
+    }
   });
 
   testWidgets('placement failure retains cart selections for retry', (

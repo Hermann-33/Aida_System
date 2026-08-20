@@ -280,7 +280,7 @@ class OrderSnapshot {
 
   factory OrderSnapshot.fromJson(Map<String, dynamic> json) => OrderSnapshot(
     id: json['id'] as String,
-    orderNumber: json['orderNumber'] as String,
+    orderNumber: json['orderNumber'].toString(),
     fulfillmentType: FulfillmentType.values.byName(
       json['fulfillmentType'] as String,
     ),

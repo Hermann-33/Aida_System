@@ -1,4 +1,4 @@
-> Scope note (2026-08-12): this audit describes the customer repository `Hermann-33/Aida_System` and preserves the TASK-WF-001 customer baseline. Project-wide current truth, including the separate POS/Admin repository and later Supabase foundation, is in `docs/context/`, `docs/contracts/`, and ADR-0006/0007.
+> Scope note (2026-08-20): this document intentionally preserves the historical TASK-WF-001 customer baseline and is **not** current runtime truth. For current customer integration state use `docs/context/ACTIVE_CONTEXT.md`, `docs/frontend/UI_SCREEN_MAP.md`, and `docs/frontend/STATE_AND_DATA_FLOW.md`. For the merged redesign use `docs/frontend/UI_REDESIGN_SPEC.md`; for its post-merge backend-impact/verification audit use `docs/frontend/UI_REDESIGN_AUDIT_2026-08-20.md`.
 
 # Frontend Audit
 

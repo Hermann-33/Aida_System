@@ -9,7 +9,7 @@ This audit supplements `UI_REDESIGN_SPEC.md`. It checks the merged redesign agai
 ## Audited baseline
 
 - Customer default branch audited after PR #15 integration.
-- Merge commit: `dcc97c481ae446d76b25bf8f91850e1d829c56f5`.
+- Redesign merge commit: `dcc97c481ae446d76b25bf8f91850e1d829c56f5`.
 - Redesign surfaces: Menu, Item detail, Cart, Checkout sheet and Rewards.
 - Shared presentation changes: floating cart, `NeumorphicControl`, AIDA logo asset, success tint.
 - Indirectly affected surface: Membership QR, because it already consumes the shared `AidaLogo` widget.
@@ -149,7 +149,35 @@ Required fresh-checkout gates for this task:
 5. `flutter build apk --release`;
 6. APK artifact retained for device transfer.
 
-The clean CI workflow `.github/workflows/customer-release-audit.yml` performs those checks. Final PASS/FAIL evidence belongs in `ACTIVE_CONTEXT.md`, `HANDOFF.md` and `AUDIT_LOG.md` only after the run completes.
+A reusable workflow, `.github/workflows/customer-release-audit.yml`, was added to customer `master` through isolated `TASK-CI-001`. It is configured to execute those gates and upload `aida-customer-release-apk`.
+
+### Fresh-run evidence
+
+PR #16 (`codex/task-ui-redesign-003-post-merge-audit`) triggered workflow run `32359646611` at audit head `940074b7ccf1c0ccd875dd1c1109f883bc1a91a3`.
+
+Attempt 1:
+
+- job ID `96396288072`;
+- briefly queued, then failed immediately;
+- connector returns no executed step records;
+- job-log download returns no retained log blob;
+- artifact list is empty.
+
+The job was explicitly rerun.
+
+Attempt 2:
+
+- job ID `96396949294`;
+- again briefly queued, then failed immediately;
+- again no executed steps and no artifacts.
+
+This is a pre-run GitHub Actions execution failure, not evidence that Flutter analysis/tests/build failed. The repository is private and the connected GitHub identity has admin permissions, but the available repository API does not expose the account-level Actions billing/hosted-runner setting responsible for the rejection.
+
+The local tool environment is not a fallback build machine: it has no Flutter, Dart or Codex executable, and outbound package/toolchain downloads are blocked.
+
+**Verification verdict:** source/backend audit COMPLETE; executable post-redesign validation PARTIAL; release APK NOT PRODUCED.
+
+Do not reuse the TASK-CLOSEOUT-001 APK/build result as proof of this redesigned head: that build predates the redesign.
 
 ## Security assessment
 

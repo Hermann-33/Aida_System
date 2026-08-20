@@ -2,11 +2,11 @@
 
 Updated: 2026-08-20
 
-This document describes the customer/mobile UI redesign integrated from the historical `customer-app-redesign` work onto the current `master` baseline. Runtime and integration status remain governed by `UI_SCREEN_MAP.md`, `STATE_AND_DATA_FLOW.md`, the shared backend contracts, and accepted ADRs.
+This document describes the customer/mobile UI redesign integrated onto the current customer `master` baseline. Runtime/integration truth remains governed by `UI_SCREEN_MAP.md`, `STATE_AND_DATA_FLOW.md`, the shared backend contracts and accepted ADRs. Post-merge backend-impact/test evidence is in `UI_REDESIGN_AUDIT_2026-08-20.md`.
 
 ## Scope
 
-Redesigned customer surfaces:
+Directly redesigned customer surfaces:
 
 - Menu
 - Item detail
@@ -14,11 +14,20 @@ Redesigned customer surfaces:
 - Checkout sheet
 - Rewards
 - floating cart affordance
-- shared logo/control presentation used by those surfaces
 
-The redesign does not change routes, authentication, member identity, catalogue authority, cart/order authority, payment semantics, loyalty authority, or Supabase contracts.
+Shared presentation changes:
 
-The source branch was not merged directly because it was 140 commits behind `master`, contained unrelated historical admin-sidebar commits, and contained a checkout scheduling implementation that diverged from the authoritative ordering policy. Integration therefore used a clean branch from current `master` and carried only the reviewed redesign delta.
+- `NeumorphicControl`
+- `AidaLogo` / bundled logo asset
+- success-color derivative used by the add-to-cart confirmation state
+
+Indirectly affected surface:
+
+- Membership QR, because it already uses the shared `AidaLogo` widget. This is a visual change only; member-code/QR/offline semantics do not change.
+
+The redesign does not change routes, authentication, member identity authority, catalogue authority, cart/order authority, payment semantics, loyalty authority or Supabase contracts.
+
+The historical source branch was not merged directly because it was stale and contained unrelated history plus an invalid scheduling experiment. Integration carried only the reviewed redesign delta onto current `master` and restored contract-safe scheduling/live catalogue imagery.
 
 ## Design system
 
@@ -41,7 +50,7 @@ Canonical values remain in `apps/customer/lib/core/theme/aida_colors.dart`:
 | `success` | `#4F6B4A` | confirmation |
 | `successLight` | derived from `success` | light stop for confirmation gradients |
 
-No redesigned surface owns trusted business meaning through color alone.
+No redesigned surface gains trusted business meaning through color alone.
 
 ### Typography
 
@@ -51,40 +60,40 @@ Typography remains centralized in `AidaType`:
 - Plus Jakarta Sans for interface/body text.
 - `AidaTheme.sectionLabel` for uppercase section labels.
 
-No network-fetched font dependency is introduced.
+Fonts remain bundled; no runtime font network dependency is introduced.
 
-### Shape and elevation
+### Shape/elevation
 
 The redesign emphasizes:
 
 - flatter Menu and Cart rows separated by whitespace/hairline dividers;
 - 18–28 px rounded controls/cards/sheets;
-- soft two-shadow tactile controls for selected/add/category affordances;
-- the existing dark coffee-to-espresso card language for Rewards;
-- local animated feedback instead of adding new global navigation chrome.
+- soft two-shadow tactile controls for category/add/selected affordances;
+- the existing dark coffee-to-espresso card family for Rewards;
+- local animated feedback rather than new global navigation chrome.
 
 ### Logo and imagery
 
-`apps/customer/assets/images/aida_logo.jpg` is bundled and rendered through `AidaLogo` where the shared logo widget is used. Rewards also uses the asset as a low-opacity card watermark.
+`apps/customer/assets/images/aida_logo.jpg` is bundled and rendered through `AidaLogo` where the shared widget is used. Rewards also uses the asset as a low-opacity card watermark.
 
-Product/menu imagery continues to use existing catalogue image URLs and category assets/fallbacks. No image becomes catalogue authority.
+`MenuListItem` must render the server `MenuItem.imageUrl` first. Bundled category art is only an `assetFallback`; it is not catalogue content or commercial authority.
 
 ## Shared components
 
 ### New
 
-- `features/menu/widgets/menu_category_rail.dart` — vertical Menu-only category/favorites rail.
+- `features/menu/widgets/menu_category_rail.dart` — vertical Menu-only category/favorites rail. Stable automation keys: `menu_cat_all`, `menu_cat_favorites`, `menu_cat_<category-id>`.
 - `features/menu/widgets/menu_list_item.dart` — photo-forward Menu list row.
 
 ### Changed
 
-- `core/widgets/neumorphic_control.dart` — optional accent-gradient override used for transient success feedback.
-- `features/cart/widgets/floating_cart_bar.dart` — animated presence and cart-line thumbnails while retaining the same cart provider/route.
-- `core/theme/aida_logo.dart` — renders the bundled AIDA logo asset.
+- `core/widgets/neumorphic_control.dart` — optional accent-gradient override for transient success feedback.
+- `features/cart/widgets/floating_cart_bar.dart` — animated presence and cart-line thumbnails while retaining the same local cart provider/route.
+- `core/theme/aida_logo.dart` — bundled real AIDA logo instead of the placeholder.
 
 ### Retired
 
-`features/menu/widgets/menu_grid_item.dart` is superseded by `MenuListItem` and should not be used for new Menu work.
+`features/menu/widgets/menu_grid_item.dart` is superseded by `MenuListItem` and should not be reintroduced accidentally.
 
 ## Navigation and information architecture
 
@@ -93,7 +102,7 @@ Cross-screen navigation is unchanged:
 - five-tab `AppShell` remains an `IndexedStack`;
 - Menu items still open `ItemDetailScreen` before cart insertion, preserving variant/add-on selection;
 - Cart still opens `OrderCheckoutSheet` in a modal bottom sheet;
-- successful placement still clears cart state only after persisted placement and opens order confirmation;
+- successful placement still clears cart only after persisted placement and opens order confirmation;
 - Rewards card actions scroll to existing sections rather than inventing new routes.
 
 ## Screen specifications
@@ -108,14 +117,13 @@ Implementation:
 
 Changes:
 
-- replaces the previous grid presentation with a photo-forward single-column list;
-- introduces a fixed vertical category/favorites rail;
-- groups unfiltered catalogue content by category with section labels;
-- keeps pull-to-refresh through `catalogueProvider` invalidation;
-- keeps favorites local/session state;
-- keeps unavailable items non-interactive.
+- previous grid becomes a photo-forward single-column list;
+- fixed vertical category/favorites rail;
+- unfiltered catalogue content can be grouped by category;
+- unavailable items remain non-interactive;
+- pull-to-refresh and local favorites behavior remain.
 
-Data boundary: unchanged. Menu content remains Supabase catalogue data with Realtime invalidation/refetch; client filtering is presentation state only.
+Data boundary: Supabase catalogue + Realtime invalidation/refetch; category/favorite selection is local presentation state. Live `imageUrl` remains primary imagery.
 
 ### Item detail
 
@@ -123,11 +131,11 @@ Implementation: `features/menu/item_detail_screen.dart`.
 
 Changes:
 
-- keeps the existing hero/detail/configuration layout;
-- consolidates the old Customize shortcut plus icon-only cart action into a quantity control and one `Add to cart · total` CTA;
-- uses a brief `Added` confirmation state on the CTA instead of a SnackBar.
+- existing catalogue-driven hero/configuration layout remains;
+- old Customize shortcut plus icon-only add action becomes quantity controls + one `Add to cart · <local total>` CTA;
+- brief `Added` confirmation replaces the old SnackBar feedback.
 
-Data boundary: unchanged. Variant/add-on compatibility and prices come from the catalogue; the cart remains local intent and is re-priced by the server at checkout.
+Data boundary: variants, prices and compatible add-ons still come from the catalogue. The displayed running total is a local estimate; server quote remains commercial authority.
 
 ### Cart
 
@@ -135,13 +143,13 @@ Implementation: `features/cart/cart_screen.dart`.
 
 Changes:
 
-- flattens line items into photo-forward rows;
-- adds swipe-to-remove;
-- keeps quantity editing and configuration/note summaries;
-- keeps the bottom amount explicitly labelled `Estimated subtotal`;
-- keeps the `Review order` transition into the server quote flow.
+- flat photo rows;
+- swipe-to-remove;
+- retained quantity/configuration/note presentation;
+- bottom amount explicitly labelled `Estimated subtotal`;
+- `Review order` remains the transition to server quote.
 
-Data boundary: unchanged. Cart values are estimates/intents, never placement authority.
+Data boundary: local intent/estimate only. Swipe removal mutates local cart state and does not cancel/delete a persisted order.
 
 ### Floating cart bar
 
@@ -149,17 +157,17 @@ Implementation: `features/cart/widgets/floating_cart_bar.dart`.
 
 Changes:
 
-- animates entrance/exit;
-- shows overlapping thumbnails for up to three cart lines plus overflow;
-- retains item count, estimated subtotal, and Cart navigation.
+- animated entrance/exit;
+- overlapping cart-line thumbnails plus overflow count;
+- retains item count, estimated subtotal and Cart navigation.
 
 ### Checkout sheet
 
 Implementation: `features/cart/order_checkout_sheet.dart`.
 
-The visual redesign keeps a tactile wheel-style scheduled-time selector, but the integrated version deliberately differs from the original stale branch implementation.
+The integrated redesign keeps a tactile wheel-style scheduled selector but **the wheel does not define valid times**. It renders only values returned by `derivePickupSlots(OrderingPolicy)`.
 
-**Authoritative scheduling rule:** the wheel is populated only from `derivePickupSlots(OrderingPolicy)`. Therefore selectable values continue to respect:
+Therefore selectable values continue to respect:
 
 - `scheduleEnabled`;
 - `minimumLeadMinutes`;
@@ -167,15 +175,16 @@ The visual redesign keeps a tactile wheel-style scheduled-time selector, but the
 - `maximumAdvanceDays`;
 - backend-provided timezone/server time.
 
-The integration does **not** hardcode café opening hours and does **not** offer arbitrary one-minute values. This preserves the accepted ordering contract while retaining the redesigned wheel interaction.
+The integrated implementation does not hardcode café opening hours and does not offer arbitrary one-minute values. `quote_order()` validates the selected timestamp again, and placement revalidates server-side.
 
 The sheet still:
 
-- requests an authoritative server quote;
+- obtains authoritative policy;
+- requests an authoritative quote;
 - renders `Server total`;
 - places only through `OrderCheckoutSession`/`OrderRepository`;
 - keeps Pay-at-counter semantics;
-- uses retry-stable placement idempotency from the existing session abstraction.
+- keeps retry-stable idempotency behavior.
 
 ### Rewards
 
@@ -183,60 +192,85 @@ Implementation: `features/rewards/rewards_screen.dart`.
 
 Changes:
 
-- redesigns the balance surface into the same dark card family as Membership QR;
-- adds the AIDA logo watermark;
-- adds in-card `Vouchers` and `Redeem` navigation controls;
-- keeps earned voucher and points-catalogue ticket behavior unchanged.
+- balance surface adopts the dark membership-card visual family;
+- bundled AIDA logo watermark;
+- `Vouchers` and `Redeem` in-card scroll controls;
+- earned voucher/reward-ticket presentation retained.
 
-Data boundary: unchanged. Reward redemption remains deferred; UI actions must not pretend points or vouchers have changed when no authoritative backend mutation occurred.
+**Mixed data boundary:**
+
+- member name/code displayed on the card comes from `displayedMemberProvider`, based on the real owner-scoped Supabase member/profile read plus the existing local presentation edit overlay;
+- points, reward catalogue and vouchers remain delegated to the mock pending-feature implementation.
+
+Therefore Rewards is not wholly mock, but loyalty is still not integrated. `Redeem` remains non-authoritative and must not mutate/claim trusted points until the loyalty task exists.
+
+### Membership QR — indirect shared-logo delta
+
+Implementation: `features/card/membership_card_screen.dart` plus `core/theme/aida_logo.dart`.
+
+The screen layout/QR code logic was not redesigned, but the shared logo changed from placeholder to bundled AIDA imagery. QR payload remains the server-owned member code; online owner-scoped member reads and the minimum per-user offline cache are unchanged. The bundled asset keeps the offline card free of a new network dependency.
 
 ## Motion
 
 Local motion includes:
 
-- checkout wheel fade/size entrance;
-- fixed-extent wheel magnification/selection feedback;
-- floating cart bar fade/slide;
+- checkout wheel fade/size entrance and fixed-extent selection feedback;
+- floating cart fade/slide;
 - cart thumbnail pop-in;
-- item-detail Added confirmation swap;
+- item-detail `Added` confirmation swap;
 - existing neumorphic press feedback.
 
-No route transition architecture or global motion framework is added.
+No route-transition architecture or global motion framework is added.
 
-## Accessibility
+## Accessibility/testability
 
-Implemented evidence includes semantic labels/selected state on major tactile controls and visible text labels for primary actions. The redesign does not claim WCAG conformance. Small 36–38 px icon controls and full dynamic-text/large-font coverage require explicit accessibility validation before such compliance can be claimed.
+Current evidence includes semantic labels/selected state on major tactile controls and visible text labels for primary actions. The redesign does not claim WCAG conformance.
+
+Post-merge audit found stale test selectors rather than a backend defect. Stable category rail keys were restored and cart-flow tests were rewritten against the redesigned UI. Small 36–38 px controls, large-text behavior, screen-reader quality and tablet/landscape behavior remain explicit accessibility/responsive review gaps.
 
 ## Responsive behavior
 
-The redesign remains phone-first. Existing Flutter layout primitives provide some width flexibility, but no tablet-specific or landscape-specific redesign is claimed. The fixed 76 px Menu rail is an intentional phone layout decision and should be revisited if tablet/web becomes a supported production target.
+Phone-first. No tablet-specific or landscape-specific redesign is claimed. The fixed 76 px Menu rail is a deliberate phone layout constraint and should be revisited before tablet/web is treated as a production target.
 
 ## Screenshots
 
-Repository-local redesign evidence retained from the source branch:
+Repository-local redesign evidence:
 
 - `docs/screenshots/2026-08-19-menu-redesign.png`
 - `docs/screenshots/2026-08-19-item-detail-redesign.png`
 - `docs/screenshots/2026-08-19-cart-redesign.png`
 - `docs/screenshots/2026-08-19-rewards-redesign.png`
 
-The original `2026-08-19-checkout-sheet-redesign.png` is intentionally not integrated because it depicts the rejected arbitrary-minute/hardcoded-hours picker rather than the contract-safe integrated checkout wheel.
+The historical checkout screenshot is intentionally excluded because it depicts the rejected arbitrary-minute/client-hours implementation rather than the integrated policy-derived wheel.
 
 ## Maintenance rules
 
-- Do not reintroduce `MenuGridItem` for the customer Menu without an explicit redesign decision.
-- New Menu work should reuse `MenuCategoryRail`/`MenuListItem` rather than cloning them.
-- Keep client cart totals labelled as estimates until the server quote returns.
+- Do not reintroduce `MenuGridItem` without an explicit design decision.
+- Reuse `MenuCategoryRail`/`MenuListItem`; preserve their automation keys when refactoring.
+- Keep live `MenuItem.imageUrl` primary and category art fallback-only.
+- Keep cart/floating/item-detail totals labelled/treated as estimates until quote.
 - Never construct scheduled pickup times outside `OrderingPolicy`/`derivePickupSlots` unless the backend contract changes first.
-- Do not add local café-hours constants as scheduling authority.
-- Do not turn Rewards presentation into points/voucher authority.
-- Keep logo/image assets presentation-only.
-- Golden baselines require deliberate visual review; do not update them merely to make tests green.
+- Do not add local café-hours/capacity constants as scheduling authority.
+- Do not promote Rewards visuals into loyalty authority.
+- Keep Membership QR assets bundled/offline-safe and QR payload server-owned.
+- Do not update golden files solely to make tests green; inspect candidate visual diffs deliberately.
 
-## Verification state
+## Verification
 
-The source redesign branch recorded `flutter analyze` with 0 issues and `flutter test` with 40/44 passing; its four failures were documented as pre-existing golden-image mismatches. Those results apply to the source branch before this integration correction.
+Post-merge verification belongs to `UI_REDESIGN_AUDIT_2026-08-20.md` and the current task handoff. The TASK-UI-REDESIGN-003 regression additions specifically cover:
 
-The integration review independently verified source/data-flow boundaries and corrected the scheduling contract violation. No CI workflow exists in this repository, and the integration environment used for this repository operation did not expose a Flutter toolchain, so the corrected integration commit has not been independently re-run through `flutter analyze`/`flutter test` here. That limitation must not be rewritten as a passing local test result.
+- redesigned item configuration → cart → quote/place flow;
+- placement failure retains cart;
+- scheduled checkout submits a `derivePickupSlots(policy)` timestamp;
+- Menu category rail stable selector coverage;
+- existing Auth/member/catalogue/order unit/data regressions through the clean release gate.
 
-Cross-repository documentation sync remains pending by task scope; the Dashboard repository is handled separately.
+The project does not treat source inspection alone as a fresh test PASS.
+
+## Related documentation
+
+- `UI_REDESIGN_AUDIT_2026-08-20.md` — post-merge backend-impact and verification audit.
+- `UI_SCREEN_MAP.md` — runtime/data-source/integration status.
+- `STATE_AND_DATA_FLOW.md` — provider/repository/authority flow.
+- `FRAGILE_BOUNDARIES.md` — regression-sensitive trust/UI boundaries.
+- `MOCKS_AND_PLACEHOLDERS.md` — real/mock/presentation separation.

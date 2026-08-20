@@ -11,6 +11,7 @@ class TestOrderRepository implements OrderRepository {
   final Failure? placeFailure;
   final updates = StreamController<void>.broadcast();
   int historyFetches = 0;
+  final quotedRequests = <OrderRequest>[];
   final placedRequests = <OrderRequest>[];
 
   static final policy = OrderingPolicy(
@@ -115,8 +116,10 @@ class TestOrderRepository implements OrderRepository {
   Future<Result<OrderingPolicy>> getOrderingPolicy() async => Ok(policy);
 
   @override
-  Future<Result<OrderQuote>> quoteOrder(OrderRequest request) async =>
-      Ok(quote);
+  Future<Result<OrderQuote>> quoteOrder(OrderRequest request) async {
+    quotedRequests.add(request);
+    return Ok(quote);
+  }
 
   @override
   Future<Result<OrderSnapshot>> placeCustomerOrder(OrderRequest request) async {

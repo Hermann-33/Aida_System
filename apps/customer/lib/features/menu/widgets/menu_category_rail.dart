@@ -48,6 +48,7 @@ class MenuCategoryRail extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(6, 4, 6, 24),
         children: [
           _RailTile(
+            key: const ValueKey('menu_cat_all'),
             label: 'All',
             icon: CategoryChip.iconFor('All'),
             selected: !favoritesOnly && selectedId == null,
@@ -55,6 +56,7 @@ class MenuCategoryRail extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           _RailTile(
+            key: const ValueKey('menu_cat_favorites'),
             label: 'Favorites',
             icon: Icons.favorite_rounded,
             selected: favoritesOnly,
@@ -63,6 +65,7 @@ class MenuCategoryRail extends StatelessWidget {
           for (final c in categories) ...[
             const SizedBox(height: 18),
             _RailTile(
+              key: ValueKey('menu_cat_${c.id}'),
               label: c.name,
               icon: CategoryChip.iconFor(c.name),
               asset: CategoryChip.assetFor(c.name),
@@ -78,6 +81,7 @@ class MenuCategoryRail extends StatelessWidget {
 
 class _RailTile extends StatefulWidget {
   const _RailTile({
+    super.key,
     required this.label,
     required this.icon,
     this.asset,
@@ -109,6 +113,7 @@ class _RailTileState extends State<_RailTile> {
       selected: selected,
       label: widget.label,
       child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: widget.onTap,
         onTapDown: (_) => setState(() => _pressed = true),
         onTapUp: (_) => setState(() => _pressed = false),

@@ -13,8 +13,8 @@ Statuses describe current runtime behavior, not design intent.
 | Forgot password | `features/auth/widgets/forgot_password_sheet.dart` | recovery request | Supabase Auth reset request | Integrated request boundary; mailbox callback completion not claimed |
 | App shell | `features/shell/app_shell.dart` | five-tab frame/cart access | Riverpod local state | UI/local |
 | Home | `features/home/home_screen.dart` | points/stamps/promos/categories/menu actions | mixed shared catalogue + mock/local rewards/check-in content | Partial; catalogue-backed menu content, deferred loyalty/promotions |
-| Rewards | `features/rewards/rewards_screen.dart` | balance/vouchers/reward catalogue | mock | Preview/deferred |
-| Membership QR | `features/card/membership_card_screen.dart` | member identity code | owner-scoped Supabase member read + user-scoped minimum offline cache | Integrated; physical provisioning validated |
+| Rewards | `features/rewards/rewards_screen.dart` | member balance-card presentation, vouchers/reward catalogue | mixed: real owner-scoped member/profile display + mock points/rewards/vouchers | Preview/deferred for loyalty; member identity display is real |
+| Membership QR | `features/card/membership_card_screen.dart` | member identity code | owner-scoped Supabase member read + user-scoped minimum offline cache | Integrated; QR/member boundary unchanged; shared bundled logo now replaces placeholder |
 | Menu | `features/menu/menu_screen.dart` | browse/filter/favorites | Supabase catalogue + Realtime invalidation; local favourites | Integrated; physical Owner price mutation observed |
 | Item detail | `features/menu/item_detail_screen.dart` | variant/add-ons/note/quantity/cart | Supabase catalogue item + widget interaction state | Integrated catalogue/local intent |
 | Cart | `features/cart/cart_screen.dart` | edit selections and enter checkout | local intent/estimate, then authoritative server quote | Integrated; local values not placement authority |
@@ -37,8 +37,13 @@ Social sign-in, promo detail, notifications, reward redemption, voucher consumpt
 
 POS/Admin surfaces are implemented in the separate Dashboard repository and mapped under `docs/dashboard/UI_SCREEN_MAP.md`.
 
-## 2026-08-20 redesign integration note
+## 2026-08-20 redesign integration and audit note
 
-Menu, Item detail, Cart, Checkout sheet and Rewards received a presentation-layer redesign. Full design-system, component and screen-by-screen detail is in `docs/frontend/UI_REDESIGN_SPEC.md`.
+Menu, Item detail, Cart, Checkout sheet and Rewards received a presentation-layer redesign. The shared `AidaLogo` replacement also changes Membership QR presentation because that screen already consumes the shared widget; QR/member identity semantics are unchanged.
 
 The original redesign branch experimented with arbitrary-minute scheduling and client-only opening hours. That implementation was rejected during integration. The integrated Checkout sheet retains the wheel-style interaction but populates it only from `derivePickupSlots(OrderingPolicy)`, so the runtime status above remains contract-compatible with `slotIntervalMinutes`, minimum lead time, maximum advance horizon and backend-provided timezone/server time.
+
+Rewards now combines real member display identity with still-mock loyalty values. It must not be described either as wholly mock or as trusted loyalty integration.
+
+Detailed visual specification: `docs/frontend/UI_REDESIGN_SPEC.md`.
+Post-merge backend-impact/test audit: `docs/frontend/UI_REDESIGN_AUDIT_2026-08-20.md`.

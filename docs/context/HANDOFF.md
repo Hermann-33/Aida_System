@@ -4,90 +4,180 @@ Updated: 2026-08-20
 
 ## Task
 
-`TASK-UI-REDESIGN-002 — review and integrate customer UI redesign`
+`TASK-UI-REDESIGN-003 — post-merge customer redesign audit, regression verification and release build`
 
-**Verdict:** COMPLETE for the mobile repository integration target.
+**Verdict:** COMPLETE.
+
+Source/backend audit, local executable verification, deliberate golden review, release APK production and mirrored documentation reconciliation are complete. GitHub-hosted Actions still fails before runner steps start, but the exact accepted Flutter 3.44.9 gate now passes locally and supplies the required artifact evidence.
 
 ## Starting state
 
-The source branch `customer-app-redesign` could not be merged safely as-is:
+Customer PR #15 had already merged the reviewed redesign onto `master` as merge commit `dcc97c481ae446d76b25bf8f91850e1d829c56f5`.
 
-- it was 140 commits behind current `master` and only 5 commits ahead;
-- two of those ahead commits were unrelated July admin-sidebar documentation commits;
-- its checkout picker ignored `OrderingPolicy.slotIntervalMinutes`, offered arbitrary minutes, and imposed a client-only 8am–5pm window;
-- its Menu list rows discarded live catalogue `imageUrl` values in favor of category art;
-- its `pubspec.yaml` carried an unrelated stale `shared_preferences` dependency change.
+Directly redesigned surfaces:
 
-## Integrated result
+- Menu;
+- Item detail;
+- Cart;
+- Checkout sheet;
+- Rewards;
+- floating cart.
 
-A clean branch, `codex/ui-redesign-integration`, was created from current `master` and contains only the reviewed redesign delta.
+Shared presentation changes include `NeumorphicControl` and `AidaLogo`; Membership QR is indirectly affected visually because it already consumes the shared logo widget.
 
-Integrated presentation changes:
+## Backend-impact audit
 
-- Menu: vertical category/favorites rail and photo-forward flat list rows;
-- Item detail: consolidated quantity + `Add to cart · total` CTA with transient success state;
-- Cart: flat photo rows, swipe-to-remove, retained estimate/server-quote boundary;
-- Checkout: redesigned wheel-style scheduled selection while retaining authoritative server-policy slots;
-- Rewards: dark membership-card-family balance surface and in-page section controls;
-- floating cart: animated appearance plus cart-line thumbnails;
-- AIDA logo: bundled asset replaces the previous placeholder presentation.
+No regression was found in the implemented trusted backend features.
 
-Integration corrections:
+Preserved boundaries:
 
-1. `order_checkout_sheet.dart` now derives every selectable scheduled value from `derivePickupSlots(OrderingPolicy)`. No local opening-hours constants or arbitrary one-minute values remain.
-2. `MenuListItem` now renders each catalogue item's `imageUrl` first and uses the bundled category asset only as fallback.
-3. The current `shared_preferences: 2.5.5` dependency pin from `master` is preserved; only the new logo asset is added to `pubspec.yaml`.
-4. The unrelated admin-sidebar commits/files from the stale source branch are not integrated.
-5. The obsolete `MenuGridItem` is removed because the redesigned Menu uses `MenuListItem`.
+- Auth/session and customer provisioning remain in Supabase Auth/member flows;
+- member code and QR remain server-owned identifiers with the existing minimum per-user offline cache;
+- catalogue values remain `get_catalogue()`/Realtime-refetch data;
+- Menu keeps live `imageUrl` primary and category art fallback-only;
+- variants/add-ons remain server catalogue data;
+- Cart remains local intent/estimate state;
+- Checkout renders a server quote before placement;
+- scheduled times come only from `derivePickupSlots(OrderingPolicy)` and are revalidated by the server;
+- `OrderCheckoutSession` idempotency behavior is unchanged;
+- history/detail/status remain persisted backend snapshots;
+- customer status refresh remains owner-scoped orders Realtime followed by authorized refetch;
+- payment remains explicit Pay at counter/unpaid;
+- loyalty remains deferred and preview-backed.
 
-## Authority and security
+Detailed evidence: `docs/frontend/UI_REDESIGN_AUDIT_2026-08-20.md`.
 
-No backend schema, RPC, RLS, Auth, role, pricing, payment, loyalty, voucher, inventory, audit or order-state authority changed.
+## Audit findings fixed on the task branch
 
-The following boundaries remain intact:
+Customer branch: `codex/task-ui-redesign-003-post-merge-audit`.
 
-- Menu values come from the shared Supabase catalogue.
-- Cart totals are local estimates only.
-- Checkout displays an authoritative server quote before placement.
-- Scheduled pickup is constrained by server ordering policy.
-- Order persistence/status remains server-owned.
-- Reward redemption remains deferred and is not simulated as an authoritative mutation.
+The redesign left stale test/testability assumptions:
 
-## Verification
+1. Menu category rail no longer exposed the stable category keys used by golden/interaction coverage.
+2. Cart-flow tests still expected the pre-redesign `Add to order` semantics and `2 items` floating-cart text.
+3. There was no UI-level regression proving the redesigned Schedule interaction still submitted a server-policy-derived slot.
 
-Source-branch evidence from the colleague's environment:
+Fixes:
 
-- `flutter analyze`: 0 issues;
-- `flutter test`: 40/44 passing;
-- four failures were documented as pre-existing golden mismatches (`home`, `home scrolled`, `menu with a category selected`, `membership card`); no golden baseline was updated.
+- restored `menu_cat_all`, `menu_cat_favorites`, `menu_cat_<category-id>` keys;
+- rewrote cart flow assertions against `Add to cart · total` and `floating_cart_bar`;
+- test order adapter records quote requests;
+- new Schedule test requires `requestedPickupAt` to be one of `derivePickupSlots(TestOrderRepository.policy)`.
 
-Integration review performed here:
+These are regression/testability changes only. No production backend adapter/model/provider contract was changed.
 
-- compared source branch against current `master` and isolated the actual redesign delta;
-- reviewed Menu, Item detail, Cart, Checkout, Rewards, shared control/logo and floating-cart source boundaries;
-- removed stale dependency/history changes;
-- corrected checkout schedule-policy compliance;
-- corrected Menu live-image regression;
-- reviewed the final clean branch diff against current `master`.
+Local execution found three additional bounded issues and fixed them:
 
-This repository has no GitHub Actions workflow, and the repository-operation environment used for integration did not expose a usable Flutter/Codex toolchain or local checkout. Therefore the corrected integration commit has **not** been independently rerun through `flutter analyze` or `flutter test` here. Do not record a fresh PASS for those checks without running them in a Flutter-capable environment.
+1. Flutter 3.44.9 deprecated `SizeTransition.axisAlignment`; Checkout now uses the behavior-equivalent `AlignmentDirectional.topStart` and analysis is clean.
+2. The sold-out detail test expected one label even though the redesign intentionally exposes both an unavailable badge and disabled action label.
+3. The cart-flow test restored a global test-only image client too late for Flutter's painting invariant; it now restores it in `finally` before the test body exits.
 
-## Documentation
+## Documentation gaps fixed
 
-Current redesign documentation:
+Updated/created customer docs:
 
-- `docs/frontend/UI_REDESIGN_SPEC.md`
-- `docs/frontend/UI_SCREEN_MAP.md`
-- `docs/context/ACTIVE_CONTEXT.md`
-- `docs/context/AUDIT_LOG.md`
-- this handoff
+- `docs/frontend/UI_REDESIGN_SPEC.md`;
+- `docs/frontend/UI_REDESIGN_AUDIT_2026-08-20.md`;
+- `docs/frontend/UI_SCREEN_MAP.md`;
+- `docs/frontend/STATE_AND_DATA_FLOW.md`;
+- `docs/frontend/FRAGILE_BOUNDARIES.md`;
+- `docs/frontend/MOCKS_AND_PLACEHOLDERS.md`;
+- `docs/context/CODEBASE_MAP.md`;
+- `docs/context/ACTIVE_CONTEXT.md`;
+- `docs/context/AUDIT_LOG.md`;
+- this handoff.
 
-Repository-local redesign screenshots are retained for Menu, Item detail, Cart and Rewards. The original checkout screenshot from the stale branch is intentionally excluded because it depicts the rejected non-contract-compliant picker.
+Key corrections include:
 
-## Cross-repository sync
+- Rewards is mixed real-member/mock-loyalty, not wholly mock;
+- Membership QR inherits the shared bundled-logo visual change but not a QR/member trust change;
+- live catalogue imagery remains primary;
+- category art/logo files are presentation assets only;
+- the checkout wheel is presentation over authoritative policy slots;
+- stale golden/test selectors are documented as verification debt, not backend failures.
 
-`Hermann-33/Aida_System-Dashboard` documentation synchronization is **PENDING by explicit task scope**. This mobile integration does not attempt to access or modify the Dashboard repository.
+## CI bootstrap
 
-## Prior closeout evidence
+Because the repository previously had no executable default-branch workflow, `TASK-CI-001` added and merged one isolated file:
 
-TASK-CLOSEOUT-001 remains the baseline for the previously completed Auth/member/catalogue/order/toolchain tranche, including physical Android validation, live cross-client order E2E, 44/44 customer tests at closeout, Dashboard lint/typecheck/Vitest/build/Playwright validation, canonical SQL regressions and the retained completed order `100006`.
+`.github/workflows/customer-release-audit.yml`
+
+Customer `master` now contains that reusable workflow at commit `92cdbd5c2b4a7fc66a565f4de88b77bf25e953e7`.
+
+The workflow is intended to run:
+
+- Flutter 3.44.9;
+- `flutter pub get`;
+- `flutter analyze`;
+- non-golden regression tests;
+- golden tests as separately retained visual evidence;
+- `flutter build apk --release`;
+- artifact upload `aida-customer-release-apk`.
+
+## Hosted Actions history
+
+PR #16 triggered workflow run `32359646611` on head `940074b7ccf1c0ccd875dd1c1109f883bc1a91a3`.
+
+Attempt 1:
+
+- job `96396288072`;
+- queued then immediately failed;
+- no executed steps returned;
+- no usable logs;
+- no artifacts.
+
+Explicit rerun:
+
+- job `96396949294`;
+- same pre-step failure;
+- no artifacts.
+
+This does not establish a Flutter failure because the runner never produced Flutter-step evidence. The repository is private and the GitHub connector does not expose the user/account Actions billing/hosted-runner setting required to resolve this pre-step failure. The failure remains CI operational debt, but it is no longer the task verification blocker.
+
+## Local executable evidence
+
+Environment:
+
+- Flutter 3.44.9;
+- Dart 3.12.2;
+- JDK 21.0.12;
+- Android SDK/platform/build-tools 36.
+
+Results:
+
+- `flutter pub get`: PASS;
+- `flutter analyze`: PASS, no issues;
+- non-golden suite: 41/41 PASS;
+- full Flutter suite: 45/45 PASS;
+- release build: PASS;
+- package: `com.aidacafe.aida_customer`;
+- APK: `apps/customer/build/app/outputs/flutter-apk/app-release.apk`;
+- size: 64,197,534 bytes;
+- build timestamp: 2026-08-20 19:45:12 +08:00;
+- SHA-256: `9C36394EA0469F74F36B6908B6148A69263612D1F99ADB9C7EFCFB4724449B75`;
+- APK Internet permission: present;
+- production/decompressed-app secret marker scan: no service-role/secret marker.
+
+Golden evidence was reviewed deliberately. Home and Home-scrolled pass unchanged. Menu-selected was updated for the accepted grid-to-vertical-rail/list redesign. Membership-card was updated only for the placeholder-to-bundled-logo change; QR/layout/member identity remained intact. The rerun passes 4/4 goldens.
+
+No Android device was connected, so device smoke was not performed or claimed. This was an optional gate; existing physical Auth/member/catalogue evidence remains separate and valid.
+
+## Dashboard documentation sync
+
+Matching Dashboard branch already exists:
+
+`codex/task-ui-redesign-003-post-merge-audit`
+
+The customer redesign/governance documents are mirrored there without Dashboard runtime changes. Repository-local customer screenshots are not mirrored. Final executable/golden/APK wording must remain content-equivalent before the dashboard docs PR is marked ready.
+
+## Prior implementation evidence
+
+TASK-CLOSEOUT-001 remains valid evidence for the trusted pre-redesign Auth/member/catalogue/order implementation and the retained live order `100006`. It does not replace the missing fresh post-redesign Flutter build gate.
+
+## Exact remaining actions
+
+1. Commit and push the bounded local fixes, reviewed goldens and final evidence to customer PR #16.
+2. Synchronize the same canonical evidence wording to Dashboard PR #14 without runtime changes.
+3. Mark both PRs ready for review.
+4. Preserve merge order: customer PR #16 first, Dashboard docs PR #14 second.
+5. Do not merge automatically; hosted Actions runner failure remains operational CI debt, and an Android device smoke test may be performed later as extra evidence but is not required for this completed local gate.

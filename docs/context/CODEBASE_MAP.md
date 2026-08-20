@@ -1,6 +1,6 @@
 # Codebase Map
 
-Updated: 2026-08-17
+Updated: 2026-08-20
 
 ## Customer repository — `Hermann-33/Aida_System`
 
@@ -11,6 +11,7 @@ Updated: 2026-08-17
 - `apps/customer/android/gradle/wrapper/gradle-wrapper.properties` — Gradle wrapper; closeout uses Gradle 8.11.1.
 - `apps/customer/android/gradle.properties` — Flutter/Gradle compatibility properties.
 - `apps/customer/test/android_release_manifest_test.dart` — regression protecting production Internet permission.
+- `.github/workflows/customer-release-audit.yml` — clean Flutter 3.44.9 post-redesign analyze/test/release-APK workflow used by TASK-UI-REDESIGN-003.
 
 ### Identity/member runtime
 
@@ -18,6 +19,8 @@ Updated: 2026-08-17
 - `apps/customer/lib/data/cache/offline_member_cache.dart` — per-user durable minimum member ID/code cache; excludes roles, verification, loyalty and pricing authority.
 - `apps/customer/lib/application/providers.dart` — Auth/member/catalogue/cart/order provider composition.
 - `apps/customer/lib/features/auth/login_screen.dart` — Supabase-backed sign-in/sign-up UI.
+- `apps/customer/lib/features/card/membership_card_screen.dart` — owner/offline-backed member QR; consumes shared bundled `AidaLogo` presentation.
+- `apps/customer/lib/core/theme/aida_logo.dart` and `assets/images/aida_logo.jpg` — shared offline-safe logo presentation; not identity authority.
 - `apps/customer/test/data/supabase_member_repository_test.dart` and `test/data/offline_member_cache_test.dart` — Auth/cache regressions.
 
 ### Shared catalogue runtime
@@ -25,8 +28,21 @@ Updated: 2026-08-17
 - `apps/customer/lib/data/repository/supabase_catalogue_repository.dart` — `get_catalogue()` snapshot plus `catalogue_revision` stream.
 - `apps/customer/lib/domain/repository/catalogue_repository.dart` — customer read-only catalogue capability.
 - `apps/customer/lib/domain/model/catalogue_snapshot.dart`, `menu_variant.dart`, `menu_item.dart` — shared catalogue models.
-- `apps/customer/lib/features/menu/menu_screen.dart` and `item_detail_screen.dart` — DB-driven menu/customization UI.
+- `apps/customer/lib/features/menu/menu_screen.dart` — redesigned vertical-rail/single-column Menu over the same DB-backed providers.
+- `apps/customer/lib/features/menu/widgets/menu_category_rail.dart` — redesigned category/favorites selector with stable automation keys.
+- `apps/customer/lib/features/menu/widgets/menu_list_item.dart` — redesigned list row; live `imageUrl` first, bundled category art only as fallback.
+- `apps/customer/lib/features/menu/item_detail_screen.dart` — DB-driven customization plus consolidated local-cart CTA.
 - `apps/customer/test/support/test_catalogue_repository.dart` — explicit test-only catalogue fixture, not a runtime fallback.
+
+### Customer redesign presentation
+
+- `apps/customer/lib/core/widgets/neumorphic_control.dart` — shared soft-UI control; optional accent gradient used for transient add-to-cart success.
+- `apps/customer/lib/features/cart/widgets/floating_cart_bar.dart` — animated local-cart entry point with item thumbnails and local estimate.
+- `apps/customer/lib/features/cart/cart_screen.dart` — flat cart rows, swipe removal, estimate-only subtotal and authoritative checkout entry.
+- `apps/customer/lib/features/rewards/rewards_screen.dart` — redesigned member balance-card presentation; real member display plus still-mock loyalty providers.
+- `docs/frontend/UI_REDESIGN_SPEC.md` — visual/component/screen redesign specification.
+- `docs/frontend/UI_REDESIGN_AUDIT_2026-08-20.md` — post-merge backend-impact and verification audit.
+- `docs/screenshots/2026-08-19-*-redesign.png` — repository-local redesign evidence; not governance authority.
 
 ### Authoritative customer order frontend
 
@@ -34,10 +50,12 @@ Updated: 2026-08-17
 - `apps/customer/lib/domain/repository/order_repository.dart` — customer order repository contract.
 - `apps/customer/lib/data/repository/supabase_order_repository.dart` — policy/quote/place/history/detail RPC boundary plus owner-scoped `orders` invalidation stream.
 - `apps/customer/lib/application/order_checkout.dart` — timezone-aware slot derivation, UUID generation and retry-stable placement session.
-- `apps/customer/lib/features/cart/cart_screen.dart` and `order_checkout_sheet.dart` — local selection estimate, authoritative quote, ASAP/scheduled choice, Pay-at-counter placement and clear-on-success behavior.
+- `apps/customer/lib/features/cart/order_checkout_sheet.dart` — redesigned wheel presentation over `derivePickupSlots(OrderingPolicy)`, authoritative quote and Pay-at-counter placement.
 - `apps/customer/lib/features/cart/order_confirmation_screen.dart` — persisted status timeline with no client progression timer.
 - `apps/customer/lib/features/history/order_history_screen.dart`, `order_detail_screen.dart`, `widgets/order_status_pill.dart` — owner history/detail from immutable backend snapshots.
-- order-focused tests cover mapping, payload, scheduling, idempotency, Realtime, success-clear and failure-retain behavior.
+- `apps/customer/test/application/order_checkout_test.dart` — slot derivation and placement-idempotency regression.
+- `apps/customer/test/widgets/cart_flow_test.dart` — item configuration/cart/quote/place/failure-retain plus post-redesign policy-derived Schedule regression.
+- `apps/customer/test/support/test_order_repository.dart` — test-only order adapter, including quote-request recording for UI contract assertions.
 
 ### Canonical Supabase ownership
 
@@ -101,10 +119,13 @@ The employee access token remains HttpOnly. React does not receive/expose a Supa
 - `docs/decisions/ADR-0010-authoritative-ordering-and-scheduled-fulfilment.md`
 - `docs/contracts/SHARED_BACKEND_CONTRACT.md`
 - `docs/contracts/ORDER_AND_SCHEDULING_CONTRACT.md`
+- `docs/frontend/UI_REDESIGN_AUDIT_2026-08-20.md`
 - `docs/context/CLOSEOUT_EVIDENCE_2026-08-17.md`
 
 ## Current closeout state
 
 TASK-CLOSEOUT-001 implementation and applicable cross-client validation are complete. The retained live proof is order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`), which progressed through confirmed/preparing/ready/completed with customer-authorized reads after each Dashboard transition.
+
+TASK-UI-REDESIGN-003 audits the merged customer redesign against those backend boundaries and adds fresh release verification without changing backend authority.
 
 Deferred payment, loyalty, inventory, reporting, branch-capacity and hosted-production domains remain outside this codebase map's completed tranche.

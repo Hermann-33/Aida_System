@@ -2,6 +2,26 @@
 
 This is the mirrored project-level chronology. Historical task verdicts describe the state at that task's completion; later entries supersede earlier open blockers without rewriting history.
 
+## 2026-08-20 — TASK-UI-REDESIGN-003 post-merge redesign audit and release verification
+
+**Verdict:** COMPLETE — source/backend audit, local executable verification, deliberate golden review, release APK production and mirrored documentation reconciliation pass.
+
+Audited customer redesign merge `dcc97c481ae446d76b25bf8f91850e1d829c56f5` against the implemented Auth/member, offline member/QR, shared catalogue, authoritative order/scheduling, Realtime and payment-boundary code. No redesign regression was found in provider/repository/RPC/RLS/Auth/order authority. Menu remains shared-catalogue-backed with live `imageUrl` primary; item variants/add-ons remain server catalogue data; cart values remain local estimates; Checkout still quotes before placement and renders server total; Schedule values are sourced only from `derivePickupSlots(OrderingPolicy)`; placement idempotency, history/detail/status and owner-scoped order Realtime/refetch remain unchanged; payment remains Pay at counter/unpaid; loyalty remains deferred.
+
+Corrected post-merge verification/documentation gaps on branch `codex/task-ui-redesign-003-post-merge-audit`: restored stable Menu category keys, updated cart-flow assertions for the redesigned CTA/floating cart, added quote-request recording to the test order adapter, and added a Schedule regression requiring `requestedPickupAt` to belong to the policy-derived slot set. No production backend adapter/model/provider contract changed.
+
+Documentation now explicitly records two previously under-described effects: Rewards combines real owner-scoped member identity display with still-mock points/rewards/vouchers, and Membership QR inherits the shared bundled `AidaLogo` visual change while QR payload/member-code/offline-cache semantics remain unchanged. Added `docs/frontend/UI_REDESIGN_AUDIT_2026-08-20.md` and expanded the redesign spec, screen map, state/data flow, fragile boundaries, mocks/placeholders, codebase map, active context and handoff.
+
+`TASK-CI-001` added `.github/workflows/customer-release-audit.yml` to customer `master` as an isolated reusable Flutter 3.44.9 gate. PR #16 triggered workflow run `32359646611` at audit head `940074b7ccf1c0ccd875dd1c1109f883bc1a91a3`. Job `96396288072` queued and failed immediately with zero executed-step records, no retained log blob and no artifacts. An explicit rerun created job `96396949294`, which failed identically before any step evidence. Because no Flutter step executed, this is recorded as an Actions execution/infrastructure failure rather than an app/test failure. The repository is private; the connector exposes repository admin permission but not the account-level Actions billing/hosted-runner setting required to diagnose the rejection.
+
+The same task branch was subsequently executed locally with Flutter 3.44.9 / Dart 3.12.2, JDK 21.0.12 and Android SDK 36. Dependency resolution passed. Analysis initially found the redesigned Checkout's deprecated `SizeTransition.axisAlignment`; the behavior-equivalent `AlignmentDirectional.topStart` migration restored a zero-issue result. The non-golden suite then exposed a stale one-label sold-out assertion and late restoration of Flutter's global test image client; both harness defects were corrected. Non-golden regressions pass 41/41 and the full suite passes 45/45.
+
+Golden evidence was isolated and reviewed before update. Home and Home-scrolled passed unchanged. Menu-selected's 49.12% mismatch was the intentional horizontal-grid to vertical-rail/list redesign. Membership-card's 0.69% mismatch was only the placeholder-to-bundled AIDA logo change; QR/layout/member content remained intact. Only those two approved baselines changed, and the final golden suite passes 4/4.
+
+A fresh redesigned release APK was produced at `apps/customer/build/app/outputs/flutter-apk/app-release.apk`: package `com.aidacafe.aida_customer`, 64,197,534 bytes, built 2026-08-20 19:45:12 +08:00, SHA-256 `9C36394EA0469F74F36B6908B6148A69263612D1F99ADB9C7EFCFB4724449B75`. `aapt` confirms `android.permission.INTERNET`; production source and decompressed Flutter app libraries contain no service-role/secret marker. No Android device was connected, so optional device smoke was not performed.
+
+Cross-repository documentation synchronization is included in TASK-UI-REDESIGN-003 on the matching Dashboard branch; Dashboard runtime code remains unchanged.
+
 ## 2026-08-20 — TASK-UI-REDESIGN-002 customer UI redesign integration
 
 **Verdict:** COMPLETE for the mobile repository integration target.
@@ -48,7 +68,7 @@ A real Owner authenticated through the Dashboard same-origin HttpOnly BFF. The D
 
 Final Dashboard checks passed: lint with two established Fast Refresh warnings, typecheck, 25 Vitest files / 111 tests, production build, Playwright 8/8, `npm audit` 0 vulnerabilities and `git diff --check`. Customer closeout checks already passed Flutter 3.44.9 pub get, zero-issue analyze, 44/44 tests, release build in the task checkout and an independent clean worktree, plus canonical Auth/member, catalogue and order transactional regressions.
 
-No service role, direct SQL order insertion, password reset, browser employee bearer-token persistence, client-trusted price/status or credential-bearing repository file was used. E2E credential variables were removed after authenticated work.
+No service role, direct SQL order insertion, password reset, browser employee bearer-token persistence, client-trusted price/status or credential-bearing repository file was used. E2E credential variables were removed after the run.
 
 Independent closeout verification rechecked 9 Auth users, 9 profiles, 6 members, roles owner/admin/staff = 1/1/1, catalogue revision 15 and one retained completed order. The current Supabase security advisor has one WARN: `auth_leaked_password_protection` / Leaked Password Protection Disabled.
 

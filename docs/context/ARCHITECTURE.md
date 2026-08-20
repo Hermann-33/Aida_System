@@ -80,6 +80,8 @@ TASK-CLOSEOUT-001 completed the React order path over the existing BFF:
 - explicit `Pay at counter`/unpaid semantics;
 - live order queue polled every ~2.5 seconds with no preview-order fallback;
 - legal versioned transitions with conflict refetch.
+- server-projected scheduled operations (`prepareAt`, `serverNow`, `scheduleState`) split into Active/Scheduled/Ready/History without adding statuses or browser-driven transitions;
+- live staff Sale/Orders entry in accepted single-café/global scope, independent of deferred terminal/shift authority.
 
 ## Realtime boundary
 

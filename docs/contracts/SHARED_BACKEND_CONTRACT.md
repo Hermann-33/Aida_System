@@ -165,6 +165,8 @@ Dashboard React must consume `preparationLeadMinutes`, `prepareAt`, `serverNow` 
 
 The accepted current order scope is single-café/global staff visibility because branch assignment, terminal authority, sales points and shifts are still deferred. Those missing domains must not block the already-trusted employee Auth + Sale + Orders path, and preview fixtures must not be promoted into production truth.
 
+As implemented by TASK-SCHEDULED-OPS-001, live `/employee -> /pos` uses this scope without terminal/shift BFF calls. The Dashboard parses backend `prepareAt`, `serverNow` and `scheduleState` for workload projection; it does not calculate trusted preparation state or auto-transition orders.
+
 ## Customer client contract
 
 Customer Flutter:

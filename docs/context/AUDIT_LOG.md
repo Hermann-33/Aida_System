@@ -1,5 +1,13 @@
 # Audit Log
 
+## 2026-08-21 — TASK-SCHEDULED-OPS-001 scheduled operations closeout
+
+**Verdict:** COMPLETE.
+
+The shared Supabase preparation-window extension and Dashboard operational integration are complete. The backend owns `preparationLeadMinutes`, immutable per-order `prepareAt`, authoritative `serverNow` and `scheduleState`; focused transactional regression and the pre-existing scheduled fulfilment lifecycle pass. The Dashboard adopted those trusted fields with invalid-response rejection, replaced the flat Orders table with Active/Scheduled/Ready/History workloads, promoted overdue/due scheduled work while preserving persisted `scheduled`, and retained explicit versioned Start preparing/conflict refetch.
+
+Live employee entry no longer calls nonexistent terminal/shift APIs before Sale/Orders; trusted staff uses the accepted single-café/global queue and preview terminal/shift/member simulations remain preview-only. Codex closeout passed npm install/audit, lint, typecheck, 27 Vitest files / 120 tests, production build, Playwright 10/10, desktop/mobile visual QA, console checks, `git diff --check`, and secret/browser-token scans. Final implementation commit inspection confirmed a bounded 31-file Dashboard delta with no Supabase/customer runtime change or authorization weakening. The affected canonical documents were then reconciled across both task branches. No PR was created or merged.
+
 This is the mirrored project-level chronology. Historical task verdicts describe the state at that task's completion; later entries supersede earlier open blockers without rewriting history.
 
 ## 2026-08-20 — TASK-UI-REDESIGN-003 post-merge redesign audit and release verification
@@ -82,7 +90,7 @@ Customer closeout made Android release builds reproducible from committed Git by
 
 Dashboard closeout replaced preview/local order authority with the existing order BFF: typed same-origin order client, selection-only payloads, server quote authority, stable idempotent placement, ASAP/server-policy scheduling, explicit Pay-at-counter semantics, live 2.5-second queue polling, legal versioned status controls and 409 conflict refetch. Dashboard lint/typecheck/Vitest/build/Playwright passed and dependency advisories were remediated to `npm audit` 0 vulnerabilities.
 
-Physical evidence already proved Android signup → trusted member → Dashboard Members and Owner catalogue mutation → installed customer refresh.
+Physical evidence already proved Android signup → trusted member → Dashboard Members and Owner catalogue mutation → installed phone refresh.
 
 ## 2026-08-14 — TASK-AUTH-006 Android release networking
 

@@ -71,6 +71,19 @@ get_ordering_policy
 
 Branch hours, closures and capacity are not yet authoritative and are not presented as backend guarantees.
 
+Dashboard operational projection:
+
+```text
+GET /api/v1/orders (server snapshots)
+ -> scheduled + overdue/due => Active (persisted status stays scheduled)
+ -> scheduled + future => Scheduled
+ -> ready => Ready
+ -> completed/cancelled => History
+ -> explicit Start preparing + expectedVersion => persisted preparing
+```
+
+The browser may update cosmetic lateness copy between polls, but backend `serverNow`/`scheduleState` determine workload placement.
+
 ## Fulfilment/status flow
 
 ```text
@@ -123,3 +136,5 @@ Hosted/Vercel deployment remains **DEFERRED** and is not a blocker for the accep
 ## Deferred authority
 
 Real payments/refunds, loyalty, inventory depletion, discounts/promotions, tax/accounting, revenue analytics, branch scheduling/capacity, branch-scoped operations, delivery and hosted production release operations remain separate trusted tasks.
+
+Live staff POS entry therefore uses global single-café order scope and does not call terminal/current-shift APIs. Terminal and shift lifecycle remains preview-only until a separate authoritative domain is approved.

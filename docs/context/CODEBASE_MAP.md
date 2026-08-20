@@ -101,12 +101,20 @@ Updated: 2026-08-20
 
 ### Authoritative Dashboard order frontend
 
-- `src/features/orders/orderClient.ts` — typed same-origin policy/quote/place/queue/detail/status adapter, selection-only payload mapping, schedule-slot generation, polling constants and legal transition table.
+- `src/features/orders/orderClient.ts` — typed same-origin policy/quote/place/queue/detail/status adapter, strict preparation-field parsing, selection-only payload mapping, schedule-slot generation, polling constants and legal transition table.
+- `src/features/orders/orderWorkloads.ts` — pure server-classification-driven Active/Scheduled/Ready/History routing and operational sorting; it does not derive trusted state from the workstation clock.
 - `src/features/orders/OrderCheckoutPanel.tsx` — authoritative quote review, ASAP/scheduled selection, stable idempotent placement retry, Pay-at-counter wording and persisted receipt.
-- `src/features/orders/OrderBoard.tsx` — live polled queue/detail and versioned legal status transitions with conflict refetch.
+- `src/features/orders/OrderBoard.tsx` — live polled operational workload cards/tabs, explicit due/overdue timing, grouped future scheduling, and versioned legal status transitions with conflict refetch.
 - `src/features/pos/CounterWorkspace.tsx` and `ModifierSheet.tsx` — shared-catalogue selection UI and local cart estimate; no preview transaction authority in the active placement/Orders rail.
 - `src/features/orders/*.test.ts*`, `src/features/pos/CounterWorkspace.test.tsx` — focused authoritative ordering regressions.
 - `e2e/preview-closure.spec.ts` — browser coverage including preview/live session and order-flow regressions.
+
+### Live POS entry versus preview operational context
+
+- `src/pages/EmployeeWelcomePage.tsx` — live employee sign-in is independent of terminal enrolment; preview retains the labelled enrolment simulator.
+- `src/pages/PosShellPage.tsx` — live authenticated staff enters the single-café Sale/Orders workspace without terminal/shift API calls; preview retains local terminal/shift lifecycle.
+- `src/features/pos/CounterWorkspace.tsx` — live rail exposes Sale, Orders and Help; preview-only Member, Shift and Terminal rails require preview operational context.
+- `src/components/PosContextBar.tsx` — distinguishes live global order scope from preview terminal/shift context without fabricating IDs.
 
 ### Dashboard refresh/security model
 

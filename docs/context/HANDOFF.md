@@ -1,14 +1,14 @@
 # Current Handoff
 
-Updated: 2026-08-20
+Updated: 2026-08-21
 
 ## Task
 
 `TASK-SCHEDULED-OPS-001 — scheduled-order operational queue + live staff POS entry`
 
-**Verdict:** PARTIAL.
+**Verdict:** COMPLETE.
 
-Shared Supabase preparation authority is implemented live, migration history is reconciled with the canonical customer repository, and focused SQL regression passes. Dashboard/POS source changes are intentionally pending for Codex on the matching branch.
+Shared Supabase preparation authority is implemented live, migration history is reconciled with the canonical customer repository, the focused SQL regression passes, the Dashboard/POS implementation is complete on the matching task branch, executable Dashboard gates pass, and the affected mirrored documentation has been reconciled across both repositories.
 
 Detailed implementation contract:
 
@@ -26,7 +26,7 @@ Matching branches:
 
 The pre-task Dashboard Orders rail used one flat persisted queue. Scheduled orders were real backend rows, but there was no trusted distinction between future scheduled workload, orders due to begin preparation, and orders whose pickup time had already passed.
 
-The staff demo account `staff.nora.demo@aida.test` was verified live as confirmed/active `app_role=staff`; Auth succeeds. Its apparent login failure is caused after Auth because live employee/POS screens require terminal and shift APIs/schema that are not implemented in the accepted backend.
+The staff demo account `staff.nora.demo@aida.test` was verified live as confirmed/active `app_role=staff`; Auth succeeds. Its apparent login failure was caused after Auth because live employee/POS screens required terminal and shift APIs/schema that are not implemented in the accepted backend.
 
 ## Backend implementation — complete
 
@@ -47,16 +47,16 @@ Changes:
 - `prepare_at` protected as immutable placement-time schedule authority;
 - order snapshots add `prepareAt`, `serverNow`, `scheduleState`;
 - `scheduleState` is server-derived `future | due | overdue | null` and never mutates persisted status;
-- `get_ordering_policy()` and Admin/Owner `save_ordering_policy()` now expose/accept `preparationLeadMinutes`;
+- `get_ordering_policy()` and Admin/Owner `save_ordering_policy()` expose/accept `preparationLeadMinutes`;
 - no automatic `scheduled -> preparing` transition was introduced.
 
 Current live policy remains Malaysia timezone, scheduled enabled, minimum lead 15, preparation lead 15, slot interval 15, horizon 7 days.
 
-Live orders `100007`, `100008`, and `100009` now classify as `overdue` while remaining persisted `scheduled` until staff acts.
+Live orders `100007`, `100008`, and `100009` classify as `overdue` while remaining persisted `scheduled` until staff acts.
 
-## Verification
+## Backend verification
 
-Focused canonical regression added:
+Focused canonical regression:
 
 `supabase/tests/scheduled_order_operations_integration.sql`
 
@@ -64,53 +64,49 @@ Live transactional run: PASS.
 
 It proves schema/policy bounds, scheduled `prepareAt`, `scheduleState`, idempotency preserving prepare time, Admin policy mutation, rejection of invalid preparation lead, new scheduled POS placement using current policy, and non-rewriting of existing orders after policy changes.
 
+The pre-existing scheduled lifecycle was also rechecked after migration: `scheduled -> preparing -> ready -> completed` remains valid through the versioned status boundary.
+
 Security advisor: unchanged one WARN only — `auth_leaked_password_protection` / Leaked Password Protection Disabled.
 
 Performance advisor: INFO-only unused-index notices; the new scheduled preparation index is unused on the tiny current dataset, which is expected.
 
-## Dashboard implementation still required
+## Dashboard implementation — complete
 
-Do not edit the shared backend contract again unless the current live fields prove insufficient.
+Codex completed the Dashboard source work from prepared branch head `855424c` to implementation commit `b7b73fe8517625264a7e3f19e59d24325c1cfcc1`.
 
-Codex must implement on the existing Dashboard task branch:
+The Dashboard now strictly parses the trusted preparation fields, presents Active/Scheduled/Ready/History workloads, promotes overdue and due scheduled work without changing persisted status, and keeps **Start preparing** on the existing versioned mutation. Conflict responses invalidate both queue and selected detail before staff may retry.
 
-1. Parse/use `preparationLeadMinutes`, `prepareAt`, `serverNow`, `scheduleState`.
-2. Replace the flat Orders workload with `Active | Scheduled | Ready | History` or an equivalent semantic structure.
-3. Keep `future` scheduled orders out of Active.
-4. Put `due` and `overdue` scheduled orders in Active while persisted status remains `scheduled`.
-5. Promote overdue work before ordinary active orders.
-6. Keep **Start preparing** as the explicit existing versioned `scheduled -> preparing` transition.
-7. Repair live staff entry so authenticated `staff` reaches `/pos` without nonexistent live terminal/shift authority blocking Sale/Orders.
-8. Keep `/admin/login` Admin/Owner-only.
-9. Preserve preview-only terminal/shift simulation without promoting it to live truth.
-10. Preserve the existing AIDA Dashboard/POS visual system and accessibility patterns.
+Live staff authentication reaches `/pos` without terminal enrolment/current-terminal/current-shift requests. Live Sale/Orders operates in the accepted global single-café scope. Terminal, shift and preview-member rails remain isolated to preview mode; staff is still denied Admin and Admin/Owner behavior is unchanged.
 
-## Visual constraints
+No Supabase migration, customer runtime source, RLS, service-role path, browser employee bearer-token persistence or fabricated live terminal/branch/shift authority was introduced by the Dashboard change.
 
-Use existing `src/styles/tokens.css`, Tailwind/shadcn primitives, and current POS components/patterns. Preserve the Rose palette, Playfair Display headings, Plus Jakarta Sans UI/body, existing rail/cards/tables/status pills, spacing/radii/touch targets, focus treatment and reduced-motion behavior.
+## Dashboard verification
 
-Semantic colors already exist:
+Codex closeout evidence on 2026-08-21:
 
-- normal/info: burgundy/blush;
-- due/warning: `--aida-warning`;
-- overdue/error: `--aida-error`;
-- ready/success: `--aida-success`.
+- `npm ci`: PASS, 0 vulnerabilities;
+- lint: PASS with two existing shadcn Fast Refresh warnings;
+- typecheck: PASS;
+- Vitest: PASS — 27 files / 120 tests;
+- production build: PASS with the existing large-chunk advisory only;
+- Playwright: PASS — 10/10;
+- desktop/mobile visual QA: PASS;
+- scheduled-workload browser console: no errors;
+- `git diff --check`: PASS;
+- secret/browser-token scans: PASS.
 
-Do not introduce a new dashboard theme or arbitrary visual language.
+Final implementation commit inspection confirmed the 31-file Dashboard delta is bounded to order workload/client integration, POS staff-entry/session presentation, focused tests/E2E, styling, and documentation. No Dashboard backend-authority expansion was present.
 
-## Required closeout checks
+## Visual constraints preserved
 
-Dashboard minimum:
+The implementation reuses existing `src/styles/tokens.css`, Tailwind/shadcn primitives, and current POS components/patterns: Rose palette, Playfair Display headings, Plus Jakarta Sans UI/body, existing rails/cards/status treatments, spacing/radii/touch targets, focus treatment and reduced-motion behavior.
 
-```text
-npm run lint
-npm run typecheck
-npm test
-npm run build
-```
+Semantic urgency remains explicit in text as well as color; no second dashboard theme was introduced.
 
-Run relevant browser/E2E verification and add focused regressions for scheduled queue classification and staff login/route behavior.
+## Cross-repository closeout
 
-Then inspect and synchronize the canonical mirrored docs listed in `docs/context/SCHEDULED_ORDER_OPERATIONS_2026-08-20.md`.
+The affected canonical mirrored documents were reconciled from the completed Dashboard implementation back into the customer repository on the matching task branch, with repository-local executable backend migration/tests remaining customer-only.
 
-Do not mark the task COMPLETE until Dashboard source integration, executable checks and mirrored documentation pass.
+Terminal/branch/sales-point/shift authority remains intentionally deferred. Hosted production deployment also remains deferred and is not a blocker for this task.
+
+No PR was created or merged as part of this task closeout.

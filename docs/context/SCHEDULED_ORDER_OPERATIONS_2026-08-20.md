@@ -2,13 +2,13 @@
 
 **Task:** `TASK-SCHEDULED-OPS-001`
 
-**Current verdict:** PARTIAL — shared Supabase preparation authority is implemented and verified; Dashboard/POS integration and the live staff-entry repair remain to be implemented on the matching Dashboard branch.
+**Current verdict:** COMPLETE — shared Supabase preparation authority is live and verified; Dashboard/POS integration and live staff-entry repair are implemented and validated; affected canonical documentation is reconciled across both repositories.
 
 ## Problem
 
-AIDA already accepts and persists scheduled customer/POS orders, but the Dashboard Orders rail currently mixes future scheduled work into one flat queue. Persisted `scheduled` status by itself does not tell staff whether an order is still future work, is due to start preparation, or is already late. Historic live orders `100007`, `100008`, and `100009` demonstrated the failure mode: their fulfilment state remained `scheduled` after their pickup time, with no operational exception classification.
+AIDA already accepts and persists scheduled customer/POS orders, but the pre-task Dashboard Orders rail mixed future scheduled work into one flat queue. Persisted `scheduled` status by itself did not tell staff whether an order was still future work, was due to start preparation, or was already late. Historic live orders `100007`, `100008`, and `100009` demonstrated the failure mode: their fulfilment state remained `scheduled` after their pickup time, with no operational exception classification.
 
-The staff demo account `staff.nora.demo@aida.test` is a valid confirmed Supabase Auth user with trusted `app_role=staff` and is not disabled/banned/deleted. Authentication succeeds. The apparent login failure happens after Auth because the live POS screens require terminal/shift API state that does not exist in the accepted live backend. Current Supabase has no trusted branch/terminal/sales-point/shift tables, and the Dashboard Vite BFF does not mount the terminal/shift routes referenced by the live screens.
+The staff demo account `staff.nora.demo@aida.test` is a valid confirmed Supabase Auth user with trusted `app_role=staff` and is not disabled/banned/deleted. Authentication succeeds. The apparent login failure happened after Auth because the live POS screens required terminal/shift API state that does not exist in the accepted live backend. Current Supabase has no trusted branch/terminal/sales-point/shift tables, and the Dashboard Vite BFF does not mount the terminal/shift routes referenced by the old live screens.
 
 ## Operational model
 
@@ -111,7 +111,7 @@ otherwise                       -> future
 
 For non-scheduled or already-transitioned orders, `scheduleState` is null.
 
-The Dashboard must use `scheduleState` returned by the backend for authoritative queue classification. It must not decide future/due/overdue from the workstation clock alone. Client time may be used only for presentation countdown text between server refreshes.
+The Dashboard uses `scheduleState` returned by the backend for authoritative queue classification. It does not decide future/due/overdue from the workstation clock alone. Client time may be used only for presentation countdown text between server refreshes.
 
 ### Live proof
 
@@ -141,17 +141,23 @@ No order status was fabricated or automatically advanced.
 
 The regression passes transactionally against the live project and rolls back all synthetic data/policy changes.
 
+The existing scheduled lifecycle was separately rechecked after migration and still passes `scheduled -> preparing -> ready -> completed` through the versioned transition boundary.
+
 Security advisor remains unchanged with one existing WARN only: `auth_leaked_password_protection` / Leaked Password Protection Disabled. Performance advisor reports INFO-only unused indexes, including the new scheduled-preparation index on the tiny current dataset.
 
-## Required Dashboard/POS integration
+## Dashboard/POS integration — completed
 
 Dashboard branch:
 
 `codex/task-scheduled-ops-001-prep-queue`
 
+Codex implementation commit:
+
+`b7b73fe8517625264a7e3f19e59d24325c1cfcc1`
+
 ### Order client
 
-Extend the Dashboard order snapshot/policy types and parsing to consume:
+The Dashboard order snapshot/policy types and parsers consume:
 
 ```text
 OrderingPolicy.preparationLeadMinutes
@@ -160,17 +166,17 @@ OrderSnapshot.serverNow
 OrderSnapshot.scheduleState
 ```
 
-Do not manufacture these values in React.
+Malformed or missing trusted preparation fields are rejected rather than replaced with plausible local defaults.
 
 ### Orders rail
 
-Replace the single flat operational view with clear workload groups/tabs:
+The operational workspace is split into:
 
 ```text
 Active | Scheduled | Ready | History
 ```
 
-Recommended classification:
+Classification:
 
 **Active**
 - `confirmed`
@@ -180,8 +186,8 @@ Recommended classification:
 
 **Scheduled**
 - persisted `scheduled` + `scheduleState=future`
-- group at minimum into Today / Tomorrow / Later when useful
-- sort by `prepareAt`, then `requestedPickupAt`
+- grouped into Today / Tomorrow / Later where useful
+- sorted by `prepareAt`, then `requestedPickupAt`
 
 **Ready**
 - `ready`
@@ -190,15 +196,15 @@ Recommended classification:
 - `completed`
 - `cancelled`
 
-A due/overdue scheduled order remains persisted `scheduled` until staff explicitly chooses **Start preparing**. That action must keep using `transition_order_status(... expectedVersion ...)` and the existing legal transition/state-version conflict handling.
+A due/overdue scheduled order remains persisted `scheduled` until staff explicitly chooses **Start preparing**. That action keeps using `transition_order_status(... expectedVersion ...)` and the existing legal transition/state-version conflict handling.
 
-Overdue presentation must be prominent and sort before ordinary active work. Show pickup time, preparation due time, source/customer indicator, item count, total, persisted status, and the legal next action. Do not silently auto-fire the persisted state.
+Overdue presentation is prominent and sorts before ordinary active work. The workspace exposes pickup time, preparation due time, source, item count, total, persisted status and legal next actions without silently auto-firing the persisted state.
 
 ### Staff live entry repair
 
-The live `/employee` -> `/pos` path must stop requiring fake/nonexistent terminal and shift backend authority.
+The live `/employee` -> `/pos` path no longer requires fake/nonexistent terminal and shift backend authority.
 
-Required behavior:
+Implemented behavior:
 
 ```text
 valid live staff Auth
@@ -208,21 +214,22 @@ valid live staff Auth
  -> shared catalogue + quote/place + Orders available
 ```
 
-Do not create hardcoded authoritative `Main Café`, terminal, branch, or shift records in React to make the page open.
+No hardcoded authoritative `Main Café`, terminal, branch, sales-point or shift records were created in React.
 
 Until a separate trusted branch/terminal/shift task exists:
 
 - live staff POS operates in the already accepted single-café/global-staff scope;
 - Sale and Orders remain usable;
-- terminal/shift-dependent live controls must be removed, hidden, disabled, or explicitly marked deferred rather than blocking POS entry;
-- preview mode may retain its preview terminal/shift simulation, clearly separated from live mode;
-- `/admin/login` remains Admin/Owner-only; a staff account should use `/employee` and must not gain Admin access.
+- live rails expose Sale, Orders and Help;
+- terminal/shift/member operational simulations remain preview-only;
+- preview mode retains clearly separated preview terminal/shift simulation;
+- `/admin/login` remains Admin/Owner-only; staff uses `/employee` and does not gain Admin access.
 
 ## Dashboard visual constraints
 
-The new order-management UI must look native to the existing AIDA Dashboard/POS, not like a second design system.
+The new order-management UI remains native to the existing AIDA Dashboard/POS rather than introducing a second design system.
 
-Use the existing design tokens and components from `src/styles/tokens.css`, Tailwind/shadcn primitives, and existing POS patterns.
+It uses existing design tokens and components from `src/styles/tokens.css`, Tailwind/shadcn primitives, and existing POS patterns.
 
 Key tokens:
 
@@ -241,33 +248,35 @@ Key tokens:
 --aida-outline    #e8d5d0
 ```
 
-Typography remains Playfair Display for display headings and Plus Jakarta Sans for body/UI. Keep current radii, spacing, touch targets, status pills, rail treatment, tables/cards, and accessibility behavior. Do not introduce arbitrary colors, gradients, typefaces, shadows, or generic SaaS-dashboard styling.
+Typography remains Playfair Display for display headings and Plus Jakarta Sans for body/UI. Current radii, spacing, touch targets, status treatment, rail treatment, cards and accessibility behavior are preserved. No arbitrary palette/typeface or unrelated SaaS-dashboard language was introduced.
 
-Use existing semantic status styles where possible:
+Semantic status treatment:
 
 - normal/info -> burgundy/blush
 - due/warning -> `--aida-warning`
 - overdue/error -> `--aida-error`
 - ready/success -> `--aida-success`
 
-Color must not be the only status signal; use labels/icons/text.
+Color is not the only status signal; labels/text preserve meaning.
 
-## Required Dashboard verification
+## Dashboard verification
 
-At minimum:
+Codex closeout evidence on 2026-08-21:
 
-```text
-npm run lint
-npm run typecheck
-npm test
-npm run build
-```
+- `npm ci`: PASS, 0 vulnerabilities;
+- lint: PASS with two existing shadcn Fast Refresh warnings;
+- typecheck: PASS;
+- Vitest: PASS — 27 files / 120 tests;
+- production build: PASS with existing large-chunk advisory only;
+- Playwright: PASS — 10/10;
+- desktop/mobile visual QA: PASS;
+- scheduled-workload browser console: no errors;
+- `git diff --check`: PASS;
+- secret/browser-token scans: PASS.
 
-Run relevant browser/E2E verification when available.
+Focused regressions cover:
 
-Add focused regression coverage for:
-
-- backend snapshot parsing (`prepareAt`, `serverNow`, `scheduleState`);
+- backend snapshot parsing (`prepareAt`, `serverNow`, `scheduleState`, `preparationLeadMinutes`);
 - future scheduled order appears only in Scheduled workload;
 - due scheduled order appears in Active but remains persisted status `scheduled`;
 - overdue scheduled order is elevated/sorted before normal active work;
@@ -275,18 +284,22 @@ Add focused regression coverage for:
 - Ready/History classification;
 - valid staff login routes to POS without live terminal/shift prerequisite;
 - staff cannot enter Admin;
-- preview terminal/shift simulator remains preview-only and cannot become live authority.
+- preview terminal/shift simulator remains preview-only and cannot become live authority;
+- responsive workload navigation and browser console cleanliness.
+
+Final commit inspection confirmed the Dashboard implementation is bounded to the required order client/workload, POS staff-entry/session presentation, focused tests/E2E, styling and documentation surfaces, with no backend-authority expansion.
 
 ## Documentation closeout
 
-When Dashboard integration is complete, update and mirror the affected canonical documents, including at minimum:
+The affected canonical documents are reconciled across the customer and Dashboard task branches, including:
 
 - `docs/context/ACTIVE_CONTEXT.md`
 - `docs/context/HANDOFF.md`
 - `docs/context/AUDIT_LOG.md`
 - `docs/context/SUPABASE_STATUS.md`
 - `docs/context/CODEBASE_MAP.md`
-- `docs/context/ARCHITECTURE.md` / `SYSTEM_MAP.md` if flow descriptions change
+- `docs/context/ARCHITECTURE.md`
+- `docs/context/SYSTEM_MAP.md`
 - `docs/contracts/ORDER_AND_SCHEDULING_CONTRACT.md`
 - `docs/contracts/SHARED_BACKEND_CONTRACT.md`
 - `docs/dashboard/UI_SCREEN_MAP.md`
@@ -295,4 +308,6 @@ When Dashboard integration is complete, update and mirror the affected canonical
 - `docs/dashboard/MOCKS_AND_PLACEHOLDERS.md`
 - `docs/security/SECURITY_REVIEW.md`
 
-Do not mark `TASK-SCHEDULED-OPS-001` COMPLETE until the Dashboard implementation, tests, and mirrored documentation pass.
+`TASK-SCHEDULED-OPS-001` therefore satisfies its implementation, executable verification and mirrored-documentation completion gate.
+
+Terminal/branch/sales-point/shift authority and hosted production deployment remain separately deferred. No PR was created or merged during task closeout.

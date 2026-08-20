@@ -92,7 +92,9 @@ The checkout reuses the same `clientRequestId` for retry of the same intended pl
 order board active
  -> GET /api/v1/orders
  -> TanStack Query/cache
- -> render persisted Scheduled / Confirmed / Preparing / Ready / terminal history
+ -> parse prepareAt/serverNow/scheduleState without local defaults
+ -> project Active / Scheduled / Ready / History
+ -> render persisted Scheduled even when operationally due/overdue
  -> refetch every ~2.5 seconds
 ```
 
@@ -124,6 +126,21 @@ ready -> completed
 ```
 
 Completed/cancelled are terminal.
+
+Active priority is backend-overdue, backend-due, preparing, confirmed. Future scheduled work sorts by immutable `prepareAt` and requested pickup. **Start preparing** sends the current `statusVersion`; no React timer mutates status. A 409 invalidates queue and selected detail before the action can be offered again.
+
+## Live staff POS entry
+
+```text
+/employee password
+ -> same-origin employee BFF
+ -> HttpOnly employee cookies
+ -> trusted role=staff
+ -> /pos
+ -> live Sale + Orders (single-café/global scope)
+```
+
+Live mode performs no terminal/current-shift lookup. Preview mode separately uses session/local preview terminal and shift repositories; those values never authorize live APIs.
 
 ## Customer propagation
 

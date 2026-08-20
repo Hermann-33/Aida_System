@@ -2,7 +2,7 @@
 
 **Current task extension:** `TASK-SCHEDULED-OPS-001`
 
-**Status:** backend extension IMPLEMENTED and verified; Dashboard operational UI integration remains PARTIAL until the matching Dashboard branch is completed.
+**Status:** COMPLETE — backend preparation-window extension and Dashboard operational integration are implemented and verified; affected canonical documentation is reconciled across both repositories.
 
 ADR-0010 remains authoritative for order identity, quote/persistence, scheduling and fulfilment-state ownership. TASK-SCHEDULED-OPS-001 extends the operational scheduled-order contract without changing the persisted fulfilment state machine.
 
@@ -138,7 +138,7 @@ For non-scheduled or already-transitioned orders, `scheduleState=null`.
 
 `scheduleState` is **not** a fulfilment status and is not persisted as a new lifecycle state. It is server-derived operational classification.
 
-The Dashboard must use the backend `scheduleState` for future/due/overdue queue classification. It must not use the workstation/device clock alone as business authority. Local time may only animate/display a countdown between authoritative refreshes.
+The Dashboard uses the backend `scheduleState` for future/due/overdue queue classification. It does not use the workstation/device clock alone as business authority. Local time may only animate/display a countdown between authoritative refreshes.
 
 ## Persisted fulfilment state machine
 
@@ -191,7 +191,7 @@ POST /api/v1/admin/orders/policy
 
 The order BFF still forwards the authenticated caller JWT and never exposes a service-role credential or employee bearer token to React.
 
-Dashboard clients must parse the new fields:
+Dashboard clients parse the new fields:
 
 ```text
 OrderingPolicy.preparationLeadMinutes
@@ -200,9 +200,11 @@ OrderSnapshot.serverNow
 OrderSnapshot.scheduleState
 ```
 
-## Required operational Dashboard classification
+## Operational Dashboard classification
 
-AIDA's intended POS workload model is:
+Implemented in the Dashboard task branch on 2026-08-21. The frontend consumes these server classifications directly and rejects malformed authoritative fields.
+
+AIDA's POS workload model is:
 
 ### Active
 
@@ -215,7 +217,7 @@ AIDA's intended POS workload model is:
 
 - persisted `scheduled` + `scheduleState=future`;
 - sorted by `prepareAt`, then pickup time;
-- group Today / Tomorrow / Later where useful.
+- grouped Today / Tomorrow / Later where useful.
 
 ### Ready
 
@@ -228,6 +230,8 @@ AIDA's intended POS workload model is:
 
 A due/overdue order keeps persisted `status=scheduled` until staff explicitly selects **Start preparing**. Existing optimistic-concurrency/version-conflict behavior remains mandatory.
 
+The Dashboard implementation sorts Active as overdue, due, preparing, confirmed; sorts future scheduled work by `prepareAt` then `requestedPickupAt`; groups future presentation into Today/Tomorrow/Later using Malaysia time and the snapshot `serverNow`; and refetches authoritative queue/detail after a version conflict. None of these presentation operations introduces a status or performs a timed mutation.
+
 ## Payment boundary
 
 There is still no trusted payment processor/payment-settlement state. Current flow remains explicit `Pay at counter` / unpaid. Fulfilment completion does not prove payment settlement.
@@ -236,19 +240,19 @@ There is still no trusted payment processor/payment-settlement state. Current fl
 
 Current order authorization still allows staff-or-above to see the global queue because branch-scoped backend authority is deferred.
 
-The Dashboard must not block this accepted live Sale/Orders path on fake/nonexistent terminal/shift authority. Terminal, sales-point, branch assignment and shifts remain separate trusted domains. Preview simulation may remain preview-only.
+The Dashboard does not block this accepted live Sale/Orders path on fake/nonexistent terminal/shift authority. Terminal, sales-point, branch assignment and shifts remain separate trusted domains. Preview simulation remains preview-only.
+
+The live Dashboard runtime implements this boundary by entering Sale/Orders immediately after trusted employee authentication and omitting preview Member/Shift/Terminal rails. It does not synthesize branch, terminal, sales-point or shift objects.
 
 ## Verification
 
-Existing canonical order regression remains valid.
+Canonical backend verification:
 
-TASK-SCHEDULED-OPS-001 adds:
+- existing `supabase/tests/order_integration.sql` remains valid;
+- `supabase/tests/scheduled_order_operations_integration.sql` passes transactionally against live Supabase;
+- pre-existing scheduled lifecycle `scheduled -> preparing -> ready -> completed` was rechecked after migration and passes.
 
-`supabase/tests/scheduled_order_operations_integration.sql`
-
-Live transactional result: PASS.
-
-It verifies:
+The scheduled-operations regression verifies:
 
 - preparation schema and bounds;
 - scheduled placement `prepareAt`;
@@ -258,6 +262,21 @@ It verifies:
 - rejection when preparation lead exceeds customer minimum lead;
 - scheduled POS placement snapshots the current preparation lead;
 - later policy changes do not rewrite existing orders.
+
+Dashboard closeout evidence on 2026-08-21:
+
+- `npm ci`: PASS, 0 vulnerabilities;
+- lint: PASS with two existing shadcn Fast Refresh warnings;
+- typecheck: PASS;
+- Vitest: PASS — 27 files / 120 tests;
+- production build: PASS with existing large-chunk advisory only;
+- Playwright: PASS — 10/10;
+- desktop/mobile visual QA: PASS;
+- scheduled-workload browser console: no errors;
+- `git diff --check`: PASS;
+- secret/browser-token scans: PASS.
+
+The affected canonical contract/context/dashboard/security documents are mirrored across the customer and Dashboard task branches.
 
 ## Deferred domains
 

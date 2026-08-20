@@ -107,7 +107,7 @@ The current staff queue remains global by accepted single-café limitation; bran
 
 Live verification confirms the Nora demo account is a valid confirmed, active `staff` identity and can authenticate through Supabase Auth.
 
-Current post-auth POS failure is caused by Dashboard UI dependencies on terminal/shift endpoints that do not exist in the trusted backend. Supabase currently has no authoritative branch/terminal/sales-point/shift schema.
+The former post-auth POS failure was caused by Dashboard UI dependencies on terminal/shift endpoints that do not exist in the trusted backend. Supabase still has no authoritative branch/terminal/sales-point/shift schema. TASK-SCHEDULED-OPS-001 removed those calls from live entry and uses the accepted single-café/global order scope; it did not invent the missing authority.
 
 Security rule for the Dashboard fix:
 
@@ -116,6 +116,8 @@ Security rule for the Dashboard fix:
 - authenticated staff may use the already-authorized single-café Sale/Orders path;
 - `/admin/login` remains Admin/Owner-only;
 - terminal/shift/branch authority stays deferred until a separate trusted backend task defines it.
+
+Live employee authentication still uses the same-origin BFF and HttpOnly cookies. Staff receives POS access but remains denied Admin. Preview terminal/shift/member simulations are omitted from the live rail and cannot authorize catalogue, member or order mutations.
 
 Removing an unimplemented UI prerequisite is not authorization weakening because staff order capability is already enforced by the BFF/RPC role boundary.
 

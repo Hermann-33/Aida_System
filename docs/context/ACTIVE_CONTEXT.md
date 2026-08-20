@@ -1,23 +1,23 @@
 # Active Context
 
-**As of:** 2026-08-20
+**As of:** 2026-08-21
 **Current task:** `TASK-SCHEDULED-OPS-001 — scheduled-order operational queue + live staff POS entry`
-**Current verdict:** PARTIAL — shared Supabase preparation authority is implemented and verified; Dashboard/POS source changes remain pending on the matching task branch.
+**Current verdict:** COMPLETE — shared Supabase preparation authority is live and verified; Dashboard/POS scheduled-workload and staff-entry integration is complete; executable Dashboard gates pass; affected canonical documentation is reconciled across both repositories.
 
 ## Current product reality
 
 AIDA Café still uses one Supabase backend for the Flutter customer app and React Dashboard/Admin/POS. The trusted implemented tranche remains Auth/member provisioning, protected employee/Admin sessions, shared catalogue, authoritative quote/order/scheduling, customer order history/status, Dashboard order BFF/queue/status transitions, and the verified customer redesign.
 
-TASK-SCHEDULED-OPS-001 addresses two operational gaps discovered after real scheduled orders were placed:
+TASK-SCHEDULED-OPS-001 closed two operational gaps discovered after real scheduled orders were placed:
 
 1. future scheduled orders were persisted correctly but mixed into one flat Orders table with no trusted future/due/overdue distinction;
-2. `staff.nora.demo@aida.test` authenticates successfully, but the live POS entry path then blocks on terminal/shift API state that is not implemented in the accepted backend.
+2. `staff.nora.demo@aida.test` authenticated successfully, but the live POS entry path then blocked on terminal/shift API state that is not implemented in the accepted backend.
 
 Detailed task contract/handoff:
 
 - `docs/context/SCHEDULED_ORDER_OPERATIONS_2026-08-20.md`
 
-## Shared backend change — implemented live
+## Shared backend change — complete and live
 
 Applied migration:
 
@@ -71,54 +71,73 @@ Focused backend regression:
 
 Result: PASS transactionally against live Supabase; synthetic data and temporary policy changes rolled back.
 
+The existing scheduled lifecycle was rechecked after migration and remains valid: `scheduled -> preparing -> ready -> completed` through the versioned trusted status boundary.
+
 Supabase security advisor remains unchanged with one WARN: `auth_leaked_password_protection` / Leaked Password Protection Disabled. Performance advisor findings are INFO-only unused indexes on the small dataset.
 
-## Staff login diagnosis
+## Staff login resolution
 
-The Nora demo staff identity is confirmed, active, trusted `app_role=staff`, and has successfully authenticated. The password/Auth boundary is not the failure.
+The Nora demo staff identity is confirmed, active, trusted `app_role=staff`, and successfully authenticates. The password/Auth boundary was never the failure.
 
-The failure is post-login Dashboard flow:
+The pre-task failure was post-login Dashboard flow:
 
-- live `/employee` checks terminal enrolment APIs;
-- `/pos` checks terminal/current-shift APIs;
-- those terminal/shift routes are not mounted by the current Dashboard BFF;
+- live `/employee` checked terminal enrolment APIs;
+- `/pos` checked terminal/current-shift APIs;
+- those terminal/shift routes were not mounted by the current Dashboard BFF;
 - live Supabase has no authoritative branch/terminal/sales-point/shift schema.
 
-Do not fabricate hardcoded live terminal/branch/shift truth in React.
+The completed Dashboard implementation does not fabricate hardcoded live terminal/branch/shift truth. Until a separate trusted terminal/branch/shift task exists, the accepted single-café/global-staff order scope allows authenticated staff to use live Sale + Orders without those deferred domains blocking entry. Preview terminal/shift simulation remains preview-only.
 
-Until a separate trusted terminal/branch/shift task exists, the accepted single-café/global-staff order scope should allow authenticated staff to use live Sale + Orders without those deferred domains blocking entry. Preview terminal/shift simulation may remain preview-only.
-
-## Required Dashboard implementation
+## Dashboard implementation — complete
 
 Matching branch:
 
 `codex/task-scheduled-ops-001-prep-queue`
 
-Dashboard source changes are intentionally delegated to Codex per user instruction.
+Codex implementation commit:
 
-Required outcomes:
+`b7b73fe8517625264a7e3f19e59d24325c1cfcc1`
 
-- consume `preparationLeadMinutes`, `prepareAt`, `serverNow`, `scheduleState`;
-- Orders rail becomes `Active | Scheduled | Ready | History` (or semantically equivalent);
+Implemented outcomes:
+
+- strict consumption of `preparationLeadMinutes`, `prepareAt`, `serverNow`, `scheduleState`;
+- Orders rail uses `Active | Scheduled | Ready | History` workloads;
 - future scheduled orders stay in Scheduled;
 - `due` and `overdue` scheduled orders surface in Active while persisted status remains `scheduled`;
-- overdue orders sort/promote ahead of normal active work;
+- overdue orders promote ahead of normal active work;
 - **Start preparing** explicitly performs the existing legal versioned transition;
 - staff live login via `/employee` reaches `/pos` without nonexistent terminal/shift prerequisites;
 - Admin login remains Admin/Owner-only;
 - preview fixtures never become live authority.
 
-Visual work must reuse the existing AIDA Dashboard/POS design system from `src/styles/tokens.css`, existing Tailwind/shadcn components, Playfair Display + Plus Jakarta Sans, current rails/cards/tables/status-pill patterns and accessibility behavior. No second palette/design language.
+`orderClient.ts` rejects malformed/missing preparation/schedule projection fields rather than manufacturing plausible defaults. The workload projection consumes backend classification and does not use the workstation clock as business authority or auto-mutate scheduled orders.
 
-## Completion gate
+Live `/employee` authentication is independent of terminal enrolment. Live `/pos` enters the accepted global single-café Sale/Orders workspace without terminal/current-shift calls; terminal, shift and preview-member rails remain preview-only. Staff permission remains POS-only and `/admin/login` remains Admin/Owner-only.
 
-Do not mark this task COMPLETE until Dashboard source integration passes at minimum:
+The implementation preserves the existing AIDA Dashboard/POS design system from `src/styles/tokens.css`, Tailwind/shadcn components, Playfair Display + Plus Jakarta Sans, existing rails/cards/status patterns and accessibility behavior.
 
-```text
-npm run lint
-npm run typecheck
-npm test
-npm run build
-```
+## Completion evidence
 
-plus relevant browser/E2E verification, focused scheduled-order/staff-login regressions, final diff review, and mirrored documentation reconciliation.
+Backend:
+
+- live migration applied and migration history reconciled;
+- focused scheduled-order operations SQL regression: PASS;
+- existing scheduled lifecycle regression: PASS;
+- security advisor: no new finding.
+
+Dashboard evidence on 2026-08-21:
+
+- `npm ci`: PASS, 0 vulnerabilities;
+- lint: PASS with two existing shadcn Fast Refresh warnings;
+- typecheck: PASS;
+- Vitest: PASS — 27 files / 120 tests;
+- production build: PASS with existing large-chunk advisory only;
+- Playwright: PASS — 10/10;
+- desktop/mobile visual QA: PASS;
+- scheduled-workload browser console: no errors;
+- `git diff --check`: PASS;
+- secret/browser-token scans: PASS.
+
+Final commit inspection confirms the Dashboard delta is bounded to the required workload/client, POS staff-entry/session presentation, tests/E2E, styling and documentation surfaces. Affected canonical mirrored documents have been reconciled into the customer task branch.
+
+No PR has been created or merged for this task. Terminal/branch/sales-point/shift authority and hosted production deployment remain explicitly deferred.

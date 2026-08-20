@@ -6,10 +6,10 @@ Scope: `Hermann-33/Aida_System-Dashboard`.
 
 | Route/surface | Role | Purpose | Current source/status |
 |---|---|---|---|
-| `/employee` | anonymous/staff/admin | terminal enrolment / employee entry | terminal/device enrolment remains preview/local; trusted employee identity is separate |
+| `/employee` | anonymous/staff/admin | employee entry; preview terminal enrolment | live employee auth is independent of terminal enrolment; terminal/device enrolment remains preview/local |
 | `/employee/select-role` | dual-role admin | choose POS or Admin workspace | current employee session |
 | `/admin/login` | anonymous | real Admin/Owner login | same-origin employee BFF + HttpOnly session; validated with Owner |
-| `/pos` | staff / enabled admin | counter workspace | shared catalogue + authoritative quote/place + ASAP/scheduled pickup + live order queue/status + Pay at counter; deferred POS domains remain preview |
+| `/pos` | staff / enabled admin | counter workspace | live mode exposes Sale/Orders/Help in global single-café scope; shared catalogue + authoritative quote/place + Active/Scheduled/Ready/History + Pay at counter; deferred POS domains remain preview |
 | `/unauthorized` | denied identity | access-denied boundary | route-guard presentation; backend remains authority |
 | `/admin` | admin/owner | executive KPIs/operations | dashboard shell trusted; KPI/operations aggregates mostly preview/deferred |
 | `/admin/reports/sales` | admin/owner | sales/product/payment/void/refund/staff/branch reporting | preview aggregates; trusted reporting deferred |
@@ -31,7 +31,7 @@ Scope: `Hermann-33/Aida_System-Dashboard`.
 
 ## POS internal rails
 
-Sale/cart selection uses the shared catalogue. Orders uses the live BFF queue and versioned status transitions. Member, shift, terminal and help surfaces retain their documented trusted/preview distinctions rather than inheriting order authority automatically.
+Sale/cart selection uses the shared catalogue. Orders uses the live BFF queue and versioned status transitions. Its workload tabs are Active (overdue/due scheduled, preparing, confirmed), Scheduled (future only), Ready and History. Live mode exposes Sale, Orders and Help; Member, Shift and Terminal are preview-only. Help explicitly states that terminal/shift/branch authority is deferred.
 
 ## Validated Dashboard journeys
 

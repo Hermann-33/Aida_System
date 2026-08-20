@@ -11,6 +11,9 @@ The following are live/shared-backend integrations rather than preview authority
 - POS catalogue browsing/customization;
 - authoritative POS quote/place;
 - ASAP/scheduled pickup policy;
+- scheduled operational classification and preparation timing;
+- Active/Scheduled/Ready/History order workloads;
+- live staff entry to Sale/Orders in accepted single-café scope.
 - live order queue/detail;
 - versioned fulfilment status transitions.
 
@@ -52,6 +55,7 @@ No trusted processor exists. Use explicit `Pay at counter`/unpaid semantics. Exi
 - loyalty/rewards;
 - terminal/device enrolment authority beyond current preview/local behavior;
 - shift/cash authority;
+- POS Member rail and terminal/shift rails (hidden from live mode; available only in clearly labelled preview mode);
 - branches/branch scope and employee-management mutations not yet backed by trusted server contracts;
 - inventory and depletion;
 - marketing publication;

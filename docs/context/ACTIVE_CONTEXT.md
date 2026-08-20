@@ -1,124 +1,107 @@
 # Active Context
 
 **As of:** 2026-08-20
-**Current task:** `TASK-UI-REDESIGN-002 — review and integrate customer UI redesign`
-**Current verdict:** COMPLETE for the mobile integration target; Dashboard documentation sync remains a separate follow-up by explicit task scope.
+**Current task:** `TASK-UI-REDESIGN-003 — post-merge customer redesign audit, regression verification and release build`
+**Current verdict:** PARTIAL — source/backend audit and documentation reconciliation are complete; fresh Flutter execution and release APK remain blocked by GitHub-hosted Actions failing before runner steps start.
 
 ## Current product reality
 
-AIDA Café uses one Supabase backend for the Flutter customer app and the React Dashboard/Admin/POS. The completed implementation tranche has tested authority for customer Auth/member provisioning, protected employee/Admin sessions, shared catalogue, authoritative ordering/scheduling, customer order history/status, Dashboard POS quote/place/order queue/status transitions, and Android release networking/build reproducibility.
+AIDA Café uses one Supabase backend for the Flutter customer app and the React Dashboard/Admin/POS. The implemented trusted tranche remains Auth/member provisioning, protected employee/Admin sessions, shared catalogue, authoritative ordering/scheduling, customer order history/status, Dashboard POS quote/place/order queue/status transitions, and Android release networking/build reproducibility.
 
-The customer app now also carries the reviewed Menu, Item detail, Cart, Checkout and Rewards presentation redesign documented in `docs/frontend/UI_REDESIGN_SPEC.md`. The redesign does not transfer authority from Supabase/server boundaries to the client.
+The customer app also carries the merged Menu, Item detail, Cart, Checkout and Rewards presentation redesign. The redesign has now been traced against the implemented backend boundaries and does not transfer authority from Supabase/server contracts to the client.
 
-## Validated physical/manual evidence
+Detailed redesign documents:
 
-The user validated on a physical Android phone and local Dashboard:
+- `docs/frontend/UI_REDESIGN_SPEC.md`
+- `docs/frontend/UI_REDESIGN_AUDIT_2026-08-20.md`
+- `docs/frontend/UI_SCREEN_MAP.md`
+- `docs/frontend/STATE_AND_DATA_FLOW.md`
+- `docs/frontend/FRAGILE_BOUNDARIES.md`
+- `docs/frontend/MOCKS_AND_PLACEHOLDERS.md`
 
-- release APK installation and Supabase connectivity;
-- new customer signup;
-- trusted Auth/profile/member provisioning;
-- the new member appearing in protected Dashboard Members;
-- real Owner Dashboard login;
-- Owner catalogue price mutation;
-- the installed customer app observing the updated catalogue value.
+## Redesign audit result
 
-The previous Android `Failed host lookup / SocketException` release defect is closed.
+Source/data-flow review found no redesign regression in these trusted boundaries:
 
-## Current live Supabase evidence
+- Supabase Auth/session and customer provisioning;
+- owner-scoped profile/member reads and minimum per-user offline member-code cache;
+- shared catalogue authority, Realtime invalidation and authoritative refetch;
+- server catalogue IDs/prices/availability/variant/add-on compatibility;
+- local cart intent versus server quote authority;
+- OrderingPolicy-derived scheduling;
+- retry-stable customer placement idempotency;
+- persisted order number/history/detail/status;
+- owner-scoped orders Realtime invalidation/refetch;
+- explicit Pay-at-counter/unpaid payment boundary.
 
-Independently rechecked on 2026-08-17:
+The merged redesign specifically preserves live catalogue `imageUrl` as Menu item imagery, uses bundled category art only as presentation fallback, labels cart values as estimates before quote, and populates the checkout wheel exclusively from `derivePickupSlots(OrderingPolicy)`.
 
-- Auth users: 9
-- profiles: 9
-- members: 6
-- trusted roles: 1 owner, 1 admin, 1 staff
-- retained orders: 1
-- catalogue revision: 15
+Rewards is now documented correctly as a mixed surface: member identity display is based on the real owner-scoped member/profile provider, while points/rewards/vouchers remain preview-backed pending the trusted loyalty task.
 
-These counts are dated operational evidence, not architectural invariants. Employee identities are intentionally separate from customer/member rows.
+Membership QR is indirectly affected only by the shared `AidaLogo` replacement. QR payload, member-code authority and offline cache semantics are unchanged; the logo asset is bundled and therefore offline-safe.
 
-The retained order is `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`), customer source, authoritative total 1,290 sen, final status `completed`, status version 4. Its event ledger records creation as confirmed followed by preparing, ready and completed transitions.
+## Audit fixes on the task branch
 
-All intended identity, catalogue and order tables retain RLS/FORCE RLS; the ordering RPC surface exists; `orders` remains published to Realtime; ordinary customer clients do not have direct commercial order DML authority.
+Branch: `codex/task-ui-redesign-003-post-merge-audit`.
 
-## Customer implementation status
+The audit found stale verification assumptions left by the redesign and corrected them without changing backend authority:
 
-COMPLETE for the implemented tranche:
+- restored stable Menu category automation keys (`menu_cat_all`, `menu_cat_favorites`, `menu_cat_<category-id>`);
+- updated the cart-flow regression to use the redesigned CTA/floating-cart affordance;
+- added quote-request recording to the test order adapter;
+- added a scheduled-checkout regression requiring the selected timestamp to come from `derivePickupSlots(TestOrderRepository.policy)`;
+- expanded customer redesign/data-flow/fragile/mock/codebase documentation.
 
-- Supabase Auth/session/signup/logout and trusted profile/member provisioning;
-- server-owned member code and student pending declaration boundary;
-- minimum per-user offline member-code cache with logout/user-switch isolation;
-- shared catalogue, variants/add-ons and revision invalidation/refetch;
-- authoritative quote-before-place and server-owned totals;
-- retry-stable idempotent customer placement;
-- ASAP/scheduled pickup from server policy;
-- explicit `Pay at counter`/unpaid semantics;
-- persisted server order number/status/history/detail;
-- owner-scoped order Realtime invalidation followed by authorized refetch;
-- Android production INTERNET permission;
-- reproducible Android release build from committed Git;
-- reviewed presentation redesign for Menu, Item detail, Cart, Checkout and Rewards.
+No schema, migration, RPC, RLS, provider binding, repository implementation, Auth lifecycle, order payload/state-machine, payment, loyalty, inventory or reporting authority was modified.
 
-The redesign integration specifically preserves live catalogue `imageUrl` use in Menu rows, keeps cart totals labelled as estimates before server quote, and derives all selectable scheduled pickup values from `OrderingPolicy` through `derivePickupSlots`.
+## Fresh execution / APK status
 
-Baseline customer validation from TASK-CLOSEOUT-001: Flutter 3.44.9, pub get PASS, analyze PASS, 44/44 tests PASS, release APK PASS in the task checkout and an independent clean committed worktree. Canonical Auth/member, catalogue and order SQL regressions pass transactionally.
+A reusable clean-checkout workflow was added to customer `master` by `TASK-CI-001`:
 
-The historical redesign source branch separately recorded `flutter analyze` 0 issues and `flutter test` 40/44 with four documented pre-existing golden mismatches. The clean integration correction could not be independently re-run in the repository-operation environment because no Flutter toolchain or CI workflow was available; do not reinterpret that limitation as a fresh PASS.
+`.github/workflows/customer-release-audit.yml`
 
-## Dashboard implementation status
+It is configured for Flutter 3.44.9 and performs dependency resolution, static analysis, non-golden regressions, separate golden evidence, and `flutter build apk --release`, then uploads `aida-customer-release-apk`.
 
-COMPLETE for the implemented tranche:
+PR #16 triggered workflow run `32359646611` on audit head `940074b7ccf1c0ccd875dd1c1109f883bc1a91a3`.
 
-- same-origin employee/Admin BFF with HttpOnly session cookies and caller-JWT Supabase access;
-- protected Admin Members;
-- shared catalogue reads and protected Admin mutations;
-- TASK-AUTH-005 preview/live session separation;
-- typed same-origin order client;
-- POS cart mapped to server-trusted IDs/quantity/note intent only;
-- server quote rendered as commercial authority;
-- stable `clientRequestId` for placement retries;
-- ASAP/scheduled pickup derived from server policy;
-- cart cleared only after persisted placement;
-- explicit `Pay at counter`/unpaid semantics;
-- live order queue polling every ~2.5 seconds with no preview-order fallback;
-- legal versioned status transitions and 409 conflict refetch;
-- no browser employee bearer-token persistence.
+Execution evidence:
 
-Dashboard validation from TASK-CLOSEOUT-001: lint PASS with two existing Fast Refresh warnings, typecheck PASS, 25 Vitest files / 111 tests PASS, build PASS, Playwright 8/8 PASS, `git diff --check` PASS, and final `npm audit` 0 vulnerabilities.
+- attempt 1: job `96396288072` queued then failed immediately;
+- rerun: job `96396949294` queued then failed immediately;
+- both attempts expose zero executed step records;
+- no job log blob is available;
+- no artifacts were produced.
 
-## Final live order E2E
+This pattern is an Actions runner/account execution failure before Flutter steps, not evidence of a Flutter analysis/test/build failure. The repository is private and the linked GitHub identity has repository admin permissions, but the available connector does not expose the account Actions billing/runner setting that caused the pre-step rejection.
 
-Completed on 2026-08-17 through supported customer and Dashboard BFF boundaries using approved demo credentials supplied only as process-local environment variables:
+Therefore there is currently **no fresh APK** and no fresh post-redesign Flutter PASS to claim. The older TASK-CLOSEOUT-001 release APK/build proof predates this redesign and cannot substitute for this gate.
 
-- customer Auth and active-member validation passed;
-- live published Sandwich catalogue item quoted for ASAP pickup at an authoritative total of 1,290 sen;
-- customer `place_customer_order` persisted order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`) as `confirmed`, version 1;
-- the authenticated Owner Dashboard queue observed the same UUID, order number, total, status and version;
-- Dashboard transitions persisted `preparing` version 2, `ready` version 3 and `completed` version 4;
-- the customer's authorized `get_order` read observed each persisted status;
-- the final all-status Dashboard queue contained exactly one retained order, the completed E2E order.
+## Prior validated implementation evidence
 
-No service role, direct SQL order insertion, password reset, client-trusted price/status or browser employee bearer-token persistence was used. The credential variables were removed after authenticated work and were never committed.
+TASK-CLOSEOUT-001 remains valid for the backend/authority implementation it proved on 2026-08-17:
 
-## 2026-08-20 customer redesign integration
+- physical Android connectivity/signup/member provisioning;
+- owner catalogue mutation observed by installed customer app;
+- customer authoritative quote/place;
+- retained order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`), authoritative total 1,290 sen;
+- Dashboard persisted `confirmed` v1 → `preparing` v2 → `ready` v3 → `completed` v4;
+- customer-authorized reads observed the persisted transitions;
+- canonical Auth/member/catalogue/order SQL regressions passed.
 
-The historical `customer-app-redesign` branch was not merged directly. Review found it was 140 commits behind `master`, five commits ahead, and included unrelated July admin-sidebar documentation history.
+Those results prove the pre-redesign trusted backend implementation, not the new visual regression/build gate.
 
-A clean integration branch was created from current `master` and only the reviewed customer redesign delta was carried forward. Two source-branch regressions were corrected during integration:
+## Dashboard documentation synchronization
 
-1. Checkout scheduling no longer invents a client-only 8am–5pm window or arbitrary minute values. The wheel UI is populated exclusively from `derivePickupSlots(OrderingPolicy)`, preserving `scheduleEnabled`, lead time, slot interval, maximum advance horizon and backend timezone/server time.
-2. Menu list rows retain live catalogue `imageUrl` as the primary image source and use bundled category art only as fallback.
-
-A stale `shared_preferences` dependency change from the source branch was also rejected; the current `2.5.5` pin remains intact. The obsolete `MenuGridItem` is removed, the new AIDA logo asset is registered, and repository-local redesign screenshots are retained for Menu, Item detail, Cart and Rewards. The original checkout screenshot is intentionally not integrated because it depicts the rejected non-contract-compliant picker.
-
-Cross-repository documentation sync to `Hermann-33/Aida_System-Dashboard` is **PENDING by explicit task scope** and is not a blocker for this mobile-repository integration.
+TASK-UI-REDESIGN-003 includes mirroring the updated customer redesign/governance documentation to `Hermann-33/Aida_System-Dashboard` on the matching branch `codex/task-ui-redesign-003-post-merge-audit`. Dashboard runtime/source code is not changed by this task.
 
 ## Security and deployment
 
-The current Supabase security advisor has one hosted Auth warning: `auth_leaked_password_protection` / **Leaked Password Protection Disabled**. This is operational project configuration debt, not an RLS regression. Remediation: <https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection>.
+No redesign change weakens RLS, exposes employee tokens, adds a service-role key, changes public Auth configuration, grants direct order DML, changes member-code trust, introduces client-trusted pricing, or manufactures payment state.
 
-Hosted/Vercel deployment remains **DEFERRED**. The accepted current demo topology is local Dashboard PC → cloud Supabase → installed customer phone.
+The hosted Supabase Auth warning `auth_leaked_password_protection` / Leaked Password Protection Disabled remains separate operational configuration debt.
+
+Hosted/Vercel deployment remains deferred for the accepted local Dashboard PC → cloud Supabase → installed customer phone topology.
 
 ## Deferred product domains
 
-Real payment/refunds, loyalty ledger/redemption, inventory, promotions/discount authority, tax/accounting, trusted reporting, branch-scoped operations/capacity, delivery and hosted production deployment/release operations remain future bounded tasks.
+Real payment/refunds, trusted loyalty ledger/redemption, inventory, promotions/discount authority, tax/accounting, trusted reporting, branch-scoped operations/hours/capacity, delivery, notifications, several profile/settings surfaces and hosted production distribution remain future bounded tasks.

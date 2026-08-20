@@ -2,6 +2,22 @@
 
 This is the mirrored project-level chronology. Historical task verdicts describe the state at that task's completion; later entries supersede earlier open blockers without rewriting history.
 
+## 2026-08-20 — TASK-UI-REDESIGN-003 post-merge redesign audit and release verification
+
+**Verdict:** PARTIAL — source/backend audit and documentation reconciliation are complete; fresh Flutter execution and release APK are blocked by a pre-step GitHub-hosted Actions failure.
+
+Audited customer redesign merge `dcc97c481ae446d76b25bf8f91850e1d829c56f5` against the implemented Auth/member, offline member/QR, shared catalogue, authoritative order/scheduling, Realtime and payment-boundary code. No redesign regression was found in provider/repository/RPC/RLS/Auth/order authority. Menu remains shared-catalogue-backed with live `imageUrl` primary; item variants/add-ons remain server catalogue data; cart values remain local estimates; Checkout still quotes before placement and renders server total; Schedule values are sourced only from `derivePickupSlots(OrderingPolicy)`; placement idempotency, history/detail/status and owner-scoped order Realtime/refetch remain unchanged; payment remains Pay at counter/unpaid; loyalty remains deferred.
+
+Corrected post-merge verification/documentation gaps on branch `codex/task-ui-redesign-003-post-merge-audit`: restored stable Menu category keys, updated cart-flow assertions for the redesigned CTA/floating cart, added quote-request recording to the test order adapter, and added a Schedule regression requiring `requestedPickupAt` to belong to the policy-derived slot set. No production backend adapter/model/provider contract changed.
+
+Documentation now explicitly records two previously under-described effects: Rewards combines real owner-scoped member identity display with still-mock points/rewards/vouchers, and Membership QR inherits the shared bundled `AidaLogo` visual change while QR payload/member-code/offline-cache semantics remain unchanged. Added `docs/frontend/UI_REDESIGN_AUDIT_2026-08-20.md` and expanded the redesign spec, screen map, state/data flow, fragile boundaries, mocks/placeholders, codebase map, active context and handoff.
+
+`TASK-CI-001` added `.github/workflows/customer-release-audit.yml` to customer `master` as an isolated reusable Flutter 3.44.9 gate. PR #16 triggered workflow run `32359646611` at audit head `940074b7ccf1c0ccd875dd1c1109f883bc1a91a3`. Job `96396288072` queued and failed immediately with zero executed-step records, no retained log blob and no artifacts. An explicit rerun created job `96396949294`, which failed identically before any step evidence. Because no Flutter step executed, this is recorded as an Actions execution/infrastructure failure rather than an app/test failure. The repository is private; the connector exposes repository admin permission but not the account-level Actions billing/hosted-runner setting required to diagnose the rejection.
+
+The local tool environment is not an alternate build machine: Flutter, Dart and Codex executables are absent and outbound toolchain/package downloads are blocked. Therefore no fresh redesigned APK has been produced and no fresh `flutter analyze`/test/build PASS is claimed. TASK-CLOSEOUT-001 build evidence predates the redesign and is not substituted for this gate.
+
+Cross-repository documentation synchronization is included in TASK-UI-REDESIGN-003 on the matching Dashboard branch; Dashboard runtime code remains unchanged.
+
 ## 2026-08-20 — TASK-UI-REDESIGN-002 customer UI redesign integration
 
 **Verdict:** COMPLETE for the mobile repository integration target.
@@ -48,7 +64,7 @@ A real Owner authenticated through the Dashboard same-origin HttpOnly BFF. The D
 
 Final Dashboard checks passed: lint with two established Fast Refresh warnings, typecheck, 25 Vitest files / 111 tests, production build, Playwright 8/8, `npm audit` 0 vulnerabilities and `git diff --check`. Customer closeout checks already passed Flutter 3.44.9 pub get, zero-issue analyze, 44/44 tests, release build in the task checkout and an independent clean worktree, plus canonical Auth/member, catalogue and order transactional regressions.
 
-No service role, direct SQL order insertion, password reset, browser employee bearer-token persistence, client-trusted price/status or credential-bearing repository file was used. E2E credential variables were removed after authenticated work.
+No service role, direct SQL order insertion, password reset, browser employee bearer-token persistence, client-trusted price/status or credential-bearing repository file was used. E2E credential variables were removed after the run.
 
 Independent closeout verification rechecked 9 Auth users, 9 profiles, 6 members, roles owner/admin/staff = 1/1/1, catalogue revision 15 and one retained completed order. The current Supabase security advisor has one WARN: `auth_leaked_password_protection` / Leaked Password Protection Disabled.
 

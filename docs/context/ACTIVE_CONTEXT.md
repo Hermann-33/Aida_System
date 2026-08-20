@@ -1,126 +1,124 @@
 # Active Context
 
 **As of:** 2026-08-20
-**Current task:** `TASK-UI-REDESIGN-003 — post-merge customer redesign audit, regression verification and release build`
-**Current verdict:** COMPLETE — source/backend audit, local Flutter verification, deliberate golden review, release APK production and mirrored documentation reconciliation pass.
+**Current task:** `TASK-SCHEDULED-OPS-001 — scheduled-order operational queue + live staff POS entry`
+**Current verdict:** PARTIAL — shared Supabase preparation authority is implemented and verified; Dashboard/POS source changes remain pending on the matching task branch.
 
 ## Current product reality
 
-AIDA Café uses one Supabase backend for the Flutter customer app and the React Dashboard/Admin/POS. The implemented trusted tranche remains Auth/member provisioning, protected employee/Admin sessions, shared catalogue, authoritative ordering/scheduling, customer order history/status, Dashboard POS quote/place/order queue/status transitions, and Android release networking/build reproducibility.
+AIDA Café still uses one Supabase backend for the Flutter customer app and React Dashboard/Admin/POS. The trusted implemented tranche remains Auth/member provisioning, protected employee/Admin sessions, shared catalogue, authoritative quote/order/scheduling, customer order history/status, Dashboard order BFF/queue/status transitions, and the verified customer redesign.
 
-The customer app also carries the merged Menu, Item detail, Cart, Checkout and Rewards presentation redesign. The redesign has now been traced against the implemented backend boundaries and does not transfer authority from Supabase/server contracts to the client.
+TASK-SCHEDULED-OPS-001 addresses two operational gaps discovered after real scheduled orders were placed:
 
-Detailed redesign documents:
+1. future scheduled orders were persisted correctly but mixed into one flat Orders table with no trusted future/due/overdue distinction;
+2. `staff.nora.demo@aida.test` authenticates successfully, but the live POS entry path then blocks on terminal/shift API state that is not implemented in the accepted backend.
 
-- `docs/frontend/UI_REDESIGN_SPEC.md`
-- `docs/frontend/UI_REDESIGN_AUDIT_2026-08-20.md`
-- `docs/frontend/UI_SCREEN_MAP.md`
-- `docs/frontend/STATE_AND_DATA_FLOW.md`
-- `docs/frontend/FRAGILE_BOUNDARIES.md`
-- `docs/frontend/MOCKS_AND_PLACEHOLDERS.md`
+Detailed task contract/handoff:
 
-## Redesign audit result
+- `docs/context/SCHEDULED_ORDER_OPERATIONS_2026-08-20.md`
 
-Source/data-flow review found no redesign regression in these trusted boundaries:
+## Shared backend change — implemented live
 
-- Supabase Auth/session and customer provisioning;
-- owner-scoped profile/member reads and minimum per-user offline member-code cache;
-- shared catalogue authority, Realtime invalidation and authoritative refetch;
-- server catalogue IDs/prices/availability/variant/add-on compatibility;
-- local cart intent versus server quote authority;
-- OrderingPolicy-derived scheduling;
-- retry-stable customer placement idempotency;
-- persisted order number/history/detail/status;
-- owner-scoped orders Realtime invalidation/refetch;
-- explicit Pay-at-counter/unpaid payment boundary.
+Applied migration:
 
-The merged redesign specifically preserves live catalogue `imageUrl` as Menu item imagery, uses bundled category art only as presentation fallback, labels cart values as estimates before quote, and populates the checkout wheel exclusively from `derivePickupSlots(OrderingPolicy)`.
+`20260820151421_add_scheduled_order_preparation_window`
 
-Rewards is now documented correctly as a mixed surface: member identity display is based on the real owner-scoped member/profile provider, while points/rewards/vouchers remain preview-backed pending the trusted loyalty task.
+Canonical customer-repository migration:
 
-Membership QR is indirectly affected only by the shared `AidaLogo` replacement. QR payload, member-code authority and offline cache semantics are unchanged; the logo asset is bundled and therefore offline-safe.
+`supabase/migrations/20260820151421_add_scheduled_order_preparation_window.sql`
 
-## Audit fixes on the task branch
+The backend now owns:
 
-Branch: `codex/task-ui-redesign-003-post-merge-audit`.
+- `order_schedule_settings.preparation_lead_minutes` (default/current 15);
+- immutable per-order `orders.prepare_at` for scheduled orders;
+- `prepareAt`, `serverNow`, and `scheduleState` on authorized order snapshots;
+- `scheduleState = future | due | overdue | null`, derived from server time without changing persisted fulfilment status.
 
-The audit found stale verification assumptions left by the redesign and corrected them without changing backend authority:
+`preparationLeadMinutes` is distinct from customer `minimumLeadMinutes` and is constrained to `0 <= preparationLeadMinutes <= minimumLeadMinutes`.
 
-- restored stable Menu category automation keys (`menu_cat_all`, `menu_cat_favorites`, `menu_cat_<category-id>`);
-- updated the cart-flow regression to use the redesigned CTA/floating-cart affordance;
-- added quote-request recording to the test order adapter;
-- added a scheduled-checkout regression requiring the selected timestamp to come from `derivePickupSlots(TestOrderRepository.policy)`;
-- expanded customer redesign/data-flow/fragile/mock/codebase documentation.
+New scheduled placement snapshots:
 
-No schema, migration, RPC, RLS, provider binding, repository implementation, Auth lifecycle, order payload/state-machine, payment, loyalty, inventory or reporting authority was modified.
+`prepareAt = requestedPickupAt - preparationLeadMinutes`.
 
-## Fresh execution / APK status
+A later policy edit does not rewrite an already accepted order's `prepareAt`.
 
-A reusable clean-checkout workflow was added to customer `master` by `TASK-CI-001`:
+No timer or migration auto-transitions `scheduled -> preparing`. Staff action remains authoritative through the existing versioned `transition_order_status` boundary.
 
-`.github/workflows/customer-release-audit.yml`
+## Live evidence
 
-It is configured for Flutter 3.44.9 and performs dependency resolution, static analysis, non-golden regressions, separate golden evidence, and `flutter build apk --release`, then uploads `aida-customer-release-apk`.
+Current live policy:
 
-PR #16 previously triggered workflow run `32359646611` on audit head `940074b7ccf1c0ccd875dd1c1109f883bc1a91a3`.
+```text
+timezone                 Asia/Kuala_Lumpur
+schedule_enabled         true
+minimum_lead_minutes     15
+preparation_lead_minutes 15
+slot_interval_minutes    15
+maximum_advance_days     7
+```
 
-Execution evidence:
+Existing scheduled orders were backfilled without changing status. The previously stale live orders now classify operationally as `overdue`:
 
-- attempt 1: job `96396288072` queued then failed immediately;
-- rerun: job `96396949294` queued then failed immediately;
-- both attempts expose zero executed step records;
-- no job log blob is available;
-- no artifacts were produced.
+- `100007`
+- `100008`
+- `100009`
 
-This remains an Actions runner/account execution failure before Flutter steps, not an application failure. It no longer blocks TASK-UI-REDESIGN-003 because the exact accepted toolchain is available locally and produced executable evidence from the task branch.
+This exposes the exception to staff clients while preserving the persisted `scheduled` state until an authorized staff transition occurs.
 
-Local evidence on 2026-08-20:
+Focused backend regression:
 
-- Flutter 3.44.9 / Dart 3.12.2;
-- `flutter pub get`: PASS;
-- `flutter analyze`: PASS with no issues after replacing deprecated `SizeTransition.axisAlignment` with the equivalent `AlignmentDirectional.topStart`;
-- non-golden regressions: 41/41 PASS;
-- full suite after reviewed golden updates: 45/45 PASS;
-- release APK build: PASS;
-- package: `com.aidacafe.aida_customer`;
-- APK: `apps/customer/build/app/outputs/flutter-apk/app-release.apk`;
-- size: 64,197,534 bytes;
-- SHA-256: `9C36394EA0469F74F36B6908B6148A69263612D1F99ADB9C7EFCFB4724449B75`;
-- final manifest declares `android.permission.INTERNET`;
-- source and decompressed Flutter app libraries contain no service-role/secret marker.
+`supabase/tests/scheduled_order_operations_integration.sql`
 
-The non-golden run also exposed and fixed two stale test-harness assumptions: the redesigned sold-out detail intentionally displays both a badge and disabled action label, and the test-only network-image client must be restored before Flutter painting invariants run.
+Result: PASS transactionally against live Supabase; synthetic data and temporary policy changes rolled back.
 
-Golden evidence was reviewed before update. Home and Home-scrolled already passed unchanged. Menu-selected was the intentional grid-to-vertical-rail/list redesign. Membership-card differed only because placeholder logo boxes became the approved bundled AIDA logo; QR/layout/member content remained intact. Only those two baselines changed.
+Supabase security advisor remains unchanged with one WARN: `auth_leaked_password_protection` / Leaked Password Protection Disabled. Performance advisor findings are INFO-only unused indexes on the small dataset.
 
-No Android device was connected (`adb devices` empty), so no device smoke test is claimed. Device smoke was optional; the separate physical Auth/catalogue evidence remains valid.
+## Staff login diagnosis
 
-## Prior validated implementation evidence
+The Nora demo staff identity is confirmed, active, trusted `app_role=staff`, and has successfully authenticated. The password/Auth boundary is not the failure.
 
-TASK-CLOSEOUT-001 remains valid for the backend/authority implementation it proved on 2026-08-17:
+The failure is post-login Dashboard flow:
 
-- physical Android connectivity/signup/member provisioning;
-- owner catalogue mutation observed by installed customer app;
-- customer authoritative quote/place;
-- retained order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`), authoritative total 1,290 sen;
-- Dashboard persisted `confirmed` v1 → `preparing` v2 → `ready` v3 → `completed` v4;
-- customer-authorized reads observed the persisted transitions;
-- canonical Auth/member/catalogue/order SQL regressions passed.
+- live `/employee` checks terminal enrolment APIs;
+- `/pos` checks terminal/current-shift APIs;
+- those terminal/shift routes are not mounted by the current Dashboard BFF;
+- live Supabase has no authoritative branch/terminal/sales-point/shift schema.
 
-Those results prove the pre-redesign trusted backend implementation, not the new visual regression/build gate.
+Do not fabricate hardcoded live terminal/branch/shift truth in React.
 
-## Dashboard documentation synchronization
+Until a separate trusted terminal/branch/shift task exists, the accepted single-café/global-staff order scope should allow authenticated staff to use live Sale + Orders without those deferred domains blocking entry. Preview terminal/shift simulation may remain preview-only.
 
-TASK-UI-REDESIGN-003 mirrors the updated customer redesign/governance documentation to `Hermann-33/Aida_System-Dashboard` on the matching branch `codex/task-ui-redesign-003-post-merge-audit`. Dashboard runtime/source code is unchanged. Merge order remains customer PR #16, then Dashboard docs PR #14.
+## Required Dashboard implementation
 
-## Security and deployment
+Matching branch:
 
-No redesign change weakens RLS, exposes employee tokens, adds a service-role key, changes public Auth configuration, grants direct order DML, changes member-code trust, introduces client-trusted pricing, or manufactures payment state.
+`codex/task-scheduled-ops-001-prep-queue`
 
-The hosted Supabase Auth warning `auth_leaked_password_protection` / Leaked Password Protection Disabled remains separate operational configuration debt.
+Dashboard source changes are intentionally delegated to Codex per user instruction.
 
-Hosted/Vercel deployment remains deferred for the accepted local Dashboard PC → cloud Supabase → installed customer phone topology.
+Required outcomes:
 
-## Deferred product domains
+- consume `preparationLeadMinutes`, `prepareAt`, `serverNow`, `scheduleState`;
+- Orders rail becomes `Active | Scheduled | Ready | History` (or semantically equivalent);
+- future scheduled orders stay in Scheduled;
+- `due` and `overdue` scheduled orders surface in Active while persisted status remains `scheduled`;
+- overdue orders sort/promote ahead of normal active work;
+- **Start preparing** explicitly performs the existing legal versioned transition;
+- staff live login via `/employee` reaches `/pos` without nonexistent terminal/shift prerequisites;
+- Admin login remains Admin/Owner-only;
+- preview fixtures never become live authority.
 
-Real payment/refunds, trusted loyalty ledger/redemption, inventory, promotions/discount authority, tax/accounting, trusted reporting, branch-scoped operations/hours/capacity, delivery, notifications, several profile/settings surfaces and hosted production distribution remain future bounded tasks.
+Visual work must reuse the existing AIDA Dashboard/POS design system from `src/styles/tokens.css`, existing Tailwind/shadcn components, Playfair Display + Plus Jakarta Sans, current rails/cards/tables/status-pill patterns and accessibility behavior. No second palette/design language.
+
+## Completion gate
+
+Do not mark this task COMPLETE until Dashboard source integration passes at minimum:
+
+```text
+npm run lint
+npm run typecheck
+npm test
+npm run build
+```
+
+plus relevant browser/E2E verification, focused scheduled-order/staff-login regressions, final diff review, and mirrored documentation reconciliation.

@@ -1,12 +1,12 @@
 # Shared Backend Contract
 
-Updated: 2026-08-17
+Updated: 2026-08-20
 
 ## Authority
 
 Supabase Auth/Postgres/RLS plus controlled BFF/RPC operations are authoritative. Canonical executable migrations live only in `Hermann-33/Aida_System/supabase/` unless a future accepted ADR changes ownership.
 
-Clients are never authority for identity, role, member IDs/codes, catalogue IDs/prices, order totals, order numbers, fulfilment status, payment state, loyalty value, inventory or reporting truth.
+Clients are never authority for identity, role, member IDs/codes, catalogue IDs/prices, order totals, order numbers, scheduling preparation authority, fulfilment status, payment state, loyalty value, inventory or reporting truth.
 
 ## Identity/member contract
 
@@ -16,6 +16,8 @@ Clients are never authority for identity, role, member IDs/codes, catalogue IDs/
 - Public signup cannot self-assign employee/admin role, member code, verification result or other privileged state.
 - Customer reads remain owner-scoped; staff/admin access uses explicit trusted boundaries.
 - Employee identities are distinct from customer/member records.
+
+The current trusted staff account can authenticate independently of deferred terminal/branch/shift domains. UI terminal/shift state must not become an authorization substitute.
 
 ## Catalogue contract
 
@@ -44,35 +46,74 @@ The trusted order payload contains selection and intent only:
 - quantity;
 - optional line note.
 
-`quote_order(jsonb)` is the shared pricing validator for customer and POS channels. It re-checks current catalogue publication/availability, active category state, variant ownership/availability, compatible add-ons, quantity/note bounds and schedule policy. Any client-supplied name/price/subtotal/total is ignored.
+Clients must not submit or trust their own `prepareAt`, `scheduleState`, item names, prices, subtotals, totals, order numbers, customer/member identity or fulfilment status.
+
+`quote_order(jsonb)` remains the shared pricing/schedule validator for customer and POS channels. It re-checks current catalogue publication/availability, active category state, variant ownership/availability, compatible add-ons, quantity/note bounds and customer-selectable scheduling policy. Client-supplied price/total fields are ignored.
 
 Customer placement uses `place_customer_order(jsonb)` and derives customer/member identity from the authenticated session plus active member record.
 
-POS placement uses `place_pos_order(jsonb)` and requires staff-or-above. Current POS placement is a guest-order boundary; customer/member attachment is not client-invented.
+POS placement uses `place_pos_order(jsonb)` and requires staff-or-above. Current POS placement remains a guest-order boundary; customer/member attachment is not client-invented.
 
-Persisted `orders`, `order_lines` and `order_line_addons` contain server-owned order identity and immutable commercial snapshots so later catalogue edits cannot rewrite historical order content.
+Persisted `orders`, `order_lines` and `order_line_addons` contain server-owned order identity and immutable commercial/scheduling snapshots so later catalogue or preparation-policy edits cannot rewrite historical order truth.
 
 ## Scheduling contract
 
-Server scheduling defaults:
+Current live server policy:
 
 - timezone `Asia/Kuala_Lumpur`;
-- enabled;
-- minimum lead 15 minutes;
-- 15-minute slots;
+- scheduled ordering enabled;
+- customer minimum lead 15 minutes;
+- operational preparation lead 15 minutes;
+- 15-minute pickup slots;
 - maximum advance 7 days.
 
 The backend validates server-relative lead/horizon and local slot alignment. Branch-specific opening hours/closures/capacity are not authoritative yet and must not be invented by clients.
 
-Admin/owner may update the scheduling singleton through the trusted `save_ordering_policy(jsonb)` boundary.
+### Minimum lead versus preparation lead
+
+`minimumLeadMinutes` controls the earliest pickup time that may be selected.
+
+`preparationLeadMinutes` controls the server-owned operational preparation window and is constrained by:
+
+```text
+0 <= preparationLeadMinutes <= minimumLeadMinutes
+```
+
+Admin/owner may update the singleton through the trusted `save_ordering_policy(jsonb)` boundary. Staff may not change policy.
+
+### Per-order preparation snapshot
+
+For scheduled orders the backend persists immutable:
+
+```text
+prepareAt = requestedPickupAt - preparationLeadMinutes
+```
+
+`prepareAt` is null for ASAP orders and cannot be rewritten later by browser state or by a subsequent policy edit.
+
+Authorized order snapshots expose backend-owned:
+
+- `prepareAt`;
+- `serverNow`;
+- `scheduleState = future | due | overdue | null`.
+
+For persisted scheduled orders:
+
+```text
+requestedPickupAt < serverNow  -> overdue
+prepareAt <= serverNow          -> due
+otherwise                       -> future
+```
+
+This is operational classification only. It is not a new persisted lifecycle status and does not prove that staff started preparation.
 
 ## Fulfilment contract
 
-Persisted states:
+Persisted states remain:
 
 `confirmed`, `scheduled`, `preparing`, `ready`, `completed`, `cancelled`.
 
-Legal staff transitions:
+Legal staff transitions remain:
 
 ```text
 confirmed -> preparing | cancelled
@@ -83,18 +124,20 @@ ready -> completed
 
 `completed` and `cancelled` are terminal. Status mutation requires staff-or-above and an expected `statusVersion`; stale concurrent transitions fail.
 
-`order_events` is append-only evidence for creation/status changes.
+Reaching `prepareAt` must never auto-write `preparing`. A staff action still explicitly persists **Start preparing** through the accepted status RPC.
+
+`order_events` remains append-only evidence for creation/status changes.
 
 ## Realtime contract
 
 `supabase_realtime` publishes the mutable invalidation/status surfaces required by current clients:
 
-- `catalogue_revision`
-- `orders`
+- `catalogue_revision`;
+- `orders`.
 
 After an authorized `orders` change, customer clients re-fetch the full authorized snapshot. Immutable line/add-on tables are not separately published.
 
-The Dashboard does not expose the employee access token to React for direct Supabase Realtime. It uses same-origin BFF polling/refetch for the employee queue.
+The Dashboard does not expose the employee access token to React for direct Supabase Realtime. It uses same-origin BFF polling/refetch for employee order work.
 
 ## Dashboard BFF contract
 
@@ -108,17 +151,19 @@ Privileged Dashboard browser flows use the same-origin BFF from ADR-0008:
 - no browser-readable staff bearer-token persistence;
 - no service-role credential in Vite/browser code.
 
-Current order BFF endpoints:
+Current trusted order endpoints remain:
 
-- `GET /api/v1/orders/policy`
-- `GET /api/v1/orders`
-- `GET /api/v1/orders/detail?id=<uuid>`
-- `POST /api/v1/orders/quote`
-- `POST /api/v1/orders/place`
-- `POST /api/v1/orders/status`
-- `POST /api/v1/admin/orders/policy`
+- `GET /api/v1/orders/policy`;
+- `GET /api/v1/orders`;
+- `GET /api/v1/orders/detail?id=<uuid>`;
+- `POST /api/v1/orders/quote`;
+- `POST /api/v1/orders/place`;
+- `POST /api/v1/orders/status`;
+- `POST /api/v1/admin/orders/policy`.
 
-Dashboard React consumes these endpoints through a typed adapter. Its active POS path sends catalogue IDs/quantity/note plus fulfilment intent, renders the quote response as authority, reuses a stable `clientRequestId` for retry and clears local cart state only after persisted placement. The order board polls the employee queue every ~2.5 seconds and submits `expectedVersion` for legal status transitions. Preview transactions/receipts are not live order authority.
+Dashboard React must consume `preparationLeadMinutes`, `prepareAt`, `serverNow` and `scheduleState` from these trusted responses rather than manufacture preparation authority from local time.
+
+The accepted current order scope is single-café/global staff visibility because branch assignment, terminal authority, sales points and shifts are still deferred. Those missing domains must not block the already-trusted employee Auth + Sale + Orders path, and preview fixtures must not be promoted into production truth.
 
 ## Customer client contract
 
@@ -134,35 +179,45 @@ Customer Flutter:
 - uses owner-scoped `orders` Realtime as invalidation and then calls authorized `get_order`/history RPCs;
 - does not manufacture fulfilment progress with a local timer.
 
+The additional scheduling snapshot fields are backward-compatible with the current customer decoder; they do not transfer operational or fulfilment authority into Flutter.
+
 ## Payment boundary
 
 There is no trusted payment processor/payment state in the current tranche. Frontends use an explicit `Pay at counter`/unpaid path and must not claim that Card, E-wallet, Student Wallet or any other processor transaction succeeded.
 
 Order completion currently means fulfilment completion, not verified payment settlement.
 
-## Validated contract evidence
+## Validation evidence
 
-Final live TASK-CLOSEOUT-001 E2E on 2026-08-17 exercised the supported boundaries without service role or direct SQL order insertion:
+TASK-CLOSEOUT-001 remains the credential-backed cross-client proof for the original order lifecycle using retained order `100006`.
 
-- authenticated customer + active member;
-- authoritative Sandwich quote at 1,290 sen;
-- `place_customer_order` created order `100006` / `7cf027dc-3ff0-4604-a3fd-c7a943aac603` as `confirmed` v1;
-- authenticated Owner Dashboard BFF observed the exact persisted record;
-- BFF transitions persisted `preparing` v2, `ready` v3 and `completed` v4;
-- customer-authorized `get_order` reads observed every changed persisted state.
+TASK-SCHEDULED-OPS-001 adds live backend verification that:
 
-This validation changes no contract semantics; it closes the applicable ADR-0004 proof gate.
+- preparation policy and per-order `prepareAt` are server-owned;
+- existing scheduled orders can be classified `overdue` without changing their persisted status;
+- idempotent retry preserves original `prepareAt`;
+- only Admin/Owner may alter preparation policy;
+- invalid preparation lead is rejected;
+- later policy changes do not rewrite accepted orders.
+
+Canonical focused regression:
+
+`supabase/tests/scheduled_order_operations_integration.sql`
+
+Result: PASS transactionally against the live project.
 
 ## Deferred downstream authority
 
-The following remain separate bounded tasks and must consume trusted order/payment state rather than browser values:
+The following remain separate bounded tasks:
 
-- payment capture/refunds
-- loyalty earning/redemption
-- inventory depletion
-- promotions/discount engine
-- tax/accounting
-- revenue/reporting
-- branch-specific scheduling/capacity and branch-scoped access
-- delivery
-- hosted production deployment/release operations
+- payment capture/refunds;
+- loyalty earning/redemption;
+- inventory depletion;
+- promotions/discount engine;
+- tax/accounting;
+- revenue/reporting;
+- branch-specific scheduling/capacity and branch-scoped access;
+- terminal/sales-point authority;
+- shifts/cash reconciliation;
+- delivery;
+- hosted production deployment/release operations.

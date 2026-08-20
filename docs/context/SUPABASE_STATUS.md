@@ -1,22 +1,25 @@
 # Supabase Status
 
-**Status date:** 2026-08-17
+**Status date:** 2026-08-20
 **Project:** Aida System
 **Ref:** `eswovqxqzfevcdwwcmuh`
 **Region:** `ap-southeast-1`
+**Health:** ACTIVE_HEALTHY
+**Postgres:** 17.6.1.155
 
 ## Current live snapshot
 
-Independently rechecked after the final cross-client E2E:
+Latest independently checked operational counts:
 
-- Auth users: 9
-- profiles: 9
-- members: 6
+- Auth users: 12
+- profiles: 12
+- members: 9
 - trusted roles: 1 owner, 1 admin, 1 staff
-- retained orders: 1
-- catalogue revision: 15
+- retained orders: 4
+- catalogue revision: 42
+- public base tables: 14
 
-These are dated operational counts, not schema invariants. Employee identities are intentionally not member/loyalty rows.
+These counts are dated operational observations, not schema invariants.
 
 ## Identity/membership
 
@@ -26,11 +29,11 @@ Trusted identity/member objects remain live with forced RLS:
 - `members`
 - `student_verifications`
 
-Trusted role helpers and Admin/owner member-directory functions remain unchanged. Physical Android signup created trusted Auth/profile/member rows and the resulting member was visible through protected Dashboard Members.
+The staff demo identity `staff.nora.demo@aida.test` is confirmed and active with trusted `app_role=staff`; the account is not disabled/banned/deleted. Authentication succeeds. Current staff POS trouble is post-auth Dashboard flow, not missing Auth identity.
 
 ## Catalogue
 
-Live catalogue objects:
+Live catalogue objects remain:
 
 - `catalogue_categories`
 - `catalogue_items`
@@ -39,16 +42,17 @@ Live catalogue objects:
 - `catalogue_revision`
 - `catalogue_audit_events`
 
-Validated catalogue baseline remains 4 categories, 16 items, 27 variants and 27 compatible add-on links. Catalogue revision was 15 at the closeout validation point. A real Owner price mutation was observed by the installed customer app through revision invalidation and authoritative refetch.
+Catalogue revision is currently 42. Supabase remains authoritative for publication, availability, IDs, variants, add-on compatibility and integer-sen pricing.
 
 ## Orders and scheduling
 
-Canonical customer-repository migrations:
+Canonical applied order migrations include:
 
 1. `20260812182212_create_authoritative_orders_and_scheduling.sql`
 2. `20260812183029_index_order_foreign_keys.sql`
+3. `20260820151421_add_scheduled_order_preparation_window.sql`
 
-Live tables:
+Live order/scheduling tables remain:
 
 - `order_schedule_settings`
 - `orders`
@@ -56,9 +60,68 @@ Live tables:
 - `order_line_addons`
 - `order_events`
 
-All five use RLS + FORCE RLS.
+All five retain RLS + FORCE RLS where defined by the accepted order architecture. Ordinary authenticated clients have no direct INSERT/UPDATE authority over order commercial tables; controlled writes remain behind the accepted RPC helpers.
 
-Live public RPC contract:
+### Current policy
+
+```text
+timezone                 Asia/Kuala_Lumpur
+schedule_enabled         true
+minimum_lead_minutes     15
+preparation_lead_minutes 15
+slot_interval_minutes    15
+maximum_advance_days     7
+```
+
+`minimum_lead_minutes` controls the earliest customer-selectable pickup. `preparation_lead_minutes` is separate operational authority used to snapshot when staff should begin a scheduled order.
+
+Invariant:
+
+```text
+0 <= preparation_lead_minutes <= minimum_lead_minutes
+```
+
+### Scheduled-order operational authority
+
+`orders` now stores server-owned `prepare_at` for scheduled orders:
+
+```text
+prepare_at = requested_pickup_at - preparation_lead_minutes
+```
+
+The value is snapshotted at placement and protected from later commercial-field mutation. A future policy change does not rewrite an accepted order.
+
+Authorized order snapshots additionally expose:
+
+```text
+prepareAt
+serverNow
+scheduleState = future | due | overdue | null
+```
+
+For persisted `status=scheduled`:
+
+- pickup already passed -> `overdue`
+- preparation time reached -> `due`
+- otherwise -> `future`
+
+This operational classification does **not** auto-transition fulfilment status. Only staff-or-above may persist the existing legal status transitions with expected `statusVersion`.
+
+### Current retained orders
+
+The original closeout order `100006` remains completed evidence.
+
+Three later scheduled customer orders remain persisted `scheduled` and are now correctly exposed as operationally `overdue`:
+
+- `100007`
+- `100008`
+- `100009`
+
+Their `prepare_at` values were backfilled from the current 15-minute preparation lead without manufacturing a fulfilment transition.
+
+## Public RPC contract
+
+Current order RPC boundary includes:
 
 - `get_ordering_policy()`
 - `quote_order(jsonb)`
@@ -70,70 +133,58 @@ Live public RPC contract:
 - `transition_order_status(uuid,text,bigint,text)`
 - `save_ordering_policy(jsonb)`
 
-Ordinary authenticated clients have no direct INSERT/UPDATE authority over order commercial tables. Controlled persistence occurs through the accepted RPC boundary.
-
-Current schedule policy:
-
-```text
-timezone                 Asia/Kuala_Lumpur
-schedule_enabled         true
-minimum_lead_minutes     15
-slot_interval_minutes    15
-maximum_advance_days     7
-```
-
-Branch-specific opening hours, closures and capacity are not modeled.
-
-## Final retained E2E order
-
-Order `100006` / `7cf027dc-3ff0-4604-a3fd-c7a943aac603` was created on 2026-08-17 through the supported authenticated customer placement boundary.
-
-Verified properties:
-
-- source: customer
-- fulfilment: ASAP
-- authoritative total: 1,290 sen
-- initial persisted status: `confirmed`, version 1
-- final persisted status: `completed`, version 4
-- event sequence: created/confirmed → preparing → ready → completed
-- customer-owned `get_order` reads observed preparing, ready and completed
-- Dashboard Owner BFF queue/detail observed the same persisted record
-
-The order remains intentionally retained as TASK-CLOSEOUT-001 evidence. It was not inserted directly with SQL and no service-role credential was used.
+`get_ordering_policy()` now includes `preparationLeadMinutes`; Admin/Owner `save_ordering_policy` accepts it subject to the bounds above.
 
 ## Realtime
 
-`supabase_realtime` publishes the intended mutable signals:
+`supabase_realtime` still publishes the intended mutable signals:
 
 - `catalogue_revision`
 - `orders`
 
-Catalogue clients re-fetch the authoritative catalogue after revision changes. Customer order clients re-fetch an authorized order snapshot after an order-header change. Immutable order line/add-on snapshots are not separately published.
+Customer clients treat Realtime as invalidation and re-fetch authorized snapshots. Dashboard staff keeps the same-origin BFF/polling model because employee bearer tokens remain HttpOnly.
 
 ## Regression status
 
-Canonical Auth/member, catalogue and order SQL regressions pass transactionally against the live project. Synthetic test data is rolled back and does not alter the retained live population.
+Canonical existing Auth/member, catalogue and order regressions remain the accepted baseline.
 
-The order regression proves server pricing, compatibility checks, scheduling validation, trusted customer/member derivation, idempotency, owner-scoped reads, absence of direct customer order DML/status authority, staff queue/POS capability, versioned legal transitions and Admin-only schedule-policy mutation.
+TASK-SCHEDULED-OPS-001 adds:
+
+`supabase/tests/scheduled_order_operations_integration.sql`
+
+Live transactional result: PASS.
+
+It proves preparation schema/policy bounds, immutable scheduled `prepareAt`, backend-derived `scheduleState`, idempotent retry preservation, Admin policy mutation and validation, scheduled POS placement against the current policy, and non-rewriting of existing orders after policy changes.
 
 ## Security advisor
 
-Current security advisor state has exactly one WARN:
+Current security advisor has exactly one WARN:
 
 - `auth_leaked_password_protection` — **Leaked Password Protection Disabled**
 
-Remediation: <https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection>
+Remediation: https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection
 
-Historical zero-lint results remain valid for their earlier dates but are not the current advisor state.
+No new security advisor finding was introduced by TASK-SCHEDULED-OPS-001.
 
-## Public schema inventory
+## Performance advisor
 
-Current active public base tables:
+Current findings are INFO-only unused-index notices on the small dataset. The new `orders_scheduled_prepare_idx` is reported unused immediately after creation, which is expected until the operational queue generates sufficient reads. Do not remove it merely to clear an INFO result.
 
-- 3 identity/member tables
-- 6 catalogue tables
-- 5 order/scheduling tables
+## Explicitly deferred backend authority
 
-Total: 14 public base tables within the accepted shared-backend architecture.
+Still not modeled as trusted live backend domains:
 
-Historical pre-order migration filename/live-version differences remain documented history and are not current schema drift. Applied historical migrations must not be rewritten.
+- branch-specific opening hours/closures/capacity
+- authoritative branch assignment and branch-scoped order queues
+- terminal enrolment/credentials
+- sales-point authority
+- shifts/cash reconciliation
+- real payment/refunds
+- loyalty earning/redemption
+- inventory depletion
+- promotions/discount engine
+- tax/accounting/reporting
+- delivery
+- hosted production operations
+
+Dashboard code must not fabricate these domains to unblock UI.

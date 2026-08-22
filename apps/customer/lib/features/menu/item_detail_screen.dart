@@ -116,9 +116,9 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
           ),
         );
 
-    // Adding an item completes this configuration task. Returning immediately
-    // to Menu makes configuring several different drinks much faster and avoids
-    // accidental duplicate adds from a stale detail screen.
+    // Configuration is complete after the cart mutation. Return immediately to
+    // Menu so the customer can configure the next drink without an extra back
+    // action or a stale detail screen that can accidentally duplicate the line.
     Navigator.of(context).pop();
   }
 
@@ -149,28 +149,28 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
             top: 0,
             left: 0,
             right: 0,
-            height: 340,
+            height: 360,
             child: _Hero(item: item),
           ),
           Positioned.fill(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(0, 285, 0, 126),
+              padding: const EdgeInsets.fromLTRB(0, 300, 0, 130),
               child: Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
                   color: AidaColors.cardWhite,
                   borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(36),
+                    top: Radius.circular(40),
                   ),
                   boxShadow: [
                     BoxShadow(
                       color: AidaColors.espresso.withValues(alpha: 0.1),
-                      blurRadius: 28,
+                      blurRadius: 32,
                       offset: const Offset(0, -8),
                     ),
                   ],
                 ),
-                padding: const EdgeInsets.fromLTRB(22, 26, 22, 30),
+                padding: const EdgeInsets.fromLTRB(22, 28, 22, 30),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -200,7 +200,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                       ),
                     ),
                     if (availableVariants.isNotEmpty) ...[
-                      const SizedBox(height: 26),
+                      const SizedBox(height: 28),
                       const _SectionLabel('Size'),
                       const SizedBox(height: 12),
                       Wrap(
@@ -218,7 +218,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                       ),
                     ],
                     for (final group in item.customizationGroups) ...[
-                      const SizedBox(height: 26),
+                      const SizedBox(height: 28),
                       _SectionLabel(group.name),
                       const SizedBox(height: 12),
                       Wrap(
@@ -265,7 +265,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                           }),
                         ),
                     ],
-                    const SizedBox(height: 26),
+                    const SizedBox(height: 28),
                     const _SectionLabel('Anything else?'),
                     const SizedBox(height: 10),
                     TextField(
@@ -434,44 +434,53 @@ class _ChoiceTile extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Material(
-    color: selected
-        ? AidaColors.latte.withValues(alpha: 0.52)
-        : AidaColors.cream,
-    borderRadius: BorderRadius.circular(18),
-    child: InkWell(
-      onTap: onTap,
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    selected: selected,
+    label: label,
+    child: Material(
+      color: selected
+          ? AidaColors.latte.withValues(alpha: 0.52)
+          : AidaColors.cream,
       borderRadius: BorderRadius.circular(18),
-      child: Container(
-        constraints: const BoxConstraints(minWidth: 98),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: selected ? AidaColors.coffee : AidaColors.latte,
-            width: selected ? 1.5 : 1,
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: AidaType.sans(
-                size: 12.5,
-                weight: selected ? FontWeight.w800 : FontWeight.w600,
-                color: selected ? AidaColors.coffee : AidaColors.textPrimary,
-              ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          constraints: const BoxConstraints(minWidth: 98, minHeight: 48),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: selected ? AidaColors.coffee : AidaColors.latte,
+              width: selected ? 1.5 : 1,
             ),
-            if (priceDeltaSen != 0) ...[
-              const SizedBox(height: 2),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
               Text(
-                '${priceDeltaSen > 0 ? '+' : ''}${Money.fromSen(priceDeltaSen).formatted}',
-                style: AidaType.sans(size: 10.5, color: AidaColors.textMuted),
+                label,
+                textAlign: TextAlign.center,
+                style: AidaType.sans(
+                  size: 12.5,
+                  weight: selected ? FontWeight.w800 : FontWeight.w600,
+                  color: selected ? AidaColors.coffee : AidaColors.textPrimary,
+                ),
               ),
+              if (priceDeltaSen != 0) ...[
+                const SizedBox(height: 2),
+                Text(
+                  '${priceDeltaSen > 0 ? '+' : ''}${Money.fromSen(priceDeltaSen).formatted}',
+                  style: AidaType.sans(
+                    size: 10.5,
+                    color: AidaColors.textMuted,
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     ),
@@ -490,40 +499,45 @@ class _AddOnRow extends StatelessWidget {
   final ValueChanged<bool> onChanged;
 
   @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: () => onChanged(!selected),
-    borderRadius: BorderRadius.circular(14),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
-        children: [
-          Icon(
-            selected
-                ? Icons.check_box_rounded
-                : Icons.check_box_outline_blank_rounded,
-            size: 23,
-            color: selected ? AidaColors.coffee : AidaColors.latte,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              addOn.name,
-              style: AidaType.sans(
-                size: 13.5,
-                weight: FontWeight.w600,
-                color: AidaColors.textPrimary,
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    checked: selected,
+    label: addOn.name,
+    child: InkWell(
+      onTap: () => onChanged(!selected),
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
+            Icon(
+              selected
+                  ? Icons.check_box_rounded
+                  : Icons.check_box_outline_blank_rounded,
+              size: 23,
+              color: selected ? AidaColors.coffee : AidaColors.latte,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                addOn.name,
+                style: AidaType.sans(
+                  size: 13.5,
+                  weight: FontWeight.w600,
+                  color: AidaColors.textPrimary,
+                ),
               ),
             ),
-          ),
-          Text(
-            '+${addOn.price.formatted}',
-            style: AidaType.sans(
-              size: 12.5,
-              weight: FontWeight.w700,
-              color: AidaColors.coffee,
+            Text(
+              '+${addOn.price.formatted}',
+              style: AidaType.sans(
+                size: 12.5,
+                weight: FontWeight.w700,
+                color: AidaColors.coffee,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     ),
   );
@@ -547,81 +561,68 @@ class _BottomBar extends StatelessWidget {
   final VoidCallback onAddToCart;
 
   @override
-  Widget build(BuildContext context) => SafeArea(
-    top: false,
-    child: Container(
-      padding: const EdgeInsets.fromLTRB(18, 12, 18, 14),
-      decoration: BoxDecoration(
-        color: AidaColors.cardWhite,
-        boxShadow: [
-          BoxShadow(
-            color: AidaColors.espresso.withValues(alpha: 0.12),
-            blurRadius: 20,
-            offset: const Offset(0, -5),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          _RoundControl(
-            icon: Icons.remove_rounded,
-            onTap: onDecrement,
-          ),
-          SizedBox(
-            width: 42,
-            child: Text(
-              '$quantity',
-              textAlign: TextAlign.center,
-              style: AidaType.sans(
-                size: 15,
-                weight: FontWeight.w800,
-                color: AidaColors.textPrimary,
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        child: Row(
+          children: [
+            Container(
+              height: 56,
+              decoration: BoxDecoration(
+                color: AidaColors.cardWhite,
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(color: AidaColors.latte),
+              ),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: available ? onDecrement : null,
+                    icon: const Icon(Icons.remove_rounded),
+                  ),
+                  Text(
+                    '$quantity',
+                    style: AidaType.sans(
+                      size: 14,
+                      weight: FontWeight.w800,
+                      color: AidaColors.textPrimary,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: available ? onIncrement : null,
+                    icon: const Icon(Icons.add_rounded),
+                  ),
+                ],
               ),
             ),
-          ),
-          _RoundControl(icon: Icons.add_rounded, onTap: onIncrement),
-          const SizedBox(width: 14),
-          Expanded(
-            child: FilledButton(
-              onPressed: available ? onAddToCart : null,
-              style: FilledButton.styleFrom(
-                backgroundColor: AidaColors.coffee,
-                foregroundColor: AidaColors.cream,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
+            const SizedBox(width: 10),
+            Expanded(
+              child: NeumorphicControl(
+                height: 56,
+                accent: available,
+                onTap: available ? onAddToCart : null,
+                child: Center(
+                  child: Text(
+                    available
+                        ? 'Add to cart · ${total.formatted}'
+                        : 'Unavailable',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AidaType.sans(
+                      size: 15,
+                      weight: FontWeight.w700,
+                      color: available
+                          ? AidaColors.cream
+                          : AidaColors.textMuted,
+                    ),
+                  ),
                 ),
               ),
-              child: Text(
-                available ? 'Add to cart · ${total.formatted}' : 'Unavailable',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AidaType.sans(size: 14, weight: FontWeight.w800),
-              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
-}
-
-class _RoundControl extends StatelessWidget {
-  const _RoundControl({required this.icon, required this.onTap});
-
-  final IconData icon;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) => IconButton(
-    onPressed: onTap,
-    icon: Icon(icon, size: 20),
-    color: AidaColors.coffee,
-    disabledColor: AidaColors.latte,
-    style: IconButton.styleFrom(
-      backgroundColor: AidaColors.cream,
-      minimumSize: const Size(42, 42),
-      side: BorderSide(color: AidaColors.latte),
-    ),
-  );
+    );
+  }
 }

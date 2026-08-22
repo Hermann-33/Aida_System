@@ -1,6 +1,7 @@
 import 'package:aida_customer/core/error/result.dart';
 import 'package:aida_customer/domain/model/catalogue_snapshot.dart';
 import 'package:aida_customer/domain/model/menu_category.dart';
+import 'package:aida_customer/domain/model/menu_customization.dart';
 import 'package:aida_customer/domain/model/menu_item.dart';
 import 'package:aida_customer/domain/model/menu_variant.dart';
 import 'package:aida_customer/domain/model/money.dart';
@@ -42,8 +43,65 @@ class TestCatalogueRepository implements CatalogueRepository {
     sortOrder: 30,
   );
 
+  static const hot = MenuCustomizationOption(
+    id: 'opt_hot',
+    code: 'hot',
+    label: 'Hot',
+    priceDeltaSen: 0,
+    isDefault: true,
+    isAvailable: true,
+    sortOrder: 10,
+  );
+
+  static const iced = MenuCustomizationOption(
+    id: 'opt_iced',
+    code: 'iced',
+    label: 'Iced',
+    priceDeltaSen: 100,
+    isDefault: false,
+    isAvailable: true,
+    sortOrder: 20,
+  );
+
+  static const regularSweet = MenuCustomizationOption(
+    id: 'opt_regular',
+    code: 'regular',
+    label: 'Regular',
+    priceDeltaSen: 0,
+    isDefault: true,
+    isAvailable: true,
+    sortOrder: 10,
+  );
+
+  static const lessSweet = MenuCustomizationOption(
+    id: 'opt_less_sweet',
+    code: 'less-sweet',
+    label: 'Less sweet',
+    priceDeltaSen: 0,
+    isDefault: false,
+    isAvailable: true,
+    sortOrder: 20,
+  );
+
+  static const temperature = MenuCustomizationGroup(
+    id: 'grp_temperature',
+    code: 'temperature',
+    name: 'Temperature',
+    sortOrder: 10,
+    options: [hot, iced],
+  );
+
+  static const sweetness = MenuCustomizationGroup(
+    id: 'grp_sweetness',
+    code: 'sweetness',
+    name: 'Sweetness',
+    sortOrder: 20,
+    options: [regularSweet, lessSweet],
+  );
+
   static const drinkVariants = [small, medium, large];
   static const drinkAddOns = ['p_shot', 'p_oat', 'p_cream'];
+  static const drinkCustomizationGroups = [temperature, sweetness];
 
   static const latte = MenuItem(
     id: 'p_scl',
@@ -57,8 +115,10 @@ class TestCatalogueRepository implements CatalogueRepository {
     isFeatured: true,
     isBestSeller: true,
     isStudentEligible: true,
+    isDrink: true,
     variants: drinkVariants,
     compatibleAddOnIds: drinkAddOns,
+    customizationGroups: drinkCustomizationGroups,
     volumeMl: 240,
   );
 

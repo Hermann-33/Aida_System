@@ -1,3 +1,4 @@
+import 'menu_customization.dart';
 import 'menu_variant.dart';
 import 'money.dart';
 
@@ -17,8 +18,10 @@ class MenuItem {
     this.isFeatured = false,
     this.isBestSeller = false,
     this.isStudentEligible = false,
+    this.isDrink = false,
     this.compatibleAddOnIds = const [],
     this.variants = const [],
+    this.customizationGroups = const [],
     this.volumeMl,
   });
 
@@ -42,12 +45,20 @@ class MenuItem {
   final bool isBestSeller;
   final bool isStudentEligible;
 
-  /// Server-defined add-on item IDs valid for this product.
+  /// True when this product participates in the standard drink option groups
+  /// (currently Temperature and Sweetness). The backend owns this classification.
+  final bool isDrink;
+
+  /// Server-defined add-on item IDs valid for this product. Add-ons are selected
+  /// on an individual cart line; they are not independent customer menu rows.
   final List<String> compatibleAddOnIds;
 
   /// Server-defined variants such as Small / Medium / Large. Empty means the
   /// item has no variant choice.
   final List<MenuVariant> variants;
+
+  /// Required single-choice groups configured by Admin for this drink.
+  final List<MenuCustomizationGroup> customizationGroups;
 
   final int? volumeMl;
 

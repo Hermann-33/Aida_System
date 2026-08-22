@@ -117,9 +117,6 @@ class _CartScreenState extends ConsumerState<CartScreen> {
   }
 }
 
-/// "N items" pill next to the title, matching the floating cart bar's own
-/// singular/plural wording so the count never reads differently in two
-/// places.
 class _CountBadge extends StatelessWidget {
   const _CountBadge({required this.count});
 
@@ -183,11 +180,6 @@ class _EmptyCart extends StatelessWidget {
   }
 }
 
-/// One line item — thumbnail, name, price, and a quantity pill, sitting flat
-/// on the page (no card box) with size/add-on/note details folded in as
-/// captions underneath the price rather than a separate row, since this
-/// app's real ordering options (unlike a plain candy-shop cart) can't just
-/// be dropped. Swipe left to remove — see [Dismissible] below.
 class _CartLineCard extends StatelessWidget {
   const _CartLineCard({
     required this.index,
@@ -202,19 +194,19 @@ class _CartLineCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final addOns = addOnTotalFor(line.addOnIds, menu);
-    final lineTotal = line.lineTotal(addOns);
+    final optionTotal = customizationTotalFor(line);
+    final lineTotal = line.lineTotal(addOns, optionTotal);
     final configSummary = line.configSummary(menu);
+    final normalizedAddOns = [...line.addOnIds]..sort();
+    final normalizedOptions = [...line.optionValueIds]..sort();
 
     return Consumer(
       builder: (context, ref, _) {
         final notifier = ref.read(cartProvider.notifier);
 
         return Dismissible(
-          // Identity, not position: the index shifts under a line once any
-          // earlier line is removed, but the item/size/add-ons/note tuple
-          // (the same identity `sameConfigurationAs` uses) doesn't.
           key: ValueKey(
-            '${line.item.id}_${line.size?.id}_${line.addOnIds.join(',')}_${line.note}',
+            '${line.item.id}_${line.size?.id}_${normalizedAddOns.join(',')}_${normalizedOptions.join(',')}_${line.note}',
           ),
           direction: DismissDirection.endToStart,
           onDismissed: (_) => notifier.removeAt(index),
@@ -293,8 +285,6 @@ class _CartLineCard extends StatelessWidget {
   }
 }
 
-/// Revealed as a line is swiped left — soft, not a jarring solid-red bar, to
-/// match the flat/smooth style the rest of the row already carries.
 class _DeleteReveal extends StatelessWidget {
   const _DeleteReveal();
 
@@ -385,9 +375,6 @@ class _QtyButton extends StatelessWidget {
   }
 }
 
-/// Promo code affordance shown in the reference. There is no promo/coupon
-/// system in this app — tapping it says so plainly rather than doing
-/// nothing, which would read as a bug rather than an unbuilt feature.
 class _PromoRow extends StatelessWidget {
   const _PromoRow();
 
@@ -441,7 +428,6 @@ class _PromoRow extends StatelessWidget {
   }
 }
 
-/// Local catalogue estimate and entry to the authoritative quote step.
 class _CheckoutBar extends StatelessWidget {
   const _CheckoutBar({required this.subtotal, required this.onCheckout});
 

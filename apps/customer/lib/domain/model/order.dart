@@ -32,9 +32,10 @@ class OrderingPolicy {
     timezone: json['timezone'] as String,
     scheduleEnabled: json['scheduleEnabled'] == true,
     minimumLeadMinutes: _int(json['minimumLeadMinutes']),
-    preparationLeadMinutes: json['preparationLeadMinutes'] == null
-        ? 0
-        : _int(json['preparationLeadMinutes']),
+    preparationLeadMinutes:
+        json['preparationLeadMinutes'] == null
+            ? 0
+            : _int(json['preparationLeadMinutes']),
     slotIntervalMinutes: _int(json['slotIntervalMinutes']),
     maximumAdvanceDays: _int(json['maximumAdvanceDays']),
   );
@@ -209,28 +210,33 @@ class OrderLineSnapshot {
       sku: json['sku'] as String,
       name: json['name'] as String,
       basePrice: Money.fromSen(_int(json['basePriceSen'])),
-      variant: variant is Map
-          ? OrderVariantSnapshot.fromJson(Map<String, dynamic>.from(variant))
-          : null,
-      addOns: addOns is List
-          ? addOns
-              .map(
-                (value) => OrderAddOnSnapshot.fromJson(
-                  Map<String, dynamic>.from(value as Map),
-                ),
+      variant:
+          variant is Map
+              ? OrderVariantSnapshot.fromJson(
+                Map<String, dynamic>.from(variant),
               )
-              .toList(growable: false)
-          : const [],
+              : null,
+      addOns:
+          addOns is List
+              ? addOns
+                  .map(
+                    (value) => OrderAddOnSnapshot.fromJson(
+                      Map<String, dynamic>.from(value as Map),
+                    ),
+                  )
+                  .toList(growable: false)
+              : const [],
       addOnTotal: Money.fromSen(_int(json['addOnTotalSen'])),
-      options: options is List
-          ? options
-              .map(
-                (value) => OrderOptionSnapshot.fromJson(
-                  Map<String, dynamic>.from(value as Map),
-                ),
-              )
-              .toList(growable: false)
-          : const [],
+      options:
+          options is List
+              ? options
+                  .map(
+                    (value) => OrderOptionSnapshot.fromJson(
+                      Map<String, dynamic>.from(value as Map),
+                    ),
+                  )
+                  .toList(growable: false)
+              : const [],
       optionTotal: Money.fromSen(
         json['optionTotalSen'] == null ? 0 : _int(json['optionTotalSen']),
       ),

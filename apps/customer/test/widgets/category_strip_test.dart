@@ -21,12 +21,16 @@ void main() {
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(
-      MaterialApp(home: Scaffold(body: const CategoryStrip(categories: categories))),
+      MaterialApp(
+        home: Scaffold(body: const CategoryStrip(categories: categories)),
+      ),
     );
     await tester.pumpAndSettle();
   }
 
-  testWidgets('centres the row with no scrolling when everything fits', (tester) async {
+  testWidgets('centres the row with no scrolling when everything fits', (
+    tester,
+  ) async {
     // 4 tiles at CategoryChip.width plus gaps is ~436; give it generous room.
     await pump(tester, 900);
 
@@ -38,7 +42,9 @@ void main() {
     }
   });
 
-  testWidgets('scrolls when the tiles do not fit the available width', (tester) async {
+  testWidgets('scrolls when the tiles do not fit the available width', (
+    tester,
+  ) async {
     // Narrower than the ~436 four tiles need.
     await pump(tester, 320);
 

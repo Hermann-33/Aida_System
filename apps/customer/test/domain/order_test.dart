@@ -12,7 +12,10 @@ void main() {
     expect(policy.minimumLeadMinutes, 30);
     expect(quote.total.sen, 3480);
     expect(quote.lines.single.unitPrice.sen, 1740);
-    expect(quote.lines.single.configurationLabel, 'Large · Extra Shot');
+    expect(
+      quote.lines.single.configurationLabel,
+      'Large · Temperature: Hot · Sweetness: Less sweet · Extra Shot',
+    );
   });
 
   test('serializes only trusted ASAP selections', () {
@@ -23,6 +26,7 @@ void main() {
           itemId: 'item-id',
           variantId: 'variant-id',
           addOnIds: ['addon-id'],
+          optionValueIds: ['temperature-hot', 'sweetness-regular'],
           quantity: 2,
           note: ' less ice ',
         ),
@@ -36,11 +40,14 @@ void main() {
           'itemId': 'item-id',
           'variantId': 'variant-id',
           'addOnIds': ['addon-id'],
+          'optionValueIds': ['temperature-hot', 'sweetness-regular'],
           'quantity': 2,
           'note': 'less ice',
         },
       ],
     });
+    expect(request.toJson().toString(), isNot(contains('price')));
+    expect(request.toJson().toString(), isNot(contains('total')));
   });
 
   test('serializes scheduled pickup in UTC', () {

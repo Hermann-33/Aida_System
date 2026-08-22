@@ -19,31 +19,35 @@ class SupabaseCatalogueRepository implements CatalogueRepository {
   Future<Result<CatalogueSnapshot>> getCatalogue() async {
     try {
       final raw = await _client.rpc('get_catalogue');
-      if (raw is! Map) {
-        return const Err(ServerFailure('Catalogue response was invalid'));
-      }
-      final json = Map<String, dynamic>.from(raw);
-      final categoriesRaw = json['categories'];
-      final itemsRaw = json['items'];
-      if (categoriesRaw is! List || itemsRaw is! List) {
-        return const Err(ServerFailure('Catalogue response was incomplete'));
-      }
-
-      final categories = categoriesRaw
-          .map((value) => _category(Map<String, dynamic>.from(value as Map)))
-          .toList(growable: false);
-      final items = itemsRaw
-          .map((value) => _item(Map<String, dynamic>.from(value as Map)))
-          .toList(growable: false);
-
-      return Ok(CatalogueSnapshot(
-        revision: _int(json['revision']),
-        categories: categories,
-        items: items,
-      ));
+      return Ok(decodeCatalogue(raw));
     } catch (_) {
       return const Err(ServerFailure('Unable to load the menu'));
     }
+  }
+
+  /// Decodes the public `get_catalogue()` payload without granting it any
+  /// authority beyond presentation. Order quote/place still revalidate every
+  /// selected ID and calculate the final commercial result server-side.
+  static CatalogueSnapshot decodeCatalogue(Object? raw) {
+    if (raw is! Map) {
+      throw const FormatException('Catalogue response was invalid');
+    }
+    final json = Map<String, dynamic>.from(raw);
+    final categoriesRaw = json['categories'];
+    final itemsRaw = json['items'];
+    if (categoriesRaw is! List || itemsRaw is! List) {
+      throw const FormatException('Catalogue response was incomplete');
+    }
+
+    return CatalogueSnapshot(
+      revision: _int(json['revision']),
+      categories: categoriesRaw
+          .map((value) => _category(Map<String, dynamic>.from(value as Map)))
+          .toList(growable: false),
+      items: itemsRaw
+          .map((value) => _item(Map<String, dynamic>.from(value as Map)))
+          .toList(growable: false),
+    );
   }
 
   @override
@@ -58,11 +62,11 @@ class SupabaseCatalogueRepository implements CatalogueRepository {
   }
 
   static MenuCategory _category(Map<String, dynamic> json) => MenuCategory(
-        id: _string(json['id']),
-        name: _string(json['name']),
-        itemCount: _int(json['itemCount']),
-        imageUrl: _nullableString(json['imageUrl']),
-      );
+    id: _string(json['id']),
+    name: _string(json['name']),
+    itemCount: _int(json['itemCount']),
+    imageUrl: _nullableString(json['imageUrl']),
+  );
 
   static MenuItem _item(Map<String, dynamic> json) {
     final variantsRaw = json['variants'];
@@ -84,64 +88,73 @@ class SupabaseCatalogueRepository implements CatalogueRepository {
       isDrink: json['isDrink'] == true,
       imageUrl: _nullableString(json['imageUrl']),
       volumeMl: json['volumeMl'] == null ? null : _int(json['volumeMl']),
-      variants: variantsRaw is List
-          ? variantsRaw
-              .map((value) => _variant(Map<String, dynamic>.from(value as Map)))
-              .toList(growable: false)
-          : const [],
-      compatibleAddOnIds: addOnsRaw is List
-          ? addOnsRaw.map(_string).toList(growable: false)
-          : const [],
-      customizationGroups: groupsRaw is List
-          ? groupsRaw
-              .map((value) => _customizationGroup(
-                    Map<String, dynamic>.from(value as Map),
-                  ))
-              .toList(growable: false)
-          : const [],
+      variants:
+          variantsRaw is List
+              ? variantsRaw
+                  .map(
+                    (value) =>
+                        _variant(Map<String, dynamic>.from(value as Map)),
+                  )
+                  .toList(growable: false)
+              : const [],
+      compatibleAddOnIds:
+          addOnsRaw is List
+              ? addOnsRaw.map(_string).toList(growable: false)
+              : const [],
+      customizationGroups:
+          groupsRaw is List
+              ? groupsRaw
+                  .map(
+                    (value) => _customizationGroup(
+                      Map<String, dynamic>.from(value as Map),
+                    ),
+                  )
+                  .toList(growable: false)
+              : const [],
     );
   }
 
   static MenuVariant _variant(Map<String, dynamic> json) => MenuVariant(
-        id: _string(json['id']),
-        code: _string(json['code']),
-        label: _string(json['label']),
-        priceDeltaSen: _int(json['priceDeltaSen']),
-        isDefault: json['isDefault'] == true,
-        isAvailable: json['isAvailable'] == true,
-        sortOrder: _int(json['sortOrder']),
-      );
+    id: _string(json['id']),
+    code: _string(json['code']),
+    label: _string(json['label']),
+    priceDeltaSen: _int(json['priceDeltaSen']),
+    isDefault: json['isDefault'] == true,
+    isAvailable: json['isAvailable'] == true,
+    sortOrder: _int(json['sortOrder']),
+  );
 
-  static MenuCustomizationGroup _customizationGroup(
-    Map<String, dynamic> json,
-  ) {
+  static MenuCustomizationGroup _customizationGroup(Map<String, dynamic> json) {
     final optionsRaw = json['options'];
     return MenuCustomizationGroup(
       id: _string(json['id']),
       code: _string(json['code']),
       name: _string(json['name']),
       sortOrder: _int(json['sortOrder']),
-      options: optionsRaw is List
-          ? optionsRaw
-              .map((value) => _customizationOption(
-                    Map<String, dynamic>.from(value as Map),
-                  ))
-              .toList(growable: false)
-          : const [],
+      options:
+          optionsRaw is List
+              ? optionsRaw
+                  .map(
+                    (value) => _customizationOption(
+                      Map<String, dynamic>.from(value as Map),
+                    ),
+                  )
+                  .toList(growable: false)
+              : const [],
     );
   }
 
   static MenuCustomizationOption _customizationOption(
     Map<String, dynamic> json,
   ) => MenuCustomizationOption(
-        id: _string(json['id']),
-        code: _string(json['code']),
-        label: _string(json['label']),
-        priceDeltaSen: _int(json['priceDeltaSen']),
-        isDefault: json['isDefault'] == true,
-        isAvailable: json['isAvailable'] == true,
-        sortOrder: _int(json['sortOrder']),
-      );
+    id: _string(json['id']),
+    code: _string(json['code']),
+    label: _string(json['label']),
+    priceDeltaSen: _int(json['priceDeltaSen']),
+    isDefault: json['isDefault'] == true,
+    isAvailable: json['isAvailable'] == true,
+    sortOrder: _int(json['sortOrder']),
+  );
 
   static String _string(Object? value) => value?.toString() ?? '';
 

@@ -20,7 +20,8 @@ final _fixedNow = DateTime(2026, 1, 16, 14);
 Future<void> _loadFonts() async {
   Future<void> load(String family, String path) async {
     final bytes = await File(path).readAsBytes();
-    await (FontLoader(family)..addFont(Future.value(ByteData.sublistView(bytes)))).load();
+    await (FontLoader(family)
+      ..addFont(Future.value(ByteData.sublistView(bytes)))).load();
   }
 
   await load(AidaType.display, 'assets/fonts/${AidaType.display}.ttf');
@@ -67,14 +68,22 @@ void main() {
   testWidgets('golden: home', (tester) async {
     await withClock(Clock.fixed(_fixedNow), () async {
       await pumpApp(tester);
-      await expectLater(find.byType(AppShell), matchesGoldenFile('goldens/home.png'));
+      await expectLater(
+        find.byType(AppShell),
+        matchesGoldenFile('goldens/home.png'),
+      );
     });
   });
 
-  testWidgets('golden: home scrolled (categories + popular picks)', (tester) async {
+  testWidgets('golden: home scrolled (categories + popular picks)', (
+    tester,
+  ) async {
     await withClock(Clock.fixed(_fixedNow), () async {
       await pumpApp(tester);
-      await tester.drag(find.byKey(const Key('home_scroll')), const Offset(0, -520));
+      await tester.drag(
+        find.byKey(const Key('home_scroll')),
+        const Offset(0, -520),
+      );
       await tester.pumpAndSettle();
       await expectLater(
         find.byType(AppShell),

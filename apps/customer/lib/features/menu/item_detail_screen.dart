@@ -110,9 +110,10 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
             addOnIds: _selectedAddOnIds.toList(growable: false),
             optionValueIds: _selectedOptionValueIds.toList(growable: false),
             quantity: _quantity,
-            note: _noteController.text.trim().isEmpty
-                ? null
-                : _noteController.text.trim(),
+            note:
+                _noteController.text.trim().isEmpty
+                    ? null
+                    : _noteController.text.trim(),
           ),
         );
 
@@ -138,6 +139,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
     final configuredPrice = _configuredUnitPrice(menu);
     final total = Money.fromSen(configuredPrice.sen * _quantity);
     final canAdd = item.isAvailable && _requiredSelectionsComplete;
+    final topControlInset = MediaQuery.paddingOf(context).top + 64;
 
     return Scaffold(
       backgroundColor: AidaColors.cream,
@@ -150,9 +152,13 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
             height: 360,
             child: _Hero(item: item),
           ),
-          Positioned.fill(
+          Positioned(
+            top: topControlInset,
+            left: 0,
+            right: 0,
+            bottom: 0,
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(0, 300, 0, 130),
+              padding: EdgeInsets.fromLTRB(0, 300 - topControlInset, 0, 130),
               child: Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
@@ -231,6 +237,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                               label: variant.label,
                               priceDeltaSen: variant.priceDeltaSen,
                               selected: variant.id == _size?.id,
+                              enabled: true,
                               onTap: () => setState(() => _size = variant),
                             ),
                         ],
@@ -244,7 +251,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                         spacing: 10,
                         runSpacing: 10,
                         children: [
-                          for (final option in group.availableOptions)
+                          for (final option in group.options)
                             _ChoiceTile(
                               key: ValueKey(
                                 'drink_option_${group.code}_${option.code}',
@@ -254,7 +261,11 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                               selected: _selectedOptionValueIds.contains(
                                 option.id,
                               ),
-                              onTap: () => _selectOption(group, option),
+                              enabled: option.isAvailable,
+                              onTap:
+                                  option.isAvailable
+                                      ? () => _selectOption(group, option)
+                                      : null,
                             ),
                         ],
                       ),
@@ -275,13 +286,14 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                         _AddOnRow(
                           addOn: addOn,
                           selected: _selectedAddOnIds.contains(addOn.id),
-                          onChanged: (selected) => setState(() {
-                            if (selected) {
-                              _selectedAddOnIds.add(addOn.id);
-                            } else {
-                              _selectedAddOnIds.remove(addOn.id);
-                            }
-                          }),
+                          onChanged:
+                              (selected) => setState(() {
+                                if (selected) {
+                                  _selectedAddOnIds.add(addOn.id);
+                                } else {
+                                  _selectedAddOnIds.remove(addOn.id);
+                                }
+                              }),
                         ),
                     ],
                     const SizedBox(height: 28),
@@ -367,9 +379,8 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
               disabledLabel: item.isAvailable ? 'Choose options' : 'Sold out',
               quantity: _quantity,
               total: total,
-              onDecrement: _quantity > 1
-                  ? () => setState(() => _quantity--)
-                  : null,
+              onDecrement:
+                  _quantity > 1 ? () => setState(() => _quantity--) : null,
               onIncrement: () => setState(() => _quantity++),
               onAddToCart: _addToCart,
             ),
@@ -478,23 +489,30 @@ class _ChoiceTile extends StatelessWidget {
     required this.label,
     required this.priceDeltaSen,
     required this.selected,
+    required this.enabled,
     required this.onTap,
   });
 
   final String label;
   final int priceDeltaSen;
   final bool selected;
-  final VoidCallback onTap;
+  final bool enabled;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) => Semantics(
     button: true,
+    enabled: enabled,
     selected: selected,
-    label: label,
+    excludeSemantics: true,
+    label: enabled ? label : '$label, unavailable',
     child: Material(
-      color: selected
-          ? AidaColors.latte.withValues(alpha: 0.52)
-          : AidaColors.cream,
+      color:
+          selected
+              ? AidaColors.latte.withValues(alpha: 0.52)
+              : enabled
+              ? AidaColors.cream
+              : AidaColors.caramelTint.withValues(alpha: 0.42),
       borderRadius: BorderRadius.circular(18),
       child: InkWell(
         onTap: onTap,
@@ -513,23 +531,43 @@ class _ChoiceTile extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (selected) ...[
+                const Icon(
+                  Icons.check_circle_rounded,
+                  size: 14,
+                  color: AidaColors.coffee,
+                ),
+                const SizedBox(height: 2),
+              ],
               Text(
                 label,
                 textAlign: TextAlign.center,
                 style: AidaType.sans(
                   size: 12.5,
                   weight: selected ? FontWeight.w800 : FontWeight.w600,
-                  color: selected ? AidaColors.coffee : AidaColors.textPrimary,
+                  color:
+                      selected
+                          ? AidaColors.coffee
+                          : enabled
+                          ? AidaColors.textPrimary
+                          : AidaColors.textMuted,
                 ),
               ),
-              if (priceDeltaSen != 0) ...[
+              if (!enabled) ...[
+                const SizedBox(height: 2),
+                Text(
+                  'Unavailable',
+                  style: AidaType.sans(
+                    size: 10.5,
+                    weight: FontWeight.w700,
+                    color: AidaColors.textMuted,
+                  ),
+                ),
+              ] else if (priceDeltaSen != 0) ...[
                 const SizedBox(height: 2),
                 Text(
                   '${priceDeltaSen > 0 ? '+' : ''}${Money.fromSen(priceDeltaSen).formatted}',
-                  style: AidaType.sans(
-                    size: 10.5,
-                    color: AidaColors.textMuted,
-                  ),
+                  style: AidaType.sans(size: 10.5, color: AidaColors.textMuted),
                 ),
               ],
             ],
@@ -560,7 +598,7 @@ class _AddOnRow extends StatelessWidget {
       onTap: () => onChanged(!selected),
       borderRadius: BorderRadius.circular(14),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.symmetric(vertical: 11),
         child: Row(
           children: [
             Icon(
@@ -667,9 +705,8 @@ class _BottomBar extends StatelessWidget {
                     style: AidaType.sans(
                       size: 15,
                       weight: FontWeight.w700,
-                      color: available
-                          ? AidaColors.cream
-                          : AidaColors.textMuted,
+                      color:
+                          available ? AidaColors.cream : AidaColors.textMuted,
                     ),
                   ),
                 ),

@@ -24,44 +24,49 @@ void main() {
     isStudentEligible: true,
   );
 
-  testWidgets('tapping the card opens detail with the right item, and back returns', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          memberRepositoryProvider.overrideWithValue(_fast),
-          catalogueRepositoryProvider.overrideWithValue(_catalogue),
-        ],
-        child: MaterialApp(
-          home: Scaffold(
-            body: PopularItemCard(
-              item: item,
-              onTap: () => openItemDetail(tester.element(find.byType(Scaffold)), item),
+  testWidgets(
+    'tapping the card opens detail with the right item, and back returns',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            memberRepositoryProvider.overrideWithValue(_fast),
+            catalogueRepositoryProvider.overrideWithValue(_catalogue),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: PopularItemCard(
+                item: item,
+                onTap:
+                    () => openItemDetail(
+                      tester.element(find.byType(Scaffold)),
+                      item,
+                    ),
+              ),
             ),
           ),
         ),
-      ),
-    );
+      );
 
-    expect(find.byType(ItemDetailScreen), findsNothing);
+      expect(find.byType(ItemDetailScreen), findsNothing);
 
-    await tester.tap(find.byType(PopularItemCard));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byType(PopularItemCard));
+      await tester.pumpAndSettle();
 
-    expect(find.byType(ItemDetailScreen), findsOneWidget);
-    expect(find.text('Salted Caramel Latte'), findsOneWidget);
-    expect(find.text('RM 12.90'), findsOneWidget);
-    expect(find.text('Student offer eligible'), findsOneWidget);
-    expect(find.textContaining('pts'), findsNothing);
+      expect(find.byType(ItemDetailScreen), findsOneWidget);
+      expect(find.text('Salted Caramel Latte'), findsOneWidget);
+      expect(find.text('RM 12.90'), findsOneWidget);
+      expect(find.text('Student offer eligible'), findsOneWidget);
+      expect(find.textContaining('pts'), findsNothing);
 
-    await tester.ensureVisible(find.byIcon(Icons.arrow_back_rounded));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.arrow_back_rounded));
-    await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byIcon(Icons.arrow_back_rounded));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+      await tester.pumpAndSettle();
 
-    expect(find.byType(ItemDetailScreen), findsNothing);
-  });
+      expect(find.byType(ItemDetailScreen), findsNothing);
+    },
+  );
 
   testWidgets('sold-out item shows the Sold out tag', (tester) async {
     const soldOut = MenuItem(

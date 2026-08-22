@@ -54,9 +54,8 @@ class MenuScreen extends ConsumerWidget {
     final currentProducts = (items.value ?? const <MenuItem>[])
         .where((item) => item.kind == 'product')
         .toList(growable: false);
-    final productCategoryIds = currentProducts
-        .map((item) => item.categoryId)
-        .toSet();
+    final productCategoryIds =
+        currentProducts.map((item) => item.categoryId).toSet();
     final browseCategories = categories.value
         ?.where((category) => productCategoryIds.contains(category.id))
         .toList(growable: false);
@@ -81,8 +80,8 @@ class MenuScreen extends ConsumerWidget {
                   ),
                   _FavoritesToggle(
                     active: favoritesOnly,
-                    onTap: () =>
-                        ref.read(favoritesOnlyProvider.notifier).toggle(),
+                    onTap:
+                        () => ref.read(favoritesOnlyProvider.notifier).toggle(),
                   ),
                 ],
               ),
@@ -101,9 +100,10 @@ class MenuScreen extends ConsumerWidget {
                           .toList(growable: false);
                       return MenuCategoryRail(
                         categories: filtered,
-                        selectedId: filtered.any((c) => c.id == selected)
-                            ? selected
-                            : null,
+                        selectedId:
+                            filtered.any((c) => c.id == selected)
+                                ? selected
+                                : null,
                         favoritesOnly: favoritesOnly,
                         onSelect: (id) {
                           ref
@@ -119,10 +119,11 @@ class MenuScreen extends ConsumerWidget {
                         },
                       );
                     },
-                    loading: () =>
-                        const SizedBox(width: MenuCategoryRail.width),
-                    error: (_, __) =>
-                        const SizedBox(width: MenuCategoryRail.width),
+                    loading:
+                        () => const SizedBox(width: MenuCategoryRail.width),
+                    error:
+                        (_, __) =>
+                            const SizedBox(width: MenuCategoryRail.width),
                   ),
                   Expanded(
                     child: RefreshIndicator(
@@ -139,19 +140,21 @@ class MenuScreen extends ConsumerWidget {
                               final products = all
                                   .where((item) => item.kind == 'product')
                                   .toList(growable: false);
-                              final categoryName = browseCategories
-                                  ?.where((c) => c.id == selected)
-                                  .firstOrNull
-                                  ?.name;
+                              final categoryName =
+                                  browseCategories
+                                      ?.where((c) => c.id == selected)
+                                      .firstOrNull
+                                      ?.name;
 
-                              var visible = categoryName == null
-                                  ? products
-                                  : products
-                                      .where(
-                                        (item) =>
-                                            item.category == categoryName,
-                                      )
-                                      .toList(growable: false);
+                              var visible =
+                                  categoryName == null
+                                      ? products
+                                      : products
+                                          .where(
+                                            (item) =>
+                                                item.category == categoryName,
+                                          )
+                                          .toList(growable: false);
 
                               if (favoritesOnly) {
                                 visible = visible
@@ -190,8 +193,7 @@ class MenuScreen extends ConsumerWidget {
                                       i < sections.length;
                                       i++
                                     ) ...[
-                                      if (i > 0)
-                                        const SizedBox(height: 22),
+                                      if (i > 0) const SizedBox(height: 22),
                                       _MenuSectionHeader(
                                         title: sections[i].$1,
                                         count: sections[i].$2.length,
@@ -205,15 +207,17 @@ class MenuScreen extends ConsumerWidget {
                                         if (j > 0)
                                           Divider(
                                             height: 1,
-                                            color: AidaColors.latte
-                                                .withValues(alpha: 0.5),
+                                            color: AidaColors.latte.withValues(
+                                              alpha: 0.5,
+                                            ),
                                           ),
                                         MenuListItem(
                                           item: sections[i].$2[j],
-                                          onTap: () => openItemDetail(
-                                            context,
-                                            sections[i].$2[j],
-                                          ),
+                                          onTap:
+                                              () => openItemDetail(
+                                                context,
+                                                sections[i].$2[j],
+                                              ),
                                         ),
                                       ],
                                     ],
@@ -221,19 +225,21 @@ class MenuScreen extends ConsumerWidget {
                                 ),
                               );
                             },
-                            loading: () => const SliverToBoxAdapter(
-                              child: Padding(
-                                padding: EdgeInsets.only(top: 60),
-                                child: Center(
-                                  child: CircularProgressIndicator(
-                                    color: AidaColors.coffee,
+                            loading:
+                                () => const SliverToBoxAdapter(
+                                  child: Padding(
+                                    padding: EdgeInsets.only(top: 60),
+                                    child: Center(
+                                      child: CircularProgressIndicator(
+                                        color: AidaColors.coffee,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ),
-                            error: (_, __) => const SliverToBoxAdapter(
-                              child: _MenuUnavailable(),
-                            ),
+                            error:
+                                (_, __) => const SliverToBoxAdapter(
+                                  child: _MenuUnavailable(),
+                                ),
                           ),
                           const SliverToBoxAdapter(
                             child: SizedBox(height: 170),
@@ -299,9 +305,7 @@ class _EmptyCategory extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Icon(
-          favoritesOnly
-              ? Icons.favorite_border_rounded
-              : Icons.no_food_rounded,
+          favoritesOnly ? Icons.favorite_border_rounded : Icons.no_food_rounded,
           size: 64,
           color: AidaColors.latte,
         ),
@@ -335,11 +339,7 @@ class _MenuUnavailable extends StatelessWidget {
     padding: const EdgeInsets.all(40),
     child: Column(
       children: [
-        const Icon(
-          Icons.wifi_off_rounded,
-          size: 40,
-          color: AidaColors.latte,
-        ),
+        const Icon(Icons.wifi_off_rounded, size: 40, color: AidaColors.latte),
         const SizedBox(height: 14),
         Text(
           "We couldn't load the menu",

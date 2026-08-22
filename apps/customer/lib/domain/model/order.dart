@@ -22,6 +22,7 @@ class OrderingPolicy {
     required this.timezone,
     required this.scheduleEnabled,
     required this.minimumLeadMinutes,
+    this.preparationLeadMinutes = 0,
     required this.slotIntervalMinutes,
     required this.maximumAdvanceDays,
   });
@@ -31,6 +32,9 @@ class OrderingPolicy {
     timezone: json['timezone'] as String,
     scheduleEnabled: json['scheduleEnabled'] == true,
     minimumLeadMinutes: _int(json['minimumLeadMinutes']),
+    preparationLeadMinutes: json['preparationLeadMinutes'] == null
+        ? 0
+        : _int(json['preparationLeadMinutes']),
     slotIntervalMinutes: _int(json['slotIntervalMinutes']),
     maximumAdvanceDays: _int(json['maximumAdvanceDays']),
   );
@@ -39,6 +43,7 @@ class OrderingPolicy {
   final String timezone;
   final bool scheduleEnabled;
   final int minimumLeadMinutes;
+  final int preparationLeadMinutes;
   final int slotIntervalMinutes;
   final int maximumAdvanceDays;
 }
@@ -48,6 +53,7 @@ class OrderSelectionLine {
     required this.itemId,
     this.variantId,
     this.addOnIds = const [],
+    this.optionValueIds = const [],
     required this.quantity,
     this.note,
   });
@@ -55,6 +61,7 @@ class OrderSelectionLine {
   final String itemId;
   final String? variantId;
   final List<String> addOnIds;
+  final List<String> optionValueIds;
   final int quantity;
   final String? note;
 
@@ -62,6 +69,7 @@ class OrderSelectionLine {
     'itemId': itemId,
     if (variantId != null) 'variantId': variantId,
     'addOnIds': addOnIds,
+    'optionValueIds': optionValueIds,
     'quantity': quantity,
     if (note?.trim().isNotEmpty == true) 'note': note!.trim(),
   };
@@ -140,6 +148,37 @@ class OrderVariantSnapshot {
   final int priceDeltaSen;
 }
 
+class OrderOptionSnapshot {
+  const OrderOptionSnapshot({
+    required this.groupId,
+    required this.groupCode,
+    required this.groupName,
+    required this.optionValueId,
+    required this.optionCode,
+    required this.optionLabel,
+    required this.priceDeltaSen,
+  });
+
+  factory OrderOptionSnapshot.fromJson(Map<String, dynamic> json) =>
+      OrderOptionSnapshot(
+        groupId: json['groupId'] as String,
+        groupCode: json['groupCode'] as String,
+        groupName: json['groupName'] as String,
+        optionValueId: json['optionValueId'] as String,
+        optionCode: json['optionCode'] as String,
+        optionLabel: json['optionLabel'] as String,
+        priceDeltaSen: _int(json['priceDeltaSen']),
+      );
+
+  final String groupId;
+  final String groupCode;
+  final String groupName;
+  final String optionValueId;
+  final String optionCode;
+  final String optionLabel;
+  final int priceDeltaSen;
+}
+
 class OrderLineSnapshot {
   const OrderLineSnapshot({
     this.id,
@@ -151,6 +190,8 @@ class OrderLineSnapshot {
     this.variant,
     this.addOns = const [],
     required this.addOnTotal,
+    this.options = const [],
+    this.optionTotal = Money.zero,
     required this.unitPrice,
     required this.quantity,
     required this.lineTotal,
@@ -160,6 +201,7 @@ class OrderLineSnapshot {
   factory OrderLineSnapshot.fromJson(Map<String, dynamic> json) {
     final variant = json['variant'];
     final addOns = json['addOns'];
+    final options = json['options'];
     return OrderLineSnapshot(
       id: json['id'] as String?,
       lineNumber: _int(json['lineNumber']),
@@ -167,23 +209,31 @@ class OrderLineSnapshot {
       sku: json['sku'] as String,
       name: json['name'] as String,
       basePrice: Money.fromSen(_int(json['basePriceSen'])),
-      variant:
-          variant is Map
-              ? OrderVariantSnapshot.fromJson(
-                Map<String, dynamic>.from(variant),
+      variant: variant is Map
+          ? OrderVariantSnapshot.fromJson(Map<String, dynamic>.from(variant))
+          : null,
+      addOns: addOns is List
+          ? addOns
+              .map(
+                (value) => OrderAddOnSnapshot.fromJson(
+                  Map<String, dynamic>.from(value as Map),
+                ),
               )
-              : null,
-      addOns:
-          addOns is List
-              ? addOns
-                  .map(
-                    (value) => OrderAddOnSnapshot.fromJson(
-                      Map<String, dynamic>.from(value as Map),
-                    ),
-                  )
-                  .toList(growable: false)
-              : const [],
+              .toList(growable: false)
+          : const [],
       addOnTotal: Money.fromSen(_int(json['addOnTotalSen'])),
+      options: options is List
+          ? options
+              .map(
+                (value) => OrderOptionSnapshot.fromJson(
+                  Map<String, dynamic>.from(value as Map),
+                ),
+              )
+              .toList(growable: false)
+          : const [],
+      optionTotal: Money.fromSen(
+        json['optionTotalSen'] == null ? 0 : _int(json['optionTotalSen']),
+      ),
       unitPrice: Money.fromSen(_int(json['unitPriceSen'])),
       quantity: _int(json['quantity']),
       lineTotal: Money.fromSen(_int(json['lineTotalSen'])),
@@ -200,6 +250,8 @@ class OrderLineSnapshot {
   final OrderVariantSnapshot? variant;
   final List<OrderAddOnSnapshot> addOns;
   final Money addOnTotal;
+  final List<OrderOptionSnapshot> options;
+  final Money optionTotal;
   final Money unitPrice;
   final int quantity;
   final Money lineTotal;
@@ -208,6 +260,7 @@ class OrderLineSnapshot {
   String? get configurationLabel {
     final parts = <String>[
       if (variant != null) variant!.label,
+      ...options.map((option) => '${option.groupName}: ${option.optionLabel}'),
       ...addOns.map((addOn) => addOn.name),
     ];
     return parts.isEmpty ? null : parts.join(' · ');
@@ -280,7 +333,7 @@ class OrderSnapshot {
 
   factory OrderSnapshot.fromJson(Map<String, dynamic> json) => OrderSnapshot(
     id: json['id'] as String,
-    orderNumber: json['orderNumber'] as String,
+    orderNumber: json['orderNumber'].toString(),
     fulfillmentType: FulfillmentType.values.byName(
       json['fulfillmentType'] as String,
     ),

@@ -34,14 +34,15 @@ class CartLineItem {
   final int quantity;
   final String? note;
 
-  Money unitPrice(Money addOnTotal, [Money optionTotal = Money.zero]) {
+  Money unitPrice(Money addOnTotal, [Money? optionTotal]) {
     final delta = size?.priceDeltaSen ?? 0;
+    final resolvedOptions = optionTotal ?? customizationTotalFor(this);
     return Money.fromSen(
-      item.price.sen + delta + addOnTotal.sen + optionTotal.sen,
+      item.price.sen + delta + addOnTotal.sen + resolvedOptions.sen,
     );
   }
 
-  Money lineTotal(Money addOnTotal, [Money optionTotal = Money.zero]) =>
+  Money lineTotal(Money addOnTotal, [Money? optionTotal]) =>
       Money.fromSen(unitPrice(addOnTotal, optionTotal).sen * quantity);
 
   bool sameConfigurationAs(CartLineItem other) {
@@ -75,9 +76,7 @@ class Cart {
   Money subtotal(Money Function(CartLineItem) addOnTotalFor) {
     var sen = 0;
     for (final line in lineItems) {
-      sen += line
-          .lineTotal(addOnTotalFor(line), customizationTotalFor(line))
-          .sen;
+      sen += line.lineTotal(addOnTotalFor(line)).sen;
     }
     return Money.fromSen(sen);
   }

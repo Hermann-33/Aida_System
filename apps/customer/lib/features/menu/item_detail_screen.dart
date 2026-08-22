@@ -116,9 +116,6 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
           ),
         );
 
-    // Configuration is complete after the cart mutation. Return immediately to
-    // Menu so the customer can configure the next drink without an extra back
-    // action or a stale detail screen that can accidentally duplicate the line.
     Navigator.of(context).pop();
   }
 
@@ -140,6 +137,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
         .toList(growable: false);
     final configuredPrice = _configuredUnitPrice(menu);
     final total = Money.fromSen(configuredPrice.sen * _quantity);
+    final canAdd = item.isAvailable && _requiredSelectionsComplete;
 
     return Scaffold(
       backgroundColor: AidaColors.cream,
@@ -190,12 +188,33 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                         _PricePill(price: configuredPrice),
                       ],
                     ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _Tag(label: item.category, color: AidaColors.coffee),
+                        if (!item.isAvailable)
+                          const _Tag(
+                            label: 'Sold out',
+                            color: AidaColors.error,
+                            filled: true,
+                          ),
+                        if (item.isStudentEligible)
+                          const _Tag(
+                            label: 'Student offer eligible',
+                            color: AidaColors.cityRed,
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 22),
+                    const _SectionLabel('Description'),
                     const SizedBox(height: 10),
                     Text(
                       item.description,
                       style: AidaType.sans(
-                        size: 14,
-                        height: 1.45,
+                        size: 14.5,
+                        height: 1.5,
                         color: AidaColors.textMuted,
                       ),
                     ),
@@ -290,6 +309,17 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                         ),
                       ),
                     ),
+                    if (item.volumeMl != null) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        'Volume ${item.volumeMl}ml',
+                        style: AidaType.sans(
+                          size: 13,
+                          weight: FontWeight.w600,
+                          color: AidaColors.textMuted,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -333,7 +363,8 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
             right: 0,
             bottom: 0,
             child: _BottomBar(
-              available: item.isAvailable && _requiredSelectionsComplete,
+              available: canAdd,
+              disabledLabel: item.isAvailable ? 'Choose options' : 'Sold out',
               quantity: _quantity,
               total: total,
               onDecrement: _quantity > 1
@@ -377,6 +408,28 @@ class _Hero extends StatelessWidget {
         ),
       ),
     ],
+  );
+}
+
+class _Tag extends StatelessWidget {
+  const _Tag({required this.label, required this.color, this.filled = false});
+
+  final String label;
+  final Color color;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+    decoration: BoxDecoration(
+      color: filled ? color.withValues(alpha: 0.14) : Colors.transparent,
+      border: filled ? null : Border.all(color: color.withValues(alpha: 0.4)),
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Text(
+      label,
+      style: AidaType.sans(size: 11.5, weight: FontWeight.w700, color: color),
+    ),
   );
 }
 
@@ -546,6 +599,7 @@ class _AddOnRow extends StatelessWidget {
 class _BottomBar extends StatelessWidget {
   const _BottomBar({
     required this.available,
+    required this.disabledLabel,
     required this.quantity,
     required this.total,
     required this.onDecrement,
@@ -554,6 +608,7 @@ class _BottomBar extends StatelessWidget {
   });
 
   final bool available;
+  final String disabledLabel;
   final int quantity;
   final Money total;
   final VoidCallback? onDecrement;
@@ -606,7 +661,7 @@ class _BottomBar extends StatelessWidget {
                   child: Text(
                     available
                         ? 'Add to cart · ${total.formatted}'
-                        : 'Unavailable',
+                        : disabledLabel,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: AidaType.sans(

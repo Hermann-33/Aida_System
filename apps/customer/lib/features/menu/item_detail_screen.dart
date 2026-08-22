@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,6 +7,7 @@ import '../../core/theme/aida_type.dart';
 import '../../core/widgets/neumorphic_control.dart';
 import '../../core/widgets/product_image.dart';
 import '../../domain/model/cart.dart';
+import '../../domain/model/menu_customization.dart';
 import '../../domain/model/menu_item.dart';
 import '../../domain/model/menu_variant.dart';
 import '../../domain/model/money.dart';
@@ -19,11 +18,11 @@ void openItemDetail(BuildContext context, MenuItem item) {
   ).push(MaterialPageRoute(builder: (_) => ItemDetailScreen(item: item)));
 }
 
-/// Menu detail/configuration backed entirely by the shared catalogue.
+/// Catalogue-driven item configuration.
 ///
-/// The cart is still local preview state; authoritative order re-pricing is a
-/// separate backend task. Base price, variants and add-ons shown here are all
-/// supplied by Supabase rather than Dart constants.
+/// Size, Temperature, Sweetness and compatible add-ons are all supplied by the
+/// shared Supabase catalogue. This screen stages IDs only; checkout re-prices
+/// and revalidates every selection server-side before an order is persisted.
 class ItemDetailScreen extends ConsumerStatefulWidget {
   const ItemDetailScreen({super.key, required this.item});
 
@@ -36,31 +35,72 @@ class ItemDetailScreen extends ConsumerStatefulWidget {
 class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
   MenuVariant? _size;
   final _selectedAddOnIds = <String>{};
-  int _quantity = 1;
+  final _selectedOptionValueIds = <String>{};
   final _noteController = TextEditingController();
-  final _scrollController = ScrollController();
-
-  /// Drives the bottom bar's brief "Added ✓" state — replaces the old
-  /// SnackBar. The confirmation lives right on the button the user just
-  /// pressed instead of a separate message at the bottom of the screen.
-  bool _justAdded = false;
-  Timer? _justAddedTimer;
+  int _quantity = 1;
 
   @override
   void initState() {
     super.initState();
     _size = widget.item.defaultVariant;
+    for (final group in widget.item.customizationGroups) {
+      final option = group.defaultOption;
+      if (option != null) _selectedOptionValueIds.add(option.id);
+    }
   }
 
   @override
   void dispose() {
-    _justAddedTimer?.cancel();
     _noteController.dispose();
-    _scrollController.dispose();
     super.dispose();
   }
 
-  void _addToCart(List<MenuItem> menu) {
+  bool get _requiredSelectionsComplete {
+    for (final group in widget.item.customizationGroups) {
+      final available = group.availableOptions;
+      if (available.isEmpty) return false;
+      if (!available.any(
+        (option) => _selectedOptionValueIds.contains(option.id),
+      )) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  void _selectOption(
+    MenuCustomizationGroup group,
+    MenuCustomizationOption option,
+  ) {
+    setState(() {
+      for (final candidate in group.options) {
+        _selectedOptionValueIds.remove(candidate.id);
+      }
+      _selectedOptionValueIds.add(option.id);
+    });
+  }
+
+  Money _configuredUnitPrice(List<MenuItem> menu) {
+    final addOns = addOnTotalFor(_selectedAddOnIds.toList(), menu);
+    var optionSen = 0;
+    for (final group in widget.item.customizationGroups) {
+      for (final option in group.options) {
+        if (_selectedOptionValueIds.contains(option.id)) {
+          optionSen += option.priceDeltaSen;
+          break;
+        }
+      }
+    }
+    return Money.fromSen(
+      widget.item.price.sen +
+          (_size?.priceDeltaSen ?? 0) +
+          addOns.sen +
+          optionSen,
+    );
+  }
+
+  void _addToCart() {
+    if (!_requiredSelectionsComplete) return;
     ref
         .read(cartProvider.notifier)
         .add(
@@ -68,26 +108,18 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
             item: widget.item,
             size: _size,
             addOnIds: _selectedAddOnIds.toList(growable: false),
+            optionValueIds: _selectedOptionValueIds.toList(growable: false),
             quantity: _quantity,
-            note:
-                _noteController.text.trim().isEmpty
-                    ? null
-                    : _noteController.text.trim(),
+            note: _noteController.text.trim().isEmpty
+                ? null
+                : _noteController.text.trim(),
           ),
         );
 
-    setState(() => _justAdded = true);
-    _justAddedTimer?.cancel();
-    _justAddedTimer = Timer(const Duration(milliseconds: 900), () {
-      setState(() => _justAdded = false);
-    });
-  }
-
-  Money _configuredUnitPrice(List<MenuItem> menu) {
-    final addOns = addOnTotalFor(_selectedAddOnIds.toList(), menu);
-    return Money.fromSen(
-      widget.item.price.sen + (_size?.priceDeltaSen ?? 0) + addOns.sen,
-    );
+    // Adding an item completes this configuration task. Returning immediately
+    // to Menu makes configuring several different drinks much faster and avoids
+    // accidental duplicate adds from a stale detail screen.
+    Navigator.of(context).pop();
   }
 
   @override
@@ -95,16 +127,19 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
     final item = widget.item;
     final menu = ref.watch(menuItemsProvider).value ?? const <MenuItem>[];
     final isFavorite = ref.watch(favoritesProvider).contains(item.id);
-    final availableVariants =
-        item.variants.where((variant) => variant.isAvailable).toList();
+    final availableVariants = item.variants
+        .where((variant) => variant.isAvailable)
+        .toList(growable: false);
     final compatibleAddOns = menu
         .where(
           (candidate) =>
+              candidate.kind == 'addon' &&
               candidate.isAvailable &&
               item.compatibleAddOnIds.contains(candidate.id),
         )
         .toList(growable: false);
     final configuredPrice = _configuredUnitPrice(menu);
+    final total = Money.fromSen(configuredPrice.sen * _quantity);
 
     return Scaffold(
       backgroundColor: AidaColors.cream,
@@ -114,29 +149,28 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
             top: 0,
             left: 0,
             right: 0,
-            height: 360,
+            height: 340,
             child: _Hero(item: item),
           ),
           Positioned.fill(
             child: SingleChildScrollView(
-              controller: _scrollController,
-              padding: const EdgeInsets.only(top: 300),
+              padding: const EdgeInsets.fromLTRB(0, 285, 0, 126),
               child: Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
                   color: AidaColors.cardWhite,
                   borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(40),
+                    top: Radius.circular(36),
                   ),
                   boxShadow: [
                     BoxShadow(
                       color: AidaColors.espresso.withValues(alpha: 0.1),
-                      blurRadius: 32,
+                      blurRadius: 28,
                       offset: const Offset(0, -8),
                     ),
                   ],
                 ),
-                padding: const EdgeInsets.fromLTRB(22, 28, 22, 130),
+                padding: const EdgeInsets.fromLTRB(22, 26, 22, 30),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -156,122 +190,106 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                         _PricePill(price: configuredPrice),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _Tag(label: item.category, color: AidaColors.coffee),
-                        if (!item.isAvailable)
-                          const _Tag(
-                            label: 'Sold out',
-                            color: AidaColors.error,
-                            filled: true,
-                          ),
-                        if (item.isStudentEligible)
-                          const _Tag(
-                            label: 'Student offer eligible',
-                            color: AidaColors.cityRed,
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 22),
-                    const _SectionLabel('Description'),
                     const SizedBox(height: 10),
                     Text(
                       item.description,
                       style: AidaType.sans(
-                        size: 14.5,
-                        height: 1.5,
+                        size: 14,
+                        height: 1.45,
                         color: AidaColors.textMuted,
                       ),
                     ),
                     if (availableVariants.isNotEmpty) ...[
-                      const SizedBox(height: 28),
-                      const _SectionLabel('Beverage size'),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 26),
+                      const _SectionLabel('Size'),
+                      const SizedBox(height: 12),
                       Wrap(
                         spacing: 10,
                         runSpacing: 10,
                         children: [
-                          for (
-                            var index = 0;
-                            index < availableVariants.length;
-                            index++
-                          )
-                            _VariantTile(
-                              variant: availableVariants[index],
-                              index: index,
-                              count: availableVariants.length,
-                              selected:
-                                  availableVariants[index].id == _size?.id,
-                              onTap:
-                                  () => setState(
-                                    () => _size = availableVariants[index],
-                                  ),
+                          for (final variant in availableVariants)
+                            _ChoiceTile(
+                              label: variant.label,
+                              priceDeltaSen: variant.priceDeltaSen,
+                              selected: variant.id == _size?.id,
+                              onTap: () => setState(() => _size = variant),
                             ),
                         ],
                       ),
                     ],
-                    const SizedBox(height: 28),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (compatibleAddOns.isNotEmpty) ...[
-                          const _SectionLabel('Customize'),
-                          const SizedBox(height: 8),
-                          for (final addOn in compatibleAddOns)
-                            _AddOnRow(
-                              addOn: addOn,
-                              selected: _selectedAddOnIds.contains(addOn.id),
-                              onChanged:
-                                  (selected) => setState(() {
-                                    if (selected) {
-                                      _selectedAddOnIds.add(addOn.id);
-                                    } else {
-                                      _selectedAddOnIds.remove(addOn.id);
-                                    }
-                                  }),
+                    for (final group in item.customizationGroups) ...[
+                      const SizedBox(height: 26),
+                      _SectionLabel(group.name),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          for (final option in group.availableOptions)
+                            _ChoiceTile(
+                              key: ValueKey(
+                                'drink_option_${group.code}_${option.code}',
+                              ),
+                              label: option.label,
+                              priceDeltaSen: option.priceDeltaSen,
+                              selected: _selectedOptionValueIds.contains(
+                                option.id,
+                              ),
+                              onTap: () => _selectOption(group, option),
                             ),
-                          const SizedBox(height: 20),
                         ],
-                        const _SectionLabel('Anything else?'),
-                        const SizedBox(height: 10),
-                        TextField(
-                          controller: _noteController,
-                          maxLines: 2,
-                          maxLength: 140,
-                          style: AidaType.sans(
-                            size: 13.5,
-                            color: AidaColors.textPrimary,
-                          ),
-                          decoration: InputDecoration(
-                            hintText: 'e.g. less ice, no sugar (optional)',
-                            hintStyle: AidaType.sans(
-                              size: 13.5,
-                              color: AidaColors.textMuted,
-                            ),
-                            filled: true,
-                            fillColor: AidaColors.cream,
-                            contentPadding: const EdgeInsets.all(14),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (item.volumeMl != null) ...[
-                      const SizedBox(height: 16),
+                      ),
+                    ],
+                    if (compatibleAddOns.isNotEmpty) ...[
+                      const SizedBox(height: 28),
+                      const _SectionLabel('Customize'),
+                      const SizedBox(height: 8),
                       Text(
-                        'Volume ${item.volumeMl}ml',
+                        'Optional extras apply only to this drink.',
                         style: AidaType.sans(
-                          size: 13,
-                          weight: FontWeight.w600,
+                          size: 12,
                           color: AidaColors.textMuted,
                         ),
                       ),
+                      const SizedBox(height: 6),
+                      for (final addOn in compatibleAddOns)
+                        _AddOnRow(
+                          addOn: addOn,
+                          selected: _selectedAddOnIds.contains(addOn.id),
+                          onChanged: (selected) => setState(() {
+                            if (selected) {
+                              _selectedAddOnIds.add(addOn.id);
+                            } else {
+                              _selectedAddOnIds.remove(addOn.id);
+                            }
+                          }),
+                        ),
                     ],
+                    const SizedBox(height: 26),
+                    const _SectionLabel('Anything else?'),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _noteController,
+                      maxLines: 2,
+                      maxLength: 140,
+                      style: AidaType.sans(
+                        size: 13.5,
+                        color: AidaColors.textPrimary,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'e.g. no foam (optional)',
+                        hintStyle: AidaType.sans(
+                          size: 13.5,
+                          color: AidaColors.textMuted,
+                        ),
+                        filled: true,
+                        fillColor: AidaColors.cream,
+                        contentPadding: const EdgeInsets.all(14),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -315,14 +333,14 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
             right: 0,
             bottom: 0,
             child: _BottomBar(
-              available: item.isAvailable,
+              available: item.isAvailable && _requiredSelectionsComplete,
               quantity: _quantity,
-              total: Money.fromSen(configuredPrice.sen * _quantity),
-              justAdded: _justAdded,
-              onDecrement:
-                  _quantity > 1 ? () => setState(() => _quantity--) : null,
+              total: total,
+              onDecrement: _quantity > 1
+                  ? () => setState(() => _quantity--)
+                  : null,
               onIncrement: () => setState(() => _quantity++),
-              onAddToCart: () => _addToCart(menu),
+              onAddToCart: _addToCart,
             ),
           ),
         ],
@@ -337,80 +355,29 @@ class _Hero extends StatelessWidget {
   final MenuItem item;
 
   @override
-  Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        ProductImage(
-          imageUrl: item.imageUrl,
-          category: item.category,
-          borderRadius: 0,
-        ),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                AidaColors.espresso.withValues(alpha: 0.35),
-                Colors.transparent,
-                AidaColors.cream.withValues(alpha: 0.15),
-              ],
-            ),
+  Widget build(BuildContext context) => Stack(
+    fit: StackFit.expand,
+    children: [
+      ProductImage(
+        imageUrl: item.imageUrl,
+        category: item.category,
+        borderRadius: 0,
+      ),
+      DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              AidaColors.espresso.withValues(alpha: 0.32),
+              Colors.transparent,
+              AidaColors.cream.withValues(alpha: 0.12),
+            ],
           ),
         ),
-      ],
-    );
-  }
-}
-
-class _Tag extends StatelessWidget {
-  const _Tag({required this.label, required this.color, this.filled = false});
-
-  final String label;
-  final Color color;
-  final bool filled;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: filled ? color.withValues(alpha: 0.14) : Colors.transparent,
-        border: filled ? null : Border.all(color: color.withValues(alpha: 0.4)),
-        borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(
-        label,
-        style: AidaType.sans(size: 11.5, weight: FontWeight.w700, color: color),
-      ),
-    );
-  }
-}
-
-class _PricePill extends StatelessWidget {
-  const _PricePill({required this.price});
-
-  final Money price;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: AidaColors.latte.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        price.formatted,
-        style: AidaType.sans(
-          size: 15,
-          weight: FontWeight.w800,
-          color: AidaColors.coffee,
-        ),
-      ),
-    );
-  }
+    ],
+  );
 }
 
 class _SectionLabel extends StatelessWidget {
@@ -422,74 +389,93 @@ class _SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) => Text(
     label,
     style: AidaType.sans(
-      size: 13,
-      weight: FontWeight.w700,
+      size: 15,
+      weight: FontWeight.w800,
       color: AidaColors.textPrimary,
     ),
   );
 }
 
-class _VariantTile extends StatelessWidget {
-  const _VariantTile({
-    required this.variant,
-    required this.index,
-    required this.count,
+class _PricePill extends StatelessWidget {
+  const _PricePill({required this.price});
+
+  final Money price;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+    decoration: BoxDecoration(
+      color: AidaColors.latte.withValues(alpha: 0.38),
+      borderRadius: BorderRadius.circular(18),
+    ),
+    child: Text(
+      price.formatted,
+      style: AidaType.sans(
+        size: 14,
+        weight: FontWeight.w800,
+        color: AidaColors.coffee,
+      ),
+    ),
+  );
+}
+
+class _ChoiceTile extends StatelessWidget {
+  const _ChoiceTile({
+    super.key,
+    required this.label,
+    required this.priceDeltaSen,
     required this.selected,
     required this.onTap,
   });
 
-  final MenuVariant variant;
-  final int index;
-  final int count;
+  final String label;
+  final int priceDeltaSen;
   final bool selected;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    final iconSize = count <= 1 ? 28.0 : 22.0 + (12.0 * index / (count - 1));
-    return GestureDetector(
+  Widget build(BuildContext context) => Material(
+    color: selected
+        ? AidaColors.latte.withValues(alpha: 0.52)
+        : AidaColors.cream,
+    borderRadius: BorderRadius.circular(18),
+    child: InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
       child: Container(
-        width: 96,
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        constraints: const BoxConstraints(minWidth: 98),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
         decoration: BoxDecoration(
-          color:
-              selected
-                  ? AidaColors.latte.withValues(alpha: 0.45)
-                  : AidaColors.cream,
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: selected ? AidaColors.coffee : AidaColors.latte,
             width: selected ? 1.5 : 1,
           ),
-          borderRadius: BorderRadius.circular(20),
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.local_cafe_outlined,
-              size: iconSize,
-              color: selected ? AidaColors.coffee : AidaColors.textMuted,
-            ),
-            const SizedBox(height: 6),
             Text(
-              variant.label,
+              label,
               textAlign: TextAlign.center,
               style: AidaType.sans(
-                size: 12,
-                weight: FontWeight.w700,
-                color: selected ? AidaColors.coffee : AidaColors.textMuted,
+                size: 12.5,
+                weight: selected ? FontWeight.w800 : FontWeight.w600,
+                color: selected ? AidaColors.coffee : AidaColors.textPrimary,
               ),
             ),
-            if (variant.priceDeltaSen != 0)
+            if (priceDeltaSen != 0) ...[
+              const SizedBox(height: 2),
               Text(
-                '${variant.priceDeltaSen > 0 ? '+' : ''}${Money.fromSen(variant.priceDeltaSen).formatted}',
+                '${priceDeltaSen > 0 ? '+' : ''}${Money.fromSen(priceDeltaSen).formatted}',
                 style: AidaType.sans(size: 10.5, color: AidaColors.textMuted),
               ),
+            ],
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _AddOnRow extends StatelessWidget {
@@ -504,54 +490,50 @@ class _AddOnRow extends StatelessWidget {
   final ValueChanged<bool> onChanged;
 
   @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () => onChanged(!selected),
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 9),
-        child: Row(
-          children: [
-            Icon(
-              selected
-                  ? Icons.check_box_rounded
-                  : Icons.check_box_outline_blank_rounded,
-              size: 22,
-              color: selected ? AidaColors.coffee : AidaColors.latte,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                addOn.name,
-                style: AidaType.sans(
-                  size: 13.5,
-                  weight: FontWeight.w600,
-                  color: AidaColors.textPrimary,
-                ),
+  Widget build(BuildContext context) => InkWell(
+    onTap: () => onChanged(!selected),
+    borderRadius: BorderRadius.circular(14),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        children: [
+          Icon(
+            selected
+                ? Icons.check_box_rounded
+                : Icons.check_box_outline_blank_rounded,
+            size: 23,
+            color: selected ? AidaColors.coffee : AidaColors.latte,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              addOn.name,
+              style: AidaType.sans(
+                size: 13.5,
+                weight: FontWeight.w600,
+                color: AidaColors.textPrimary,
               ),
             ),
-            Text(
-              '+${addOn.price.formatted}',
-              style: AidaType.sans(size: 13, color: AidaColors.textMuted),
+          ),
+          Text(
+            '+${addOn.price.formatted}',
+            style: AidaType.sans(
+              size: 12.5,
+              weight: FontWeight.w700,
+              color: AidaColors.coffee,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
 }
 
-/// A single primary CTA — "Add to cart · total" — plus the quantity stepper.
-/// Previously this was "Customize" (jump to the add-ons section further down
-/// the same scrollable page) next to a separate icon-only "add" button; the
-/// two competing actions are now one clean button, since the customize
-/// options were already visible on the page either way.
 class _BottomBar extends StatelessWidget {
   const _BottomBar({
     required this.available,
     required this.quantity,
     required this.total,
-    required this.justAdded,
     required this.onDecrement,
     required this.onIncrement,
     required this.onAddToCart,
@@ -560,118 +542,86 @@ class _BottomBar extends StatelessWidget {
   final bool available;
   final int quantity;
   final Money total;
-
-  /// True for a brief moment right after tapping — swaps the button to a
-  /// checkmark confirmation instead of the old bottom SnackBar message.
-  final bool justAdded;
   final VoidCallback? onDecrement;
   final VoidCallback onIncrement;
   final VoidCallback onAddToCart;
 
   @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        child: Row(
-          children: [
-            Container(
-              height: 56,
-              decoration: BoxDecoration(
-                color: AidaColors.cardWhite,
-                borderRadius: BorderRadius.circular(28),
-                border: Border.all(color: AidaColors.latte),
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: available ? onDecrement : null,
-                    icon: const Icon(Icons.remove_rounded),
-                  ),
-                  Text(
-                    '$quantity',
-                    style: AidaType.sans(
-                      size: 14,
-                      weight: FontWeight.w800,
-                      color: AidaColors.textPrimary,
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: available ? onIncrement : null,
-                    icon: const Icon(Icons.add_rounded),
-                  ),
-                ],
+  Widget build(BuildContext context) => SafeArea(
+    top: false,
+    child: Container(
+      padding: const EdgeInsets.fromLTRB(18, 12, 18, 14),
+      decoration: BoxDecoration(
+        color: AidaColors.cardWhite,
+        boxShadow: [
+          BoxShadow(
+            color: AidaColors.espresso.withValues(alpha: 0.12),
+            blurRadius: 20,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          _RoundControl(
+            icon: Icons.remove_rounded,
+            onTap: onDecrement,
+          ),
+          SizedBox(
+            width: 42,
+            child: Text(
+              '$quantity',
+              textAlign: TextAlign.center,
+              style: AidaType.sans(
+                size: 15,
+                weight: FontWeight.w800,
+                color: AidaColors.textPrimary,
               ),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: NeumorphicControl(
-                height: 56,
-                accent: available,
-                accentColors:
-                    justAdded
-                        ? (AidaColors.success, AidaColors.successLight)
-                        : null,
-                onTap: available ? onAddToCart : null,
-                // No separate semanticsLabel: the visible Text below already
-                // says exactly what a screen reader should announce (name
-                // plus running total) — an extra static label here would
-                // just get merged into a redundant two-line announcement.
-                child: Center(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 220),
-                    transitionBuilder:
-                        (child, animation) => ScaleTransition(
-                          scale: animation,
-                          child: FadeTransition(
-                            opacity: animation,
-                            child: child,
-                          ),
-                        ),
-                    child:
-                        justAdded
-                            ? Row(
-                              key: const ValueKey('added'),
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.check_circle_rounded,
-                                  size: 20,
-                                  color: AidaColors.cream,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Added',
-                                  style: AidaType.sans(
-                                    size: 15,
-                                    weight: FontWeight.w700,
-                                    color: AidaColors.cream,
-                                  ),
-                                ),
-                              ],
-                            )
-                            : Text(
-                              key: const ValueKey('default'),
-                              available
-                                  ? 'Add to cart · ${total.formatted}'
-                                  : 'Sold out',
-                              style: AidaType.sans(
-                                size: 15,
-                                weight: FontWeight.w700,
-                                color:
-                                    available
-                                        ? AidaColors.cream
-                                        : AidaColors.textMuted,
-                              ),
-                            ),
-                  ),
+          ),
+          _RoundControl(icon: Icons.add_rounded, onTap: onIncrement),
+          const SizedBox(width: 14),
+          Expanded(
+            child: FilledButton(
+              onPressed: available ? onAddToCart : null,
+              style: FilledButton.styleFrom(
+                backgroundColor: AidaColors.coffee,
+                foregroundColor: AidaColors.cream,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
                 ),
               ),
+              child: Text(
+                available ? 'Add to cart · ${total.formatted}' : 'Unavailable',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AidaType.sans(size: 14, weight: FontWeight.w800),
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
+
+class _RoundControl extends StatelessWidget {
+  const _RoundControl({required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+    onPressed: onTap,
+    icon: Icon(icon, size: 20),
+    color: AidaColors.coffee,
+    disabledColor: AidaColors.latte,
+    style: IconButton.styleFrom(
+      backgroundColor: AidaColors.cream,
+      minimumSize: const Size(42, 42),
+      side: BorderSide(color: AidaColors.latte),
+    ),
+  );
 }

@@ -11,11 +11,9 @@ import 'item_detail_screen.dart';
 import 'widgets/menu_category_rail.dart';
 import 'widgets/menu_list_item.dart';
 
-/// The menu. CUS-09.
-///
-/// Filtering happens on the client over one RLS-filtered catalogue snapshot.
-/// Admin changes also invalidate this snapshot through the Realtime catalogue
-/// revision stream.
+/// The customer-facing menu. Only product rows are browsable; `addon` catalogue
+/// rows remain in the shared snapshot so an individual product can resolve its
+/// compatible extras during configuration.
 class MenuScreen extends ConsumerWidget {
   const MenuScreen({super.key});
 
@@ -37,14 +35,10 @@ class MenuScreen extends ConsumerWidget {
     final sections = <(String, List<MenuItem>)>[];
     for (final name in order) {
       final list = grouped[name];
-      if (list != null && list.isNotEmpty) {
-        sections.add((name, list));
-      }
+      if (list != null && list.isNotEmpty) sections.add((name, list));
     }
     for (final entry in grouped.entries) {
-      if (!order.contains(entry.key)) {
-        sections.add((entry.key, entry.value));
-      }
+      if (!order.contains(entry.key)) sections.add((entry.key, entry.value));
     }
     return sections;
   }
@@ -56,6 +50,16 @@ class MenuScreen extends ConsumerWidget {
     final selected = ref.watch(selectedCategoryProvider);
     final favorites = ref.watch(favoritesProvider);
     final favoritesOnly = ref.watch(favoritesOnlyProvider);
+
+    final currentProducts = (items.value ?? const <MenuItem>[])
+        .where((item) => item.kind == 'product')
+        .toList(growable: false);
+    final productCategoryIds = currentProducts
+        .map((item) => item.categoryId)
+        .toSet();
+    final browseCategories = categories.value
+        ?.where((category) => productCategoryIds.contains(category.id))
+        .toList(growable: false);
 
     return Scaffold(
       backgroundColor: AidaColors.cream,
@@ -77,8 +81,8 @@ class MenuScreen extends ConsumerWidget {
                   ),
                   _FavoritesToggle(
                     active: favoritesOnly,
-                    onTap:
-                        () => ref.read(favoritesOnlyProvider.notifier).toggle(),
+                    onTap: () =>
+                        ref.read(favoritesOnlyProvider.notifier).toggle(),
                   ),
                 ],
               ),
@@ -88,29 +92,37 @@ class MenuScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   categories.when(
-                    data:
-                        (list) => MenuCategoryRail(
-                          categories: list,
-                          selectedId: selected,
-                          favoritesOnly: favoritesOnly,
-                          onSelect: (id) {
-                            ref
-                                .read(selectedCategoryProvider.notifier)
-                                .select(id);
-                            ref.read(favoritesOnlyProvider.notifier).set(false);
-                          },
-                          onSelectFavorites: () {
-                            ref
-                                .read(selectedCategoryProvider.notifier)
-                                .select(null);
-                            ref.read(favoritesOnlyProvider.notifier).set(true);
-                          },
-                        ),
-                    loading:
-                        () => const SizedBox(width: MenuCategoryRail.width),
-                    error:
-                        (_, __) =>
-                            const SizedBox(width: MenuCategoryRail.width),
+                    data: (list) {
+                      final filtered = list
+                          .where(
+                            (category) =>
+                                productCategoryIds.contains(category.id),
+                          )
+                          .toList(growable: false);
+                      return MenuCategoryRail(
+                        categories: filtered,
+                        selectedId: filtered.any((c) => c.id == selected)
+                            ? selected
+                            : null,
+                        favoritesOnly: favoritesOnly,
+                        onSelect: (id) {
+                          ref
+                              .read(selectedCategoryProvider.notifier)
+                              .select(id);
+                          ref.read(favoritesOnlyProvider.notifier).set(false);
+                        },
+                        onSelectFavorites: () {
+                          ref
+                              .read(selectedCategoryProvider.notifier)
+                              .select(null);
+                          ref.read(favoritesOnlyProvider.notifier).set(true);
+                        },
+                      );
+                    },
+                    loading: () =>
+                        const SizedBox(width: MenuCategoryRail.width),
+                    error: (_, __) =>
+                        const SizedBox(width: MenuCategoryRail.width),
                   ),
                   Expanded(
                     child: RefreshIndicator(
@@ -124,26 +136,29 @@ class MenuScreen extends ConsumerWidget {
                         slivers: [
                           items.when(
                             data: (all) {
-                              final categoryName =
-                                  categories.value
-                                      ?.where((c) => c.id == selected)
-                                      .firstOrNull
-                                      ?.name;
+                              final products = all
+                                  .where((item) => item.kind == 'product')
+                                  .toList(growable: false);
+                              final categoryName = browseCategories
+                                  ?.where((c) => c.id == selected)
+                                  .firstOrNull
+                                  ?.name;
 
-                              var visible =
-                                  categoryName == null
-                                      ? all
-                                      : all
-                                          .where(
-                                            (i) => i.category == categoryName,
-                                          )
-                                          .toList();
+                              var visible = categoryName == null
+                                  ? products
+                                  : products
+                                      .where(
+                                        (item) =>
+                                            item.category == categoryName,
+                                      )
+                                      .toList(growable: false);
 
                               if (favoritesOnly) {
-                                visible =
-                                    visible
-                                        .where((i) => favorites.contains(i.id))
-                                        .toList();
+                                visible = visible
+                                    .where(
+                                      (item) => favorites.contains(item.id),
+                                    )
+                                    .toList(growable: false);
                               }
 
                               if (visible.isEmpty) {
@@ -157,7 +172,7 @@ class MenuScreen extends ConsumerWidget {
 
                               final sections = _groupSections(
                                 visible,
-                                categories.value,
+                                browseCategories,
                                 categoryName,
                               );
 
@@ -175,7 +190,8 @@ class MenuScreen extends ConsumerWidget {
                                       i < sections.length;
                                       i++
                                     ) ...[
-                                      if (i > 0) const SizedBox(height: 22),
+                                      if (i > 0)
+                                        const SizedBox(height: 22),
                                       _MenuSectionHeader(
                                         title: sections[i].$1,
                                         count: sections[i].$2.length,
@@ -189,17 +205,15 @@ class MenuScreen extends ConsumerWidget {
                                         if (j > 0)
                                           Divider(
                                             height: 1,
-                                            color: AidaColors.latte.withValues(
-                                              alpha: 0.5,
-                                            ),
+                                            color: AidaColors.latte
+                                                .withValues(alpha: 0.5),
                                           ),
                                         MenuListItem(
                                           item: sections[i].$2[j],
-                                          onTap:
-                                              () => openItemDetail(
-                                                context,
-                                                sections[i].$2[j],
-                                              ),
+                                          onTap: () => openItemDetail(
+                                            context,
+                                            sections[i].$2[j],
+                                          ),
                                         ),
                                       ],
                                     ],
@@ -207,21 +221,19 @@ class MenuScreen extends ConsumerWidget {
                                 ),
                               );
                             },
-                            loading:
-                                () => const SliverToBoxAdapter(
-                                  child: Padding(
-                                    padding: EdgeInsets.only(top: 60),
-                                    child: Center(
-                                      child: CircularProgressIndicator(
-                                        color: AidaColors.coffee,
-                                      ),
-                                    ),
+                            loading: () => const SliverToBoxAdapter(
+                              child: Padding(
+                                padding: EdgeInsets.only(top: 60),
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    color: AidaColors.coffee,
                                   ),
                                 ),
-                            error:
-                                (_, __) => const SliverToBoxAdapter(
-                                  child: _MenuUnavailable(),
-                                ),
+                              ),
+                            ),
+                            error: (_, __) => const SliverToBoxAdapter(
+                              child: _MenuUnavailable(),
+                            ),
                           ),
                           const SliverToBoxAdapter(
                             child: SizedBox(height: 170),
@@ -247,34 +259,32 @@ class _MenuSectionHeader extends StatelessWidget {
   final int? count;
 
   @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Text(
-          title.toUpperCase(),
-          style: AidaTheme.sectionLabel(color: AidaColors.coffee),
+  Widget build(BuildContext context) => Row(
+    children: [
+      Text(
+        title.toUpperCase(),
+        style: AidaTheme.sectionLabel(color: AidaColors.coffee),
+      ),
+      const SizedBox(width: 10),
+      Expanded(
+        child: Divider(
+          height: 1,
+          color: AidaColors.latte.withValues(alpha: 0.85),
         ),
+      ),
+      if (count != null) ...[
         const SizedBox(width: 10),
-        Expanded(
-          child: Divider(
-            height: 1,
-            color: AidaColors.latte.withValues(alpha: 0.85),
+        Text(
+          '$count',
+          style: AidaType.sans(
+            size: 12,
+            weight: FontWeight.w700,
+            color: AidaColors.textMuted,
           ),
         ),
-        if (count != null) ...[
-          const SizedBox(width: 10),
-          Text(
-            '$count',
-            style: AidaType.sans(
-              size: 12,
-              weight: FontWeight.w700,
-              color: AidaColors.textMuted,
-            ),
-          ),
-        ],
       ],
-    );
-  }
+    ],
+  );
 }
 
 class _EmptyCategory extends StatelessWidget {
@@ -283,70 +293,70 @@ class _EmptyCategory extends StatelessWidget {
   final bool favoritesOnly;
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(40),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            favoritesOnly
-                ? Icons.favorite_border_rounded
-                : Icons.no_food_rounded,
-            size: 64,
-            color: AidaColors.latte,
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.all(40),
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          favoritesOnly
+              ? Icons.favorite_border_rounded
+              : Icons.no_food_rounded,
+          size: 64,
+          color: AidaColors.latte,
+        ),
+        const SizedBox(height: 14),
+        Text(
+          favoritesOnly ? 'No favorites yet' : 'Nothing here just yet',
+          style: AidaType.sans(
+            size: 14,
+            weight: FontWeight.w700,
+            color: AidaColors.textPrimary,
           ),
-          const SizedBox(height: 14),
-          Text(
-            favoritesOnly ? 'No favorites yet' : 'Nothing here just yet',
-            style: AidaType.sans(
-              size: 14,
-              weight: FontWeight.w700,
-              color: AidaColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            favoritesOnly
-                ? 'Tap the heart on an item to save it here.'
-                : 'This category has no items right now.',
-            textAlign: TextAlign.center,
-            style: AidaType.sans(size: 12, color: AidaColors.textMuted),
-          ),
-        ],
-      ),
-    );
-  }
+        ),
+        const SizedBox(height: 4),
+        Text(
+          favoritesOnly
+              ? 'Tap the heart on an item to save it here.'
+              : 'This category has no items right now.',
+          textAlign: TextAlign.center,
+          style: AidaType.sans(size: 12, color: AidaColors.textMuted),
+        ),
+      ],
+    ),
+  );
 }
 
 class _MenuUnavailable extends StatelessWidget {
   const _MenuUnavailable();
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(40),
-      child: Column(
-        children: [
-          const Icon(Icons.wifi_off_rounded, size: 40, color: AidaColors.latte),
-          const SizedBox(height: 14),
-          Text(
-            "We couldn't load the menu",
-            style: AidaType.sans(
-              size: 14,
-              weight: FontWeight.w700,
-              color: AidaColors.textPrimary,
-            ),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.all(40),
+    child: Column(
+      children: [
+        const Icon(
+          Icons.wifi_off_rounded,
+          size: 40,
+          color: AidaColors.latte,
+        ),
+        const SizedBox(height: 14),
+        Text(
+          "We couldn't load the menu",
+          style: AidaType.sans(
+            size: 14,
+            weight: FontWeight.w700,
+            color: AidaColors.textPrimary,
           ),
-          const SizedBox(height: 4),
-          Text(
-            'Pull down to try again.',
-            style: AidaType.sans(size: 12, color: AidaColors.textMuted),
-          ),
-        ],
-      ),
-    );
-  }
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Pull down to try again.',
+          style: AidaType.sans(size: 12, color: AidaColors.textMuted),
+        ),
+      ],
+    ),
+  );
 }
 
 class _FavoritesToggle extends StatelessWidget {
@@ -356,22 +366,20 @@ class _FavoritesToggle extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: active ? AidaColors.cityRed : AidaColors.cardWhite,
-      shape: const CircleBorder(),
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Icon(
-            active ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-            size: 20,
-            color: active ? AidaColors.cream : AidaColors.textMuted,
-          ),
+  Widget build(BuildContext context) => Material(
+    color: active ? AidaColors.cityRed : AidaColors.cardWhite,
+    shape: const CircleBorder(),
+    child: InkWell(
+      onTap: onTap,
+      customBorder: const CircleBorder(),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Icon(
+          active ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+          size: 20,
+          color: active ? AidaColors.cream : AidaColors.textMuted,
         ),
       ),
-    );
-  }
+    ),
+  );
 }

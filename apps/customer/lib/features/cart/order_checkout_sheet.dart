@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 import '../../application/order_checkout.dart';
@@ -42,10 +41,10 @@ class _OrderCheckoutSheetState extends State<OrderCheckoutSheet> {
   }
 
   OrderRequest get _request => OrderRequest(
-    fulfillmentType: _fulfillment,
-    requestedPickupAt: _pickupAt,
-    items: widget.items,
-  );
+        fulfillmentType: _fulfillment,
+        requestedPickupAt: _pickupAt,
+        items: widget.items,
+      );
 
   Future<void> _load() async {
     _setBusy();
@@ -64,9 +63,9 @@ class _OrderCheckoutSheetState extends State<OrderCheckoutSheet> {
   }
 
   void _setBusy() => setState(() {
-    _busy = true;
-    _error = null;
-  });
+        _busy = true;
+        _error = null;
+      });
 
   Future<void> _refreshQuote() async {
     _setBusy();
@@ -93,20 +92,23 @@ class _OrderCheckoutSheetState extends State<OrderCheckoutSheet> {
         value == _fulfillment) {
       return;
     }
-    final slots =
-        _policy == null ? const <DateTime>[] : derivePickupSlots(_policy!);
+    final slots = _policy == null
+        ? const <DateTime>[]
+        : derivePickupSlots(_policy!);
     setState(() {
       _fulfillment = value;
-      _pickupAt =
-          value == FulfillmentType.scheduled && slots.isNotEmpty
-              ? slots.first
-              : null;
+      _pickupAt = value == FulfillmentType.scheduled && slots.isNotEmpty
+          ? slots.first
+          : null;
     });
     await _refreshQuote();
   }
 
-  Future<void> _selectSlot(DateTime slot) async {
-    if (_busy || _session.pendingClientRequestId != null || slot == _pickupAt) {
+  Future<void> _selectSlot(DateTime? slot) async {
+    if (slot == null ||
+        _busy ||
+        _session.pendingClientRequestId != null ||
+        slot == _pickupAt) {
       return;
     }
     setState(() => _pickupAt = slot);
@@ -132,8 +134,9 @@ class _OrderCheckoutSheetState extends State<OrderCheckoutSheet> {
   @override
   Widget build(BuildContext context) {
     final policy = _policy;
-    final slots =
-        policy == null ? const <DateTime>[] : derivePickupSlots(policy);
+    final slots = policy == null
+        ? const <DateTime>[]
+        : derivePickupSlots(policy);
     final canSchedule = policy?.scheduleEnabled == true && slots.isNotEmpty;
 
     return SafeArea(
@@ -165,21 +168,28 @@ class _OrderCheckoutSheetState extends State<OrderCheckoutSheet> {
               const SizedBox(height: 18),
               Text(
                 'Review your order',
-                style: AidaType.serif(size: 19, color: AidaColors.textPrimary),
+                style: AidaType.serif(
+                  size: 19,
+                  color: AidaColors.textPrimary,
+                ),
               ),
               const SizedBox(height: 4),
               Text(
                 'Choose pickup, then confirm the server total.',
-                style: AidaType.sans(size: 13, color: AidaColors.textMuted),
+                style: AidaType.sans(
+                  size: 13,
+                  color: AidaColors.textMuted,
+                ),
               ),
               const SizedBox(height: 18),
               Row(
                 children: [
                   Expanded(
                     child: _ChoiceChip(
-                      label: 'ASAP',
+                      label: 'Now',
                       selected: _fulfillment == FulfillmentType.asap,
-                      onTap: () => _selectFulfillment(FulfillmentType.asap),
+                      onTap: () =>
+                          _selectFulfillment(FulfillmentType.asap),
                     ),
                   ),
                   if (canSchedule) ...[
@@ -187,47 +197,56 @@ class _OrderCheckoutSheetState extends State<OrderCheckoutSheet> {
                     Expanded(
                       child: _ChoiceChip(
                         label: 'Schedule',
-                        selected: _fulfillment == FulfillmentType.scheduled,
-                        onTap:
-                            () => _selectFulfillment(FulfillmentType.scheduled),
+                        selected:
+                            _fulfillment == FulfillmentType.scheduled,
+                        onTap: () =>
+                            _selectFulfillment(FulfillmentType.scheduled),
                       ),
                     ),
                   ],
                 ],
               ),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 260),
-                switchInCurve: Curves.easeOutCubic,
-                switchOutCurve: Curves.easeInCubic,
-                transitionBuilder:
-                    (child, animation) => FadeTransition(
-                      opacity: animation,
-                      child: SizeTransition(
-                        sizeFactor: animation,
-                        alignment: AlignmentDirectional.topStart,
-                        child: child,
-                      ),
+              if (_fulfillment == FulfillmentType.scheduled &&
+                  policy != null &&
+                  slots.isNotEmpty &&
+                  _pickupAt != null) ...[
+                const SizedBox(height: 14),
+                Text(
+                  'Pickup time',
+                  style: AidaType.sans(
+                    size: 12.5,
+                    weight: FontWeight.w800,
+                    color: AidaColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<DateTime>(
+                  initialValue: _pickupAt,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: AidaColors.cream,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(18),
                     ),
-                child:
-                    (_fulfillment == FulfillmentType.scheduled &&
-                            policy != null &&
-                            slots.isNotEmpty &&
-                            _pickupAt != null)
-                        ? Padding(
-                          key: const ValueKey('pickup-wheel'),
-                          padding: const EdgeInsets.only(top: 10),
-                          child: _PickupSlotWheel(
-                            slots: slots,
-                            timezone: policy.timezone,
-                            selected: _pickupAt!,
-                            enabled: !_busy,
-                            onSelected: _selectSlot,
+                  ),
+                  items: slots
+                      .map(
+                        (slot) => DropdownMenuItem<DateTime>(
+                          value: slot,
+                          child: Text(
+                            _slotLabel(slot, policy.timezone),
+                            style: AidaType.sans(
+                              size: 13,
+                              color: AidaColors.textPrimary,
+                            ),
                           ),
-                        )
-                        : const SizedBox.shrink(
-                          key: ValueKey('pickup-wheel-empty'),
                         ),
-              ),
+                      )
+                      .toList(growable: false),
+                  onChanged: _busy ? null : _selectSlot,
+                ),
+              ],
               const SizedBox(height: 14),
               Container(
                 padding: const EdgeInsets.all(14),
@@ -258,7 +277,10 @@ class _OrderCheckoutSheetState extends State<OrderCheckoutSheet> {
                 children: [
                   Text(
                     'Server total',
-                    style: AidaType.sans(size: 13, color: AidaColors.textMuted),
+                    style: AidaType.sans(
+                      size: 13,
+                      color: AidaColors.textMuted,
+                    ),
                   ),
                   const Spacer(),
                   Text(
@@ -288,9 +310,12 @@ class _OrderCheckoutSheetState extends State<OrderCheckoutSheet> {
                     _busy
                         ? 'Checking…'
                         : _quote != null
-                        ? 'Place order · ${_quote!.total.formatted}'
-                        : 'Place order',
-                    style: AidaType.sans(size: 15, weight: FontWeight.w700),
+                            ? 'Place order · ${_quote!.total.formatted}'
+                            : 'Place order',
+                    style: AidaType.sans(
+                      size: 15,
+                      weight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
@@ -302,7 +327,10 @@ class _OrderCheckoutSheetState extends State<OrderCheckoutSheet> {
                 const SizedBox(height: 12),
                 Text(
                   _error!,
-                  style: AidaType.sans(size: 12.5, color: AidaColors.error),
+                  style: AidaType.sans(
+                    size: 12.5,
+                    color: AidaColors.error,
+                  ),
                 ),
                 TextButton(
                   onPressed: _quote == null ? _load : _place,
@@ -330,213 +358,47 @@ class _ChoiceChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-    color:
-        selected ? AidaColors.coffee.withValues(alpha: 0.08) : AidaColors.cream,
-    borderRadius: BorderRadius.circular(18),
-    child: InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-        decoration: BoxDecoration(
+        color: selected
+            ? AidaColors.coffee.withValues(alpha: 0.08)
+            : AidaColors.cream,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          onTap: onTap,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: selected ? AidaColors.coffee : AidaColors.latte,
+          child: Container(
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 11,
+            ),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: selected ? AidaColors.coffee : AidaColors.latte,
+              ),
+            ),
+            child: Text(
+              label,
+              style: AidaType.sans(
+                size: 12.5,
+                weight: FontWeight.w700,
+                color:
+                    selected ? AidaColors.coffee : AidaColors.textMuted,
+              ),
+            ),
           ),
         ),
-        child: Text(
-          label,
-          style: AidaType.sans(
-            size: 12.5,
-            weight: FontWeight.w700,
-            color: selected ? AidaColors.coffee : AidaColors.textMuted,
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
-/// Tactile wheel presentation over the authoritative slots produced by
-/// [derivePickupSlots]. The redesign keeps the wheel interaction without
-/// inventing local opening hours or bypassing [OrderingPolicy.slotIntervalMinutes].
-class _PickupSlotWheel extends StatefulWidget {
-  const _PickupSlotWheel({
-    required this.slots,
-    required this.timezone,
-    required this.selected,
-    required this.enabled,
-    required this.onSelected,
-  });
-
-  final List<DateTime> slots;
-  final String timezone;
-  final DateTime selected;
-  final bool enabled;
-  final ValueChanged<DateTime> onSelected;
-
-  @override
-  State<_PickupSlotWheel> createState() => _PickupSlotWheelState();
-}
-
-class _PickupSlotWheelState extends State<_PickupSlotWheel> {
-  static const _itemExtent = 48.0;
-  late FixedExtentScrollController _controller;
-  late int _selectedIndex;
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedIndex = _indexFor(widget.selected);
-    _controller = FixedExtentScrollController(initialItem: _selectedIndex);
-  }
-
-  int _indexFor(DateTime selected) {
-    final index = widget.slots.indexOf(selected);
-    return index < 0 ? 0 : index;
-  }
-
-  @override
-  void didUpdateWidget(covariant _PickupSlotWheel oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final next = _indexFor(widget.selected);
-    if (next == _selectedIndex) return;
-    _selectedIndex = next;
-    if (_controller.hasClients) {
-      _controller.animateToItem(
-        next,
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOutCubic,
       );
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      ignoring: !widget.enabled,
-      child: AnimatedOpacity(
-        duration: const Duration(milliseconds: 150),
-        opacity: widget.enabled ? 1 : 0.72,
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
-          decoration: BoxDecoration(
-            color: AidaColors.cream,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AidaColors.latte),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'PICK TIME',
-                style: AidaType.sans(
-                  size: 10.5,
-                  weight: FontWeight.w800,
-                  letterSpacing: 1.1,
-                  color: AidaColors.textMuted,
-                ),
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                height: _itemExtent * 3,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Positioned.fill(
-                      child: ListWheelScrollView.useDelegate(
-                        controller: _controller,
-                        itemExtent: _itemExtent,
-                        physics: const FixedExtentScrollPhysics(),
-                        diameterRatio: 1.7,
-                        perspective: 0.003,
-                        useMagnifier: true,
-                        magnification: 1.06,
-                        onSelectedItemChanged: (index) {
-                          if (index == _selectedIndex) return;
-                          setState(() => _selectedIndex = index);
-                          HapticFeedback.selectionClick();
-                          widget.onSelected(widget.slots[index]);
-                        },
-                        childDelegate: ListWheelChildBuilderDelegate(
-                          childCount: widget.slots.length,
-                          builder: (context, index) {
-                            final selected = index == _selectedIndex;
-                            return Center(
-                              child: AnimatedDefaultTextStyle(
-                                duration: const Duration(milliseconds: 150),
-                                curve: Curves.easeOut,
-                                style: AidaType.sans(
-                                  size: selected ? 16 : 13,
-                                  weight:
-                                      selected
-                                          ? FontWeight.w800
-                                          : FontWeight.w600,
-                                  color:
-                                      selected
-                                          ? AidaColors.coffee
-                                          : AidaColors.textMuted.withValues(
-                                            alpha: 0.55,
-                                          ),
-                                ),
-                                child: Text(
-                                  _slotLabel(
-                                    widget.slots[index],
-                                    widget.timezone,
-                                  ),
-                                  maxLines: 1,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                    IgnorePointer(
-                      child: Container(
-                        height: _itemExtent,
-                        decoration: BoxDecoration(
-                          color: AidaColors.cardWhite.withValues(alpha: 0.42),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.symmetric(
-                            horizontal: BorderSide(
-                              color: AidaColors.coffee.withValues(alpha: 0.18),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Times come from the café scheduling policy.',
-                style: AidaType.sans(size: 11, color: AidaColors.textMuted),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 String _slotLabel(DateTime slot, String timezone) {
   final local = tz.TZDateTime.from(slot, tz.getLocation(timezone));
-  final hour =
-      local.hour == 0
-          ? 12
-          : local.hour > 12
+  final hour = local.hour == 0
+      ? 12
+      : local.hour > 12
           ? local.hour - 12
           : local.hour;
   final minute = local.minute.toString().padLeft(2, '0');
-  final suffix = local.hour < 12 ? 'AM' : 'PM';
-  return '${local.day}/${local.month}  $hour:$minute $suffix';
+  final period = local.hour >= 12 ? 'PM' : 'AM';
+  return '${local.day}/${local.month} · $hour:$minute $period';
 }

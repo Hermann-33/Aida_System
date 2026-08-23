@@ -1,112 +1,151 @@
 # Current Handoff
 
-Updated: 2026-08-21
+Updated: 2026-08-23
 
 ## Task
 
-`TASK-SCHEDULED-OPS-001 — scheduled-order operational queue + live staff POS entry`
+`TASK-MENU-CUSTOMIZATION-001 — per-drink option groups, per-line add-ons, Now terminology, and post-add navigation`
 
 **Verdict:** COMPLETE.
 
-Shared Supabase preparation authority is implemented live, migration history is reconciled with the canonical customer repository, the focused SQL regression passes, the Dashboard/POS implementation is complete on the matching task branch, executable Dashboard gates pass, and the affected mirrored documentation has been reconciled across both repositories.
+Detailed implementation/validation evidence:
 
-Detailed implementation contract:
+`docs/context/MENU_CUSTOMIZATION_2026-08-23.md`
 
-`docs/context/SCHEDULED_ORDER_OPERATIONS_2026-08-20.md`
+Matching task branches:
 
-## Starting state
+`codex/task-menu-customization-001-modifier-groups`
 
-Customer default `master` began this task at `6e04ac5fdddede5ac4dc5bb22bb0f6eabef7d8c6`.
+No PR or merge was created by this closeout.
 
-Dashboard default `main` began this task at `66c9209f656a35d13adcb467a7accaea970abe68`.
+## What changed
 
-Matching branches:
+### Customer
 
-`codex/task-scheduled-ops-001-prep-queue`
+- drink detail is catalogue-driven for Size, Temperature, Sweetness and compatible add-ons;
+- selected option/add-on state belongs to the individual cart line;
+- add-on catalogue rows/categories are hidden from normal customer browsing;
+- local cart estimates include variant + option + add-on deltas while server quote remains final authority;
+- order intents include `optionValueIds` but no trusted prices/totals;
+- unavailable options remain visible/disabled with explicit text/semantics;
+- `Add to cart` immediately returns to Menu;
+- checkout presentation says `Now`, while the backend wire value remains `asap`;
+- accepted policy-derived Schedule wheel remains intact.
 
-The pre-task Dashboard Orders rail used one flat persisted queue. Scheduled orders were real backend rows, but there was no trusted distinction between future scheduled workload, orders due to begin preparation, and orders whose pickup time had already passed.
+### Dashboard / POS
 
-The staff demo account `staff.nora.demo@aida.test` was verified live as confirmed/active `app_role=staff`; Auth succeeds. Its apparent login failure was caused after Auth because live employee/POS screens required terminal and shift APIs/schema that are not implemented in the accepted backend.
+- Admin can mark a product as a drink;
+- each drink option exposes editable customer label, price delta, availability and default;
+- every required group must have at least one available option and exactly one available default;
+- compatible add-ons remain per-product checkboxes;
+- POS maps variants + required Temperature/Sweetness + optional add-ons into per-line modifier state;
+- POS order payload includes `optionValueIds` only as selection IDs;
+- preview remains read-only; staff remains excluded from Admin.
 
-## Backend implementation — complete
+### Backend
 
-Applied live migration:
+Live migrations:
 
-`20260820151421_add_scheduled_order_preparation_window`
+```text
+20260822135421 add_drink_customization_catalogue
+20260822135602 integrate_drink_customizations_with_orders
+20260822141814 harden_drink_customization_indexes_and_rls
+20260822143542 grant_public_drink_customization_reads
+```
 
-Canonical migration file:
+Trusted additions:
 
-`supabase/migrations/20260820151421_add_scheduled_order_preparation_window.sql`
+- `catalogue_items.is_drink`;
+- `catalogue_option_groups`;
+- `catalogue_option_values`;
+- `catalogue_item_option_values`;
+- `order_lines.option_total_sen`;
+- `order_line_options` immutable selected-option snapshots;
+- `pricingVersion=2` quote calculation includes option deltas.
 
-Changes:
+The live quote definition supplies the configured available default for a required group when an older client omits an `optionValueId`, preserving rollout compatibility.
 
-- `order_schedule_settings.preparation_lead_minutes` default/current 15;
-- invariant `0 <= preparation_lead_minutes <= minimum_lead_minutes`;
-- `orders.prepare_at` for scheduled orders;
-- existing scheduled orders backfilled with current preparation lead;
-- `prepare_at` protected as immutable placement-time schedule authority;
-- order snapshots add `prepareAt`, `serverNow`, `scheduleState`;
-- `scheduleState` is server-derived `future | due | overdue | null` and never mutates persisted status;
-- `get_ordering_policy()` and Admin/Owner `save_ordering_policy()` expose/accept `preparationLeadMinutes`;
-- no automatic `scheduled -> preparing` transition was introduced.
+## Live closeout checks
 
-Current live policy remains Malaysia timezone, scheduled enabled, minimum lead 15, preparation lead 15, slot interval 15, horizon 7 days.
+Checked on 2026-08-23:
 
-Live orders `100007`, `100008`, and `100009` classify as `overdue` while remaining persisted `scheduled` until staff acts.
+```text
+catalogue revision         130
+drink products              11
+non-drink products           4
+add-ons                      4
+invalid required groups      0
+Iced Drinks with Hot on      0
+```
 
-## Backend verification
+Public/authenticated function/table grants align with the intended RLS boundary. Ordinary authenticated users have no direct read grant on immutable `order_line_options`.
 
-Focused canonical regression:
+Supabase security advisor has one pre-existing WARN only: Leaked Password Protection Disabled. Performance findings are INFO-only unused indexes.
 
-`supabase/tests/scheduled_order_operations_integration.sql`
+## Executable validation
 
-Live transactional run: PASS.
+### Customer
 
-It proves schema/policy bounds, scheduled `prepareAt`, `scheduleState`, idempotency preserving prepare time, Admin policy mutation, rejection of invalid preparation lead, new scheduled POS placement using current policy, and non-rewriting of existing orders after policy changes.
+Final validation commit:
 
-The pre-existing scheduled lifecycle was also rechecked after migration: `scheduled -> preparing -> ready -> completed` remains valid through the versioned status boundary.
+`404662aec382364c8e70fcee8d66b38d4b303f0a`
 
-Security advisor: unchanged one WARN only — `auth_leaked_password_protection` / Leaked Password Protection Disabled.
+Results:
 
-Performance advisor: INFO-only unused-index notices; the new scheduled preparation index is unused on the tiny current dataset, which is expected.
+- Flutter 3.44.7 / Dart 3.12.2 / JDK 21.0.12;
+- `flutter pub get` PASS;
+- format PASS;
+- analyze PASS;
+- Flutter tests 55 passed / 0 failed / 0 skipped;
+- `git diff --check` PASS;
+- secret scan PASS;
+- UI/golden review PASS at 390x844 and 430x932;
+- no physical Android device was connected for this final pass.
 
-## Dashboard implementation — complete
+### Dashboard
 
-Codex completed the Dashboard source work from prepared branch head `855424c` to implementation commit `b7b73fe8517625264a7e3f19e59d24325c1cfcc1`.
+Final validation commit:
 
-The Dashboard now strictly parses the trusted preparation fields, presents Active/Scheduled/Ready/History workloads, promotes overdue and due scheduled work without changing persisted status, and keeps **Start preparing** on the existing versioned mutation. Conflict responses invalidate both queue and selected detail before staff may retry.
+`af0fcd2babfa02073f882ec63ddbec102e591672`
 
-Live staff authentication reaches `/pos` without terminal enrolment/current-terminal/current-shift requests. Live Sale/Orders operates in the accepted global single-café scope. Terminal, shift and preview-member rails remain isolated to preview mode; staff is still denied Admin and Admin/Owner behavior is unchanged.
+Results:
 
-No Supabase migration, customer runtime source, RLS, service-role path, browser employee bearer-token persistence or fabricated live terminal/branch/shift authority was introduced by the Dashboard change.
+- Node v24.11.1 / npm 11.6.2;
+- `npm ci` PASS, 0 vulnerabilities;
+- lint PASS with two established Fast Refresh warnings;
+- typecheck PASS;
+- Vitest 29 files / 129 tests PASS;
+- build PASS with existing large-chunk advisory only;
+- Playwright 10/10 PASS;
+- `git diff --check` PASS;
+- visual QA PASS at 1366x768 and 1440x900;
+- no task-related browser console errors/warnings.
 
-## Dashboard verification
+## UI consistency
 
-Codex closeout evidence on 2026-08-21:
+Customer customization keeps the accepted AIDA rose/cream/espresso palette, Playfair + Plus Jakarta Sans, tactile/neumorphic controls, existing hero/sheet hierarchy, selected check indicators and explicit disabled text.
 
-- `npm ci`: PASS, 0 vulnerabilities;
-- lint: PASS with two existing shadcn Fast Refresh warnings;
-- typecheck: PASS;
-- Vitest: PASS — 27 files / 120 tests;
-- production build: PASS with the existing large-chunk advisory only;
-- Playwright: PASS — 10/10;
-- desktop/mobile visual QA: PASS;
-- scheduled-workload browser console: no errors;
-- `git diff --check`: PASS;
-- secret/browser-token scans: PASS.
+Dashboard uses the existing design tokens, Admin cards/form classes, labelled native radios/checkboxes, focus-visible/reduced-motion behavior and existing POS modifier density. No Luckin styling or second theme was introduced.
 
-Final implementation commit inspection confirmed the 31-file Dashboard delta is bounded to order workload/client integration, POS staff-entry/session presentation, focused tests/E2E, styling, and documentation. No Dashboard backend-authority expansion was present.
+## Security/trust result
 
-## Visual constraints preserved
+Preserved:
 
-The implementation reuses existing `src/styles/tokens.css`, Tailwind/shadcn primitives, and current POS components/patterns: Rose palette, Playfair Display headings, Plus Jakarta Sans UI/body, existing rails/cards/status treatments, spacing/radii/touch targets, focus treatment and reduced-motion behavior.
+- Supabase commercial authority;
+- RLS/FORCE-RLS boundaries;
+- Admin/Owner catalogue mutation;
+- caller-JWT same-origin HttpOnly employee BFF;
+- no browser employee token persistence;
+- no service-role credential in clients;
+- no fabricated branch/terminal/shift authority;
+- Pay-at-counter remains unpaid presentation, not payment settlement.
 
-Semantic urgency remains explicit in text as well as color; no second dashboard theme was introduced.
+## Next action
 
-## Cross-repository closeout
+This task is ready for repository merge/release handling, but those are separate explicit actions. If merging, merge both matching task branches so the two frontends remain contract-compatible with the already-live backend.
 
-The affected canonical mirrored documents were reconciled from the completed Dashboard implementation back into the customer repository on the matching task branch, with repository-local executable backend migration/tests remaining customer-only.
+After a customer merge, build a fresh APK from the merged customer default branch before distribution. The final Codex validation did not use a connected physical Android device.
 
-Terminal/branch/sales-point/shift authority remains intentionally deferred. Hosted production deployment also remains deferred and is not a blocker for this task.
+## Deferred domains
 
-No PR was created or merged as part of this task closeout.
+Branch authority/capacity, terminal/sales-point lifecycle, shifts/cash reconciliation, payment/refunds, loyalty, inventory, promotions/discounts, tax/accounting/reporting, delivery and hosted production operations remain separate tasks.

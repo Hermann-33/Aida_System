@@ -47,9 +47,10 @@ Updated: 2026-08-23
 
 ### Canonical Supabase ownership
 
-Relevant live/canonical migrations now include:
+Relevant canonical migration files include:
 
-- `supabase/migrations/20260812152607_create_shared_catalogue.sql` / hardening migration as present in repository migration history;
+- `supabase/migrations/20260812231500_create_shared_catalogue.sql`;
+- `supabase/migrations/20260812235000_harden_catalogue_rls_policies.sql`;
 - `supabase/migrations/20260812182212_create_authoritative_orders_and_scheduling.sql`;
 - `supabase/migrations/20260812183029_index_order_foreign_keys.sql`;
 - `supabase/migrations/20260820151421_add_scheduled_order_preparation_window.sql`;
@@ -59,6 +60,8 @@ Relevant live/canonical migrations now include:
 - `supabase/migrations/20260822135602_integrate_drink_customizations_with_orders.sql`;
 - `supabase/migrations/20260822141814_harden_drink_customization_indexes_and_rls.sql`;
 - `supabase/migrations/20260822143542_grant_public_drink_customization_reads.sql`.
+
+Supabase's applied migration-history timestamps for some older migrations differ from these historical canonical filenames; do not rename already-accepted migration files merely to make the timestamp labels match.
 
 Canonical backend regressions live under `supabase/tests/`. TASK-MENU-CUSTOMIZATION-001 adds `menu_customization_integration.sql` as a transactionally safe contract regression.
 
@@ -114,8 +117,8 @@ The deployed quote contract is `pricingVersion=2`; clients send option value IDs
 
 TASK-MENU-CUSTOMIZATION-001 is COMPLETE on matching task branches after:
 
-- Customer final commit `404662aec382364c8e70fcee8d66b38d4b303f0a` and 55/55 Flutter tests;
-- Dashboard final commit `af0fcd2babfa02073f882ec63ddbec102e591672`, Vitest 129/129 and Playwright 10/10;
+- Customer final validation commit `404662aec382364c8e70fcee8d66b38d4b303f0a` and 55/55 Flutter tests;
+- Dashboard final validation commit `af0fcd2babfa02073f882ec63ddbec102e591672`, Vitest 129/129 and Playwright 10/10;
 - live Supabase migration/grant/RLS/advisor verification;
 - mirrored contract/context/security documentation reconciliation.
 

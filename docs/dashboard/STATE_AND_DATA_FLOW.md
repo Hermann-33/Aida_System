@@ -1,35 +1,21 @@
 # POS/Admin State and Data Flow
 
-Updated: 2026-08-17
+Updated: 2026-08-23
 
 ## Employee/Admin session
 
 ```text
 Admin/employee login
  -> same-origin employee BFF
- -> Supabase Auth password session on server boundary
+ -> Supabase Auth server session
  -> trusted user_profiles role/disabled-state check
  -> HttpOnly cookies
  -> React session identity
 ```
 
-The browser does not persist the employee access token. Preview identity remains explicitly non-authoritative and does not substitute for a live employee session.
+The browser does not persist the employee access token. Preview identity remains explicitly non-authoritative.
 
-## Admin Members
-
-```text
-Admin Members page
- -> employeeFetch(credentials: include)
- -> same-origin /api/v1/admin/members
- -> employee session validation
- -> caller JWT
- -> list_admin_members / RLS
- -> trusted member directory
-```
-
-Preview mode does not request/fabricate privileged member data.
-
-## Admin catalogue
+## Admin catalogue / drink customization
 
 ```text
 AdminMenuPage / AdminMenuEditorPage
@@ -37,12 +23,18 @@ AdminMenuPage / AdminMenuEditorPage
  -> employeeFetch(credentials: include)
  -> same-origin catalogue BFF
  -> employee session validation
- -> caller admin JWT
- -> get_catalogue / save_catalogue_* RPC
- -> Postgres + audit + revision bump
+ -> caller Admin/Owner JWT
+ -> get_catalogue / save_catalogue_item
+ -> catalogue + audit + revision bump
 ```
 
-## POS catalogue read
+The catalogue snapshot includes `isDrink`, variants, compatible add-on IDs and `customizationGroups`.
+
+For a drink, Admin can edit each Temperature/Sweetness option's customer label, price delta, availability and default. The UI requires at least one available option and exactly one available default per required group; the backend remains authoritative and validates the same invariant.
+
+Preview mode uses the public catalogue in read-only mode and exposes no privileged save control.
+
+## POS catalogue / modifier read
 
 ```text
 CounterWorkspace
@@ -50,73 +42,74 @@ CounterWorkspace
  -> GET /api/v1/catalogue
  -> get_catalogue(public read)
  -> posCatalogue adapter
- -> categories/items/variants/compatible add-ons
+ -> product + variants + customization groups + compatible add-ons
 ```
 
-No preview catalogue fallback is used when this request fails.
+Modifier mapping:
+
+```text
+variant (when present)        required single choice
+Temperature / Sweetness       required single choice
+compatible add-ons            optional multi-select
+```
+
+Unavailable options remain visible/disabled and are not selectable. No preview catalogue fallback becomes live authority.
 
 ## POS cart versus authoritative quote
 
 ```text
-item/variant/add-on IDs + quantity + note
- -> local POS cart interaction
+itemId + variantId + optionValueIds[] + addOnIds[] + quantity + note
+ -> local POS cart interaction / estimate
  -> POST /api/v1/orders/quote
  -> BFF validates employee session
  -> caller JWT -> quote_order
- -> server revalidates shared catalogue
+ -> server revalidates catalogue/options/add-ons
  -> authoritative line/subtotal/total sen
 ```
 
-Local cart arithmetic is an estimate only; the returned quote is authoritative.
+The local cart may display an estimate including variant, option and add-on deltas, but the server quote is commercial authority. Differently configured copies of the same product remain distinct cart lines.
 
-## ASAP / scheduled POS order
+## Now / scheduled POS order
 
 ```text
 GET /api/v1/orders/policy
  -> serverNow + schedule policy
- -> POS offers ASAP / Schedule for later
- -> selected timestamp + selections
+ -> POS offers Now / Schedule for later
+ -> selected timestamp + line selection IDs
  -> POST /api/v1/orders/quote
- -> backend validates schedule
- -> create one clientRequestId
+ -> backend validates schedule + modifiers
+ -> create/reuse clientRequestId for this intent
  -> POST /api/v1/orders/place
  -> place_pos_order with employee caller JWT
  -> persisted guest POS order
 ```
 
-The checkout reuses the same `clientRequestId` for retry of the same intended placement. A genuinely changed/new order receives a new UUID. The sale clears only after successful backend placement.
+`Now` is presentation only; the trusted wire value remains `asap`. The sale clears only after persisted success.
 
 ## Staff order queue
 
 ```text
-order board active
- -> GET /api/v1/orders
- -> TanStack Query/cache
- -> parse prepareAt/serverNow/scheduleState without local defaults
- -> project Active / Scheduled / Ready / History
- -> render persisted Scheduled even when operationally due/overdue
+GET /api/v1/orders
+ -> strict snapshot parsing
+ -> Active / Scheduled / Ready / History projection
  -> refetch every ~2.5 seconds
 ```
 
-The staff bearer token is intentionally unavailable to JavaScript. The queue invalidates/refetches after POS placement/status changes and on supported focus/reconnection paths. There is no preview-order fallback.
+Backend `prepareAt`, `serverNow` and `scheduleState` remain operational authority. No React timer mutates order status.
 
 ## Status transition
 
 ```text
-staff clicks legal next action
- -> current order.statusVersion
+staff action + current statusVersion
  -> POST /api/v1/orders/status
  -> BFF same-origin/session check
  -> caller JWT
  -> transition_order_status(expectedVersion)
- -> legal state change + order_events
- -> response returns updated snapshot/version
- -> invalidate order queue
+ -> updated order + event
+ -> queue/detail invalidation
 ```
 
-HTTP 409 `ORDER_VERSION_CONFLICT` means another update already won. Refetch; do not replay stale state.
-
-Legal progression:
+Legal progression remains:
 
 ```text
 confirmed -> preparing | cancelled
@@ -125,40 +118,43 @@ preparing -> ready | cancelled
 ready -> completed
 ```
 
-Completed/cancelled are terminal.
-
-Active priority is backend-overdue, backend-due, preparing, confirmed. Future scheduled work sorts by immutable `prepareAt` and requested pickup. **Start preparing** sends the current `statusVersion`; no React timer mutates status. A 409 invalidates queue and selected detail before the action can be offered again.
+Completed/cancelled remain terminal; stale versions refetch rather than replay stale state.
 
 ## Live staff POS entry
 
 ```text
-/employee password
- -> same-origin employee BFF
- -> HttpOnly employee cookies
- -> trusted role=staff
+/employee
+ -> trusted employee Auth
+ -> HttpOnly session
  -> /pos
- -> live Sale + Orders (single-café/global scope)
+ -> Sale + Orders + Help
 ```
 
-Live mode performs no terminal/current-shift lookup. Preview mode separately uses session/local preview terminal and shift repositories; those values never authorize live APIs.
+Live mode does not depend on deferred terminal/current-shift authority. Preview terminal/shift/member state never authorizes live APIs.
 
 ## Customer propagation
 
 ```text
-staff status transition
- -> orders row changes
- -> Supabase Realtime
- -> customer owner-scoped subscription
- -> Flutter refetches get_order(orderId)
- -> customer UI renders persisted status
-```
+catalogue Admin save
+ -> catalogue_revision
+ -> customer catalogue invalidation/refetch
 
-Final live validation on 2026-08-17 proved this chain with order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`): Dashboard observed `confirmed` v1 and persisted `preparing` v2 → `ready` v3 → `completed` v4; customer-authorized reads observed each changed status.
+staff order transition
+ -> orders change
+ -> customer owner-scoped Realtime invalidation
+ -> authorized order refetch
+```
 
 ## Payment boundary
 
-There is no trusted payment processor state. Integrated demo order placement uses explicit `Pay at counter`/unpaid semantics. Preview tender/payment UI is not settlement evidence.
+There is no trusted payment processor state. Current live ordering remains explicit `Pay at counter` / unpaid.
+
+## Validation
+
+TASK-MENU-CUSTOMIZATION-001 Dashboard validation passed lint, typecheck, 129/129 Vitest tests, production build and Playwright 10/10, plus 1366x768 and 1440x900 UI QA with no task-related console errors.
+
+Detailed cross-repository evidence: `docs/context/MENU_CUSTOMIZATION_2026-08-23.md`.
 
 ## Deferred data flows
 
-Loyalty, inventory depletion, refunds, tax/accounting, branch scope/capacity/hours, shifts/cash, reporting/revenue, marketing publication, delivery and hosted production operations remain separate authority boundaries.
+Loyalty, inventory depletion, refunds, tax/accounting, reporting, branch scope/capacity/hours, terminal/sales-point authority, shifts/cash, delivery and hosted production remain separate trusted domains.

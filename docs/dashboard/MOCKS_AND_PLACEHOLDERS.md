@@ -1,71 +1,88 @@
 # POS/Admin Mocks and Placeholders Register
 
-Updated: 2026-08-17
+Updated: 2026-08-23
 
-## No longer preview in trusted current paths
+## Trusted current paths
 
-The following are live/shared-backend integrations rather than preview authority:
+These are shared/live backend integrations, not preview authority:
 
 - protected Admin Members directory;
-- Admin Menu categories/items/prices/publication/availability/variants/add-on compatibility;
-- POS catalogue browsing/customization;
+- Admin Menu categories/items/prices/publication/availability;
+- variants/sizes;
+- Drink flag and Temperature/Sweetness per-item configuration;
+- compatible add-on links;
+- POS catalogue browsing and modifier groups;
 - authoritative POS quote/place;
-- ASAP/scheduled pickup policy;
-- scheduled operational classification and preparation timing;
+- Now/scheduled pickup policy;
+- scheduled preparation classification;
 - Active/Scheduled/Ready/History order workloads;
-- live staff entry to Sale/Orders in accepted single-café scope.
-- live order queue/detail;
-- versioned fulfilment status transitions.
+- live staff Sale/Orders entry in accepted global single-café scope;
+- live order queue/detail and versioned fulfilment transitions.
 
-`PREVIEW_MENU`, `PREVIEW_CATEGORIES`, `PREVIEW_MODIFIER_GROUPS` and preview transaction/order records are not runtime authority for those trusted paths.
+Preview menu/modifier/order fixtures are not runtime authority for those paths.
+
+## Local UI state that is allowed
+
+The browser may keep transient interaction state such as:
+
+- current unsaved cart lines;
+- selected item/variant IDs;
+- selected `optionValueIds` for Temperature/Sweetness;
+- selected compatible add-on IDs;
+- quantity/note;
+- local estimated price before quote;
+- selected Now/scheduled intent;
+- view/filter/dialog/loading/error state;
+- one `clientRequestId` reused for retry of the same intended placement.
+
+Local state must not become authority for modifier availability, compatibility or final prices.
+
+## Modifier-specific boundary
+
+Temperature/Sweetness and add-on metadata come from the shared catalogue.
+
+The browser may render catalogue price deltas in an estimate, but `quote_order` revalidates IDs and returns authoritative `pricingVersion=2` totals.
+
+If the Admin disables or reprices an option after a cart was staged, the client must tolerate quote rejection/repricing rather than preserving stale local truth.
+
+Add-ons are per-line optional selections. Do not use a global add-on selection that implicitly applies to an entire sale.
 
 ## Removed order/POS preview authority
 
-The active POS placement and Orders rail no longer treat these as trusted persistence/business truth:
+The live Sale/Orders path must not use:
 
-- client-computed cart/order totals shown as final;
-- preview/local order records standing in for persisted orders;
-- preview order-number generation;
-- fake checkout/tender/payment success;
-- local-only order lifecycle/status;
-- preview orders as queue fallback;
-- fake status progression or local completion authority.
+- client-computed totals as final commercial truth;
+- preview/local orders as persisted-order fallback;
+- fake order numbers;
+- fake processor/tender success;
+- local-only fulfilment status;
+- fake timer-driven progression;
+- preview option/add-on values to bypass unavailable live catalogue state.
 
-The existing POS surfaces use `/api/v1/orders/*` without replacing the established AIDA design system.
+## Admin preview boundary
 
-## Allowed local UI state
+UI Preview may inspect the public catalogue but is read-only. It must not expose or simulate successful Admin catalogue mutation.
 
-The browser may keep:
+Real option/add-on edits require the authenticated Admin/Owner BFF/RPC path.
 
-- current unsaved cart selections;
-- item/variant/add-on/quantity/note interaction state;
-- local estimate before server quote;
-- selected ASAP/scheduled intent before quote;
-- view/filter/dialog/loading/error state;
-- one `clientRequestId` reused across retries of the same intended placement.
+## Payment boundary
 
-Persisted quote total, order number, schedule acceptance and order status come from the BFF/backend.
+No trusted processor exists. Use explicit `Pay at counter` / unpaid semantics. Preview tender/payment UI is never settlement evidence.
 
-## Payment demo boundary
-
-No trusted processor exists. Use explicit `Pay at counter`/unpaid semantics. Existing tender/payment previews must not be presented as settled real transactions.
-
-## Still preview/deferred beyond TASK-CLOSEOUT-001
+## Still preview/deferred
 
 - loyalty/rewards;
-- terminal/device enrolment authority beyond current preview/local behavior;
+- terminal/device enrolment authority;
 - shift/cash authority;
-- POS Member rail and terminal/shift rails (hidden from live mode; available only in clearly labelled preview mode);
-- branches/branch scope and employee-management mutations not yet backed by trusted server contracts;
-- inventory and depletion;
+- POS Member, Shift and Terminal preview rails;
+- branch/branch-scope and deeper employee-management mutation;
+- inventory/depletion;
 - marketing publication;
-- real payment/refund processing;
+- payment/refunds;
 - tax/accounting;
 - sales/revenue reporting;
 - branch opening-hours/capacity scheduling;
 - many settings/integration/audit presentation surfaces;
-- hosted production deployment/release operations.
+- hosted production operations.
 
-Admin Inventory and Sales Performance may intentionally derive demo rows from preview fixtures; those rows remain outside production inventory/reporting authority and must not be used as order/catalogue truth.
-
-The final live order E2E validates the current trusted order path only; it does not promote these deferred domains.
+TASK-MENU-CUSTOMIZATION-001 closeout and executable validation are documented in `docs/context/MENU_CUSTOMIZATION_2026-08-23.md`.

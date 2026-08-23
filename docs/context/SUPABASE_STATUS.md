@@ -1,68 +1,122 @@
 # Supabase Status
 
-**Status date:** 2026-08-20
+**Status date:** 2026-08-23
 **Project:** Aida System
 **Ref:** `eswovqxqzfevcdwwcmuh`
 **Region:** `ap-southeast-1`
-**Health:** ACTIVE_HEALTHY
-**Postgres:** 17.6.1.155
 
 ## Current live snapshot
 
-Latest independently checked operational counts:
+Supabase remains the shared trusted backend for the Flutter customer app and React Dashboard/Admin/POS.
 
-- Auth users: 12
-- profiles: 12
-- members: 9
-- trusted roles: 1 owner, 1 admin, 1 staff
-- retained orders: 4
-- catalogue revision: 42
-- public base tables: 14
+Current catalogue observation:
 
-These counts are dated operational observations, not schema invariants.
+```text
+catalogue revision         130
+drink products              11
+non-drink products           4
+add-ons                      4
+invalid required groups      0
+Iced Drinks with Hot on      0
+```
 
-## Identity/membership
+These counts are operational observations, not schema invariants.
 
-Trusted identity/member objects remain live with forced RLS:
+## Applied migration tail
 
-- `user_profiles`
-- `members`
-- `student_verifications`
+Current live migration history includes:
 
-The staff demo identity `staff.nora.demo@aida.test` is confirmed and active with trusted `app_role=staff`; the account is not disabled/banned/deleted. Authentication succeeds. Current staff POS trouble is post-auth Dashboard flow, not missing Auth identity.
+```text
+20260812152607 create_shared_catalogue
+20260812154805 harden_catalogue_rls_policies
+20260812182212 create_authoritative_orders_and_scheduling
+20260812183029 index_order_foreign_keys
+20260820151421 add_scheduled_order_preparation_window
+20260820214041 refresh_catalogue_product_images
+20260820221139 replace_americano_catalogue_image
+20260822135421 add_drink_customization_catalogue
+20260822135602 integrate_drink_customizations_with_orders
+20260822141814 harden_drink_customization_indexes_and_rls
+20260822143542 grant_public_drink_customization_reads
+```
 
-## Catalogue
+Canonical executable migration files live only under the customer repository `supabase/migrations/` directory unless an accepted ADR changes ownership.
 
-Live catalogue objects remain:
+## Identity / employee boundary
 
-- `catalogue_categories`
-- `catalogue_items`
-- `catalogue_item_variants`
-- `catalogue_item_addons`
-- `catalogue_revision`
-- `catalogue_audit_events`
+Trusted identity remains Supabase Auth plus:
 
-Catalogue revision is currently 42. Supabase remains authoritative for publication, availability, IDs, variants, add-on compatibility and integer-sen pricing.
+- `user_profiles.app_role` / `disabled_at` for employee/Admin authorization;
+- `members` for customer membership identity.
 
-## Orders and scheduling
+Public signup cannot self-assign privileged roles/member codes. Dashboard privileged browser flows continue through the same-origin HttpOnly employee BFF using the authenticated caller JWT; no service-role/browser bearer-token architecture is introduced by menu customization.
 
-Canonical applied order migrations include:
+## Catalogue authority
 
-1. `20260812182212_create_authoritative_orders_and_scheduling.sql`
-2. `20260812183029_index_order_foreign_keys.sql`
-3. `20260820151421_add_scheduled_order_preparation_window.sql`
+Core catalogue resources now include:
 
-Live order/scheduling tables remain:
+- `catalogue_categories`;
+- `catalogue_items` including `is_drink`;
+- `catalogue_item_variants`;
+- `catalogue_item_addons`;
+- `catalogue_option_groups`;
+- `catalogue_option_values`;
+- `catalogue_item_option_values`;
+- `catalogue_revision`;
+- `catalogue_audit_events`.
 
-- `order_schedule_settings`
-- `orders`
-- `order_lines`
-- `order_line_addons`
-- `order_events`
+Supabase remains authoritative for item/category publication, availability, UUIDs, integer-sen prices, variant ownership, compatible add-ons and drink-option configuration.
 
-All five retain RLS + FORCE RLS where defined by the accepted order architecture. Ordinary authenticated clients have no direct INSERT/UPDATE authority over order commercial tables; controlled writes remain behind the accepted RPC helpers.
+Current standard drink groups:
 
-### Current policy
+```text
+Temperature
+- Hot
+- Iced
+
+Sweetness
+- Regular
+- Less sweet
+- Least sweet
+```
+
+Per-item option configuration can override the customer label, price delta, availability, default and sort order. Every live required group currently has at least one available option and exactly one available default.
+
+The existing `Iced Drinks` products currently expose Iced as available/default and Hot as unavailable.
+
+Anonymous/public catalogue reads have the required table grants plus RLS for option catalogue data. Admin/Owner mutation remains behind `save_catalogue_item(jsonb)` and the trusted role boundary.
+
+## Order / modifier authority
+
+Current order resources include:
+
+- `order_schedule_settings`;
+- `orders`;
+- `order_lines` including `option_total_sen`;
+- `order_line_addons`;
+- `order_line_options`;
+- `order_events`.
+
+`order_line_options` is an immutable historical snapshot surface for selected option group/value IDs, group/value labels and price deltas. Ordinary authenticated users have no direct table read grant; authorized order snapshots expose permitted data through the trusted order functions.
+
+Order selection payloads may include:
+
+```text
+itemId
+variantId
+addOnIds[]
+optionValueIds[]
+quantity
+note
+```
+
+`quote_order(jsonb)` remains authoritative for validation and pricing. The deployed implementation returns `pricingVersion=2` and computes authoritative unit price from base + variant + options + compatible add-ons.
+
+When an older client omits a required option group, the live function definition resolves that group's configured available default. This provides rollout compatibility without moving authority into the client.
+
+## Scheduling policy
+
+Live policy verified 2026-08-23:
 
 ```text
 timezone                 Asia/Kuala_Lumpur
@@ -73,118 +127,57 @@ slot_interval_minutes    15
 maximum_advance_days     7
 ```
 
-`minimum_lead_minutes` controls the earliest customer-selectable pickup. `preparation_lead_minutes` is separate operational authority used to snapshot when staff should begin a scheduled order.
-
-Invariant:
-
-```text
-0 <= preparation_lead_minutes <= minimum_lead_minutes
-```
-
-### Scheduled-order operational authority
-
-`orders` now stores server-owned `prepare_at` for scheduled orders:
-
-```text
-prepare_at = requested_pickup_at - preparation_lead_minutes
-```
-
-The value is snapshotted at placement and protected from later commercial-field mutation. A future policy change does not rewrite an accepted order.
-
-Authorized order snapshots additionally expose:
-
-```text
-prepareAt
-serverNow
-scheduleState = future | due | overdue | null
-```
-
-For persisted `status=scheduled`:
-
-- pickup already passed -> `overdue`
-- preparation time reached -> `due`
-- otherwise -> `future`
-
-This operational classification does **not** auto-transition fulfilment status. Only staff-or-above may persist the existing legal status transitions with expected `statusVersion`.
-
-### Current retained orders
-
-The original closeout order `100006` remains completed evidence.
-
-Three later scheduled customer orders remain persisted `scheduled` and are now correctly exposed as operationally `overdue`:
-
-- `100007`
-- `100008`
-- `100009`
-
-Their `prepare_at` values were backfilled from the current 15-minute preparation lead without manufacturing a fulfilment transition.
-
-## Public RPC contract
-
-Current order RPC boundary includes:
-
-- `get_ordering_policy()`
-- `quote_order(jsonb)`
-- `place_customer_order(jsonb)`
-- `place_pos_order(jsonb)`
-- `get_order(uuid)`
-- `get_my_orders(integer)`
-- `list_orders(text[], integer)`
-- `transition_order_status(uuid,text,bigint,text)`
-- `save_ordering_policy(jsonb)`
-
-`get_ordering_policy()` now includes `preparationLeadMinutes`; Admin/Owner `save_ordering_policy` accepts it subject to the bounds above.
+Scheduled operational classification remains server-owned through immutable `prepare_at`, `serverNow` and `scheduleState`; no menu-customization change altered the accepted fulfilment-state machine.
 
 ## Realtime
 
-`supabase_realtime` still publishes the intended mutable signals:
+`supabase_realtime` continues to publish the intended mutable signals:
 
-- `catalogue_revision`
-- `orders`
+- `catalogue_revision` for catalogue invalidation/refetch;
+- `orders` for authorized customer order invalidation/refetch.
 
-Customer clients treat Realtime as invalidation and re-fetch authorized snapshots. Dashboard staff keeps the same-origin BFF/polling model because employee bearer tokens remain HttpOnly.
+Dashboard employee clients still use same-origin BFF polling/refetch rather than exposing the HttpOnly employee JWT to React.
 
-## Regression status
+## TASK-MENU-CUSTOMIZATION-001 verification
 
-Canonical existing Auth/member, catalogue and order regressions remain the accepted baseline.
+Live checks on 2026-08-23 proved:
 
-TASK-SCHEDULED-OPS-001 adds:
+- 11 drink products and 4 add-ons are present;
+- no required drink group lacks an available default;
+- no current `Iced Drinks` product has Hot enabled;
+- anonymous can execute `get_catalogue()` and `quote_order(jsonb)`;
+- authenticated can execute `quote_order(jsonb)`;
+- anonymous/authenticated option-catalogue read grants are present;
+- ordinary authenticated users have no direct `order_line_options` read grant.
 
-`supabase/tests/scheduled_order_operations_integration.sql`
+The inspection connector itself uses a read-only database role and cannot impersonate `anon`, so final closeout did not create a synthetic production order merely to exercise quote/place. The deployed function definitions and executable client suites were inspected instead.
 
-Live transactional result: PASS.
+Detailed evidence: `docs/context/MENU_CUSTOMIZATION_2026-08-23.md`.
 
-It proves preparation schema/policy bounds, immutable scheduled `prepareAt`, backend-derived `scheduleState`, idempotent retry preservation, Admin policy mutation and validation, scheduled POS placement against the current policy, and non-rewriting of existing orders after policy changes.
+## Advisor state
 
-## Security advisor
+Security advisor currently reports one pre-existing WARN only:
 
-Current security advisor has exactly one WARN:
-
-- `auth_leaked_password_protection` — **Leaked Password Protection Disabled**
+- `auth_leaked_password_protection` — Leaked Password Protection Disabled.
 
 Remediation: https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection
 
-No new security advisor finding was introduced by TASK-SCHEDULED-OPS-001.
+No new security WARN/ERROR is attributed to TASK-MENU-CUSTOMIZATION-001.
 
-## Performance advisor
-
-Current findings are INFO-only unused-index notices on the small dataset. The new `orders_scheduled_prepare_idx` is reported unused immediately after creation, which is expected until the operational queue generates sufficient reads. Do not remove it merely to clear an INFO result.
+Performance advisor findings are INFO-only unused indexes, including recent FK-supporting customization indexes on the small current dataset. Do not remove those indexes solely to clear an unused-index INFO result.
 
 ## Explicitly deferred backend authority
 
-Still not modeled as trusted live backend domains:
+Still not implemented as trusted live domains:
 
-- branch-specific opening hours/closures/capacity
-- authoritative branch assignment and branch-scoped order queues
-- terminal enrolment/credentials
-- sales-point authority
-- shifts/cash reconciliation
-- real payment/refunds
-- loyalty earning/redemption
-- inventory depletion
-- promotions/discount engine
-- tax/accounting/reporting
-- delivery
-- hosted production operations
-
-Dashboard code must not fabricate these domains to unblock UI.
+- branch-specific opening hours/closures/capacity;
+- branch-scoped staff/order visibility;
+- terminal/sales-point authority;
+- shifts/cash reconciliation;
+- payment/refunds;
+- loyalty earning/redemption;
+- inventory depletion;
+- promotions/discounts;
+- tax/accounting/reporting;
+- delivery;
+- hosted production operations.

@@ -1,125 +1,203 @@
 # System Map
 
-Updated: 2026-08-17
+Updated: 2026-08-23
 
 | System | Runtime | Current trusted source |
 |---|---|---|
-| Customer | Flutter/Riverpod | Supabase Auth/member + shared catalogue + customer order RPCs |
-| Dashboard/Admin/POS | React/Vite | same-origin employee BFF + shared catalogue/member/order RPCs |
+| Customer | Flutter/Riverpod | Supabase Auth/member + shared catalogue/options + customer order RPCs |
+| Dashboard/Admin/POS | React/Vite | same-origin employee BFF + shared catalogue/options/member/order RPCs |
 | Backend | Supabase | Auth, Postgres, FORCE RLS, controlled RPCs, Realtime |
 
-## Catalogue flow
+## Catalogue / customization flow
 
 ```text
-Admin Menu
+Admin Menu editor
  -> same-origin BFF cookie session
- -> admin/owner caller JWT
- -> save_catalogue_* RPC
- -> catalogue tables + audit + revision bump
+ -> Admin/Owner caller JWT
+ -> save_catalogue_item
+ -> catalogue item + variants + option overrides + compatible add-ons
+ -> audit + catalogue revision bump
  -> catalogue_revision Realtime
- -> Flutter invalidates catalogue snapshot
- -> get_catalogue() under RLS
- -> updated menu shown
+ -> clients invalidate/refetch catalogue
 ```
 
-The production customer menu and Dashboard POS catalogue browser contain no runtime hardcoded catalogue fallback. Physical validation proved a real Owner catalogue price mutation propagated to the installed Android customer app.
+Server catalogue controls:
+
+```text
+product vs addon
+isDrink
+variant labels/deltas/availability/default
+Temperature/Sweetness labels/deltas/availability/default
+compatible add-on links
+publication / availability / image / sort order
+```
+
+Current reusable drink groups:
+
+```text
+Temperature: Hot | Iced
+Sweetness: Regular | Less sweet | Least sweet
+```
+
+Customer browse filters `kind=addon` rows/categories, but compatible add-ons remain available to the selected product's Customize section.
+
+## Customer configured-item flow
+
+```text
+Menu product
+ -> Item detail
+ -> choose Size when applicable
+ -> choose required Temperature
+ -> choose required Sweetness
+ -> choose optional compatible add-ons
+ -> quantity / note
+ -> Add to cart
+ -> configured line stored locally
+ -> return to Menu
+```
+
+Cart identity includes option/add-on selections. Therefore:
+
+```text
+Latte · Hot · Regular
+Latte · Iced · Less sweet · Boba
+```
+
+remain distinct configurations.
+
+The customer local price is an estimate only:
+
+```text
+base + variant + option deltas + add-ons
+```
+
+Checkout always obtains the server quote before placement.
 
 ## Customer order flow
 
 ```text
 Flutter cart selections
- -> quote_order(ids/qty/intent only)
- -> server revalidates catalogue and calculates integer-sen totals
- -> customer chooses ASAP or server-policy-aligned scheduled pickup
+ -> quote_order(item/variant/option/add-on IDs + qty/note/intent)
+ -> server validates catalogue compatibility/availability
+ -> server calculates pricingVersion=2 totals
+ -> customer chooses Now or server-policy-derived Schedule
  -> place_customer_order(clientRequestId + selections)
  -> trusted customer/member derived from auth session
- -> orders + immutable order_lines/order_line_addons snapshots
+ -> orders + immutable order_lines/order_line_addons/order_line_options snapshots
  -> order_events(created)
- -> order returned with server order number/status
+ -> persisted order returned
 ```
 
-The customer cannot submit trusted prices/totals/order numbers/member IDs/status. Placement requires an active member and is idempotent per authenticated actor + `clientRequestId`.
+Customer-facing `Now` maps to trusted wire value `asap`; it is not a new backend fulfilment type.
 
-## POS order flow
+Older client requests that omit required option IDs are resolved by the server's configured available defaults.
+
+## POS configured-item flow
 
 ```text
-POS cart selections
+POS catalogue product
+ -> variant required when present
+ -> Temperature required single choice
+ -> Sweetness required single choice
+ -> compatible add-ons optional multi-select
+ -> local estimate
  -> POST /api/v1/orders/quote
  -> employee HttpOnly session validated by BFF
  -> caller JWT -> quote_order
- -> authoritative quote returned
+ -> authoritative quote
  -> POST /api/v1/orders/place
- -> caller JWT -> place_pos_order
- -> persisted guest POS order
- -> GET /api/v1/orders queue refresh
+ -> place_pos_order
 ```
 
-The Dashboard renders the server quote as commercial authority, keeps one `clientRequestId` across retry of the same intended placement, clears the sale only after persisted success, and labels the current non-processor path `Pay at counter`/unpaid. Preview/local cart state is selection state only and is never a live order fallback.
+Unavailable choices remain disabled. POS order intents contain selection IDs/quantity/note, not trusted prices/totals.
 
-## Scheduled pickup
+## Admin option-management flow
+
+```text
+Admin -> Menu management -> Edit item
+ -> Drink customization toggle
+ -> group cards
+    -> customer label
+    -> price delta
+    -> Available
+    -> Default
+ -> Compatible add-ons checkboxes
+ -> save
+```
+
+Every active required group needs at least one available option and exactly one available default. The Admin client validates this before save; the backend validates it as trusted authority.
+
+Preview remains read-only and does not call privileged mutation routes.
+
+## Scheduled pickup / operational flow
 
 ```text
 get_ordering_policy
  -> Asia/Kuala_Lumpur
- -> 15-minute minimum lead
- -> 15-minute slots
- -> 7-day horizon
- -> selected scheduled timestamp
+ -> minimumLead 15
+ -> preparationLead 15
+ -> slots 15 minutes
+ -> horizon 7 days
+ -> customer/POS Schedule selection
  -> quote_order validates server time/horizon/slot
- -> scheduled order persisted with status=scheduled
+ -> scheduled order persists prepareAt/status=scheduled
 ```
 
-Branch hours, closures and capacity are not yet authoritative and are not presented as backend guarantees.
+Customer keeps the accepted tactile policy-derived wheel. Branch hours/closures/capacity are not authoritative yet.
+
+Dashboard workload projection remains:
+
+```text
+server order snapshots
+ -> scheduled + overdue/due => Active, persisted status remains scheduled
+ -> scheduled + future => Scheduled
+ -> ready => Ready
+ -> completed/cancelled => History
+ -> explicit Start preparing + expectedVersion => persisted preparing
+```
 
 ## Fulfilment/status flow
 
 ```text
 Dashboard order board
- -> GET /api/v1/orders
+ -> same-origin GET /api/v1/orders
  -> staff selects legal next state
  -> POST /api/v1/orders/status + expectedVersion
  -> transition_order_status
- -> orders row/statusVersion updated
- -> order_events appended
- -> customer receives authorized orders Realtime event
- -> Flutter calls get_order(orderId)
- -> UI renders persisted status
+ -> statusVersion changes + order_events append
+ -> customer receives owner-scoped orders Realtime invalidation
+ -> Flutter authorized refetch
 ```
 
-Legal flow is `confirmed|scheduled -> preparing -> ready -> completed`, with cancellation allowed before ready. Completed/cancelled are terminal. Stale `statusVersion` changes fail.
+Legal flow remains `confirmed|scheduled -> preparing -> ready -> completed`, with cancellation allowed before ready. Completed/cancelled remain terminal.
 
-Because employee JWTs remain HttpOnly, React does not expose a staff token to connect directly to Supabase Realtime. The Orders rail polls the same-origin BFF about every 2.5 seconds, invalidates after place/status mutations, shows legal next actions only and refetches on version conflict. Customer Flutter uses owner-scoped Supabase Realtime directly and re-fetches the authorized order snapshot.
+## Realtime / employee token boundary
 
-## Validated cross-client state
+Customer Flutter may use its Supabase session for owner-scoped Realtime invalidation.
 
-Physical/manual validation proved:
+Employee JWTs remain HttpOnly. Dashboard React does not expose a staff JWT for direct Supabase Realtime; its order workload polls/refetches the same-origin BFF and invalidates after place/status mutations.
 
-- Android release connectivity and customer signup;
-- trusted profile/member provisioning visible in protected Dashboard Members;
-- real Owner Admin login;
-- Owner catalogue mutation → installed Android catalogue refresh.
+## Live validation state
 
-Final live order E2E on 2026-08-17 proved:
+TASK-MENU-CUSTOMIZATION-001 closeout on 2026-08-23 verified:
 
 ```text
-customer Auth/member
- -> quote Sandwich ASAP at 1,290 sen
- -> place order 100006 / 7cf027dc-3ff0-4604-a3fd-c7a943aac603
- -> Dashboard observes confirmed v1
- -> Dashboard preparing v2
- -> customer authorized refresh sees preparing
- -> Dashboard ready v3
- -> customer refresh sees ready
- -> Dashboard completed v4
- -> customer refresh sees completed
+catalogue revision         130
+drink products              11
+non-drink products           4
+add-ons                      4
+invalid required groups      0
+Iced Drinks with Hot on      0
 ```
 
-One completed E2E order remains intentionally retained as evidence.
+Customer executable validation: analyze PASS, 55/55 tests PASS, exact-size UI/golden QA PASS.
 
-## Deployment state
+Dashboard executable validation: lint/typecheck/build PASS, Vitest 129/129, Playwright 10/10, UI/theme QA PASS.
 
-Hosted/Vercel deployment remains **DEFERRED** and is not a blocker for the accepted local Dashboard PC + cloud Supabase + installed Android phone topology. Do not claim hosted BFF operation until its runtime configuration/routes are separately proven. Service-role credentials remain prohibited from Flutter/Vite/browser code.
+Detailed evidence: `docs/context/MENU_CUSTOMIZATION_2026-08-23.md`.
 
-## Deferred authority
+## Deployment / deferred authority
 
-Real payments/refunds, loyalty, inventory depletion, discounts/promotions, tax/accounting, revenue analytics, branch scheduling/capacity, branch-scoped operations, delivery and hosted production release operations remain separate trusted tasks.
+Hosted deployment remains deferred and is not implied by local/client validation.
+
+Real payments/refunds, loyalty, inventory, promotions/discounts, tax/accounting/reporting, branch scheduling/capacity, branch-scoped operations, terminal/sales-point lifecycle, shifts/cash reconciliation and delivery remain separate trusted tasks.

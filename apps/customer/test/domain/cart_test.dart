@@ -77,11 +77,23 @@ void main() {
     });
 
     test('different add-ons are a different line, regardless of order', () {
-      const a = CartLineItem(item: _latte, addOnIds: ['p_shot', 'p_oat'], quantity: 1);
-      const b = CartLineItem(item: _latte, addOnIds: ['p_oat', 'p_shot'], quantity: 1);
+      const a = CartLineItem(
+        item: _latte,
+        addOnIds: ['p_shot', 'p_oat'],
+        quantity: 1,
+      );
+      const b = CartLineItem(
+        item: _latte,
+        addOnIds: ['p_oat', 'p_shot'],
+        quantity: 1,
+      );
       const c = CartLineItem(item: _latte, addOnIds: ['p_shot'], quantity: 1);
 
-      expect(a.sameConfigurationAs(b), isTrue, reason: 'order should not matter');
+      expect(
+        a.sameConfigurationAs(b),
+        isTrue,
+        reason: 'order should not matter',
+      );
       expect(a.sameConfigurationAs(c), isFalse);
     });
 
@@ -93,16 +105,19 @@ void main() {
   });
 
   group('pricing', () {
-    test('unit price is base plus database variant delta plus add-on total', () {
-      const line = CartLineItem(
-        item: _latte,
-        size: _large,
-        addOnIds: ['p_shot', 'p_oat'],
-        quantity: 1,
-      );
-      final addOns = addOnTotalFor(line.addOnIds, [_latte, _shot, _oat]);
-      expect(line.unitPrice(addOns), const Money.fromSen(1750));
-    });
+    test(
+      'unit price is base plus database variant delta plus add-on total',
+      () {
+        const line = CartLineItem(
+          item: _latte,
+          size: _large,
+          addOnIds: ['p_shot', 'p_oat'],
+          quantity: 1,
+        );
+        final addOns = addOnTotalFor(line.addOnIds, [_latte, _shot, _oat]);
+        expect(line.unitPrice(addOns), const Money.fromSen(1750));
+      },
+    );
 
     test('line total multiplies unit price by quantity', () {
       const line = CartLineItem(item: _latte, quantity: 3);

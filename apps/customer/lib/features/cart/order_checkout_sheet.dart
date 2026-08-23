@@ -177,7 +177,7 @@ class _OrderCheckoutSheetState extends State<OrderCheckoutSheet> {
                 children: [
                   Expanded(
                     child: _ChoiceChip(
-                      label: 'ASAP',
+                      label: 'Now',
                       selected: _fulfillment == FulfillmentType.asap,
                       onTap: () => _selectFulfillment(FulfillmentType.asap),
                     ),

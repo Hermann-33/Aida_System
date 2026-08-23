@@ -145,10 +145,7 @@ class _NeumorphicNavButtonState extends State<_NeumorphicNavButton> {
       return LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [
-          AidaColors.rewardGold,
-          AidaColors.rewardGoldDeep,
-        ],
+        colors: [AidaColors.rewardGold, AidaColors.rewardGoldDeep],
       );
     }
     if (_inset) {

@@ -3,47 +3,54 @@ import 'menu_variant.dart';
 import 'money.dart';
 import 'order.dart';
 
-/// One configured line in the local preview cart.
+/// One independently configured line in the local cart.
 ///
-/// Menu configuration prices come from the shared catalogue. This cart is not
-/// an authoritative quote/order implementation; checkout must still re-price
-/// server-side when that backend task lands.
+/// The cart stages selection intent only. Catalogue prices/options are used for
+/// the local estimate, then the order RPC revalidates every ID and re-prices the
+/// line before placement.
 class CartLineItem {
   const CartLineItem({
     required this.item,
     this.size,
     this.addOnIds = const [],
+    this.optionValueIds = const [],
     required this.quantity,
     this.note,
   });
 
   final MenuItem item;
 
-  /// Kept as `size` for existing UI/receipt semantics, but the value is now a
+  /// Kept as `size` for existing UI/receipt semantics, but the value is a
   /// server-defined catalogue variant rather than a hardcoded Dart enum.
   final MenuVariant? size;
+
+  /// Optional per-line extras such as Boba. Two copies of the same drink may
+  /// therefore carry different add-ons without ambiguity.
   final List<String> addOnIds;
+
+  /// One server-owned value ID from each required drink customization group.
+  final List<String> optionValueIds;
+
   final int quantity;
   final String? note;
 
-  Money unitPrice(Money addOnTotal) {
+  Money unitPrice(Money addOnTotal, [Money? optionTotal]) {
     final delta = size?.priceDeltaSen ?? 0;
-    return Money.fromSen(item.price.sen + delta + addOnTotal.sen);
+    final resolvedOptions = optionTotal ?? customizationTotalFor(this);
+    return Money.fromSen(
+      item.price.sen + delta + addOnTotal.sen + resolvedOptions.sen,
+    );
   }
 
-  Money lineTotal(Money addOnTotal) =>
-      Money.fromSen(unitPrice(addOnTotal).sen * quantity);
+  Money lineTotal(Money addOnTotal, [Money? optionTotal]) =>
+      Money.fromSen(unitPrice(addOnTotal, optionTotal).sen * quantity);
 
   bool sameConfigurationAs(CartLineItem other) {
     if (item.id != other.item.id) return false;
     if (size?.id != other.size?.id) return false;
     if (note != other.note) return false;
-    if (addOnIds.length != other.addOnIds.length) return false;
-    final a = [...addOnIds]..sort();
-    final b = [...other.addOnIds]..sort();
-    for (var i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
+    if (!_sameIds(addOnIds, other.addOnIds)) return false;
+    if (!_sameIds(optionValueIds, other.optionValueIds)) return false;
     return true;
   }
 
@@ -51,6 +58,7 @@ class CartLineItem {
     item: item,
     size: size,
     addOnIds: addOnIds,
+    optionValueIds: optionValueIds,
     quantity: quantity ?? this.quantity,
     note: note,
   );
@@ -79,6 +87,7 @@ class Cart {
           itemId: line.item.id,
           variantId: line.size?.id,
           addOnIds: List.unmodifiable(line.addOnIds),
+          optionValueIds: List.unmodifiable(line.optionValueIds),
           quantity: line.quantity,
           note: line.note,
         ),
@@ -90,6 +99,16 @@ extension CartLineItemSummary on CartLineItem {
   String? configSummary(List<MenuItem> menu) {
     final parts = <String>[];
     if (size != null) parts.add(size!.label);
+
+    for (final group in item.customizationGroups) {
+      for (final option in group.options) {
+        if (optionValueIds.contains(option.id)) {
+          parts.add('${group.name}: ${option.label}');
+          break;
+        }
+      }
+    }
+
     if (addOnIds.isNotEmpty) {
       final names = addOnIds
           .map((id) {
@@ -118,4 +137,27 @@ Money addOnTotalFor(List<String> addOnIds, List<MenuItem> menu) {
     }
   }
   return Money.fromSen(sen);
+}
+
+Money customizationTotalFor(CartLineItem line) {
+  var sen = 0;
+  for (final group in line.item.customizationGroups) {
+    for (final option in group.options) {
+      if (line.optionValueIds.contains(option.id)) {
+        sen += option.priceDeltaSen;
+        break;
+      }
+    }
+  }
+  return Money.fromSen(sen);
+}
+
+bool _sameIds(List<String> left, List<String> right) {
+  if (left.length != right.length) return false;
+  final a = [...left]..sort();
+  final b = [...right]..sort();
+  for (var i = 0; i < a.length; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
 }

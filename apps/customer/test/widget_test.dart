@@ -52,7 +52,9 @@ void main() {
       expect(find.text('MEMBER · AIDA-2049-7731'), findsOneWidget);
     });
 
-    testWidgets('shows the verified-student pill for a verified student', (tester) async {
+    testWidgets('shows the verified-student pill for a verified student', (
+      tester,
+    ) async {
       await tester.pumpWidget(_wrap(const MembershipCardScreen()));
       await tester.pumpAndSettle();
 

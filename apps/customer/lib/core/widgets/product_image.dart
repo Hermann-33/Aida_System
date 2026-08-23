@@ -18,9 +18,11 @@ class ProductImage extends StatelessWidget {
     this.size,
     this.borderRadius = 16,
     this.fit = BoxFit.cover,
+
     /// When false, placeholders are icon-only on transparent pixels — for
     /// grid tiles where the product should float on the page color.
     this.filledPlaceholder = true,
+
     /// Bundled cut-out or product art when [imageUrl] is missing or fails.
     this.assetFallback,
   });
@@ -38,11 +40,7 @@ class ProductImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(borderRadius);
-    final child = SizedBox(
-      width: size,
-      height: size,
-      child: _buildContent(),
-    );
+    final child = SizedBox(width: size, height: size, child: _buildContent());
 
     if (fit == BoxFit.contain && borderRadius <= 0) {
       return child;
@@ -76,10 +74,8 @@ class ProductImage extends StatelessWidget {
         assetFallback!,
         fit: fit,
         errorBuilder:
-            (_, __, ___) => _Placeholder(
-              category: category,
-              filled: filledPlaceholder,
-            ),
+            (_, __, ___) =>
+                _Placeholder(category: category, filled: filledPlaceholder),
       );
     }
     return _Placeholder(category: category, filled: filledPlaceholder);

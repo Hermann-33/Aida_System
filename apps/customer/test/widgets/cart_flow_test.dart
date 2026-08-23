@@ -9,6 +9,7 @@ import 'package:aida_customer/domain/model/cart.dart';
 import 'package:aida_customer/domain/model/order.dart';
 import 'package:aida_customer/features/cart/cart_screen.dart';
 import 'package:aida_customer/features/cart/order_confirmation_screen.dart';
+import 'package:aida_customer/features/menu/item_detail_screen.dart';
 import 'package:aida_customer/features/shell/app_shell.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -138,91 +139,103 @@ class _FakeHttpResponse extends Stream<List<int>>
 }
 
 void main() {
-  testWidgets('configure an item, add to cart, checkout, cart ends up empty', (
-    tester,
-  ) async {
-    debugNetworkImageHttpClientProvider = _FakeHttpClient.new;
-    try {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            memberRepositoryProvider.overrideWithValue(_fast),
-            catalogueRepositoryProvider.overrideWithValue(_catalogue),
-            orderRepositoryProvider.overrideWithValue(TestOrderRepository()),
-          ],
-          child: const MaterialApp(home: AppShell()),
-        ),
-      );
-      await tester.pumpAndSettle();
+  testWidgets(
+    'configures drink options and add-on per line then returns to menu',
+    (tester) async {
+      final orders = TestOrderRepository();
+      debugNetworkImageHttpClientProvider = _FakeHttpClient.new;
+      try {
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              memberRepositoryProvider.overrideWithValue(_fast),
+              catalogueRepositoryProvider.overrideWithValue(_catalogue),
+              orderRepositoryProvider.overrideWithValue(orders),
+            ],
+            child: const MaterialApp(home: AppShell()),
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('nav_menu')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Salted Caramel Latte'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('nav_menu')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Salted Caramel Latte'));
+        await tester.pumpAndSettle();
+        expect(find.byType(ItemDetailScreen), findsOneWidget);
+        expect(find.text('Temperature'), findsOneWidget);
+        expect(find.text('Sweetness'), findsOneWidget);
+        expect(find.text('Hot'), findsOneWidget);
 
-      await tester.ensureVisible(find.text('Large'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Large'));
-      await tester.pump();
+        await tester.ensureVisible(find.text('Large'));
+        await tester.tap(find.text('Large'));
+        await tester.pump();
 
-      await tester.ensureVisible(find.text('Extra Shot'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Extra Shot'));
-      await tester.pump();
+        await tester.ensureVisible(find.text('Less sweet'));
+        await tester.tap(find.text('Less sweet'));
+        await tester.pump();
 
-      await tester.ensureVisible(find.byType(TextField));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'less ice please');
-      await tester.pump();
+        await tester.ensureVisible(find.text('Extra Shot'));
+        await tester.tap(find.text('Extra Shot'));
+        await tester.pump();
 
-      await tester.tap(find.byIcon(Icons.add_rounded));
-      await tester.pump();
+        await tester.ensureVisible(find.byType(TextField));
+        await tester.enterText(find.byType(TextField), 'less ice please');
+        await tester.pump();
 
-      final addButton = find.text('Add to cart · RM 34.80');
-      expect(addButton, findsOneWidget);
-      await tester.tap(addButton);
-      await tester.pumpAndSettle();
-      await tester.pump(const Duration(seconds: 1));
+        await tester.tap(find.byIcon(Icons.add_rounded).last);
+        await tester.pump();
 
-      await tester.ensureVisible(find.byIcon(Icons.arrow_back_rounded));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byIcon(Icons.arrow_back_rounded));
-      await tester.pumpAndSettle();
+        final addButton = find.text('Add to cart · RM 34.80');
+        expect(addButton, findsOneWidget);
+        await tester.tap(addButton);
+        await tester.pumpAndSettle();
 
-      expect(find.byKey(const ValueKey('floating_cart_bar')), findsOneWidget);
-      expect(find.text('RM 34.80'), findsWidgets);
+        // Adding completes configuration and returns directly to Menu.
+        expect(find.byType(ItemDetailScreen), findsNothing);
+        expect(find.byKey(const ValueKey('floating_cart_bar')), findsOneWidget);
+        expect(find.text('RM 34.80'), findsWidgets);
 
-      await tester.tap(find.byKey(const ValueKey('floating_cart_bar')));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('floating_cart_bar')));
+        await tester.pumpAndSettle();
 
-      expect(find.byType(CartScreen), findsOneWidget);
-      expect(find.text('Salted Caramel Latte'), findsOneWidget);
-      expect(find.textContaining('Large'), findsWidgets);
-      expect(find.textContaining('Extra Shot'), findsOneWidget);
-      expect(find.text('"less ice please"'), findsOneWidget);
+        expect(find.byType(CartScreen), findsOneWidget);
+        expect(find.text('Salted Caramel Latte'), findsOneWidget);
+        expect(find.textContaining('Large'), findsWidgets);
+        expect(find.textContaining('Temperature: Hot'), findsOneWidget);
+        expect(find.textContaining('Sweetness: Less sweet'), findsOneWidget);
+        expect(find.textContaining('Extra Shot'), findsOneWidget);
+        expect(find.text('"less ice please"'), findsOneWidget);
 
-      await tester.tap(find.text('Review order'));
-      await tester.pumpAndSettle();
-      expect(find.text('Server total'), findsOneWidget);
-      expect(find.text('RM 34.80'), findsWidgets);
-      await tester.tap(find.text('Place order · RM 34.80'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('Review order'));
+        await tester.pumpAndSettle();
+        expect(find.text('Now'), findsOneWidget);
+        expect(find.text('ASAP'), findsNothing);
+        expect(find.text('Server total'), findsOneWidget);
+        expect(find.text('RM 34.80'), findsWidgets);
 
-      expect(find.byType(OrderConfirmationScreen), findsOneWidget);
-      expect(find.text('Order confirmed'), findsOneWidget);
+        final quotedLine = orders.quotedRequests.single.items.single;
+        expect(quotedLine.optionValueIds, contains('opt_hot'));
+        expect(quotedLine.optionValueIds, contains('opt_less_sweet'));
+        expect(quotedLine.optionValueIds, isNot(contains('opt_regular')));
+        expect(quotedLine.addOnIds, ['p_shot']);
 
-      await tester.tap(find.text('Back to Menu'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('Place order · RM 34.80'));
+        await tester.pumpAndSettle();
 
-      expect(find.byType(OrderConfirmationScreen), findsNothing);
-      expect(find.byType(CartScreen), findsNothing);
-      expect(find.byKey(const ValueKey('floating_cart_bar')), findsNothing);
-    } finally {
-      // Flutter verifies painting debug globals before package:test teardown
-      // callbacks run, so restore this test-only image client in the body.
-      debugNetworkImageHttpClientProvider = null;
-    }
-  });
+        expect(find.byType(OrderConfirmationScreen), findsOneWidget);
+        expect(find.text('Order confirmed'), findsOneWidget);
+
+        await tester.tap(find.text('Back to Menu'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(OrderConfirmationScreen), findsNothing);
+        expect(find.byType(CartScreen), findsNothing);
+        expect(find.byKey(const ValueKey('floating_cart_bar')), findsNothing);
+      } finally {
+        debugNetworkImageHttpClientProvider = null;
+      }
+    },
+  );
 
   testWidgets('placement failure retains cart selections for retry', (
     tester,
@@ -245,6 +258,7 @@ void main() {
             item: TestCatalogueRepository.latte,
             size: TestCatalogueRepository.large,
             addOnIds: ['p_shot'],
+            optionValueIds: ['opt_hot', 'opt_regular'],
             quantity: 2,
           ),
         );
@@ -285,6 +299,7 @@ void main() {
             item: TestCatalogueRepository.latte,
             size: TestCatalogueRepository.large,
             addOnIds: ['p_shot'],
+            optionValueIds: ['opt_hot', 'opt_regular'],
             quantity: 1,
           ),
         );
@@ -300,6 +315,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(orders.quotedRequests.single.fulfillmentType, FulfillmentType.asap);
+    expect(find.text('Now'), findsOneWidget);
 
     await tester.tap(find.text('Schedule'));
     await tester.pumpAndSettle();
@@ -313,5 +329,6 @@ void main() {
       scheduled.requestedPickupAt!.difference(allowedSlots.first),
       Duration.zero,
     );
+    expect(find.byKey(const ValueKey('pickup-wheel')), findsOneWidget);
   });
 }

@@ -1,135 +1,164 @@
 # AIDA Café Security Review
 
-Updated: 2026-08-17
+Updated: 2026-08-23
 
-**Verdict:** identity, catalogue and order/scheduling authority are hardened across the dashboard boundary; the credential-bound cross-client order E2E passes.
+**Current verdict:** identity, catalogue, modifier, pricing, order/scheduling and fulfilment authority remain server-controlled. TASK-MENU-CUSTOMIZATION-001 adds catalogue-driven per-drink options and immutable option snapshots without moving trust into either frontend.
 
-## Existing identity/catalogue controls
+## Core controls
 
 - Supabase Auth plus trusted `user_profiles`/`members` remain authoritative for identity and membership.
 - Public signup cannot self-promote role/member/verification state.
-- Catalogue tables use FORCE RLS.
-- Public/customer catalogue reads are publication-scoped.
-- Catalogue admin/owner writes use trusted caller identity; no service-role browser bypass.
+- Catalogue authority remains Supabase Postgres/RLS/RPC.
 - Dashboard privileged flows retain same-origin HttpOnly employee sessions and caller-JWT Supabase access.
-- Customer runtime has no production hardcoded catalogue fallback; dashboard POS has no preview catalogue fallback.
+- No service-role key or browser-readable employee bearer token is introduced.
+- Staff remains excluded from Admin catalogue mutation; Admin/Owner remains the trusted catalogue-management role.
 
-## TASK-DEMO-ORDER-001 order controls
+## Catalogue / modifier controls
 
-All order/scheduling tables use RLS + FORCE RLS:
+Trusted catalogue resources include:
 
-- `order_schedule_settings`
-- `orders`
-- `order_lines`
-- `order_line_addons`
-- `order_events`
+- `catalogue_items` / `catalogue_item_variants` / `catalogue_item_addons`;
+- `catalogue_option_groups`;
+- `catalogue_option_values`;
+- `catalogue_item_option_values`.
 
-Authenticated browser/mobile roles have no direct INSERT/UPDATE grants on order commercial tables. Controlled persistence occurs only through bounded RPC helpers with explicit caller/role validation.
+`catalogue_items.is_drink` identifies products that consume option groups. The current reusable groups are Temperature and Sweetness.
 
-### Pricing and identity
+Per-drink option label, price delta, availability, default and sort order are server data. Customer/POS UI state cannot make an unavailable option valid or change its authoritative price.
 
-- `quote_order(jsonb)` ignores client price/total fields and re-prices from current published/available catalogue data.
-- Item/variant/add-on compatibility is revalidated server-side.
-- Customer/member identity is derived from `auth.uid()` plus the active member row, never request JSON.
-- POS placement requires staff-or-above.
-- Order UUID, numeric order number, price snapshots, totals, initial status, timestamps and audit events are server-owned.
-- Persisted commercial fields are protected against later mutation by a database trigger.
+Compatible add-ons are normalized server links. Add-on category membership alone does not authorize selection.
 
-### Idempotency
+Every active required drink group must have at least one available option and exactly one available default. The live closeout check found zero invalid required groups.
 
-Placement requires a `clientRequestId` UUID scoped to the authenticated actor.
+Public/authenticated catalogue-option reads are protected by RLS and the intended table grants. Mutation remains Admin/Owner-only through the trusted catalogue boundary.
 
-- identical retry -> returns the same persisted order;
-- same key + different payload -> conflict;
-- client retry cannot create a duplicate order for the same key.
+## Order / pricing controls
 
-### Scheduling
+Order clients submit IDs and intent only:
 
-The server validates scheduled pickup against trusted server time and the singleton policy:
+```text
+itemId
+variantId
+optionValueIds[]
+addOnIds[]
+quantity
+note
+fulfillmentType / requestedPickupAt
+clientRequestId for placement
+```
 
-- timezone `Asia/Kuala_Lumpur`;
-- 15-minute minimum lead;
-- 15-minute slots;
-- 7-day maximum horizon.
+Clients do not submit trusted product/option/add-on labels, option/add-on price deltas, unit prices, totals, customer/member identity, order status or payment state.
 
-Staff cannot change policy. Admin/owner can change it only through the trusted RPC/BFF boundary.
+`quote_order(jsonb)` revalidates product/variant/add-on/option ownership and availability and derives price from the database.
 
-Branch hours/closures/capacity are not yet authoritative, so neither backend nor frontend may claim branch-aware schedule validation.
+Current deployed quote contract is `pricingVersion=2`:
 
-### Fulfilment/status
+```text
+base + variant + options + compatible add-ons = authoritative unit price
+```
 
-Only staff-or-above may mutate status. Legal transitions are allow-listed and require an expected `statusVersion`; stale concurrent changes fail.
+When a legacy client omits a required option group, the live function resolves the configured available default. If a valid default does not exist, quote fails rather than trusting the client.
 
-`order_events` records creation/status evidence and has no ordinary client write grant.
+## Immutable option snapshots
 
-### Realtime
+Persisted order truth now includes:
 
-Only `orders` is added for order-status Realtime. Customer visibility remains owner-scoped through RLS; staff currently sees the global queue because branch scope is not yet modeled. Clients re-fetch full authorized snapshots after order-header changes.
+- `order_lines.option_total_sen`;
+- `order_line_options` selected group/value snapshots.
 
-### Dashboard BFF
+`order_line_options` records accepted group/value IDs, codes, labels and price deltas. Later Admin changes cannot rewrite historical order configuration or price.
 
-Order BFF routes:
+Ordinary authenticated users have no direct `SELECT` grant on `order_line_options`; authorized order reads remain behind trusted snapshot functions/RLS behavior.
 
-- validate the existing employee HttpOnly session;
-- forward the caller JWT, not a service-role token;
-- require same origin for POST requests;
-- do not return employee access/refresh tokens in JSON;
-- map idempotency/version conflicts to HTTP 409 for safe client recovery.
+## Per-line isolation
 
-No React/Vite browser module receives a service-role key or trusted staff bearer token.
+Customer and POS cart identity/equivalence includes option/add-on selections. Two copies of the same product with different Temperature/Sweetness/add-ons remain independent lines/configurations.
 
-## Live security validation
+This prevents a per-order/global add-on state from accidentally applying Boba/Oat Milk/etc. to unrelated drinks.
 
-Canonical `supabase/tests/order_integration.sql` passed transactionally and proved:
+## Scheduling / idempotency controls
 
-- anonymous quote allowed but privileged order capabilities denied;
-- direct authenticated order DML absent;
-- forged total ignored;
-- incompatible add-on and invalid schedule rejected;
-- customer owner/history boundary;
-- customer status mutation denied;
-- staff queue/POS placement allowed;
-- admin-only schedule-policy write;
-- legal/stale/terminal transition enforcement;
-- cleanup leaves zero synthetic identities/orders/events.
+The accepted scheduling and placement controls remain unchanged:
 
-At TASK-DEMO-ORDER-001 migration-validation time, the schema/RLS advisor returned **0 lints**. The current hosted project advisor state is not zero findings: it has the leaked-password-protection WARN described below.
+- `clientRequestId` is required for idempotent placement;
+- identical retry returns the existing order;
+- same key with changed payload conflicts;
+- scheduling is validated relative to server time/policy;
+- immutable `prepareAt` and backend `scheduleState` remain server-owned;
+- no timer/browser auto-transitions fulfilment state.
 
-Performance advisor's initial four unindexed-FK INFO findings were resolved with a forward migration; final findings are only unused-index INFO expected on the new dataset.
+Customer-facing `Now` is only presentation. The wire/backend enum remains `asap`, so no security or compatibility boundary is weakened by the copy change.
 
-The 2026-08-17 live E2E authenticated a real customer/member through Supabase Auth and a real Owner through the Dashboard HttpOnly BFF. Customer placement derived identity/member server-side and trusted only catalogue IDs/quantity/note. Dashboard status mutations used the same-origin BFF and expected status versions. Customer-owned reads observed `preparing`, `ready` and `completed`; the Dashboard observed the identical server record. Independent database verification confirms order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`) remains `completed` at version 4 with the expected event sequence. No service role, direct SQL insert, password reset, browser employee token persistence or credential-bearing repository file was used. Ephemeral credential variables were removed after the run.
+## Employee / Dashboard boundary
 
-## Explicitly untrusted / deferred
+Dashboard employee authentication still uses the ADR-0008 same-origin BFF:
 
-No real payment authority exists. Card/E-wallet/Student Wallet UI must not claim successful settlement. Use an explicit `Pay at counter`/unpaid demo path until a trusted payment task exists.
+- HttpOnly access/refresh cookies;
+- trusted role/disabled-state validation;
+- caller JWT forwarded to Supabase;
+- no browser token persistence;
+- no service-role use in Vite/browser code.
 
-Order completion currently represents fulfilment completion, not verified payment settlement.
+Admin preview remains read-only. A preview session cannot call privileged catalogue writes.
 
-The following remain separate trusted domains:
+The menu-customization task did not introduce terminal/branch/shift authority or use preview fixtures to authorize live operations.
 
-- payment/refunds
-- loyalty earning/redemption
-- inventory depletion
-- promotions/discounts
-- tax/accounting
-- revenue/reporting
-- branch-scoped staff/order access
-- branch scheduling hours/capacity
-- delivery
+## UI safety / accessibility-relevant state
 
-## Release/E2E status
+Customer unavailable options remain visible but disabled with explicit `Unavailable` messaging/semantics; selected choices use an explicit check indicator and are not represented only by color.
 
-- Flutter authoritative order integration and Android reproducible build gates are complete for the current tranche.
-- Dashboard active POS uses server quote/place/queue/status endpoints rather than preview totals/order records as authority.
-- Approved real identities exist (9 Auth users; 1 owner, 1 admin, 1 staff; 6 members at the 2026-08-17 verification); demo credentials remain external ephemeral test inputs and are not repository data.
-- Physical Android signup → Dashboard Members and Owner catalogue mutation → installed-phone refresh are validated.
-- Customer placement → Dashboard observation/versioned transitions → customer authorized status refresh is validated with retained order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`).
-- Hosted deployment remains DEFERRED, not complete.
+Dashboard modifier/Admin controls preserve labelled native radio/checkbox behavior, disabled semantics, focus-visible rules and reduced-motion handling.
 
-## Current advisor state
+These are interaction-safety properties, not a claim of full WCAG conformance.
 
-The Supabase security advisor reports one WARN: `auth_leaked_password_protection` / **Leaked Password Protection Disabled**. This is hosted Auth configuration debt, not a reason to weaken Auth or fabricate a source-code fix. Current documentation must not claim zero advisor findings.
+## TASK-MENU-CUSTOMIZATION-001 verification
 
-Remediation: <https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection>.
+Detailed evidence:
 
-The 2026-08-14 npm closeout audit initially reported 1 moderate and 4 high dependency advisories. Compatible lockfile updates remediated them without a major dependency upgrade; the final npm audit reports 0 vulnerabilities.
+`docs/context/MENU_CUSTOMIZATION_2026-08-23.md`
+
+Live checks on 2026-08-23 confirm:
+
+- 11 drink products, 4 add-ons;
+- zero required drink groups with an invalid available-default configuration;
+- all current Iced Drinks have Hot unavailable;
+- public/authenticated quote execution remains granted;
+- public/authenticated option-catalogue reads have intended grants + RLS;
+- ordinary authenticated users have no direct `order_line_options` table read.
+
+Client validation:
+
+- Customer: analyze PASS, 55/55 tests PASS, secret scan PASS, exact-size UI/golden QA PASS;
+- Dashboard: `npm ci` 0 vulnerabilities, lint/typecheck/build PASS, Vitest 129/129, Playwright 10/10, no task-related console errors.
+
+No RLS/Auth/service-role/browser-token bypass was introduced by the final UI validation changes.
+
+## Advisor state
+
+Current Supabase security advisor reports one pre-existing WARN:
+
+- `auth_leaked_password_protection` — **Leaked Password Protection Disabled**.
+
+Remediation: https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection
+
+No new task-related security WARN/ERROR remains.
+
+Performance advisor findings are INFO-only unused indexes on the current small dataset, including recent customization FK-supporting indexes.
+
+## Explicitly deferred authority
+
+No trusted implementation currently exists for:
+
+- real payment/refunds;
+- loyalty earning/redemption;
+- inventory depletion;
+- promotions/discounts;
+- tax/accounting/reporting;
+- branch-scoped staff/order access;
+- branch scheduling hours/capacity;
+- terminal/sales-point authority;
+- shift/cash reconciliation;
+- delivery;
+- hosted production operations.
+
+Frontend presentation must not imply those domains are authoritative.

@@ -1,131 +1,127 @@
 # Codebase Map
 
-Updated: 2026-08-20
+Updated: 2026-08-23
 
 ## Customer repository — `Hermann-33/Aida_System`
 
-### Android/runtime configuration
-
-- `apps/customer/android/app/src/main/AndroidManifest.xml` — production Android permissions, including required Internet access.
-- `apps/customer/android/settings.gradle.kts` — Android Gradle Plugin configuration; closeout uses AGP 8.9.1.
-- `apps/customer/android/gradle/wrapper/gradle-wrapper.properties` — Gradle wrapper; closeout uses Gradle 8.11.1.
-- `apps/customer/android/gradle.properties` — Flutter/Gradle compatibility properties.
-- `apps/customer/test/android_release_manifest_test.dart` — regression protecting production Internet permission.
-- `.github/workflows/customer-release-audit.yml` — clean Flutter 3.44.9 post-redesign analyze/test/release-APK workflow used by TASK-UI-REDESIGN-003.
-
 ### Identity/member runtime
 
-- `apps/customer/lib/data/repository/supabase_member_repository.dart` — Supabase Auth plus owner-scoped member/profile reads and Auth error mapping.
-- `apps/customer/lib/data/cache/offline_member_cache.dart` — per-user durable minimum member ID/code cache; excludes roles, verification, loyalty and pricing authority.
-- `apps/customer/lib/application/providers.dart` — Auth/member/catalogue/cart/order provider composition.
-- `apps/customer/lib/features/auth/login_screen.dart` — Supabase-backed sign-in/sign-up UI.
-- `apps/customer/lib/features/card/membership_card_screen.dart` — owner/offline-backed member QR; consumes shared bundled `AidaLogo` presentation.
-- `apps/customer/lib/core/theme/aida_logo.dart` and `assets/images/aida_logo.jpg` — shared offline-safe logo presentation; not identity authority.
-- `apps/customer/test/data/supabase_member_repository_test.dart` and `test/data/offline_member_cache_test.dart` — Auth/cache regressions.
+- `apps/customer/lib/data/repository/supabase_member_repository.dart` — Supabase Auth + owner-scoped member/profile reads.
+- `apps/customer/lib/data/cache/offline_member_cache.dart` — minimum per-user member ID/code cache; no role/pricing/loyalty authority.
+- `apps/customer/lib/application/providers.dart` — Auth/member/catalogue/cart/order composition.
+- `apps/customer/lib/features/auth/login_screen.dart` — customer Supabase sign-in/sign-up UI.
 
-### Shared catalogue runtime
+### Shared catalogue / modifier runtime
 
-- `apps/customer/lib/data/repository/supabase_catalogue_repository.dart` — `get_catalogue()` snapshot plus `catalogue_revision` stream.
-- `apps/customer/lib/domain/repository/catalogue_repository.dart` — customer read-only catalogue capability.
-- `apps/customer/lib/domain/model/catalogue_snapshot.dart`, `menu_variant.dart`, `menu_item.dart` — shared catalogue models.
-- `apps/customer/lib/features/menu/menu_screen.dart` — redesigned vertical-rail/single-column Menu over the same DB-backed providers.
-- `apps/customer/lib/features/menu/widgets/menu_category_rail.dart` — redesigned category/favorites selector with stable automation keys.
-- `apps/customer/lib/features/menu/widgets/menu_list_item.dart` — redesigned list row; live `imageUrl` first, bundled category art only as fallback.
-- `apps/customer/lib/features/menu/item_detail_screen.dart` — DB-driven customization plus consolidated local-cart CTA.
-- `apps/customer/test/support/test_catalogue_repository.dart` — explicit test-only catalogue fixture, not a runtime fallback.
+- `apps/customer/lib/data/repository/supabase_catalogue_repository.dart` — `get_catalogue()` decoding, including `isDrink`, variants, compatible add-ons and customization groups; `catalogue_revision` stream.
+- `apps/customer/lib/domain/model/catalogue_snapshot.dart` — snapshot envelope.
+- `apps/customer/lib/domain/model/menu_item.dart` — product/add-on identity, drink flag, compatible add-ons and customization groups.
+- `apps/customer/lib/domain/model/menu_variant.dart` — size/variant data.
+- `apps/customer/lib/domain/model/menu_customization.dart` — reusable customization group/option models and available/default helpers.
+- `apps/customer/lib/features/menu/menu_screen.dart` — customer browse; filters non-product add-ons/add-on-only category from normal browsing.
+- `apps/customer/lib/features/menu/item_detail_screen.dart` — Size + Temperature + Sweetness + compatible add-ons + quantity/note; adds configured line and returns to Menu.
+- `apps/customer/test/data/supabase_catalogue_decoder_test.dart` — focused catalogue payload decoding regression.
+- `apps/customer/test/widgets/item_detail_customization_test.dart` — option/add-on UI, disabled state, long-label/touch-target/viewport regressions.
+- `apps/customer/test/widgets/menu_addon_visibility_test.dart` — protects add-on browse filtering.
 
-### Customer redesign presentation
+### Customer cart / order runtime
 
-- `apps/customer/lib/core/widgets/neumorphic_control.dart` — shared soft-UI control; optional accent gradient used for transient add-to-cart success.
-- `apps/customer/lib/features/cart/widgets/floating_cart_bar.dart` — animated local-cart entry point with item thumbnails and local estimate.
-- `apps/customer/lib/features/cart/cart_screen.dart` — flat cart rows, swipe removal, estimate-only subtotal and authoritative checkout entry.
-- `apps/customer/lib/features/rewards/rewards_screen.dart` — redesigned member balance-card presentation; real member display plus still-mock loyalty providers.
-- `docs/frontend/UI_REDESIGN_SPEC.md` — visual/component/screen redesign specification.
-- `docs/frontend/UI_REDESIGN_AUDIT_2026-08-20.md` — post-merge backend-impact and verification audit.
-- `docs/screenshots/2026-08-19-*-redesign.png` — repository-local redesign evidence; not governance authority.
+- `apps/customer/lib/domain/model/cart.dart` — cart line identity/equivalence and estimate calculation include option/add-on selections/deltas.
+- `apps/customer/lib/features/cart/cart_screen.dart` — configured-line summary and estimate-only subtotal.
+- `apps/customer/lib/domain/model/order.dart` — trusted order selection/quote/snapshot models; `optionValueIds`, option snapshots and numeric order-number tolerant decode.
+- `apps/customer/lib/data/repository/supabase_order_repository.dart` — policy/quote/place/history/detail RPC boundary + owner-scoped order invalidation.
+- `apps/customer/lib/application/order_checkout.dart` — policy-derived scheduling, UUID generation, retry-stable placement session.
+- `apps/customer/lib/features/cart/order_checkout_sheet.dart` — `Now | Schedule`, policy-derived tactile wheel, authoritative quote and Pay-at-counter placement.
+- `apps/customer/test/domain/cart_customization_test.dart` — distinct option/add-on line identity and estimate regressions.
+- `apps/customer/test/domain/order_test.dart` — option-ID request serialization/commercial-field trust boundary.
+- `apps/customer/test/widgets/cart_flow_test.dart` — configured item -> cart -> quote/place and navigation regressions.
+- `apps/customer/test/support/test_catalogue_repository.dart`, `test/support/test_order_repository.dart` — test-only adapters, never runtime authority.
 
-### Authoritative customer order frontend
+### Customer design system
 
-- `apps/customer/lib/domain/model/order.dart` — schedule policy, trusted selection payload, quote lines and persisted order snapshots/statuses.
-- `apps/customer/lib/domain/repository/order_repository.dart` — customer order repository contract.
-- `apps/customer/lib/data/repository/supabase_order_repository.dart` — policy/quote/place/history/detail RPC boundary plus owner-scoped `orders` invalidation stream.
-- `apps/customer/lib/application/order_checkout.dart` — timezone-aware slot derivation, UUID generation and retry-stable placement session.
-- `apps/customer/lib/features/cart/order_checkout_sheet.dart` — redesigned wheel presentation over `derivePickupSlots(OrderingPolicy)`, authoritative quote and Pay-at-counter placement.
-- `apps/customer/lib/features/cart/order_confirmation_screen.dart` — persisted status timeline with no client progression timer.
-- `apps/customer/lib/features/history/order_history_screen.dart`, `order_detail_screen.dart`, `widgets/order_status_pill.dart` — owner history/detail from immutable backend snapshots.
-- `apps/customer/test/application/order_checkout_test.dart` — slot derivation and placement-idempotency regression.
-- `apps/customer/test/widgets/cart_flow_test.dart` — item configuration/cart/quote/place/failure-retain plus post-redesign policy-derived Schedule regression.
-- `apps/customer/test/support/test_order_repository.dart` — test-only order adapter, including quote-request recording for UI contract assertions.
+- `apps/customer/lib/core/theme/aida_colors.dart` — AIDA cream/rose/espresso/gold semantic palette.
+- `apps/customer/lib/core/theme/aida_type.dart` — Playfair + Plus Jakarta Sans typography helpers.
+- `apps/customer/lib/core/widgets/neumorphic_control.dart` — shared tactile control language.
+- `apps/customer/lib/core/widgets/product_image.dart` — live catalogue image primary + safe fallback presentation.
+- `docs/frontend/UI_REDESIGN_SPEC.md` — accepted customer visual/component behavior, extended by menu customization closeout.
 
 ### Canonical Supabase ownership
 
-- `supabase/migrations/20260812191500_integrate_customer_auth_member_directory.sql` — customer Auth/member integration.
-- `supabase/migrations/20260812192500_fix_signup_member_code_generation.sql` — server member-code generation fix.
-- `supabase/migrations/20260812195500_make_admin_member_directory_security_invoker.sql` — Admin member directory execution model.
-- `supabase/migrations/20260812231500_create_shared_catalogue.sql` and `20260812235000_harden_catalogue_rls_policies.sql` — shared catalogue authority and RLS hardening.
-- `supabase/migrations/20260812182212_create_authoritative_orders_and_scheduling.sql` — authoritative order/schedule schema, RPCs, RLS and Realtime publication.
-- `supabase/migrations/20260812183029_index_order_foreign_keys.sql` — order FK index hardening.
-- `supabase/tests/auth_membership_integration.sql`, `catalogue_integration.sql`, `order_integration.sql` — canonical transactional backend regressions.
+Relevant canonical migration files include:
+
+- `supabase/migrations/20260812231500_create_shared_catalogue.sql`;
+- `supabase/migrations/20260812235000_harden_catalogue_rls_policies.sql`;
+- `supabase/migrations/20260812182212_create_authoritative_orders_and_scheduling.sql`;
+- `supabase/migrations/20260812183029_index_order_foreign_keys.sql`;
+- `supabase/migrations/20260820151421_add_scheduled_order_preparation_window.sql`;
+- `supabase/migrations/20260820214041_refresh_catalogue_product_images.sql`;
+- `supabase/migrations/20260820221139_replace_americano_catalogue_image.sql`;
+- `supabase/migrations/20260822135421_add_drink_customization_catalogue.sql`;
+- `supabase/migrations/20260822135602_integrate_drink_customizations_with_orders.sql`;
+- `supabase/migrations/20260822141814_harden_drink_customization_indexes_and_rls.sql`;
+- `supabase/migrations/20260822143542_grant_public_drink_customization_reads.sql`.
+
+Supabase's applied migration-history timestamps for some older migrations differ from these historical canonical filenames; do not rename already-accepted migration files merely to make the timestamp labels match.
+
+Canonical backend regressions live under `supabase/tests/`. TASK-MENU-CUSTOMIZATION-001 adds `menu_customization_integration.sql` as a transactionally safe contract regression.
 
 ## Dashboard repository — `Hermann-33/Aida_System-Dashboard`
 
-### Trusted employee/Admin server boundary
+### Employee/Admin server boundary
 
-- `server/employeeBff.ts` — employee login/session/logout/Admin Members boundary with HttpOnly cookies and caller-JWT semantics.
-- `server/employeeBff.test.ts` — employee/session authorization coverage.
-- `server/catalogueBff.ts` and `server/catalogueBff.test.ts` — public/Admin catalogue BFF and tests.
-- `server/viteBffPlugin.ts` — mounts BFF routes in Vite dev/preview.
-- `api/v1/auth/*`, `api/v1/admin/members.ts`, `api/v1/catalogue.ts`, `api/v1/admin/catalogue*` — production/Vercel route adapters.
-- `src/auth/ProtectedRoute.tsx`, `src/auth/employeeSession.ts` — route/session client coordination; not backend authorization authority.
-- `src/pages/AdminLoginPage.tsx` — real Admin login surface.
+- `server/employeeBff.ts` — employee login/session/logout with HttpOnly cookies and caller-JWT semantics.
+- `server/catalogueBff.ts` — public/Admin catalogue BFF.
+- `server/orderBff.ts` — policy/quote/place/queue/detail/status/admin-policy BFF.
+- `api/v1/**` — production route adapters.
+- `src/auth/employeeSession.ts`, `src/auth/ProtectedRoute.tsx` — browser session coordination only; not backend authorization authority.
 
-### Admin/member/catalogue frontend
+### Shared catalogue / Admin frontend
 
-- `src/features/admin/memberDirectory.ts` — protected member-directory adapter.
-- `src/features/admin/AdminMembersLoyaltyReportPage.tsx` — live Members surface with preview-safe behavior.
-- `src/features/catalogue/catalogueClient.ts` — public/Admin catalogue client.
-- `src/features/admin/AdminMenuPage.tsx` and `AdminMenuEditorPage.tsx` — live shared catalogue management.
-- `src/features/pos/posCatalogue.ts` — shared catalogue mapping for POS browsing/customization.
+- `src/features/catalogue/catalogueClient.ts` — typed catalogue snapshot including `isDrink` and `customizationGroups`; safe empty-group fallback for older responses.
+- `src/features/catalogue/catalogueClient.test.ts` — customization parsing regressions.
+- `src/features/admin/AdminMenuPage.tsx` — catalogue listing and new item creation with Drink toggle.
+- `src/features/admin/AdminMenuEditorPage.tsx` — variants, drink option labels/deltas/availability/defaults and compatible add-ons.
+- `src/features/admin/AdminMenuFlows.test.tsx` — Admin preview/read-only, new-drink and option-save validation.
+- `src/features/admin/admin.css` — token-based responsive Menu editor rows/cards; no separate design system.
 
-### Authoritative order BFF
+### POS modifier / order frontend
 
-- `server/orderBff.ts` — schedule policy, employee queue/detail/quote/place/status/admin-policy handlers.
-- `server/orderBff.test.ts` — origin/session/caller-JWT/conflict/admin-policy coverage.
-- `api/v1/orders/policy.ts` — schedule policy.
-- `api/v1/orders.ts` — employee order queue.
-- `api/v1/orders/detail.ts` — order detail.
-- `api/v1/orders/quote.ts` — authoritative POS quote.
-- `api/v1/orders/place.ts` — idempotent POS placement.
-- `api/v1/orders/status.ts` — versioned staff status transition.
-- `api/v1/admin/orders/policy.ts` — Admin schedule-policy mutation.
+- `src/features/pos/posCatalogue.ts` — shared catalogue -> POS modifier groups: variant required, Temperature/Sweetness required single-choice, compatible add-ons optional multi-select.
+- `src/features/pos/ModifierSheet.tsx` — modifier selection UI with native fieldset/legend semantics, unavailable state and existing POS density.
+- `src/features/pos/CounterWorkspace.tsx` — product selection/cart workspace.
+- `src/features/pos/posCatalogue.test.ts`, `ModifierSheet.test.tsx`, `CounterWorkspace.test.tsx` — modifier mapping, selection and independent-line regressions.
+- `src/features/orders/orderClient.ts` — selection-only order intent mapping including `optionValueIds`, strict order/preparation parsing and legal status table.
+- `src/features/orders/OrderCheckoutPanel.tsx` — authoritative quote/place and Now/Schedule presentation.
+- `src/features/orders/OrderBoard.tsx` / workload helpers — Active/Scheduled/Ready/History projection from trusted backend snapshots.
+- `src/features/orders/*.test.ts*` — quote/order/status/customization regressions.
 
-### Authoritative Dashboard order frontend
+### Dashboard design system
 
-- `src/features/orders/orderClient.ts` — typed same-origin policy/quote/place/queue/detail/status adapter, selection-only payload mapping, schedule-slot generation, polling constants and legal transition table.
-- `src/features/orders/OrderCheckoutPanel.tsx` — authoritative quote review, ASAP/scheduled selection, stable idempotent placement retry, Pay-at-counter wording and persisted receipt.
-- `src/features/orders/OrderBoard.tsx` — live polled queue/detail and versioned legal status transitions with conflict refetch.
-- `src/features/pos/CounterWorkspace.tsx` and `ModifierSheet.tsx` — shared-catalogue selection UI and local cart estimate; no preview transaction authority in the active placement/Orders rail.
-- `src/features/orders/*.test.ts*`, `src/features/pos/CounterWorkspace.test.tsx` — focused authoritative ordering regressions.
-- `e2e/preview-closure.spec.ts` — browser coverage including preview/live session and order-flow regressions.
+- `src/styles/tokens.css` — canonical ivory/surface/espresso/burgundy/blush/gold/taupe/semantic tokens, spacing/radii, focus and reduced-motion behavior.
+- existing Admin/POS button/card/form classes remain the styling authority for modifier-group UI.
 
-### Dashboard refresh/security model
+## Shared backend model introduced by menu customization
 
-The employee access token remains HttpOnly. React does not receive/expose a Supabase staff JWT for Realtime. The order board uses TanStack Query against `/api/v1/orders` at ~2.5-second intervals with immediate invalidation after place/status mutations. Customer Flutter owns the direct owner-scoped `orders` Realtime subscription.
+```text
+catalogue_items.is_drink
+catalogue_option_groups
+catalogue_option_values
+catalogue_item_option_values
+order_lines.option_total_sen
+order_line_options
+```
 
-## Shared documentation/contract references
-
-- `docs/decisions/ADR-0008-dashboard-same-origin-bff.md`
-- `docs/decisions/ADR-0009-shared-catalogue-and-revision-signal.md`
-- `docs/decisions/ADR-0010-authoritative-ordering-and-scheduled-fulfilment.md`
-- `docs/contracts/SHARED_BACKEND_CONTRACT.md`
-- `docs/contracts/ORDER_AND_SCHEDULING_CONTRACT.md`
-- `docs/frontend/UI_REDESIGN_AUDIT_2026-08-20.md`
-- `docs/context/CLOSEOUT_EVIDENCE_2026-08-17.md`
+The deployed quote contract is `pricingVersion=2`; clients send option value IDs, not trusted commercial outcomes.
 
 ## Current closeout state
 
-TASK-CLOSEOUT-001 implementation and applicable cross-client validation are complete. The retained live proof is order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`), which progressed through confirmed/preparing/ready/completed with customer-authorized reads after each Dashboard transition.
+TASK-MENU-CUSTOMIZATION-001 is COMPLETE on matching task branches after:
 
-TASK-UI-REDESIGN-003 audits the merged customer redesign against those backend boundaries and adds fresh release verification without changing backend authority.
+- Customer final validation commit `404662aec382364c8e70fcee8d66b38d4b303f0a` and 55/55 Flutter tests;
+- Dashboard final validation commit `af0fcd2babfa02073f882ec63ddbec102e591672`, Vitest 129/129 and Playwright 10/10;
+- live Supabase migration/grant/RLS/advisor verification;
+- mirrored contract/context/security documentation reconciliation.
 
-Deferred payment, loyalty, inventory, reporting, branch-capacity and hosted-production domains remain outside this codebase map's completed tranche.
+Detailed evidence: `docs/context/MENU_CUSTOMIZATION_2026-08-23.md`.
+
+No PR/merge is included in this closeout. Payment, loyalty, inventory, reporting, branch/capacity, terminal/shift and hosted-production domains remain deferred.

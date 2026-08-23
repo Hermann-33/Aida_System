@@ -1,44 +1,53 @@
 # Order and Scheduling Contract
 
-**Task:** `TASK-DEMO-ORDER-001`
+**Updated:** 2026-08-23
+**Current task extension:** `TASK-MENU-CUSTOMIZATION-001`
+**Status:** COMPLETE.
 
-**Closeout status (2026-08-17): COMPLETE.** The authoritative backend, customer Flutter integration, Dashboard POS/order-board integration and final supported cross-client order lifecycle are implemented and validated. ADR-0010 remains authoritative for architectural decisions.
+ADR-0010 remains authoritative for order identity, server quote/persistence, scheduling and fulfilment-state ownership. TASK-MENU-CUSTOMIZATION-001 extends each line's trusted selection model with catalogue option IDs and immutable option snapshots; it does not change the persisted fulfilment state machine.
 
-## Backend state
+## Backend authority
 
 Live Supabase project: `eswovqxqzfevcdwwcmuh`.
 
 Canonical migrations live only in `Hermann-33/Aida_System/supabase/migrations/`.
 
-Persistent resources:
+Relevant order/customization migrations:
 
-- `order_schedule_settings`
-- `orders`
-- `order_lines`
-- `order_line_addons`
-- `order_events`
+- `20260812182212_create_authoritative_orders_and_scheduling.sql`
+- `20260812183029_index_order_foreign_keys.sql`
+- `20260820151421_add_scheduled_order_preparation_window.sql`
+- `20260822135421_add_drink_customization_catalogue.sql`
+- `20260822135602_integrate_drink_customizations_with_orders.sql`
+- `20260822141814_harden_drink_customization_indexes_and_rls.sql`
+- `20260822143542_grant_public_drink_customization_reads.sql`
 
-Realtime publication contains:
+Persistent order resources:
 
-- `catalogue_revision`
-- `orders`
+- `order_schedule_settings`;
+- `orders`;
+- `order_lines`;
+- `order_line_addons`;
+- `order_line_options`;
+- `order_events`.
 
-Only `orders` is required for order-status Realtime. After a permitted order row changes, customer clients re-fetch the authorized full snapshot; immutable lines/add-ons are not separately published. Dashboard employee clients use the same-origin BFF queue/polling model because the staff bearer token remains HttpOnly.
+Realtime publication remains `catalogue_revision` + `orders`.
 
-## Trusted payload
+## Trusted order payload
 
-Clients may submit only selection/intent data:
+Clients submit selection and fulfilment intent only:
 
 ```json
 {
   "clientRequestId": "UUID-required-for-placement",
   "fulfillmentType": "asap | scheduled",
-  "requestedPickupAt": "ISO-8601 timestamptz only when scheduled",
+  "requestedPickupAt": "ISO-8601 timestamp only when scheduled",
   "items": [
     {
-      "itemId": "catalogue item UUID",
-      "variantId": "variant UUID when the item has available variants",
-      "addOnIds": ["compatible addon UUID"],
+      "itemId": "product UUID",
+      "variantId": "variant UUID when required",
+      "optionValueIds": ["drink option-value UUID"],
+      "addOnIds": ["compatible add-on UUID"],
       "quantity": 1,
       "note": "optional <= 300 chars"
     }
@@ -46,199 +55,154 @@ Clients may submit only selection/intent data:
 }
 ```
 
-Do not send or trust client-derived item names, prices, line totals, subtotal, total, member IDs, customer IDs, order numbers, status, role or payment completion state. Unknown price/total fields are ignored by the quote engine.
+Clients do not submit trusted product/variant/add-on/option labels, price deltas, unit prices, subtotals, totals, member/customer IDs, order numbers, `prepareAt`, `scheduleState`, fulfilment status, role or payment state.
 
-Limits:
+Customer-facing `Now` is presentation only. The trusted fulfillment enum remains `asap` for immediate orders.
 
-- 1–50 lines per order
-- quantity 1–20 per line
-- at most 20 distinct add-ons per line
-- note <= 300 chars
+## Authoritative quote / customization resolution
 
-## Authoritative quote
+`quote_order(jsonb)` remains the shared commercial/scheduling validator for customer and POS.
 
-RPC:
+For each line it revalidates:
+
+- product exists, is `kind=product`, published and available under active category;
+- variant ownership/availability when variants exist;
+- add-on IDs are unique, linked to that product, published and available;
+- option IDs are unique and belong to that drink;
+- option group/value and per-item option are active/available;
+- at most one selected option belongs to each required group;
+- quantity and note bounds;
+- requested pickup against server scheduling policy.
+
+### Required option defaults / older clients
+
+If the item is a drink and a required active group has no explicit selection, the deployed quote function resolves that group's configured available default.
+
+This means an older APK that sends no `optionValueIds` can still place a drink order using server-owned defaults, provided every required group has a valid available default.
+
+If no available default exists, quote fails closed rather than inventing client state.
+
+### Pricing version 2
+
+Current quote responses use:
 
 ```text
-quote_order(p_payload jsonb)
+pricingVersion = 2
 ```
 
-Executable by `anon` and `authenticated` because it performs no write and exposes only publicly orderable catalogue data.
-
-It validates current category/item publication/availability, variant ownership/availability, compatible add-ons, quantity/note bounds and scheduling policy, then returns:
+Authoritative unit price:
 
 ```text
-pricingVersion
-currency = MYR
-subtotalSen
-totalSen
-fulfillmentType
-requestedPickupAt
-serverNow
-schedulePolicy
-lines[]
+basePriceSen
++ variant.priceDeltaSen
++ sum(selected/default option priceDeltaSen)
++ sum(compatible add-on priceSen)
+= unitPriceSen
 ```
 
-Each returned line includes server-resolved item/variant/add-on snapshots and integer-sen prices.
+`lineTotalSen = unitPriceSen * quantity` and order subtotal/total are server-derived.
+
+Client-computed prices remain estimates only.
+
+## Immutable line snapshots
+
+`order_lines` stores:
+
+- base product snapshot;
+- variant snapshot;
+- add-on total;
+- option total (`option_total_sen`);
+- authoritative unit/line totals;
+- quantity/note.
+
+`order_line_addons` snapshots selected compatible add-ons.
+
+`order_line_options` snapshots, per selected/default option:
+
+- catalogue option group ID;
+- catalogue option value ID;
+- group code/name;
+- option code/customer-facing label;
+- accepted price delta.
+
+Historical orders therefore do not change when Admin later renames/disables/reprices a Temperature/Sweetness option.
+
+## Per-line independence
+
+Modifier state is line-scoped.
+
+These are distinct intended configurations:
+
+```text
+Latte · Hot · Regular · no Boba
+Latte · Iced · Less sweet · Boba
+```
+
+Customer and POS carts must keep option/add-on IDs in their line identity/equivalence logic so editing one configuration does not merge/mutate the other.
 
 ## Scheduling policy
 
-Read RPC:
+Read RPC: `get_ordering_policy()`.
 
-```text
-get_ordering_policy()
-```
-
-Current defaults:
+Current live policy verified 2026-08-23:
 
 ```text
 timezone: Asia/Kuala_Lumpur
 scheduleEnabled: true
 minimumLeadMinutes: 15
+preparationLeadMinutes: 15
 slotIntervalMinutes: 15
 maximumAdvanceDays: 7
 ```
 
-For `asap`, `requestedPickupAt` must be null/omitted.
+`minimumLeadMinutes` controls the earliest scheduled pickup.
 
-For `scheduled`, the backend rejects timestamps that are missing, too soon, beyond the horizon or not aligned to a local 15-minute slot. Frontends derive selectable slots from `serverNow` + policy rather than a device-clock-only hardcode.
-
-Branch opening hours/closures/capacity are not modeled. Do not invent branch-aware scheduling claims.
-
-Admin/owner schedule-policy mutation RPC:
+`preparationLeadMinutes` controls the server-owned operational preparation window and satisfies:
 
 ```text
-save_ordering_policy(p_payload jsonb)
+0 <= preparationLeadMinutes <= minimumLeadMinutes
 ```
 
-Dashboard BFF endpoint:
+Branch hours/closures/capacity remain unimplemented and must not be fabricated by clients.
+
+## Scheduled-order preparation snapshot
+
+For scheduled orders:
 
 ```text
-POST /api/v1/admin/orders/policy
+prepareAt = requestedPickupAt - preparationLeadMinutes
 ```
 
-## Customer order API
+`prepareAt` is backend-generated, null for ASAP orders, immutable after placement and unaffected by later policy edits.
 
-Customer Flutter uses its authenticated Supabase session directly.
-
-Place:
+Authorized snapshots expose:
 
 ```text
-place_customer_order(p_payload jsonb)
+prepareAt
+serverNow
+scheduleState = future | due | overdue | null
 ```
 
-Requirements:
-
-- authenticated trusted role = customer
-- active member row exists
-- customer/member identity is derived server-side
-- `clientRequestId` is required
-
-Read one:
+For persisted `status=scheduled`:
 
 ```text
-get_order(p_order_id uuid)
+requestedPickupAt < serverNow -> overdue
+prepareAt <= serverNow         -> due
+otherwise                      -> future
 ```
 
-History:
+`scheduleState` is operational classification, not a persisted lifecycle state.
+
+## Persisted fulfilment state machine
+
+Initial persisted state remains:
 
 ```text
-get_my_orders(p_limit integer default 20)
-```
-
-A customer can read only their own orders and cannot create POS orders, change status or perform direct table DML.
-
-Customer integration rules:
-
-- quote before placement;
-- server quote total is commercial authority;
-- reuse the same `clientRequestId` for retry of the same intended placement;
-- clear cart only after persisted placement;
-- display persisted order number/status/history/detail;
-- use owner-scoped `orders` Realtime as invalidation, followed by authorized refetch;
-- never manufacture fulfilment status with a local timer.
-
-## Dashboard/POS BFF API
-
-Dashboard browser code uses same-origin endpoints and does not call privileged order RPCs with browser-stored employee tokens.
-
-Public policy:
-
-```text
-GET /api/v1/orders/policy
-```
-
-Employee queue:
-
-```text
-GET /api/v1/orders
-GET /api/v1/orders?status=scheduled&status=preparing&limit=100
-```
-
-Employee detail:
-
-```text
-GET /api/v1/orders/detail?id=<order UUID>
-```
-
-Server quote:
-
-```text
-POST /api/v1/orders/quote
-<body = trusted selection/intent payload>
-```
-
-POS place:
-
-```text
-POST /api/v1/orders/place
-<body includes clientRequestId>
-```
-
-Status transition:
-
-```text
-POST /api/v1/orders/status
-{
-  "orderId": "UUID",
-  "toStatus": "preparing | ready | completed | cancelled",
-  "expectedVersion": 1,
-  "reason": "optional"
-}
-```
-
-All employee endpoints validate the existing HttpOnly session and forward the caller JWT. State-changing requests require same origin. No service-role key is used.
-
-BFF conflict codes:
-
-```text
-ORDER_IDEMPOTENCY_CONFLICT -> HTTP 409
-ORDER_VERSION_CONFLICT     -> HTTP 409
-```
-
-A version conflict requires refetch before another transition.
-
-Dashboard integration rules:
-
-- active POS quote/place submits catalogue IDs, quantity, optional note and fulfilment intent only;
-- server quote response is authoritative for persisted commercial totals;
-- one `clientRequestId` is reused for retry of the same placement;
-- ASAP/scheduled choices derive from server policy;
-- cart clears only after successful persisted placement;
-- live Orders rail polls/refetches the BFF at a short interval and has no preview-order fallback;
-- status controls expose legal next states only and submit current `statusVersion`;
-- HTTP 409 version conflict triggers refetch rather than stale overwrite.
-
-## Order states
-
-Initial state:
-
-```text
-ASAP      -> confirmed
+asap      -> confirmed
 scheduled -> scheduled
 ```
 
-Legal staff transitions:
+Legal staff transitions remain:
 
 ```text
 confirmed -> preparing | cancelled
@@ -249,82 +213,91 @@ ready     -> completed
 
 `completed` and `cancelled` are terminal.
 
-Customer UI displays persisted backend status.
+No timer/migration/client auto-transitions scheduled work to `preparing`. **Start preparing** remains an authorized staff action with expected `statusVersion`.
 
-## Snapshot fields
+## Customer client requirements
 
-Authorized order snapshots contain:
+Customer Flutter must:
+
+- load variants/customization groups/compatible add-ons from the shared catalogue;
+- filter add-on rows from normal customer browse;
+- retain one selected available option per required group;
+- keep configured option/add-on IDs per cart line;
+- include option deltas only in a labelled local estimate;
+- send `optionValueIds` and `addOnIds` to quote/place without commercial fields;
+- quote before placement and display server total as authority;
+- use `Now` presentation for `asap`;
+- derive Schedule values only from `OrderingPolicy` / `derivePickupSlots`;
+- reuse `clientRequestId` for retry of the same intended placement;
+- clear cart only after persisted placement.
+
+`Add to cart` returning to Menu is a UI-navigation decision only.
+
+## Dashboard / POS requirements
+
+Existing same-origin order endpoints remain:
 
 ```text
-id
-orderNumber
-source
-customerUserId
-memberId
-fulfillmentType
-requestedPickupAt
-status
-statusVersion
-currency
-pricingVersion
-subtotalSen
-totalSen
-createdAt
-updatedAt
-statusUpdatedAt
-preparingAt
-readyAt
-completedAt
-cancelledAt
-lines[]
+GET  /api/v1/orders/policy
+GET  /api/v1/orders
+GET  /api/v1/orders/detail?id=<uuid>
+POST /api/v1/orders/quote
+POST /api/v1/orders/place
+POST /api/v1/orders/status
+POST /api/v1/admin/orders/policy
 ```
 
-Each line contains immutable item/variant/add-on naming and price snapshots, quantity, note and line total.
+Dashboard BFF forwards the authenticated caller JWT and never exposes a service-role credential or employee bearer token to React.
+
+POS modifier groups map as:
+
+```text
+variant                   required single choice when present
+Temperature/Sweetness     required single choice
+compatible add-ons        optional multi-select
+```
+
+Unavailable options remain disabled and must not be sent. POS line-to-order mapping emits only item/variant/option/add-on IDs, quantity and note.
+
+Operational Active/Scheduled/Ready/History classification continues to consume backend `scheduleState` and does not derive trusted state from workstation time.
 
 ## Payment boundary
 
-There is no payment processor or trusted payment state in this tranche.
+There is still no trusted payment processor/payment settlement. Current flow remains explicit `Pay at counter` / unpaid. Fulfilment completion does not prove payment settlement.
 
-Frontend checkout uses an explicitly non-processor `Pay at counter`/unpaid flow. It must not imply Cash/Card/E-wallet/Student Wallet has actually been processed or manufacture paid/payment-received state.
+## Verification
 
-Order completion means fulfilment completion, not verified payment settlement.
+Detailed closeout evidence:
 
-## Final completion proof
+`docs/context/MENU_CUSTOMIZATION_2026-08-23.md`
 
-The required cross-client chain was completed on 2026-08-17 through supported boundaries:
+Live closeout checks confirm:
 
-```text
-customer Auth + active member
--> quote Sandwich ASAP at 1,290 sen
--> place_customer_order
--> persisted order 100006 / 7cf027dc-3ff0-4604-a3fd-c7a943aac603, confirmed v1
--> Dashboard same-origin Owner session observes exact order
--> preparing v2
--> customer-authorized get_order sees preparing
--> ready v3
--> customer-authorized get_order sees ready
--> completed v4
--> customer-authorized get_order sees completed
-```
+- `pricingVersion=2` in deployed `quote_order` definition;
+- all current required drink groups have at least one available option and exactly one available default;
+- current Iced Drinks have Hot unavailable;
+- public/authenticated quote execution and option-catalogue reads are granted as intended;
+- immutable `order_line_options` has no ordinary authenticated direct read grant;
+- Supabase security advisor has no new task-related WARN/ERROR.
 
-Independent database verification confirms the retained order is `completed` at version 4 and the event ledger records created/confirmed → preparing → ready → completed.
+Customer executable evidence: analyze PASS, 55/55 tests PASS, option/cart/order regressions and UI/golden QA PASS.
 
-No service role, direct SQL order insert, password reset, browser employee bearer-token persistence or client-trusted price/status was used. Approved credentials were process-local and removed after the E2E.
+Dashboard executable evidence: lint/typecheck/build PASS, Vitest 129/129, Playwright 10/10, POS/Admin UI/theme QA PASS.
 
-Toolchain and ADR-0004 completion gates for this contract's current scope pass. The order/scheduling implementation is no longer `PARTIAL`.
+The final database connector is read-only and cannot impersonate `anon`; closeout therefore inspected the deployed quote/default function definition instead of creating synthetic production orders.
 
 ## Deferred domains
 
-Do not couple current order authority to unimplemented domains:
+Still separate bounded tasks:
 
-- payment capture/refunds
-- promotions/discount engine
-- loyalty earning/redemption
-- inventory depletion
-- tax/accounting
-- delivery
-- branch-specific schedule hours/capacity and branch-scoped queues
-- revenue/reporting side effects
-- hosted production deployment/release operations
-
-Those domains build on trusted orders later.
+- branch-specific hours/closures/capacity;
+- branch-scoped order visibility;
+- terminal/sales-point authority;
+- shifts/cash authority;
+- payment/refunds;
+- loyalty;
+- inventory;
+- promotions/discounts;
+- tax/accounting/reporting;
+- delivery;
+- hosted production operations.

@@ -320,7 +320,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             controller: _loginPassword,
             icon: Icons.lock_outline_rounded,
             obscureText: _obscureLogin,
-            onToggleObscure: () => setState(() => _obscureLogin = !_obscureLogin),
+            onToggleObscure:
+                () => setState(() => _obscureLogin = !_obscureLogin),
             textInputAction: TextInputAction.done,
             validator: _validateRequiredPassword,
             onFieldSubmit: (_) => _submitLogin(),
@@ -475,18 +476,10 @@ class _AuthTabs extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: _TabLabel(
-            label: 'Sign In',
-            active: signIn,
-            onTap: onSignIn,
-          ),
+          child: _TabLabel(label: 'Sign In', active: signIn, onTap: onSignIn),
         ),
         Expanded(
-          child: _TabLabel(
-            label: 'Sign Up',
-            active: !signIn,
-            onTap: onSignUp,
-          ),
+          child: _TabLabel(label: 'Sign Up', active: !signIn, onTap: onSignUp),
         ),
       ],
     );
@@ -585,7 +578,9 @@ class _OrDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: Divider(color: AidaColors.latte.withValues(alpha: 0.9))),
+        Expanded(
+          child: Divider(color: AidaColors.latte.withValues(alpha: 0.9)),
+        ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(
@@ -593,7 +588,9 @@ class _OrDivider extends StatelessWidget {
             style: AidaType.sans(size: 12, color: AidaColors.textMuted),
           ),
         ),
-        Expanded(child: Divider(color: AidaColors.latte.withValues(alpha: 0.9))),
+        Expanded(
+          child: Divider(color: AidaColors.latte.withValues(alpha: 0.9)),
+        ),
       ],
     );
   }

@@ -1,143 +1,159 @@
 # Active Context
 
-**As of:** 2026-08-21
-**Current task:** `TASK-SCHEDULED-OPS-001 — scheduled-order operational queue + live staff POS entry`
-**Current verdict:** COMPLETE — shared Supabase preparation authority is live and verified; Dashboard/POS scheduled-workload and staff-entry integration is complete; executable Dashboard gates pass; affected canonical documentation is reconciled across both repositories.
+**As of:** 2026-08-23
+**Current task:** `TASK-MENU-CUSTOMIZATION-001 — per-drink option groups, per-line add-ons, Now terminology, and post-add navigation`
+**Current verdict:** COMPLETE — live Supabase catalogue/order customization authority is in place; Customer and Dashboard/POS integrations pass executable validation and UI/theme review; backend grants/RLS/advisors and canonical documentation are reconciled.
 
-## Current product reality
+Detailed closeout evidence:
 
-AIDA Café still uses one Supabase backend for the Flutter customer app and React Dashboard/Admin/POS. The trusted implemented tranche remains Auth/member provisioning, protected employee/Admin sessions, shared catalogue, authoritative quote/order/scheduling, customer order history/status, Dashboard order BFF/queue/status transitions, and the verified customer redesign.
+- `docs/context/MENU_CUSTOMIZATION_2026-08-23.md`
 
-TASK-SCHEDULED-OPS-001 closed two operational gaps discovered after real scheduled orders were placed:
-
-1. future scheduled orders were persisted correctly but mixed into one flat Orders table with no trusted future/due/overdue distinction;
-2. `staff.nora.demo@aida.test` authenticated successfully, but the live POS entry path then blocked on terminal/shift API state that is not implemented in the accepted backend.
-
-Detailed task contract/handoff:
+Previous scheduled-order operations work remains COMPLETE and is documented in:
 
 - `docs/context/SCHEDULED_ORDER_OPERATIONS_2026-08-20.md`
 
-## Shared backend change — complete and live
+## Current product reality
 
-Applied migration:
+AIDA Café is one product across the Flutter customer app, React Dashboard/Admin/POS and shared Supabase project `eswovqxqzfevcdwwcmuh`.
 
-`20260820151421_add_scheduled_order_preparation_window`
+The implemented trusted tranche now includes:
 
-Canonical customer-repository migration:
+- Supabase Auth/member provisioning;
+- protected same-origin employee/Admin sessions;
+- shared catalogue and revision invalidation;
+- catalogue-driven product variants, per-drink option groups and compatible add-ons;
+- authoritative quote/order pricing and immutable line snapshots;
+- Now/scheduled pickup and server-owned scheduled preparation classification;
+- customer history/status plus owner-scoped Realtime invalidation;
+- Dashboard POS ordering, operational queue and legal versioned status transitions;
+- the verified AIDA customer redesign and matching Dashboard theme integration.
 
-`supabase/migrations/20260820151421_add_scheduled_order_preparation_window.sql`
+Frontends remain non-authoritative for identity, roles, catalogue commercial truth, modifier validity, pricing, order state, payment, loyalty, inventory or reporting.
 
-The backend now owns:
+## Menu customization — live contract
 
-- `order_schedule_settings.preparation_lead_minutes` (default/current 15);
-- immutable per-order `orders.prepare_at` for scheduled orders;
-- `prepareAt`, `serverNow`, and `scheduleState` on authorized order snapshots;
-- `scheduleState = future | due | overdue | null`, derived from server time without changing persisted fulfilment status.
+Standard drink groups are currently:
 
-`preparationLeadMinutes` is distinct from customer `minimumLeadMinutes` and is constrained to `0 <= preparationLeadMinutes <= minimumLeadMinutes`.
+```text
+Temperature: Hot | Iced
+Sweetness: Regular | Less sweet | Least sweet
+```
 
-New scheduled placement snapshots:
+The groups are reusable server catalogue definitions. Per drink, Admin/Owner can configure customer label, price delta, availability and exactly one available default.
 
-`prepareAt = requestedPickupAt - preparationLeadMinutes`.
+Compatible add-ons remain catalogue items of kind `addon`, linked to individual products. Customer browsing hides add-on rows/categories as standalone products; the same add-on can be selected independently on one cart line and omitted from another.
 
-A later policy edit does not rewrite an already accepted order's `prepareAt`.
+Order intents now support:
 
-No timer or migration auto-transitions `scheduled -> preparing`. Staff action remains authoritative through the existing versioned `transition_order_status` boundary.
+```text
+itemId
+variantId
+optionValueIds[]
+addOnIds[]
+quantity
+note
+```
+
+Supabase revalidates all selected IDs and calculates authoritative price. `pricingVersion=2` includes option deltas. `order_line_options` stores immutable group/value/label/price snapshots.
+
+Older clients that omit option IDs are handled by the live quote function through each group's configured available default. Clients still must not submit trusted labels/prices/totals.
+
+## Customer behavior
+
+Customer-facing item configuration now presents Size, Temperature, Sweetness and compatible Customize/add-on controls from the catalogue. Unavailable options remain visible but disabled with explicit semantics; selected state is not color-only.
+
+`Add to cart` creates the configured line and immediately returns to Menu. Distinct Temperature/Sweetness/add-on combinations remain distinct cart configurations.
+
+Checkout terminology is `Now | Schedule`; only the customer-facing label changed. The wire/backend value remains `asap` for compatibility. The accepted tactile scheduling wheel still renders only policy-derived valid pickup slots.
+
+## Dashboard / POS behavior
+
+Admin Menu management exposes drink status plus per-option label, price delta, availability and default controls, along with compatible add-on checkboxes. Invalid required groups are rejected before save and by the backend.
+
+POS consumes the same catalogue contract:
+
+- variants: required single-choice when present;
+- Temperature/Sweetness: required single-choice;
+- add-ons: optional multi-select;
+- unavailable options: visible/disabled and not selectable.
+
+Order placement sends IDs/quantity/note/fulfilment intent only. Same-origin HttpOnly employee-session architecture and Admin/Owner authorization remain unchanged.
 
 ## Live evidence
 
-Current live policy:
+Checked on 2026-08-23:
 
 ```text
-timezone                 Asia/Kuala_Lumpur
-schedule_enabled         true
-minimum_lead_minutes     15
-preparation_lead_minutes 15
-slot_interval_minutes    15
-maximum_advance_days     7
+catalogue revision         130
+drink products              11
+non-drink products           4
+add-ons                      4
+invalid required groups      0
+Iced Drinks with Hot on      0
 ```
 
-Existing scheduled orders were backfilled without changing status. The previously stale live orders now classify operationally as `overdue`:
+Live migrations:
 
-- `100007`
-- `100008`
-- `100009`
+- `20260822135421_add_drink_customization_catalogue`
+- `20260822135602_integrate_drink_customizations_with_orders`
+- `20260822141814_harden_drink_customization_indexes_and_rls`
+- `20260822143542_grant_public_drink_customization_reads`
 
-This exposes the exception to staff clients while preserving the persisted `scheduled` state until an authorized staff transition occurs.
+Privilege checks confirm public catalogue/quote execution and intended option-table reads while ordinary authenticated users retain no direct `order_line_options` table read.
 
-Focused backend regression:
+Security advisor: one pre-existing WARN only — `auth_leaked_password_protection` / Leaked Password Protection Disabled. Performance findings are INFO-only unused indexes.
 
-`supabase/tests/scheduled_order_operations_integration.sql`
+## Executable client evidence
 
-Result: PASS transactionally against live Supabase; synthetic data and temporary policy changes rolled back.
+Customer final Codex validation commit:
 
-The existing scheduled lifecycle was rechecked after migration and remains valid: `scheduled -> preparing -> ready -> completed` through the versioned trusted status boundary.
+`404662aec382364c8e70fcee8d66b38d4b303f0a`
 
-Supabase security advisor remains unchanged with one WARN: `auth_leaked_password_protection` / Leaked Password Protection Disabled. Performance advisor findings are INFO-only unused indexes on the small dataset.
+- Flutter 3.44.7 / Dart 3.12.2 / JDK 21.0.12;
+- analyze PASS;
+- 55/55 tests PASS;
+- format and `git diff --check` PASS;
+- exact-size UI/golden QA PASS at 390x844 and 430x932;
+- secret scan PASS;
+- no physical Android device was connected for this final validation pass.
 
-## Staff login resolution
+Dashboard final Codex validation commit:
 
-The Nora demo staff identity is confirmed, active, trusted `app_role=staff`, and successfully authenticates. The password/Auth boundary was never the failure.
+`af0fcd2babfa02073f882ec63ddbec102e591672`
 
-The pre-task failure was post-login Dashboard flow:
+- `npm ci` PASS, 0 vulnerabilities;
+- lint PASS with two pre-existing Fast Refresh warnings;
+- typecheck PASS;
+- Vitest 129/129 PASS across 29 files;
+- production build PASS with existing chunk-size advisory;
+- Playwright 10/10 PASS;
+- desktop visual QA PASS at 1366x768 and 1440x900;
+- no task-related console errors/warnings.
 
-- live `/employee` checked terminal enrolment APIs;
-- `/pos` checked terminal/current-shift APIs;
-- those terminal/shift routes were not mounted by the current Dashboard BFF;
-- live Supabase has no authoritative branch/terminal/sales-point/shift schema.
+Both UI reviews PASS against the existing AIDA theme/design systems; no Luckin branding/palette or second design system was introduced.
 
-The completed Dashboard implementation does not fabricate hardcoded live terminal/branch/shift truth. Until a separate trusted terminal/branch/shift task exists, the accepted single-café/global-staff order scope allows authenticated staff to use live Sale + Orders without those deferred domains blocking entry. Preview terminal/shift simulation remains preview-only.
+## Branch state / release boundary
 
-## Dashboard implementation — complete
+Matching task branches:
 
-Matching branch:
+`codex/task-menu-customization-001-modifier-groups`
 
-`codex/task-scheduled-ops-001-prep-queue`
+Before documentation closeout:
 
-Codex implementation commit:
+- customer branch: 37 commits ahead of `master`, 0 behind;
+- Dashboard branch: 12 commits ahead of `main`, 0 behind.
 
-`b7b73fe8517625264a7e3f19e59d24325c1cfcc1`
+No PR or merge is part of this closeout. Merge, APK build/install and hosted release remain separate explicit actions.
 
-Implemented outcomes:
+## Still deferred
 
-- strict consumption of `preparationLeadMinutes`, `prepareAt`, `serverNow`, `scheduleState`;
-- Orders rail uses `Active | Scheduled | Ready | History` workloads;
-- future scheduled orders stay in Scheduled;
-- `due` and `overdue` scheduled orders surface in Active while persisted status remains `scheduled`;
-- overdue orders promote ahead of normal active work;
-- **Start preparing** explicitly performs the existing legal versioned transition;
-- staff live login via `/employee` reaches `/pos` without nonexistent terminal/shift prerequisites;
-- Admin login remains Admin/Owner-only;
-- preview fixtures never become live authority.
-
-`orderClient.ts` rejects malformed/missing preparation/schedule projection fields rather than manufacturing plausible defaults. The workload projection consumes backend classification and does not use the workstation clock as business authority or auto-mutate scheduled orders.
-
-Live `/employee` authentication is independent of terminal enrolment. Live `/pos` enters the accepted global single-café Sale/Orders workspace without terminal/current-shift calls; terminal, shift and preview-member rails remain preview-only. Staff permission remains POS-only and `/admin/login` remains Admin/Owner-only.
-
-The implementation preserves the existing AIDA Dashboard/POS design system from `src/styles/tokens.css`, Tailwind/shadcn components, Playfair Display + Plus Jakarta Sans, existing rails/cards/status patterns and accessibility behavior.
-
-## Completion evidence
-
-Backend:
-
-- live migration applied and migration history reconciled;
-- focused scheduled-order operations SQL regression: PASS;
-- existing scheduled lifecycle regression: PASS;
-- security advisor: no new finding.
-
-Dashboard evidence on 2026-08-21:
-
-- `npm ci`: PASS, 0 vulnerabilities;
-- lint: PASS with two existing shadcn Fast Refresh warnings;
-- typecheck: PASS;
-- Vitest: PASS — 27 files / 120 tests;
-- production build: PASS with existing large-chunk advisory only;
-- Playwright: PASS — 10/10;
-- desktop/mobile visual QA: PASS;
-- scheduled-workload browser console: no errors;
-- `git diff --check`: PASS;
-- secret/browser-token scans: PASS.
-
-Final commit inspection confirms the Dashboard delta is bounded to the required workload/client, POS staff-entry/session presentation, tests/E2E, styling and documentation surfaces. Affected canonical mirrored documents have been reconciled into the customer task branch.
-
-No PR has been created or merged for this task. Terminal/branch/sales-point/shift authority and hosted production deployment remain explicitly deferred.
+- branch-specific catalogue/scheduling/capacity and branch-scoped queues;
+- terminal/sales-point authority;
+- shifts/cash reconciliation;
+- payment/refunds;
+- loyalty;
+- inventory;
+- promotions/discounts;
+- tax/accounting/reporting;
+- delivery;
+- hosted production deployment.

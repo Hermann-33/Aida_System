@@ -1,6 +1,6 @@
 # AIDA Café Architecture
 
-Updated: 2026-08-17
+Updated: 2026-08-23
 
 ```mermaid
 flowchart LR
@@ -23,32 +23,57 @@ flowchart LR
 - Shared backend: Supabase project `Aida System`, ref `eswovqxqzfevcdwwcmuh`.
 - Canonical executable Supabase migrations live only in the customer repository `supabase/` workspace unless a future accepted ADR changes ownership.
 
-## Shared identity/member authority
+## Identity / employee authority
 
-Supabase Auth owns authentication. Trusted employee/admin authorization lives in `user_profiles.app_role` plus `disabled_at`; customer membership identity/code lives in `members`. Client metadata, route guards and browser storage do not grant trusted role/member authority.
+Supabase Auth owns authentication. Trusted employee/Admin authorization lives in `user_profiles.app_role` plus `disabled_at`; customer membership identity/code lives in `members`.
 
-The Dashboard keeps privileged employee credentials behind the ADR-0008 same-origin BFF. The browser receives HttpOnly cookies, while the BFF validates the employee and forwards that caller JWT to Supabase. No service-role credential or browser-readable employee bearer token is part of the architecture.
+Dashboard employee credentials remain behind the ADR-0008 same-origin BFF. React receives HttpOnly cookies, while the BFF validates the employee and forwards only that caller JWT to Supabase. No service-role credential or browser-readable employee bearer token is part of the architecture.
 
-Customer Flutter uses the public/publishable Supabase client configuration and customer-scoped RLS/RPC authority. Public signup cannot self-promote to employee roles or assign trusted member codes/verification state.
+Customer Flutter uses public/publishable Supabase configuration and customer-scoped RLS/RPC boundaries.
 
-## Shared catalogue
+## Shared catalogue and modifier architecture
 
-ADR-0009 makes Supabase Postgres the catalogue authority. `catalogue_categories`, `catalogue_items`, `catalogue_item_variants` and `catalogue_item_addons` store publication, price, availability and customization data. Money is integer sen.
+ADR-0009 makes Supabase Postgres the catalogue authority.
 
-Customer reads use `get_catalogue()` under RLS. Dashboard Admin mutations use `save_catalogue_category(jsonb)` and `save_catalogue_item(jsonb)` through the BFF with the caller JWT.
+Core resources:
 
-`catalogue_revision` is an invalidation signal. Customer clients re-read authoritative data after a revision change. The production customer menu and Dashboard POS catalogue browser have no runtime hardcoded catalogue fallback.
+```text
+catalogue_categories
+catalogue_items
+catalogue_item_variants
+catalogue_item_addons
+catalogue_option_groups
+catalogue_option_values
+catalogue_item_option_values
+catalogue_revision
+catalogue_audit_events
+```
 
-## Authoritative order and scheduling boundary
+`catalogue_items.kind` distinguishes normal products from reusable add-ons. `catalogue_items.is_drink` marks products that consume option groups.
 
-ADR-0010 makes the same Supabase project authoritative for customer and POS order pricing, persistence, scheduling and fulfilment status.
+Current standard reusable drink groups:
+
+```text
+Temperature: Hot | Iced
+Sweetness: Regular | Less sweet | Least sweet
+```
+
+Per product, Admin/Owner can configure option label override, price delta, availability, default and order. Required groups must have at least one available option and exactly one available default.
+
+Compatible add-ons are normalized links from product to add-on. Customer browsing hides `kind=addon` rows/categories, but the same catalogue rows remain available to per-product customization.
+
+Customer reads use `get_catalogue()` under RLS. Dashboard Admin mutations use the accepted catalogue BFF/RPC boundary with the caller JWT. `catalogue_revision` is invalidation only.
+
+## Authoritative quote/order boundary
+
+ADR-0010 keeps the same Supabase project authoritative for customer and POS order pricing, persistence, scheduling and fulfilment.
 
 ```mermaid
 flowchart TD
   CC[Customer cart selections] --> Q[quote_order]
   PC[POS cart selections] --> QB[Dashboard order BFF]
   QB --> Q
-  Q --> CAT[(Shared catalogue)]
+  Q --> CAT[(Catalogue + variants + options + add-ons)]
   Q --> V[Validated server quote]
   V --> CO[place_customer_order]
   V --> PO[place_pos_order]
@@ -61,57 +86,124 @@ flowchart TD
   RT --> CUSTOMER[Customer refetches authorized order]
 ```
 
-Clients submit IDs, quantities, notes and fulfilment intent only. They are not authority for product names, prices, totals, customer/member identity, order numbers, status or payment state. `quote_order(jsonb)` revalidates the current published/available catalogue, variants and compatible add-ons before deriving integer-sen totals.
+Clients submit only IDs, quantities, notes and fulfilment intent. A line may contain:
 
-`orders`, `order_lines` and `order_line_addons` persist server-owned commercial snapshots. Placement is idempotent through `clientRequestId`. Staff-only fulfilment transitions use an expected `statusVersion` and append `order_events` evidence.
+```text
+itemId
+variantId
+optionValueIds[]
+addOnIds[]
+quantity
+note
+```
 
-The current schedule policy is `Asia/Kuala_Lumpur`, 15-minute minimum lead, 15-minute slots and seven-day horizon. Branch hours, closures, capacity and branch-scoped queues remain deferred.
+Clients are not authority for labels, option/add-on prices, unit prices, totals, customer/member identity, order numbers, status or payment state.
 
-## Dashboard order integration
+`quote_order(jsonb)` validates product publication/availability, variants, compatible add-ons and per-drink option ownership/availability before deriving totals. The current quote contract is `pricingVersion=2`:
 
-TASK-CLOSEOUT-001 completed the React order path over the existing BFF:
+```text
+base + variant + selected/default options + compatible add-ons
+```
 
-- typed same-origin policy/quote/place/queue/detail/status adapter;
-- POS cart mapped to catalogue IDs, quantity, optional note and fulfilment intent only;
-- server quote rendered as commercial authority;
-- stable `clientRequestId` reused for the same placement retry;
-- ASAP/scheduled choices derived from server policy;
-- cart cleared only after persisted placement;
-- explicit `Pay at counter`/unpaid semantics;
-- live order queue polled every ~2.5 seconds with no preview-order fallback;
-- legal versioned transitions with conflict refetch.
-- server-projected scheduled operations (`prepareAt`, `serverNow`, `scheduleState`) split into Active/Scheduled/Ready/History without adding statuses or browser-driven transitions;
-- live staff Sale/Orders entry in accepted single-café/global scope, independent of deferred terminal/shift authority.
+If an older client omits a required option group, the live quote function resolves the configured available default. This is a server-side compatibility behavior, not client authority.
+
+## Immutable commercial snapshots
+
+Server-owned order resources include:
+
+```text
+orders
+order_lines
+order_line_addons
+order_line_options
+order_events
+```
+
+`order_lines.option_total_sen` snapshots the accepted option-price contribution.
+
+`order_line_options` snapshots selected group/value IDs, codes, customer-facing labels and accepted price deltas. Historical orders therefore remain stable after Admin later renames, reprices or disables an option.
+
+Placement remains idempotent through `clientRequestId`.
+
+## Customer modifier flow
+
+```text
+Menu product
+ -> ItemDetailScreen
+ -> variant selection
+ -> Temperature/Sweetness from catalogue
+ -> compatible add-ons from catalogue
+ -> local line configuration
+ -> Add to cart
+ -> return to Menu
+ -> cart estimate
+ -> quote_order
+ -> server total
+ -> place_customer_order
+```
+
+Cart identity/equivalence includes option/add-on IDs so two differently customized copies remain separate configurations.
+
+Customer-facing immediate pickup copy is `Now`; the wire/backend value remains `asap`.
+
+## Dashboard Admin / POS modifier flow
+
+```text
+Admin Menu editor
+ -> isDrink + option label/delta/availability/default
+ -> compatible add-on checkboxes
+ -> same-origin BFF
+ -> save_catalogue_item
+ -> revision bump
+
+POS product
+ -> variants
+ -> required Temperature/Sweetness
+ -> optional compatible add-ons
+ -> local estimate only
+ -> order BFF
+ -> quote_order authoritative total
+```
+
+Dashboard preview remains read-only. Staff POS capability does not grant Admin catalogue mutation.
+
+## Scheduling / operational queue
+
+Current live scheduling policy remains:
+
+```text
+Asia/Kuala_Lumpur
+15-minute minimum lead
+15-minute preparation lead
+15-minute slot interval
+7-day horizon
+```
+
+Scheduled orders snapshot immutable `prepareAt`. Backend snapshots derive `scheduleState = future | due | overdue | null`; no timer/client auto-transitions fulfilment state.
+
+The Dashboard operational queue remains Active/Scheduled/Ready/History and uses trusted `scheduleState`. Customer Schedule UI keeps the accepted tactile wheel over `derivePickupSlots(OrderingPolicy)`.
 
 ## Realtime boundary
 
 `supabase_realtime` publishes:
 
 - `catalogue_revision` — catalogue invalidation;
-- `orders` — authorized order-header changes.
+- `orders` — authorized order-header invalidation.
 
-Immutable order lines/add-ons are not separately published. Customer clients subscribe with their Supabase session and refetch the authorized order after a header change.
+Customer clients can use their Supabase session and refetch authorized data. Dashboard React does not expose the HttpOnly employee token for direct Supabase Realtime; it polls/refetches same-origin BFF endpoints.
 
-The Dashboard employee token remains HttpOnly, so React does not expose it to open a direct Supabase Realtime connection. The Dashboard polls/refetches the same-origin order BFF and invalidates after local place/status mutations.
+## Validation boundary
 
-## Android release boundary
+TASK-MENU-CUSTOMIZATION-001 closeout is recorded in:
 
-The customer production manifest declares `android.permission.INTERNET` because Auth, member/profile, catalogue, orders and Realtime require TLS network access. The committed Android build uses AGP 8.9.1 with Gradle 8.11.1 and Flutter compatibility properties; release packaging was reproduced in an independent clean worktree. Flutter contains only public project configuration, never a service-role/secret credential.
+`docs/context/MENU_CUSTOMIZATION_2026-08-23.md`
 
-## Validated end-to-end boundary
+Executable evidence:
 
-TASK-CLOSEOUT-001 final live E2E proved the supported chain:
-
-customer Auth/member
-→ authoritative quote
-→ `place_customer_order`
-→ persisted order
-→ Dashboard BFF queue
-→ `confirmed` v1 → `preparing` v2 → `ready` v3 → `completed` v4
-→ customer-authorized `get_order` refresh after each transition.
-
-The retained evidence is order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`), authoritative total 1,290 sen.
+- Customer: `flutter analyze` PASS, 55/55 tests PASS, exact-size UI/golden QA PASS;
+- Dashboard: lint/typecheck/build PASS, Vitest 129/129, Playwright 10/10, desktop UI/theme QA PASS;
+- live Supabase: zero invalid required drink groups, intended grants/RLS confirmed, no new security WARN/ERROR.
 
 ## Explicitly separate authority
 
-Real payment settlement/refunds, loyalty earning/redemption, inventory depletion, discounts/promotions, tax/accounting, revenue reporting, branch scheduling/capacity, delivery and hosted production deployment remain separate trusted domains. They must consume authoritative order/payment state rather than frontend-computed values.
+Payment settlement/refunds, loyalty, inventory, promotions/discounts, tax/accounting/reporting, branch scheduling/capacity, branch-scoped operations, terminal/sales-point lifecycle, shifts/cash reconciliation, delivery and hosted production remain separate trusted domains.

@@ -1,153 +1,149 @@
 # AIDA Café Security Review
 
-Updated: 2026-08-20
+Updated: 2026-08-23
 
-**Current verdict:** identity, catalogue and order/scheduling authority remain server-controlled. TASK-SCHEDULED-OPS-001 adds scheduled-order preparation authority without moving fulfilment or authorization truth into either frontend.
+**Current verdict:** identity, catalogue, modifier, pricing, order/scheduling and fulfilment authority remain server-controlled. TASK-MENU-CUSTOMIZATION-001 adds catalogue-driven per-drink options and immutable option snapshots without moving trust into either frontend.
 
 ## Core controls
 
 - Supabase Auth plus trusted `user_profiles`/`members` remain authoritative for identity and membership.
 - Public signup cannot self-promote role/member/verification state.
-- Catalogue authority remains Supabase Postgres/RLS/RPC; browser/mobile clients do not own catalogue prices or compatibility.
+- Catalogue authority remains Supabase Postgres/RLS/RPC.
 - Dashboard privileged flows retain same-origin HttpOnly employee sessions and caller-JWT Supabase access.
-- No service-role key or browser-readable staff bearer token is introduced.
+- No service-role key or browser-readable employee bearer token is introduced.
+- Staff remains excluded from Admin catalogue mutation; Admin/Owner remains the trusted catalogue-management role.
 
-## Order/scheduling controls
+## Catalogue / modifier controls
 
-All existing order/scheduling tables retain their accepted RLS/FORCE-RLS and bounded RPC model:
+Trusted catalogue resources include:
 
-- `order_schedule_settings`
-- `orders`
-- `order_lines`
-- `order_line_addons`
-- `order_events`
+- `catalogue_items` / `catalogue_item_variants` / `catalogue_item_addons`;
+- `catalogue_option_groups`;
+- `catalogue_option_values`;
+- `catalogue_item_option_values`.
 
-Ordinary authenticated clients still have no direct INSERT/UPDATE authority over order commercial tables. Controlled persistence remains behind trusted RPC helpers with explicit caller/role checks.
+`catalogue_items.is_drink` identifies products that consume option groups. The current reusable groups are Temperature and Sweetness.
 
-### Pricing and identity
+Per-drink option label, price delta, availability, default and sort order are server data. Customer/POS UI state cannot make an unavailable option valid or change its authoritative price.
 
-- `quote_order(jsonb)` ignores client price/total fields and re-prices from current published/available catalogue data.
-- Item/variant/add-on compatibility is revalidated server-side.
-- Customer/member identity is derived from `auth.uid()` plus the active member row, never request JSON.
-- POS placement requires staff-or-above.
-- Order UUID, number, commercial snapshots, totals, initial status, timestamps and events remain server-owned.
+Compatible add-ons are normalized server links. Add-on category membership alone does not authorize selection.
 
-### Idempotency
+Every active required drink group must have at least one available option and exactly one available default. The live closeout check found zero invalid required groups.
 
-Placement still requires a `clientRequestId` UUID scoped to the authenticated actor.
+Public/authenticated catalogue-option reads are protected by RLS and the intended table grants. Mutation remains Admin/Owner-only through the trusted catalogue boundary.
 
+## Order / pricing controls
+
+Order clients submit IDs and intent only:
+
+```text
+itemId
+variantId
+optionValueIds[]
+addOnIds[]
+quantity
+note
+fulfillmentType / requestedPickupAt
+clientRequestId for placement
+```
+
+Clients do not submit trusted product/option/add-on labels, option/add-on price deltas, unit prices, totals, customer/member identity, order status or payment state.
+
+`quote_order(jsonb)` revalidates product/variant/add-on/option ownership and availability and derives price from the database.
+
+Current deployed quote contract is `pricingVersion=2`:
+
+```text
+base + variant + options + compatible add-ons = authoritative unit price
+```
+
+When a legacy client omits a required option group, the live function resolves the configured available default. If a valid default does not exist, quote fails rather than trusting the client.
+
+## Immutable option snapshots
+
+Persisted order truth now includes:
+
+- `order_lines.option_total_sen`;
+- `order_line_options` selected group/value snapshots.
+
+`order_line_options` records accepted group/value IDs, codes, labels and price deltas. Later Admin changes cannot rewrite historical order configuration or price.
+
+Ordinary authenticated users have no direct `SELECT` grant on `order_line_options`; authorized order reads remain behind trusted snapshot functions/RLS behavior.
+
+## Per-line isolation
+
+Customer and POS cart identity/equivalence includes option/add-on selections. Two copies of the same product with different Temperature/Sweetness/add-ons remain independent lines/configurations.
+
+This prevents a per-order/global add-on state from accidentally applying Boba/Oat Milk/etc. to unrelated drinks.
+
+## Scheduling / idempotency controls
+
+The accepted scheduling and placement controls remain unchanged:
+
+- `clientRequestId` is required for idempotent placement;
 - identical retry returns the existing order;
-- same key + different payload conflicts;
-- retry cannot duplicate an order.
+- same key with changed payload conflicts;
+- scheduling is validated relative to server time/policy;
+- immutable `prepareAt` and backend `scheduleState` remain server-owned;
+- no timer/browser auto-transitions fulfilment state.
 
-TASK-SCHEDULED-OPS-001 also proves an identical retry preserves the original server-owned `prepareAt` even if the scheduling policy later changes.
+Customer-facing `Now` is only presentation. The wire/backend enum remains `asap`, so no security or compatibility boundary is weakened by the copy change.
 
-## Scheduled preparation authority
+## Employee / Dashboard boundary
 
-The backend now owns two distinct schedule concepts:
+Dashboard employee authentication still uses the ADR-0008 same-origin BFF:
 
-```text
-minimumLeadMinutes      -> earliest permitted pickup selection
-preparationLeadMinutes  -> operational lead before pickup
-```
+- HttpOnly access/refresh cookies;
+- trusted role/disabled-state validation;
+- caller JWT forwarded to Supabase;
+- no browser token persistence;
+- no service-role use in Vite/browser code.
 
-Constraint:
+Admin preview remains read-only. A preview session cannot call privileged catalogue writes.
 
-```text
-0 <= preparationLeadMinutes <= minimumLeadMinutes
-```
+The menu-customization task did not introduce terminal/branch/shift authority or use preview fixtures to authorize live operations.
 
-Only Admin/Owner can change scheduling/preparation policy through the existing trusted mutation boundary.
+## UI safety / accessibility-relevant state
 
-For a newly accepted scheduled order, the server snapshots:
+Customer unavailable options remain visible but disabled with explicit `Unavailable` messaging/semantics; selected choices use an explicit check indicator and are not represented only by color.
 
-```text
-prepareAt = requestedPickupAt - preparationLeadMinutes
-```
+Dashboard modifier/Admin controls preserve labelled native radio/checkbox behavior, disabled semantics, focus-visible rules and reduced-motion handling.
 
-`prepareAt` is included in the protected immutable order fields. A later policy change cannot rewrite an accepted order's operational due time.
+These are interaction-safety properties, not a claim of full WCAG conformance.
 
-Clients cannot submit or modify trusted `prepareAt`.
+## TASK-MENU-CUSTOMIZATION-001 verification
 
-Authorized order snapshots also expose backend-derived:
+Detailed evidence:
 
-```text
-serverNow
-scheduleState = future | due | overdue | null
-```
+`docs/context/MENU_CUSTOMIZATION_2026-08-23.md`
 
-The Dashboard must use backend `scheduleState` for operational queue classification. Device/workstation time is not business authority.
+Live checks on 2026-08-23 confirm:
 
-### No automatic fulfilment mutation
+- 11 drink products, 4 add-ons;
+- zero required drink groups with an invalid available-default configuration;
+- all current Iced Drinks have Hot unavailable;
+- public/authenticated quote execution remains granted;
+- public/authenticated option-catalogue reads have intended grants + RLS;
+- ordinary authenticated users have no direct `order_line_options` table read.
 
-Reaching `prepareAt` does not change persisted order status.
+Client validation:
 
-The legal state machine remains:
+- Customer: analyze PASS, 55/55 tests PASS, secret scan PASS, exact-size UI/golden QA PASS;
+- Dashboard: `npm ci` 0 vulnerabilities, lint/typecheck/build PASS, Vitest 129/129, Playwright 10/10, no task-related console errors.
 
-```text
-confirmed -> preparing | cancelled
-scheduled -> preparing | cancelled
-preparing -> ready | cancelled
-ready -> completed
-```
-
-Only staff-or-above may perform status changes, using expected `statusVersion`. `scheduleState=due|overdue` means work is operationally due, not that a human has started preparation.
-
-This prevents a timer/cron/browser from manufacturing fulfilment truth.
-
-## Realtime / queue boundary
-
-`orders` remains the mutable Realtime signal for customer-owned refresh. Customer visibility remains owner-scoped.
-
-Dashboard staff continues to use same-origin BFF polling/refetch because the employee access token remains HttpOnly.
-
-The current staff queue remains global by accepted single-café limitation; branch-scoped authorization is still deferred.
-
-## Staff login / deferred terminal boundary
-
-Live verification confirms the Nora demo account is a valid confirmed, active `staff` identity and can authenticate through Supabase Auth.
-
-The former post-auth POS failure was caused by Dashboard UI dependencies on terminal/shift endpoints that do not exist in the trusted backend. Supabase still has no authoritative branch/terminal/sales-point/shift schema. TASK-SCHEDULED-OPS-001 removed those calls from live entry and uses the accepted single-café/global order scope; it did not invent the missing authority.
-
-Security rule for the Dashboard fix:
-
-- do not create hardcoded live branch/terminal/shift identities to bypass the gap;
-- do not treat preview terminal/shift fixtures as production authorization;
-- authenticated staff may use the already-authorized single-café Sale/Orders path;
-- `/admin/login` remains Admin/Owner-only;
-- terminal/shift/branch authority stays deferred until a separate trusted backend task defines it.
-
-Live employee authentication still uses the same-origin BFF and HttpOnly cookies. Staff receives POS access but remains denied Admin. Preview terminal/shift/member simulations are omitted from the live rail and cannot authorize catalogue, member or order mutations.
-
-Removing an unimplemented UI prerequisite is not authorization weakening because staff order capability is already enforced by the BFF/RPC role boundary.
-
-## TASK-SCHEDULED-OPS-001 live verification
-
-Applied migration:
-
-`20260820151421_add_scheduled_order_preparation_window`
-
-Focused transactional regression:
-
-`supabase/tests/scheduled_order_operations_integration.sql`
-
-Result: PASS against the live project with synthetic data/policy changes rolled back.
-
-The test covers preparation schema/bounds, scheduled placement `prepareAt`, server-derived schedule classification, idempotent preservation, Admin-only policy mutation, invalid policy rejection, scheduled POS placement and non-rewriting of prior orders.
-
-Existing scheduled orders `100007`, `100008`, `100009` were backfilled with `prepareAt` and now classify as `overdue` without any fabricated persisted status change.
+No RLS/Auth/service-role/browser-token bypass was introduced by the final UI validation changes.
 
 ## Advisor state
 
-Current Supabase security advisor remains exactly one WARN:
+Current Supabase security advisor reports one pre-existing WARN:
 
-- `auth_leaked_password_protection` — **Leaked Password Protection Disabled**
+- `auth_leaked_password_protection` — **Leaked Password Protection Disabled**.
 
 Remediation: https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection
 
-TASK-SCHEDULED-OPS-001 introduced no new security advisor finding.
+No new task-related security WARN/ERROR remains.
 
-Performance advisor findings are INFO-only unused-index notices on the small dataset, including the new scheduled preparation index immediately after creation.
+Performance advisor findings are INFO-only unused indexes on the current small dataset, including recent customization FK-supporting indexes.
 
 ## Explicitly deferred authority
 

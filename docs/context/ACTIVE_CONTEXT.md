@@ -1,114 +1,162 @@
 # Active Context
 
-**As of:** 2026-08-17
-**Current task:** `TASK-CLOSEOUT-001 — complete and close the current AIDA implementation tranche`
-**Current verdict:** COMPLETE — implementation, live cross-client order E2E and final cross-repository verification gates pass.
+**As of:** 2026-08-23
+**Current task:** `TASK-MENU-CUSTOMIZATION-001 — per-drink option groups, per-line add-ons, Now terminology, and post-add navigation`
+**Current verdict:** COMPLETE — live Supabase catalogue/order customization authority is in place; Customer and Dashboard/POS integrations pass executable validation and UI/theme review; backend grants/RLS/advisors and canonical documentation are reconciled.
+
+Detailed closeout evidence:
+
+- `docs/context/MENU_CUSTOMIZATION_2026-08-23.md`
+
+Previous scheduled-order operations work remains COMPLETE and is documented in:
+
+- `docs/context/SCHEDULED_ORDER_OPERATIONS_2026-08-20.md`
 
 ## Current product reality
 
-AIDA Café uses one Supabase backend for the Flutter customer app and the React Dashboard/Admin/POS. The current tranche has implemented, tested authority for customer Auth/member provisioning, protected employee/Admin sessions, shared catalogue, authoritative ordering/scheduling, customer order history/status, Dashboard POS quote/place/order queue/status transitions, and Android release networking/build reproducibility.
+AIDA Café is one product across the Flutter customer app, React Dashboard/Admin/POS and shared Supabase project `eswovqxqzfevcdwwcmuh`.
 
-## Validated physical/manual evidence
+The implemented trusted tranche now includes:
 
-The user validated on a physical Android phone and local Dashboard:
+- Supabase Auth/member provisioning;
+- protected same-origin employee/Admin sessions;
+- shared catalogue and revision invalidation;
+- catalogue-driven product variants, per-drink option groups and compatible add-ons;
+- authoritative quote/order pricing and immutable line snapshots;
+- Now/scheduled pickup and server-owned scheduled preparation classification;
+- customer history/status plus owner-scoped Realtime invalidation;
+- Dashboard POS ordering, operational queue and legal versioned status transitions;
+- the verified AIDA customer redesign and matching Dashboard theme integration.
 
-- release APK installation and Supabase connectivity;
-- new customer signup;
-- trusted Auth/profile/member provisioning;
-- the new member appearing in protected Dashboard Members;
-- real Owner Dashboard login;
-- Owner catalogue price mutation;
-- the installed customer app observing the updated catalogue value.
+Frontends remain non-authoritative for identity, roles, catalogue commercial truth, modifier validity, pricing, order state, payment, loyalty, inventory or reporting.
 
-The previous Android `Failed host lookup / SocketException` release defect is closed.
+## Menu customization — live contract
 
-## Current live Supabase evidence
+Standard drink groups are currently:
 
-Independently rechecked on 2026-08-17:
+```text
+Temperature: Hot | Iced
+Sweetness: Regular | Less sweet | Least sweet
+```
 
-- Auth users: 9
-- profiles: 9
-- members: 6
-- trusted roles: 1 owner, 1 admin, 1 staff
-- retained orders: 1
-- catalogue revision: 15
+The groups are reusable server catalogue definitions. Per drink, Admin/Owner can configure customer label, price delta, availability and exactly one available default.
 
-These counts are dated operational evidence, not architectural invariants. Employee identities are intentionally separate from customer/member rows.
+Compatible add-ons remain catalogue items of kind `addon`, linked to individual products. Customer browsing hides add-on rows/categories as standalone products; the same add-on can be selected independently on one cart line and omitted from another.
 
-The retained order is `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`), customer source, authoritative total 1,290 sen, final status `completed`, status version 4. Its event ledger records creation as confirmed followed by preparing, ready and completed transitions.
+Order intents now support:
 
-All intended identity, catalogue and order tables retain RLS/FORCE RLS; the ordering RPC surface exists; `orders` remains published to Realtime; ordinary customer clients do not have direct commercial order DML authority.
+```text
+itemId
+variantId
+optionValueIds[]
+addOnIds[]
+quantity
+note
+```
 
-## Customer implementation status
+Supabase revalidates all selected IDs and calculates authoritative price. `pricingVersion=2` includes option deltas. `order_line_options` stores immutable group/value/label/price snapshots.
 
-COMPLETE for the current tranche:
+Older clients that omit option IDs are handled by the live quote function through each group's configured available default. Clients still must not submit trusted labels/prices/totals.
 
-- Supabase Auth/session/signup/logout and trusted profile/member provisioning;
-- server-owned member code and student pending declaration boundary;
-- minimum per-user offline member-code cache with logout/user-switch isolation;
-- shared catalogue, variants/add-ons and revision invalidation/refetch;
-- authoritative quote-before-place and server-owned totals;
-- retry-stable idempotent customer placement;
-- ASAP/scheduled pickup from server policy;
-- explicit `Pay at counter`/unpaid semantics;
-- persisted server order number/status/history/detail;
-- owner-scoped order Realtime invalidation followed by authorized refetch;
-- Android production INTERNET permission;
-- reproducible Android release build from committed Git.
+## Customer behavior
 
-Customer validation: Flutter 3.44.9, pub get PASS, analyze PASS, 44/44 tests PASS, release APK PASS in the task checkout and an independent clean committed worktree. Canonical Auth/member, catalogue and order SQL regressions pass transactionally.
+Customer-facing item configuration now presents Size, Temperature, Sweetness and compatible Customize/add-on controls from the catalogue. Unavailable options remain visible but disabled with explicit semantics; selected state is not color-only.
 
-## Dashboard implementation status
+`Add to cart` creates the configured line, briefly shows an in-place confirmation, then returns to Menu — see `docs/frontend/UI_REDESIGN_SPEC.md` §19 for how the two branches' differing Add-to-cart behavior was reconciled during the 2026-08-24 merge. Distinct Temperature/Sweetness/add-on combinations remain distinct cart configurations.
 
-COMPLETE for the current tranche:
+Checkout terminology is `Now | Schedule`; only the customer-facing label changed. The wire/backend value remains `asap` for compatibility. The accepted tactile scheduling wheel still renders only policy-derived valid pickup slots.
 
-- same-origin employee/Admin BFF with HttpOnly session cookies and caller-JWT Supabase access;
-- protected Admin Members;
-- shared catalogue reads and protected Admin mutations;
-- TASK-AUTH-005 preview/live session separation;
-- typed same-origin order client;
-- POS cart mapped to server-trusted IDs/quantity/note intent only;
-- server quote rendered as commercial authority;
-- stable `clientRequestId` for placement retries;
-- ASAP/scheduled pickup derived from server policy;
-- cart cleared only after persisted placement;
-- explicit `Pay at counter`/unpaid semantics;
-- live order queue polling every ~2.5 seconds with no preview-order fallback;
-- legal versioned status transitions and 409 conflict refetch;
-- no browser employee bearer-token persistence.
+## Dashboard / POS behavior
 
-Dashboard validation: lint PASS with two existing Fast Refresh warnings, typecheck PASS, 25 Vitest files / 111 tests PASS, build PASS, Playwright 8/8 PASS, `git diff --check` PASS, and final `npm audit` 0 vulnerabilities.
+Admin Menu management exposes drink status plus per-option label, price delta, availability and default controls, along with compatible add-on checkboxes. Invalid required groups are rejected before save and by the backend.
 
-## Final live order E2E
+POS consumes the same catalogue contract:
 
-Completed on 2026-08-17 through supported customer and Dashboard BFF boundaries using approved demo credentials supplied only as process-local environment variables:
+- variants: required single-choice when present;
+- Temperature/Sweetness: required single-choice;
+- add-ons: optional multi-select;
+- unavailable options: visible/disabled and not selectable.
 
-- customer Auth and active-member validation passed;
-- live published Sandwich catalogue item quoted for ASAP pickup at an authoritative total of 1,290 sen;
-- customer `place_customer_order` persisted order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`) as `confirmed`, version 1;
-- the authenticated Owner Dashboard queue observed the same UUID, order number, total, status and version;
-- Dashboard transitions persisted `preparing` version 2, `ready` version 3 and `completed` version 4;
-- the customer's authorized `get_order` read observed each persisted status;
-- the final all-status Dashboard queue contained exactly one retained order, the completed E2E order.
+Order placement sends IDs/quantity/note/fulfilment intent only. Same-origin HttpOnly employee-session architecture and Admin/Owner authorization remain unchanged.
 
-No service role, direct SQL order insertion, password reset, client-trusted price/status or browser employee bearer-token persistence was used. The credential variables were removed after authenticated work and were never committed.
+## Live evidence
 
-## Security and deployment
+Checked on 2026-08-23:
 
-The current Supabase security advisor has one hosted Auth warning: `auth_leaked_password_protection` / **Leaked Password Protection Disabled**. This is operational project configuration debt, not an RLS regression. Remediation: <https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection>.
+```text
+catalogue revision         130
+drink products              11
+non-drink products           4
+add-ons                      4
+invalid required groups      0
+Iced Drinks with Hot on      0
+```
 
-Hosted/Vercel deployment remains **DEFERRED**. The accepted current demo topology is local Dashboard PC → cloud Supabase → installed customer phone.
+Live migrations:
 
-## Integration PRs
+- `20260822135421_add_drink_customization_catalogue`
+- `20260822135602_integrate_drink_customizations_with_orders`
+- `20260822141814_harden_drink_customization_indexes_and_rls`
+- `20260822143542_grant_public_drink_customization_reads`
 
-- Customer PR #13 → `master`: COMPLETE and mergeable.
-- Dashboard PR #12 → `main`: COMPLETE and mergeable.
+Privilege checks confirm public catalogue/quote execution and intended option-table reads while ordinary authenticated users retain no direct `order_line_options` table read.
 
-Both have completed the implementation and applicable ADR-0004 validation gates. Final coordinated merge remains a repository operation, not an implementation blocker.
+Security advisor: one pre-existing WARN only — `auth_leaked_password_protection` / Leaked Password Protection Disabled. Performance findings are INFO-only unused indexes.
 
-## Deferred product domains
+## Executable client evidence
 
-Real payment/refunds, loyalty ledger/redemption, inventory, promotions/discount authority, tax/accounting, trusted reporting, branch-scoped operations/capacity, delivery and hosted production deployment/release operations remain future bounded tasks.
+Customer final Codex validation commit:
+
+`404662aec382364c8e70fcee8d66b38d4b303f0a`
+
+- Flutter 3.44.7 / Dart 3.12.2 / JDK 21.0.12;
+- analyze PASS;
+- 55/55 tests PASS;
+- format and `git diff --check` PASS;
+- exact-size UI/golden QA PASS at 390x844 and 430x932;
+- secret scan PASS;
+- no physical Android device was connected for this final validation pass.
+
+Dashboard final Codex validation commit:
+
+`af0fcd2babfa02073f882ec63ddbec102e591672`
+
+- `npm ci` PASS, 0 vulnerabilities;
+- lint PASS with two pre-existing Fast Refresh warnings;
+- typecheck PASS;
+- Vitest 129/129 PASS across 29 files;
+- production build PASS with existing chunk-size advisory;
+- Playwright 10/10 PASS;
+- desktop visual QA PASS at 1366x768 and 1440x900;
+- no task-related console errors/warnings.
+
+Both UI reviews PASS against the existing AIDA theme/design systems; no Luckin branding/palette or second design system was introduced.
+
+## Branch state / release boundary
+
+Matching task branches:
+
+`codex/task-menu-customization-001-modifier-groups`
+
+Before documentation closeout:
+
+- customer branch: 37 commits ahead of `master`, 0 behind;
+- Dashboard branch: 12 commits ahead of `main`, 0 behind.
+
+No PR or merge is part of this closeout. Merge, APK build/install and hosted release remain separate explicit actions.
+
+## Still deferred
+
+- branch-specific catalogue/scheduling/capacity and branch-scoped queues;
+- terminal/sales-point authority;
+- shifts/cash reconciliation;
+- payment/refunds;
+- loyalty;
+- inventory;
+- promotions/discounts;
+- tax/accounting/reporting;
+- delivery;
+- hosted production deployment.
 
 ## 2026-08-19 — customer UI redesign (documentation task)
 
@@ -118,8 +166,10 @@ Real payment/refunds, loyalty ledger/redemption, inventory, promotions/discount 
 
 Branch: `customer-app-redesign` (pushed to `Hermann-33/Aida_System`, not yet merged/PR'd). A presentation-layer redesign of five customer surfaces — Menu, Item detail, Cart, Checkout sheet, Rewards — was inspected and documented in the new `docs/frontend/UI_REDESIGN_SPEC.md`. No backend, data-flow, or trust-boundary fact from this file changed as a result: `UI_SCREEN_MAP.md`'s table is unchanged (same file paths, purpose, data source, status for all five surfaces).
 
-One real interaction-boundary change was found and flagged (not fixed, per this task's documentation-first scope): the checkout sheet's pickup-time picker no longer clamps minute selection to `OrderingPolicy.slotIntervalMinutes`, so a non-15-minute selection will fail `quote_order` against the current backend contract; same-day scheduling also now enforces a client-only 8am–5pm window with no server-side counterpart. Both are recorded in `UI_REDESIGN_SPEC.md`, `UI_SCREEN_MAP.md` and `FRAGILE_BOUNDARIES.md`. Neither the backend nor the frontend was changed to resolve this by this task.
+One real interaction-boundary change was found and flagged at the time (not fixed, per this task's documentation-first scope): the checkout sheet's pickup-time picker no longer clamped minute selection to `OrderingPolicy.slotIntervalMinutes`, so a non-15-minute selection would fail `quote_order` against the current backend contract; same-day scheduling also enforced a client-only 8am–5pm window with no server-side counterpart. Both were recorded in `UI_REDESIGN_SPEC.md`, `UI_SCREEN_MAP.md` and `FRAGILE_BOUNDARIES.md`.
 
-Customer toolchain re-verified on this branch: `flutter analyze` 0 issues; `flutter test` 40/44 passing, with the same 4 golden-image failures (`home`, `home scrolled`, `menu with a category selected`, `membership card`) that predate this redesign and were not touched.
+**Resolved 2026-08-24:** merging `customer-app-redesign` with `hermann/master` (which had independently landed `TASK-MENU-CUSTOMIZATION-001`) replaced that picker with a server-slot-driven wheel; see `UI_REDESIGN_SPEC.md` §19. Both flagged items are closed.
+
+Customer toolchain re-verified on this branch at the time: `flutter analyze` 0 issues; `flutter test` 40/44 passing, with the same 4 golden-image failures (`home`, `home scrolled`, `menu with a category selected`, `membership card`) that predate this redesign and were not touched. Post-merge (2026-08-24) all 55 tests pass; see "Menu customization — live contract" above for the merged state.
 
 Cross-repository documentation sync: **PENDING** — `Hermann-33/Aida_System-Dashboard` was not in scope for this task and was not inspected, cloned, or modified.

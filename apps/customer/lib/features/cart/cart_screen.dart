@@ -202,8 +202,11 @@ class _CartLineCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final addOns = addOnTotalFor(line.addOnIds, menu);
-    final lineTotal = line.lineTotal(addOns);
+    final optionTotal = customizationTotalFor(line);
+    final lineTotal = line.lineTotal(addOns, optionTotal);
     final configSummary = line.configSummary(menu);
+    final normalizedAddOns = [...line.addOnIds]..sort();
+    final normalizedOptions = [...line.optionValueIds]..sort();
 
     return Consumer(
       builder: (context, ref, _) {
@@ -211,10 +214,10 @@ class _CartLineCard extends StatelessWidget {
 
         return Dismissible(
           // Identity, not position: the index shifts under a line once any
-          // earlier line is removed, but the item/size/add-ons/note tuple
-          // (the same identity `sameConfigurationAs` uses) doesn't.
+          // earlier line is removed, but the item/size/add-ons/options/note
+          // tuple (the same identity `sameConfigurationAs` uses) doesn't.
           key: ValueKey(
-            '${line.item.id}_${line.size?.id}_${line.addOnIds.join(',')}_${line.note}',
+            '${line.item.id}_${line.size?.id}_${normalizedAddOns.join(',')}_${normalizedOptions.join(',')}_${line.note}',
           ),
           direction: DismissDirection.endToStart,
           onDismissed: (_) => notifier.removeAt(index),

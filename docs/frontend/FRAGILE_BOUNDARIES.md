@@ -2,7 +2,7 @@
 
 # Fragile Boundaries
 
-Updated: 2026-08-19
+Updated: 2026-08-24
 
 ## Highest-risk customer areas
 
@@ -13,10 +13,40 @@ Updated: 2026-08-19
 - `features/shell/app_shell.dart`: indexed tab lifetime/floating cart.
 - `domain/model/cart.dart` and `features/cart/cart_screen.dart`: local selection/estimate state must remain distinct from server quote and placement authority.
 - order checkout/history/confirmation: idempotency keys, schedule-policy interpretation, immutable snapshots and persisted status must stay server-backed.
-- membership-card cache: only member ID/code may restore offline, isolated by Supabase user ID and cleared on logout/user switch.
+- membership-card cache: only minimum member identity material may restore offline, isolated by Supabase user ID and cleared on logout/user switch.
 - Android main manifest/toolchain: production networking and clean-checkout release compatibility are regression-protected boundaries.
 - large Home and item-detail screens: local state/calculation/navigation coupling.
 - golden baselines: review visual differences before updating.
+
+## Redesign-specific regression boundaries
+
+### Menu catalogue authority
+
+The redesigned Menu may change layout/components but must continue to consume the shared Supabase catalogue. `MenuListItem` must prefer the server-provided `MenuItem.imageUrl` and use bundled category artwork only as fallback. Category artwork must never become a substitute source for product identity, availability or pricing.
+
+Stable Menu automation keys are intentionally retained on `MenuCategoryRail` (`menu_cat_all`, `menu_cat_favorites`, `menu_cat_<category-id>`). Removing them silently weakens golden/interaction coverage.
+
+### Cart and quote authority
+
+The item-detail running total, floating-cart amount and Cart subtotal are local estimates only. Visual prominence must not turn them into placement authority. Checkout must continue to render a server quote before placement, and the cart clears only after a persisted `OrderSnapshot` success.
+
+Swipe-to-remove is local cart interaction only. It must not introduce an order-delete/cancel API side effect.
+
+### Scheduling
+
+The wheel selector is presentation over `derivePickupSlots(OrderingPolicy)`. Do not add local opening-hours constants, arbitrary minute values, branch-capacity guesses or device-clock-only eligibility. `quote_order` remains the server validator even for a value shown by the client.
+
+### Rewards
+
+The redesigned balance card displays real member identity through `displayedMemberProvider`, but points/rewards/vouchers are still preview-backed through `MockMemberRepository`. Do not infer or implement loyalty authority merely because the screen now mixes real member identity with polished loyalty presentation.
+
+### Membership QR and shared assets
+
+`AidaLogo` is shared presentation and is already consumed by Membership QR. Logo changes therefore affect an offline-critical surface even when `membership_card_screen.dart` itself is untouched. Keep logo assets bundled/offline-safe and never alter the QR payload from the server-owned member code for visual reasons.
+
+### Visual tests
+
+Redesign work commonly invalidates pixel baselines and selector assumptions. Fix stale selectors/testability first. Golden files may be updated only after deliberate inspection of the candidate render; never replace them merely to turn CI green.
 
 ## Contract-sensitive assumptions
 
@@ -24,19 +54,21 @@ Reward ladder, narrow student states and payment-method labels must not become s
 
 The completed live order E2E does not relax these boundaries: customer payloads remain intent-only, server totals/status remain authoritative and customer status changes arrive through authorized backend state.
 
-**2026-08-19 addition:** the checkout-sheet pickup-time redesign
-(`features/cart/order_checkout_sheet.dart`, see
-`docs/frontend/UI_REDESIGN_SPEC.md` §F) currently violates the schedule-
-policy-interpretation boundary above in one specific way: its minute
-picker no longer clamps selections to
-`OrderingPolicy.slotIntervalMinutes`, so it can construct a
-`requestedPickupAt` the backend's 15-minute slot-alignment check will
-reject. It also gates same-day scheduling behind a hardcoded 8am–5pm
-window that has no server-side counterpart. Neither is server-backed
-today. Treat both as open items, not accepted behavior, until the backend
-either relaxes the interval validation to match or the frontend is
-brought back into alignment with the documented contract.
+**2026-08-19 addition, resolved 2026-08-24:** the checkout-sheet
+pickup-time redesign (`features/cart/order_checkout_sheet.dart`, see
+`docs/frontend/UI_REDESIGN_SPEC.md` §F) originally violated the
+schedule-policy-interpretation boundary above: its minute picker did not
+clamp selections to `OrderingPolicy.slotIntervalMinutes`, and it gated
+same-day scheduling behind a hardcoded 8am–5pm window with no server-side
+counterpart. Both were open items, not accepted behavior. The 2026-08-24
+merge with `hermann/master` replaced that picker with `_PickupSlotWheel`,
+which renders only values `derivePickupSlots(OrderingPolicy)` returns —
+see `UI_REDESIGN_SPEC.md` §19. Both items are now closed; do not
+reintroduce a free-minute or client-only-hours picker without a matching
+backend contract change.
 
 ## Cross-repo rule
 
 Any change to member code, verification, catalogue IDs/pricing/modifiers, order status, payment semantics, rewards/vouchers or promotions must be reviewed against the POS/Admin consumer before completion.
+
+See `UI_REDESIGN_AUDIT_2026-08-20.md` for the redesign-specific backend-impact matrix.

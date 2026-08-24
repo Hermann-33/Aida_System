@@ -1,6 +1,6 @@
 # Customer UI Redesign Specification
 
-Updated: 2026-08-19
+Updated: 2026-08-24
 
 Scope note: this document describes a presentation-layer redesign of five
 existing customer surfaces (Menu, Item detail, Cart, Checkout sheet,
@@ -933,3 +933,80 @@ This document, and the updates listed in §15, exist only in
 `Hermann-33/Aida_System` as of this task. `Hermann-33/Aida_System-Dashboard`
 has not been inspected, cloned, or modified, per this task's explicit
 scope.
+
+## 19. 2026-08-23/24 update — TASK-MENU-CUSTOMIZATION-001 merge
+
+The rest of this document (§A–§18) reflects the presentation-layer redesign
+as it stood on 2026-08-19, before `hermann/master` independently landed
+`TASK-MENU-CUSTOMIZATION-001` (drink Temperature/Sweetness customization)
+and, separately, reworked the checkout sheet's scheduled-pickup picker.
+Both branches were merged into `customer-app-redesign` on 2026-08-24. This
+section records what that merge actually changed; §A–§18 are left as
+originally written rather than rewritten in place, per this document's own
+maintenance rule of dating additions instead of silently editing history.
+
+### Drink customization (new)
+
+`features/menu/item_detail_screen.dart` now renders catalogue-driven
+required single-choice groups above `Customize`, standardised as:
+
+```text
+Temperature: Hot | Iced
+Sweetness: Regular | Less sweet | Least sweet
+```
+
+Same visual language as `Size`: coffee/burgundy selected state plus an
+explicit check indicator, `Unavailable` copy/semantics for disabled
+options, non-zero price deltas as secondary text. The client stages
+`optionValueIds` only; the backend quote remains authoritative for
+option validity, default and pricing. `CartLineItem`, `OrderSelectionLine`
+and the order snapshot models (`OrderOptionSnapshot`) all carry these IDs
+through to placement and history. Cart line identity/equivalence now
+includes option IDs, not just product/variant/add-ons.
+
+### Checkout sheet: the two flagged items from §F are now resolved
+
+§F "Checkout sheet" and `FRAGILE_BOUNDARIES.md` previously flagged two open
+items in the redesigned scheduled-pickup picker: an unclamped minute wheel
+that could construct a `requestedPickupAt` the backend would reject, and a
+client-only 8am–5pm café-hours window with no server counterpart. The
+merged checkout sheet replaces the old twin Hour/Minute wheel
+(`_PickupTimeWheel`, `_todayPickupWindow`, `_composePickup`, the
+`_cafeOpenHour`/`_cafeCloseHour` constants) with a single wheel
+(`_PickupSlotWheel`) over the exact slots `derivePickupSlots(OrderingPolicy)`
+returns — no locally invented times or opening hours. Both flagged items
+are closed as of this merge; do not reintroduce a free-minute or
+client-only-hours picker without a matching backend contract change. The
+"ASAP" label is now "Now" (presentation only; the wire enum stays `asap`).
+
+### Add-to-cart behavior: reconciled, not a straight pick of either side
+
+Before this merge, the two branches disagreed on what happens after a
+successful Add to cart: this document's §F specified staying on Item
+detail with a brief in-place "Added ✓" confirmation (replacing an older
+SnackBar); `hermann/master`'s own parallel note for
+TASK-MENU-CUSTOMIZATION-001 specified popping back to Menu immediately,
+reasoning that required configuration removes the "maybe add another
+variant" case for lingering. The merge keeps both: the button shows the
+"Added" checkmark transition briefly (~450ms, long enough to actually be
+seen), then `ItemDetailScreen` pops back to Menu on its own — see
+`_ItemDetailScreenState._addToCart` in `item_detail_screen.dart`.
+
+### Verification
+
+`flutter analyze` and `flutter test` both pass post-merge (see the
+customer app's own toolchain output from the merge commit). One real
+compile bug was found and fixed while merging `order_checkout_sheet.dart`:
+`hermann/master`'s `SizeTransition` was called with an `alignment` named
+parameter, which does not exist on that widget (it takes `axisAlignment:
+double`); fixed to `axisAlignment: -1` to match the original redesign's
+value. Four golden baselines (`home.png`, `home_scrolled.png`,
+`membership_card.png`, `menu_selected.png`) and the two
+`item_detail_customization_*.png` goldens were regenerated post-merge
+because the merged code combines styling from both branches pixel-for-
+pixel differently from either branch alone — reviewed by hand, not blindly
+accepted, per the golden/visual QA policy `hermann/master` documented
+alongside TASK-MENU-CUSTOMIZATION-001.
+
+Cross-repository documentation sync for this merge remains **PENDING** —
+same Dashboard-repository-out-of-scope boundary as §18.

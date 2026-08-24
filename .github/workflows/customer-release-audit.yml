@@ -1,0 +1,79 @@
+name: Customer release audit
+
+on:
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: apps/customer
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.9'
+          channel: stable
+          cache: true
+
+      - name: Toolchain
+        run: flutter --version
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Static analysis
+        run: flutter analyze
+
+      - name: Non-golden regression suite
+        run: >-
+          flutter test
+          test/application
+          test/data
+          test/domain
+          test/widgets
+          test/widget_test.dart
+          test/android_release_manifest_test.dart
+
+      - name: Golden regression suite
+        id: goldens
+        continue-on-error: true
+        run: flutter test test/golden/screens_golden_test.dart
+
+      - name: Upload golden failure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: customer-golden-evidence
+          path: apps/customer/test/golden/failures/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Upload release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: aida-customer-release-apk
+          path: apps/customer/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 14

@@ -2,7 +2,7 @@
 
 # Customer UI Screen Map
 
-Updated: 2026-08-19
+Updated: 2026-08-24
 
 Statuses describe current runtime behavior, not design intent.
 
@@ -13,12 +13,12 @@ Statuses describe current runtime behavior, not design intent.
 | Forgot password | `features/auth/widgets/forgot_password_sheet.dart` | recovery request | Supabase Auth reset request | Integrated request boundary; mailbox callback completion not claimed |
 | App shell | `features/shell/app_shell.dart` | five-tab frame/cart access | Riverpod local state | UI/local |
 | Home | `features/home/home_screen.dart` | points/stamps/promos/categories/menu actions | mixed shared catalogue + mock/local rewards/check-in content | Partial; catalogue-backed menu content, deferred loyalty/promotions |
-| Rewards | `features/rewards/rewards_screen.dart` | balance/vouchers/reward catalogue | mock | Preview/deferred |
-| Membership QR | `features/card/membership_card_screen.dart` | member identity code | owner-scoped Supabase member read + user-scoped minimum offline cache | Integrated; physical provisioning validated |
+| Rewards | `features/rewards/rewards_screen.dart` | member balance-card presentation, vouchers/reward catalogue | mixed: real owner-scoped member/profile display + mock points/rewards/vouchers | Preview/deferred for loyalty; member identity display is real |
+| Membership QR | `features/card/membership_card_screen.dart` | member identity code | owner-scoped Supabase member read + user-scoped minimum offline cache | Integrated; QR/member boundary unchanged; shared bundled logo now replaces placeholder |
 | Menu | `features/menu/menu_screen.dart` | browse/filter/favorites | Supabase catalogue + Realtime invalidation; local favourites | Integrated; physical Owner price mutation observed |
 | Item detail | `features/menu/item_detail_screen.dart` | variant/add-ons/note/quantity/cart | Supabase catalogue item + widget interaction state | Integrated catalogue/local intent |
 | Cart | `features/cart/cart_screen.dart` | edit selections and enter checkout | local intent/estimate, then authoritative server quote | Integrated; local values not placement authority |
-| Checkout sheet | `features/cart/order_checkout_sheet.dart` | ASAP/scheduled selection and placement | ordering policy + quote/place RPCs | Integrated; Pay at counter only |
+| Checkout sheet | `features/cart/order_checkout_sheet.dart` | Now/scheduled selection and placement | ordering policy + quote/place RPCs | Integrated; scheduled values derived from server policy; Pay at counter only |
 | Order confirmation | `features/cart/order_confirmation_screen.dart` | server order number/status | authoritative order snapshot + Realtime/refetch | Integrated; no fake timer; live status E2E validated |
 | Order history | `features/history/order_history_screen.dart` | owner order history | `get_my_orders()` | Integrated owner-scoped read |
 | Order receipt/detail | `features/history/order_detail_screen.dart` | immutable order detail | `get_order()` server snapshot | Integrated owner-scoped read |
@@ -37,26 +37,33 @@ Social sign-in, promo detail, notifications, reward redemption, voucher consumpt
 
 POS/Admin surfaces are implemented in the separate Dashboard repository and mapped under `docs/dashboard/UI_SCREEN_MAP.md`.
 
-## 2026-08-19 redesign note
+## 2026-08-24 redesign + customization merge note
 
 Menu, Item detail, Cart, Checkout sheet and Rewards received a
-presentation-layer redesign on the `customer-app-redesign` branch. It does
-not change any row above — same file paths, same purpose, same data
-source, same integration status for all five. Full design-system,
-component and screen-by-screen detail is in
+presentation-layer redesign on `customer-app-redesign` (2026-08-19), and
+`hermann/master` independently landed `TASK-MENU-CUSTOMIZATION-001` (drink
+Temperature/Sweetness customization on Item detail) plus a checkout-sheet
+rework. Both were merged into `customer-app-redesign` on 2026-08-24. It
+does not change any row above's file path, purpose, or data source. The
+shared `AidaLogo` replacement also changes Membership QR presentation
+because that screen already consumes the shared widget; QR/member identity
+semantics are unchanged. Full design-system, component and screen-by-screen
+detail, including the 2026-08-24 merge section, is in
 `docs/frontend/UI_REDESIGN_SPEC.md`.
 
-Two real interaction-boundary changes came out of that redesign and do
-affect what this table's "Checkout sheet" row's status line should be read
-alongside (status text itself is unchanged, both remain true, but
-incompletely so without this note):
+The original redesign branch's Checkout sheet experimented with
+arbitrary-minute scheduling and a client-only 8am–5pm opening-hours window
+— both previously flagged here and in `FRAGILE_BOUNDARIES.md` as
+contract-incompatible. That implementation was rejected during the merge.
+The integrated Checkout sheet retains the wheel-style interaction but
+populates it only from `derivePickupSlots(OrderingPolicy)`, so the runtime
+status above remains contract-compatible with `slotIntervalMinutes`,
+minimum lead time, maximum advance horizon and backend-provided
+timezone/server time.
 
-- Scheduled pickup's minute selection is no longer clamped to
-  `OrderingPolicy.slotIntervalMinutes` client-side. The backend's 15-minute
-  slot-alignment validation (`ORDER_AND_SCHEDULING_CONTRACT.md`) was not
-  changed, so a non-15-minute selection will fail `quote_order` today. See
-  `UI_REDESIGN_SPEC.md` §F "Checkout sheet" and
-  `FRAGILE_BOUNDARIES.md` for the full explanation.
-- Same-day scheduling now also enforces a client-only 8am–5pm window
-  (`_cafeOpenHour`/`_cafeCloseHour` in `order_checkout_sheet.dart`) with no
-  corresponding field in `OrderingPolicy` or any RPC.
+Rewards now combines real member display identity with still-mock loyalty
+values. It must not be described either as wholly mock or as trusted
+loyalty integration.
+
+Pre-merge backend-impact/test audit of the customization work:
+`docs/frontend/UI_REDESIGN_AUDIT_2026-08-20.md`.

@@ -2,14 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/aida_colors.dart';
 import '../../../core/theme/aida_type.dart';
+import '../../../core/widgets/product_image.dart';
 import '../../../domain/model/menu_item.dart';
 import 'category_chip.dart';
 
-/// Photo-forward list row for the Menu screen's single-column layout: large
-/// image, name, price, and a filled "+" affordance. Both the "+" and the
-/// rest of the card open the same detail sheet — items can carry
-/// variants/add-ons, so a bare tap can't safely skip that choice and add a
-/// default straight to the cart.
+/// Photo-forward list row for the Menu screen's single-column layout.
+///
+/// Live catalogue photography remains primary through [MenuItem.imageUrl];
+/// bundled category art is only a graceful fallback. Both the "+" affordance
+/// and the rest of the row open item detail because variants/add-ons must be
+/// selected before a configured line can safely enter the cart.
 class MenuListItem extends StatelessWidget {
   const MenuListItem({super.key, required this.item, this.onTap});
 
@@ -43,7 +45,6 @@ class MenuListItem extends StatelessWidget {
                 Container(
                   width: 88,
                   height: 88,
-                  alignment: Alignment.center,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(16),
                     gradient: RadialGradient(
@@ -55,21 +56,15 @@ class MenuListItem extends StatelessWidget {
                       ],
                     ),
                   ),
-                  child:
-                      asset == null
-                          ? Icon(
-                            Icons.local_cafe_outlined,
-                            size: 34,
-                            color: AidaColors.coffee.withValues(alpha: 0.4),
-                          )
-                          : Padding(
-                            padding: const EdgeInsets.all(6),
-                            child: Image.asset(
-                              asset,
-                              fit: BoxFit.contain,
-                              filterQuality: FilterQuality.high,
-                            ),
-                          ),
+                  child: ProductImage(
+                    imageUrl: item.imageUrl,
+                    category: item.category,
+                    size: 88,
+                    borderRadius: 16,
+                    fit: BoxFit.contain,
+                    filledPlaceholder: false,
+                    assetFallback: asset,
+                  ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(

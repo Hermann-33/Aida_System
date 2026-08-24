@@ -9,6 +9,7 @@ import '../../core/theme/aida_type.dart';
 import '../../core/widgets/neumorphic_control.dart';
 import '../../core/widgets/product_image.dart';
 import '../../domain/model/cart.dart';
+import '../../domain/model/menu_customization.dart';
 import '../../domain/model/menu_item.dart';
 import '../../domain/model/menu_variant.dart';
 import '../../domain/model/money.dart';
@@ -19,11 +20,11 @@ void openItemDetail(BuildContext context, MenuItem item) {
   ).push(MaterialPageRoute(builder: (_) => ItemDetailScreen(item: item)));
 }
 
-/// Menu detail/configuration backed entirely by the shared catalogue.
+/// Catalogue-driven item configuration.
 ///
-/// The cart is still local preview state; authoritative order re-pricing is a
-/// separate backend task. Base price, variants and add-ons shown here are all
-/// supplied by Supabase rather than Dart constants.
+/// Size, Temperature, Sweetness and compatible add-ons are all supplied by the
+/// shared Supabase catalogue. This screen stages IDs only; checkout re-prices
+/// and revalidates every selection server-side before an order is persisted.
 class ItemDetailScreen extends ConsumerStatefulWidget {
   const ItemDetailScreen({super.key, required this.item});
 
@@ -36,9 +37,9 @@ class ItemDetailScreen extends ConsumerStatefulWidget {
 class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
   MenuVariant? _size;
   final _selectedAddOnIds = <String>{};
+  final _selectedOptionValueIds = <String>{};
   int _quantity = 1;
   final _noteController = TextEditingController();
-  final _scrollController = ScrollController();
 
   /// Drives the bottom bar's brief "Added ✓" state — replaces the old
   /// SnackBar. The confirmation lives right on the button the user just
@@ -50,17 +51,65 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
   void initState() {
     super.initState();
     _size = widget.item.defaultVariant;
+    for (final group in widget.item.customizationGroups) {
+      final option = group.defaultOption;
+      if (option != null) _selectedOptionValueIds.add(option.id);
+    }
   }
 
   @override
   void dispose() {
     _justAddedTimer?.cancel();
     _noteController.dispose();
-    _scrollController.dispose();
     super.dispose();
   }
 
-  void _addToCart(List<MenuItem> menu) {
+  bool get _requiredSelectionsComplete {
+    for (final group in widget.item.customizationGroups) {
+      final available = group.availableOptions;
+      if (available.isEmpty) return false;
+      if (!available.any(
+        (option) => _selectedOptionValueIds.contains(option.id),
+      )) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  void _selectOption(
+    MenuCustomizationGroup group,
+    MenuCustomizationOption option,
+  ) {
+    setState(() {
+      for (final candidate in group.options) {
+        _selectedOptionValueIds.remove(candidate.id);
+      }
+      _selectedOptionValueIds.add(option.id);
+    });
+  }
+
+  Money _configuredUnitPrice(List<MenuItem> menu) {
+    final addOns = addOnTotalFor(_selectedAddOnIds.toList(), menu);
+    var optionSen = 0;
+    for (final group in widget.item.customizationGroups) {
+      for (final option in group.options) {
+        if (_selectedOptionValueIds.contains(option.id)) {
+          optionSen += option.priceDeltaSen;
+          break;
+        }
+      }
+    }
+    return Money.fromSen(
+      widget.item.price.sen +
+          (_size?.priceDeltaSen ?? 0) +
+          addOns.sen +
+          optionSen,
+    );
+  }
+
+  void _addToCart() {
+    if (!_requiredSelectionsComplete) return;
     ref
         .read(cartProvider.notifier)
         .add(
@@ -68,6 +117,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
             item: widget.item,
             size: _size,
             addOnIds: _selectedAddOnIds.toList(growable: false),
+            optionValueIds: _selectedOptionValueIds.toList(growable: false),
             quantity: _quantity,
             note:
                 _noteController.text.trim().isEmpty
@@ -78,16 +128,12 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
 
     setState(() => _justAdded = true);
     _justAddedTimer?.cancel();
-    _justAddedTimer = Timer(const Duration(milliseconds: 900), () {
-      setState(() => _justAdded = false);
+    // Long enough for the checkmark transition to actually be seen, then
+    // back to Menu — configuration is required now, so there's no longer a
+    // "maybe add another variant" reason to linger on this screen.
+    _justAddedTimer = Timer(const Duration(milliseconds: 450), () {
+      if (mounted) Navigator.of(context).pop();
     });
-  }
-
-  Money _configuredUnitPrice(List<MenuItem> menu) {
-    final addOns = addOnTotalFor(_selectedAddOnIds.toList(), menu);
-    return Money.fromSen(
-      widget.item.price.sen + (_size?.priceDeltaSen ?? 0) + addOns.sen,
-    );
   }
 
   @override
@@ -95,16 +141,21 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
     final item = widget.item;
     final menu = ref.watch(menuItemsProvider).value ?? const <MenuItem>[];
     final isFavorite = ref.watch(favoritesProvider).contains(item.id);
-    final availableVariants =
-        item.variants.where((variant) => variant.isAvailable).toList();
+    final availableVariants = item.variants
+        .where((variant) => variant.isAvailable)
+        .toList(growable: false);
     final compatibleAddOns = menu
         .where(
           (candidate) =>
+              candidate.kind == 'addon' &&
               candidate.isAvailable &&
               item.compatibleAddOnIds.contains(candidate.id),
         )
         .toList(growable: false);
     final configuredPrice = _configuredUnitPrice(menu);
+    final total = Money.fromSen(configuredPrice.sen * _quantity);
+    final canAdd = item.isAvailable && _requiredSelectionsComplete;
+    final topControlInset = MediaQuery.paddingOf(context).top + 64;
 
     return Scaffold(
       backgroundColor: AidaColors.cream,
@@ -117,10 +168,13 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
             height: 360,
             child: _Hero(item: item),
           ),
-          Positioned.fill(
+          Positioned(
+            top: topControlInset,
+            left: 0,
+            right: 0,
+            bottom: 0,
             child: SingleChildScrollView(
-              controller: _scrollController,
-              padding: const EdgeInsets.only(top: 300),
+              padding: EdgeInsets.fromLTRB(0, 300 - topControlInset, 0, 130),
               child: Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
@@ -136,7 +190,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                     ),
                   ],
                 ),
-                padding: const EdgeInsets.fromLTRB(22, 28, 22, 130),
+                padding: const EdgeInsets.fromLTRB(22, 28, 22, 30),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -213,53 +267,83 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                         ],
                       ),
                     ],
-                    const SizedBox(height: 28),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (compatibleAddOns.isNotEmpty) ...[
-                          const _SectionLabel('Customize'),
-                          const SizedBox(height: 8),
-                          for (final addOn in compatibleAddOns)
-                            _AddOnRow(
-                              addOn: addOn,
-                              selected: _selectedAddOnIds.contains(addOn.id),
-                              onChanged:
-                                  (selected) => setState(() {
-                                    if (selected) {
-                                      _selectedAddOnIds.add(addOn.id);
-                                    } else {
-                                      _selectedAddOnIds.remove(addOn.id);
-                                    }
-                                  }),
+                    for (final group in item.customizationGroups) ...[
+                      const SizedBox(height: 28),
+                      _SectionLabel(group.name),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          for (final option in group.options)
+                            _ChoiceTile(
+                              key: ValueKey(
+                                'drink_option_${group.code}_${option.code}',
+                              ),
+                              label: option.label,
+                              priceDeltaSen: option.priceDeltaSen,
+                              selected: _selectedOptionValueIds.contains(
+                                option.id,
+                              ),
+                              enabled: option.isAvailable,
+                              onTap:
+                                  option.isAvailable
+                                      ? () => _selectOption(group, option)
+                                      : null,
                             ),
-                          const SizedBox(height: 20),
                         ],
-                        const _SectionLabel('Anything else?'),
-                        const SizedBox(height: 10),
-                        TextField(
-                          controller: _noteController,
-                          maxLines: 2,
-                          maxLength: 140,
-                          style: AidaType.sans(
-                            size: 13.5,
-                            color: AidaColors.textPrimary,
-                          ),
-                          decoration: InputDecoration(
-                            hintText: 'e.g. less ice, no sugar (optional)',
-                            hintStyle: AidaType.sans(
-                              size: 13.5,
-                              color: AidaColors.textMuted,
-                            ),
-                            filled: true,
-                            fillColor: AidaColors.cream,
-                            contentPadding: const EdgeInsets.all(14),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                          ),
+                      ),
+                    ],
+                    if (compatibleAddOns.isNotEmpty) ...[
+                      const SizedBox(height: 28),
+                      const _SectionLabel('Customize'),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Optional extras apply only to this drink.',
+                        style: AidaType.sans(
+                          size: 12,
+                          color: AidaColors.textMuted,
                         ),
-                      ],
+                      ),
+                      const SizedBox(height: 6),
+                      for (final addOn in compatibleAddOns)
+                        _AddOnRow(
+                          addOn: addOn,
+                          selected: _selectedAddOnIds.contains(addOn.id),
+                          onChanged:
+                              (selected) => setState(() {
+                                if (selected) {
+                                  _selectedAddOnIds.add(addOn.id);
+                                } else {
+                                  _selectedAddOnIds.remove(addOn.id);
+                                }
+                              }),
+                        ),
+                    ],
+                    const SizedBox(height: 28),
+                    const _SectionLabel('Anything else?'),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _noteController,
+                      maxLines: 2,
+                      maxLength: 140,
+                      style: AidaType.sans(
+                        size: 13.5,
+                        color: AidaColors.textPrimary,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'e.g. less ice, no sugar (optional)',
+                        hintStyle: AidaType.sans(
+                          size: 13.5,
+                          color: AidaColors.textMuted,
+                        ),
+                        filled: true,
+                        fillColor: AidaColors.cream,
+                        contentPadding: const EdgeInsets.all(14),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                      ),
                     ),
                     if (item.volumeMl != null) ...[
                       const SizedBox(height: 16),
@@ -315,14 +399,15 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
             right: 0,
             bottom: 0,
             child: _BottomBar(
-              available: item.isAvailable,
+              available: canAdd,
+              disabledLabel: item.isAvailable ? 'Choose options' : 'Sold out',
               quantity: _quantity,
-              total: Money.fromSen(configuredPrice.sen * _quantity),
+              total: total,
               justAdded: _justAdded,
               onDecrement:
                   _quantity > 1 ? () => setState(() => _quantity--) : null,
               onIncrement: () => setState(() => _quantity++),
-              onAddToCart: () => _addToCart(menu),
+              onAddToCart: _addToCart,
             ),
           ),
         ],
@@ -492,6 +577,101 @@ class _VariantTile extends StatelessWidget {
   }
 }
 
+class _ChoiceTile extends StatelessWidget {
+  const _ChoiceTile({
+    super.key,
+    required this.label,
+    required this.priceDeltaSen,
+    required this.selected,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final String label;
+  final int priceDeltaSen;
+  final bool selected;
+  final bool enabled;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    enabled: enabled,
+    selected: selected,
+    excludeSemantics: true,
+    label: enabled ? label : '$label, unavailable',
+    child: Material(
+      color:
+          selected
+              ? AidaColors.latte.withValues(alpha: 0.52)
+              : enabled
+              ? AidaColors.cream
+              : AidaColors.caramelTint.withValues(alpha: 0.42),
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          constraints: const BoxConstraints(minWidth: 98, minHeight: 48),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: selected ? AidaColors.coffee : AidaColors.latte,
+              width: selected ? 1.5 : 1,
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (selected) ...[
+                const Icon(
+                  Icons.check_circle_rounded,
+                  size: 14,
+                  color: AidaColors.coffee,
+                ),
+                const SizedBox(height: 2),
+              ],
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: AidaType.sans(
+                  size: 12.5,
+                  weight: selected ? FontWeight.w800 : FontWeight.w600,
+                  color:
+                      selected
+                          ? AidaColors.coffee
+                          : enabled
+                          ? AidaColors.textPrimary
+                          : AidaColors.textMuted,
+                ),
+              ),
+              if (!enabled) ...[
+                const SizedBox(height: 2),
+                Text(
+                  'Unavailable',
+                  style: AidaType.sans(
+                    size: 10.5,
+                    weight: FontWeight.w700,
+                    color: AidaColors.textMuted,
+                  ),
+                ),
+              ] else if (priceDeltaSen != 0) ...[
+                const SizedBox(height: 2),
+                Text(
+                  '${priceDeltaSen > 0 ? '+' : ''}${Money.fromSen(priceDeltaSen).formatted}',
+                  style: AidaType.sans(size: 10.5, color: AidaColors.textMuted),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 class _AddOnRow extends StatelessWidget {
   const _AddOnRow({
     required this.addOn,
@@ -504,19 +684,22 @@ class _AddOnRow extends StatelessWidget {
   final ValueChanged<bool> onChanged;
 
   @override
-  Widget build(BuildContext context) {
-    return InkWell(
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    checked: selected,
+    label: addOn.name,
+    child: InkWell(
       onTap: () => onChanged(!selected),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 9),
+        padding: const EdgeInsets.symmetric(vertical: 11),
         child: Row(
           children: [
             Icon(
               selected
                   ? Icons.check_box_rounded
                   : Icons.check_box_outline_blank_rounded,
-              size: 22,
+              size: 23,
               color: selected ? AidaColors.coffee : AidaColors.latte,
             ),
             const SizedBox(width: 12),
@@ -532,13 +715,17 @@ class _AddOnRow extends StatelessWidget {
             ),
             Text(
               '+${addOn.price.formatted}',
-              style: AidaType.sans(size: 13, color: AidaColors.textMuted),
+              style: AidaType.sans(
+                size: 12.5,
+                weight: FontWeight.w700,
+                color: AidaColors.coffee,
+              ),
             ),
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 /// A single primary CTA — "Add to cart · total" — plus the quantity stepper.
@@ -549,6 +736,7 @@ class _AddOnRow extends StatelessWidget {
 class _BottomBar extends StatelessWidget {
   const _BottomBar({
     required this.available,
+    required this.disabledLabel,
     required this.quantity,
     required this.total,
     required this.justAdded,
@@ -558,6 +746,7 @@ class _BottomBar extends StatelessWidget {
   });
 
   final bool available;
+  final String disabledLabel;
   final int quantity;
   final Money total;
 
@@ -652,10 +841,12 @@ class _BottomBar extends StatelessWidget {
                               ],
                             )
                             : Text(
-                              key: const ValueKey('default'),
                               available
                                   ? 'Add to cart · ${total.formatted}'
-                                  : 'Sold out',
+                                  : disabledLabel,
+                              key: const ValueKey('default'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: AidaType.sans(
                                 size: 15,
                                 weight: FontWeight.w700,

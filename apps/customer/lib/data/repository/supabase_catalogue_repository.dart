@@ -4,6 +4,7 @@ import '../../core/error/failures.dart';
 import '../../core/error/result.dart';
 import '../../domain/model/catalogue_snapshot.dart';
 import '../../domain/model/menu_category.dart';
+import '../../domain/model/menu_customization.dart';
 import '../../domain/model/menu_item.dart';
 import '../../domain/model/menu_variant.dart';
 import '../../domain/model/money.dart';
@@ -18,33 +19,35 @@ class SupabaseCatalogueRepository implements CatalogueRepository {
   Future<Result<CatalogueSnapshot>> getCatalogue() async {
     try {
       final raw = await _client.rpc('get_catalogue');
-      if (raw is! Map) {
-        return const Err(ServerFailure('Catalogue response was invalid'));
-      }
-      final json = Map<String, dynamic>.from(raw);
-      final categoriesRaw = json['categories'];
-      final itemsRaw = json['items'];
-      if (categoriesRaw is! List || itemsRaw is! List) {
-        return const Err(ServerFailure('Catalogue response was incomplete'));
-      }
-
-      final categories = categoriesRaw
-          .map((value) => _category(Map<String, dynamic>.from(value as Map)))
-          .toList(growable: false);
-      final items = itemsRaw
-          .map((value) => _item(Map<String, dynamic>.from(value as Map)))
-          .toList(growable: false);
-
-      return Ok(
-        CatalogueSnapshot(
-          revision: _int(json['revision']),
-          categories: categories,
-          items: items,
-        ),
-      );
+      return Ok(decodeCatalogue(raw));
     } catch (_) {
       return const Err(ServerFailure('Unable to load the menu'));
     }
+  }
+
+  /// Decodes the public `get_catalogue()` payload without granting it any
+  /// authority beyond presentation. Order quote/place still revalidate every
+  /// selected ID and calculate the final commercial result server-side.
+  static CatalogueSnapshot decodeCatalogue(Object? raw) {
+    if (raw is! Map) {
+      throw const FormatException('Catalogue response was invalid');
+    }
+    final json = Map<String, dynamic>.from(raw);
+    final categoriesRaw = json['categories'];
+    final itemsRaw = json['items'];
+    if (categoriesRaw is! List || itemsRaw is! List) {
+      throw const FormatException('Catalogue response was incomplete');
+    }
+
+    return CatalogueSnapshot(
+      revision: _int(json['revision']),
+      categories: categoriesRaw
+          .map((value) => _category(Map<String, dynamic>.from(value as Map)))
+          .toList(growable: false),
+      items: itemsRaw
+          .map((value) => _item(Map<String, dynamic>.from(value as Map)))
+          .toList(growable: false),
+    );
   }
 
   @override
@@ -68,6 +71,7 @@ class SupabaseCatalogueRepository implements CatalogueRepository {
   static MenuItem _item(Map<String, dynamic> json) {
     final variantsRaw = json['variants'];
     final addOnsRaw = json['compatibleAddOnIds'];
+    final groupsRaw = json['customizationGroups'];
     return MenuItem(
       id: _string(json['id']),
       categoryId: _string(json['categoryId']),
@@ -81,6 +85,7 @@ class SupabaseCatalogueRepository implements CatalogueRepository {
       isFeatured: json['isFeatured'] == true,
       isBestSeller: json['isBestSeller'] == true,
       isStudentEligible: json['isStudentEligible'] == true,
+      isDrink: json['isDrink'] == true,
       imageUrl: _nullableString(json['imageUrl']),
       volumeMl: json['volumeMl'] == null ? null : _int(json['volumeMl']),
       variants:
@@ -96,10 +101,52 @@ class SupabaseCatalogueRepository implements CatalogueRepository {
           addOnsRaw is List
               ? addOnsRaw.map(_string).toList(growable: false)
               : const [],
+      customizationGroups:
+          groupsRaw is List
+              ? groupsRaw
+                  .map(
+                    (value) => _customizationGroup(
+                      Map<String, dynamic>.from(value as Map),
+                    ),
+                  )
+                  .toList(growable: false)
+              : const [],
     );
   }
 
   static MenuVariant _variant(Map<String, dynamic> json) => MenuVariant(
+    id: _string(json['id']),
+    code: _string(json['code']),
+    label: _string(json['label']),
+    priceDeltaSen: _int(json['priceDeltaSen']),
+    isDefault: json['isDefault'] == true,
+    isAvailable: json['isAvailable'] == true,
+    sortOrder: _int(json['sortOrder']),
+  );
+
+  static MenuCustomizationGroup _customizationGroup(Map<String, dynamic> json) {
+    final optionsRaw = json['options'];
+    return MenuCustomizationGroup(
+      id: _string(json['id']),
+      code: _string(json['code']),
+      name: _string(json['name']),
+      sortOrder: _int(json['sortOrder']),
+      options:
+          optionsRaw is List
+              ? optionsRaw
+                  .map(
+                    (value) => _customizationOption(
+                      Map<String, dynamic>.from(value as Map),
+                    ),
+                  )
+                  .toList(growable: false)
+              : const [],
+    );
+  }
+
+  static MenuCustomizationOption _customizationOption(
+    Map<String, dynamic> json,
+  ) => MenuCustomizationOption(
     id: _string(json['id']),
     code: _string(json['code']),
     label: _string(json['label']),

@@ -11,6 +11,7 @@ class TestOrderRepository implements OrderRepository {
   final Failure? placeFailure;
   final updates = StreamController<void>.broadcast();
   int historyFetches = 0;
+  final quotedRequests = <OrderRequest>[];
   final placedRequests = <OrderRequest>[];
 
   static final policy = OrderingPolicy(
@@ -18,12 +19,13 @@ class TestOrderRepository implements OrderRepository {
     timezone: 'Asia/Kuala_Lumpur',
     scheduleEnabled: true,
     minimumLeadMinutes: 30,
+    preparationLeadMinutes: 15,
     slotIntervalMinutes: 15,
     maximumAdvanceDays: 2,
   );
 
   static final quote = OrderQuote.fromJson({
-    'pricingVersion': 1,
+    'pricingVersion': 2,
     'currency': 'MYR',
     'subtotalSen': 3480,
     'totalSen': 3480,
@@ -34,6 +36,7 @@ class TestOrderRepository implements OrderRepository {
       'timezone': 'Asia/Kuala_Lumpur',
       'scheduleEnabled': true,
       'minimumLeadMinutes': 30,
+      'preparationLeadMinutes': 15,
       'slotIntervalMinutes': 15,
       'maximumAdvanceDays': 2,
     },
@@ -59,6 +62,27 @@ class TestOrderRepository implements OrderRepository {
           },
         ],
         'addOnTotalSen': 300,
+        'options': [
+          {
+            'groupId': 'grp_temperature',
+            'groupCode': 'temperature',
+            'groupName': 'Temperature',
+            'optionValueId': 'opt_hot',
+            'optionCode': 'hot',
+            'optionLabel': 'Hot',
+            'priceDeltaSen': 0,
+          },
+          {
+            'groupId': 'grp_sweetness',
+            'groupCode': 'sweetness',
+            'groupName': 'Sweetness',
+            'optionValueId': 'opt_less_sweet',
+            'optionCode': 'less-sweet',
+            'optionLabel': 'Less sweet',
+            'priceDeltaSen': 0,
+          },
+        ],
+        'optionTotalSen': 0,
         'unitPriceSen': 1740,
         'quantity': 2,
         'lineTotalSen': 3480,
@@ -75,7 +99,7 @@ class TestOrderRepository implements OrderRepository {
     'status': 'confirmed',
     'statusVersion': 1,
     'currency': 'MYR',
-    'pricingVersion': 1,
+    'pricingVersion': 2,
     'subtotalSen': 3480,
     'totalSen': 3480,
     'createdAt': '2026-08-13T02:01:00Z',
@@ -103,6 +127,27 @@ class TestOrderRepository implements OrderRepository {
           },
         ],
         'addOnTotalSen': 300,
+        'options': [
+          {
+            'groupId': 'grp_temperature',
+            'groupCode': 'temperature',
+            'groupName': 'Temperature',
+            'optionValueId': 'opt_hot',
+            'optionCode': 'hot',
+            'optionLabel': 'Hot',
+            'priceDeltaSen': 0,
+          },
+          {
+            'groupId': 'grp_sweetness',
+            'groupCode': 'sweetness',
+            'groupName': 'Sweetness',
+            'optionValueId': 'opt_less_sweet',
+            'optionCode': 'less-sweet',
+            'optionLabel': 'Less sweet',
+            'priceDeltaSen': 0,
+          },
+        ],
+        'optionTotalSen': 0,
         'unitPriceSen': 1740,
         'quantity': 2,
         'lineTotalSen': 3480,
@@ -115,8 +160,10 @@ class TestOrderRepository implements OrderRepository {
   Future<Result<OrderingPolicy>> getOrderingPolicy() async => Ok(policy);
 
   @override
-  Future<Result<OrderQuote>> quoteOrder(OrderRequest request) async =>
-      Ok(quote);
+  Future<Result<OrderQuote>> quoteOrder(OrderRequest request) async {
+    quotedRequests.add(request);
+    return Ok(quote);
+  }
 
   @override
   Future<Result<OrderSnapshot>> placeCustomerOrder(OrderRequest request) async {

@@ -1,5 +1,6 @@
-# Uncomment this line to define a global platform for your project
-# platform :ios, '12.0'
+# Matches the Flutter engine's required minimum (ios/Flutter/Flutter.podspec) —
+# bumped from the default 12.0 after upgrading Flutter to 3.47.1.
+platform :ios, '15.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'

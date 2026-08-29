@@ -1,9 +1,35 @@
 # Supabase Status
 
-**Status date:** 2026-08-23
+**Status date:** 2026-08-29
 **Project:** Aida System
 **Ref:** `eswovqxqzfevcdwwcmuh`
 **Region:** `ap-southeast-1`
+
+## Drafted, unapplied migrations (2026-08-29)
+
+Two migrations exist in `supabase/migrations/` that have **not** been applied
+to the live project listed above and are not reflected in the applied
+migration tail below:
+
+- `20260828120000_add_referral_program.sql` (`TASK-REFERRAL-001`) — adds
+  `members.points_balance`, a `referrals` table, and extends
+  `handle_new_auth_user()`/`transition_order_status_impl()` to award a
+  referral bonus on a referred member's first completed order.
+- `20260826120000_add_customer_account_deletion.sql` (`TASK-ACCT-001`) —
+  adds `public.delete_own_account()` (self-service account deletion) and a
+  placeholder "deleted customer" account that past orders reassign to.
+
+Full evidence, including why each is PARTIAL rather than COMPLETE:
+`docs/context/BACKEND_MIGRATIONS_2026-08-29.md`.
+
+**Why unverified:** this repository's working session on 2026-08-29 had no
+access to the live Aida project. The only Supabase MCP connection available
+resolved to an unrelated project ("Cheater's Market",
+ref `gcqbayehikvbwvvseyoc`, `us-east-1`) in a different organization, and no
+local Postgres was available either. A future session with real Aida-project
+access must apply both migrations, run `supabase/tests/account_deletion_integration.sql`,
+write and run an equivalent test for the referral migration, and re-check the
+security/performance advisors before either counts as live/verified.
 
 ## Current live snapshot
 
@@ -175,7 +201,9 @@ Still not implemented as trusted live domains:
 - terminal/sales-point authority;
 - shifts/cash reconciliation;
 - payment/refunds;
-- loyalty earning/redemption;
+- loyalty earning/redemption — **partial exception:** a referral-bonus
+  migration is drafted but unapplied; see "Drafted, unapplied migrations"
+  above;
 - inventory depletion;
 - promotions/discounts;
 - tax/accounting/reporting;

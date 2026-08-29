@@ -67,6 +67,7 @@ class SupabaseMemberRepository implements MemberRepository {
     required String email,
     required String password,
     required bool isStudent,
+    String? referralCode,
   }) async {
     try {
       final response = await _client.auth.signUp(
@@ -75,6 +76,8 @@ class SupabaseMemberRepository implements MemberRepository {
         data: <String, dynamic>{
           'display_name': name.trim(),
           'is_student': isStudent,
+          if (referralCode != null && referralCode.trim().isNotEmpty)
+            'referral_code': referralCode.trim(),
         },
       );
       if (response.user == null) {
@@ -104,6 +107,30 @@ class SupabaseMemberRepository implements MemberRepository {
       if (userId != null) await _bestEffortRemove(userId);
       _activeUserId = null;
       return const Err(ServerFailure('Unable to sign out cleanly'));
+    }
+  }
+
+  /// Permanently deletes the signed-in customer's account and membership
+  /// data server-side (see the `delete_own_account` RPC / migration
+  /// TASK-ACCT-001), then clears the local session the same way [logOut]
+  /// does — the RPC only removes the server-side row, it doesn't touch
+  /// this client's own cached session/token.
+  Future<Result<void>> deleteAccount() async {
+    final userId = _client.auth.currentUser?.id ?? _activeUserId;
+    try {
+      await _client.rpc('delete_own_account');
+      await _client.auth.signOut();
+      if (userId != null) await _bestEffortRemove(userId);
+      _activeUserId = null;
+      return const Ok(null);
+    } on PostgrestException catch (error) {
+      return Err(ServerFailure(error.message));
+    } catch (_) {
+      if (userId != null) await _bestEffortRemove(userId);
+      _activeUserId = null;
+      return const Err(
+        ServerFailure('Unable to delete your account right now'),
+      );
     }
   }
 
@@ -301,8 +328,37 @@ class SupabaseMemberRepository implements MemberRepository {
     );
   }
 
+  /// Real, unlike the rest of this class's loyalty surface — a single
+  /// balance column on `members`, populated by the referral bonus (see
+  /// migration 20260828120000). Everything else here (stamps, rewards,
+  /// vouchers, offers) stays preview-backed until its own task.
   @override
-  Future<Result<Points>> getPoints() => _pendingFeatures.getPoints();
+  Future<Result<Points>> getPoints() async {
+    final user = _client.auth.currentUser;
+    if (user == null) {
+      return const Err(AuthFailure('Sign in to load your points'));
+    }
+    try {
+      final row =
+          await _client
+              .from('members')
+              .select('points_balance')
+              .eq('user_id', user.id)
+              .single();
+      return Ok(
+        Points(
+          balance: (row['points_balance'] as num).toInt(),
+          asOf: DateTime.now(),
+        ),
+      );
+    } catch (_) {
+      // Most likely cause: migration 20260828120000 (which adds
+      // points_balance) hasn't been applied to this project yet. Fall back
+      // to the preview balance rather than showing a blank/broken number
+      // everywhere points are displayed.
+      return _pendingFeatures.getPoints();
+    }
+  }
 
   @override
   Future<Result<StampCard>> getStampCard() => _pendingFeatures.getStampCard();

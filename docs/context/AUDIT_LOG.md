@@ -2,6 +2,136 @@
 
 This is the mirrored project-level chronology. Historical task verdicts describe the state at that task's completion; later entries supersede earlier open blockers without rewriting history.
 
+## 2026-08-29 — TASK-ACCT-001 customer self-service account deletion
+
+**Verdict:** PARTIAL.
+
+Drafted `supabase/migrations/20260826120000_add_customer_account_deletion.sql`:
+a new `public.delete_own_account()` RPC (`security definer`,
+`set search_path = ''`, `authenticated`-only) satisfying App Store/Play
+Store account-deletion review requirements. Reassigns the caller's own
+`orders.created_by_user_id` to a permanent placeholder "deleted customer"
+account before deleting their `auth.users` row (a bare delete would
+otherwise violate `orders.created_by_user_id`'s `not null` + `on delete
+restrict` audit-trail guarantee for anyone who has ever placed an order);
+the cascade clears `user_profiles`/`members`/`student_verifications` and
+nulls `orders.customer_user_id`/`orders.member_id`/`order_events.actor_user_id`
+via existing FK behavior. `private.protect_order_commercial_fields()` was
+extended with exactly the two field-level exceptions this needs, nothing
+broader. A transactional integration test,
+`supabase/tests/account_deletion_integration.sql`, was written covering
+unauthenticated rejection, a full successful deletion with order
+reassignment verified, and rejection of deleting the placeholder account
+itself.
+
+Customer app: `AuthState.deleteAccount()` (`application/providers.dart`),
+`SupabaseMemberRepository.deleteAccount()`, and a full confirm/progress/
+result UI flow in the new `features/profile/settings_screen.dart`.
+
+**Why PARTIAL:** the migration and its integration test have never been run
+against any real Postgres instance — this task's environment had no access
+to the live Aida Supabase project (ref `eswovqxqzfevcdwwcmuh`; the only
+reachable Supabase MCP connection resolved to an unrelated project) and no
+local Postgres was available. Full evidence:
+`docs/context/BACKEND_MIGRATIONS_2026-08-29.md`.
+
+Customer toolchain: `flutter analyze` 1 pre-existing unrelated issue,
+`flutter test` 55/55 passing (no dedicated widget test for the new
+delete-account UI flow itself — see the evidence doc's Deferred list).
+
+Uncommitted, on `customer-app-redesign`. Cross-repository documentation
+sync: **PENDING**.
+
+## 2026-08-29 — TASK-REFERRAL-001 "Invite a friend" referral program
+
+**Verdict:** PARTIAL.
+
+Drafted `supabase/migrations/20260828120000_add_referral_program.sql`:
+adds `members.points_balance` (the first real, non-mock loyalty field in
+the schema) and a `referrals` table (RLS enabled, no policies — access only
+via `security definer` functions). Extends the existing
+`handle_new_auth_user()` signup trigger to record a pending referral when
+signup metadata carries a recognized, non-self `referral_code`. Extends the
+existing `private.transition_order_status_impl()` to credit a 50-point
+bonus to both referrer and referred member — with `for update` locking to
+prevent a double-reward race — the moment a referred member's order reaches
+`completed` for the first time, verified via a post-update `count(*)`
+rather than trusted client state.
+
+Customer app: `signUp(..., referralCode:)` end to end (repository interface,
+both implementations, a new optional sign-up field in `login_screen.dart`),
+and `SupabaseMemberRepository.getPoints()` now queries
+`members.points_balance` for real, falling back to the existing mock
+balance on any query failure (expected until the migration below is
+applied).
+
+**Why PARTIAL:** the migration has never been applied to or exercised
+against a live/local Postgres instance in this task — see the environment
+note in `docs/context/BACKEND_MIGRATIONS_2026-08-29.md`. No
+`supabase/tests/*.sql` regression accompanies this migration (a real gap,
+unlike `TASK-ACCT-001` above, which shipped with one). Several canonical
+docs previously stated loyalty was fully deferred with no drafted
+implementation; this task's own documentation-reconciliation pass updated
+`SUPABASE_STATUS.md`, `SHARED_BACKEND_CONTRACT.md`, `ROADMAP.md`,
+`PROJECT_BRIEF.md`, and `SECURITY_REVIEW.md` to note the drafted-but-
+unapplied exception, per `AGENTS.md`'s drift rule.
+
+Customer toolchain: `flutter analyze` 1 pre-existing unrelated issue,
+`flutter test` 55/55 passing.
+
+Uncommitted, on `customer-app-redesign`. Cross-repository documentation
+sync: **PENDING**.
+
+## 2026-08-29 — TASK-REDESIGN-001 customer presentation-layer pass
+
+**Verdict:** COMPLETE for presentation-layer scope.
+
+A large, uncommitted second presentation pass on `customer-app-redesign`,
+on top of the 2026-08-19/24 redesign already recorded below. Full
+screen-by-screen evidence: `docs/frontend/UI_REDESIGN_SPEC.md` §20.
+
+Materially changed: membership card (ticket-shaped card, new hero photo
+band, a `_ShareCornerButton` sharing the member's real code via the OS
+share sheet — a new outbound data flow), profile (photo header, a new
+"bento" primary-actions grid, new Staff-demo/Test-error-page/Test-popup
+entry points), order confirmation (a demo-status override that can now show
+in-memory demo status instead of the real backend status when a matching
+demo order exists, plus a listener-driven auto-pop-to-root — both real
+behavioral deltas, not just visual), menu (search added, old favorites
+toggle removed), home (a Favorites category chip, plus a real fix so only
+categories with actual browsable products appear), rewards (a real
+tear-to-apply animation with jagged-clip physics and a permanent torn
+resting state for applied vouchers; the points-catalogue section now
+discloses "Coming soon" instead of a tappable-but-inert button), item
+detail (size/option tile restyle), cart (wired into the new demo
+order-progress provider), and the app shell/bottom nav (labeled tabs, a
+stacked order-progress capsule, a real cross-device nav-clearance bugfix).
+
+Added: a brand-video splash screen (`main.dart`'s new entry point before
+`AuthGate`), a full-page `ErrorPage`, a redesigned pastel-grid Settings
+screen (also the home of `TASK-ACCT-001`'s delete-account UI, tracked
+separately above), and an explicitly-temporary demo-only order-progress
+subsystem (`OrderProgressCapsule`/`StaffDemoScreen`/`LiquidStageTracker`) —
+every file in the latter is self-documented as a placeholder for real
+staff/POS status wiring. Every remaining `ScaffoldMessenger`/`SnackBar` call
+site in the app was replaced by the shared `AidaPopup` overlay component
+(verified via a repo-wide grep returning empty). App launcher icons were
+regenerated from a new source image via `flutter_launcher_icons`.
+
+No backend contract changed as part of this task specifically (the two
+migrations drafted in the same working tree are tracked as their own
+separate tasks above, per `AGENTS.md`'s shared-contract workflow).
+
+Customer toolchain, run 2026-08-29: `flutter analyze` → 1 pre-existing,
+unrelated issue; `flutter test` → 55/55 passing, including four
+previously-failing golden baselines (`home`, `home_scrolled`,
+`membership_card`, `menu_selected`) regenerated and reviewed for this
+pass's real visual changes.
+
+Uncommitted, on `customer-app-redesign`. Cross-repository documentation
+sync: **PENDING** — `Hermann-33/Aida_System-Dashboard` was not inspected or
+modified.
+
 ## 2026-08-24 — customer-app-redesign × hermann/master merge
 
 **Verdict:** COMPLETE.

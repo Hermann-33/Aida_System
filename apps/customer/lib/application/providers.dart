@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/error/failures.dart';
 import '../core/error/result.dart';
 import '../data/repository/supabase_catalogue_repository.dart';
 import '../data/repository/supabase_member_repository.dart';
@@ -83,6 +84,25 @@ class AuthState extends Notifier<bool> {
     if (repository is SupabaseMemberRepository) {
       unawaited(repository.logOut());
     }
+  }
+
+  /// Permanently deletes the signed-in customer's account (TASK-ACCT-001).
+  /// Unlike [logOut], this awaits the server-side deletion before flipping
+  /// [state] — a failed deletion must not look like a successful sign-out.
+  Future<Result<void>> deleteAccount() async {
+    final repository = ref.read(memberRepositoryProvider);
+    if (repository is! SupabaseMemberRepository) {
+      return const Err(ServerFailure('Account deletion is not available here'));
+    }
+    final result = await repository.deleteAccount();
+    if (result is Ok<void>) {
+      state = false;
+      ref.read(memberEditsProvider.notifier).clear();
+      ref.invalidate(memberProvider);
+      ref.invalidate(orderUpdatesProvider);
+      ref.invalidate(orderHistoryProvider);
+    }
+    return result;
   }
 }
 

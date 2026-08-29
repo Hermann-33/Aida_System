@@ -65,6 +65,13 @@ Clients may stage interaction and selection intent, but never authorize identity
 
 Real payment/refunds, loyalty ledger/redemption, inventory, promotions/discount authority, tax/accounting, trusted reporting, branch-scoped operations/capacity, delivery and hosted production deployment/release operations remain future bounded tasks.
 
+**2026-08-29 update:** a referral-bonus loyalty migration (`TASK-REFERRAL-001`)
+and a customer self-service account-deletion migration (`TASK-ACCT-001`) are
+drafted in `supabase/migrations/` but not applied to the live project or
+verified — see `docs/context/BACKEND_MIGRATIONS_2026-08-29.md`. Loyalty
+ledger/redemption remains substantively deferred; only a narrow referral
+bonus is drafted, and only once applied does it stop being deferred.
+
 ## Success criteria
 
 AIDA succeeds when role-appropriate users complete their flows against one trusted backend with consistent IDs/state transitions, server-authoritative value calculations, secure ownership/role access, reproducible migrations/builds, cross-client integration evidence and current mirrored documentation. The current tranche meets those criteria for its defined scope.

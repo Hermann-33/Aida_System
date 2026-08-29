@@ -7,6 +7,7 @@ import 'application/providers.dart';
 import 'core/theme/aida_theme.dart';
 import 'features/auth/login_screen.dart';
 import 'features/shell/app_shell.dart';
+import 'features/splash/splash_screen.dart';
 
 const _supabaseUrl = String.fromEnvironment(
   'AIDA_SUPABASE_URL',
@@ -81,7 +82,7 @@ class AidaApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AidaTheme.light,
       scrollBehavior: _AidaScrollBehavior(),
-      home: const AuthGate(),
+      home: const SplashScreen(),
     );
   }
 }

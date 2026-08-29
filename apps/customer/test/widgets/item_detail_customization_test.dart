@@ -201,10 +201,12 @@ void main() {
           const ValueKey('drink_option_temperature_iced'),
         );
         expect(find.text(_longIced.label), findsOneWidget);
+        // Selection reads through border/text color now, not a checkmark
+        // badge — Temperature options do get a recognizable hot/cold icon.
         expect(
           find.descendant(
             of: iced,
-            matching: find.byIcon(Icons.check_circle_rounded),
+            matching: find.byIcon(Icons.ac_unit_rounded),
           ),
           findsOneWidget,
         );

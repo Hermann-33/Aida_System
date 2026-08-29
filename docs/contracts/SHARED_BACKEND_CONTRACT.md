@@ -1,6 +1,25 @@
 # Shared Backend Contract
 
-Updated: 2026-08-23
+Updated: 2026-08-29
+
+## Drafted, unapplied migrations (2026-08-29)
+
+Two migrations touching this contract's identity/loyalty scope are drafted
+in `supabase/migrations/` but **not applied** to the live project — see
+`docs/context/SUPABASE_STATUS.md`'s "Drafted, unapplied migrations" section
+and `docs/context/BACKEND_MIGRATIONS_2026-08-29.md` for full evidence. Until
+applied and verified, the rest of this document's "loyalty … deferred"
+language below still describes live reality; treat the two migrations as
+proposed contract extensions, not yet in effect:
+
+- `TASK-REFERRAL-001` would make `members.points_balance` real (currently
+  mock via `MockMemberRepository`'s pending-features fallback) and add a
+  `referrals` table, credited once via `transition_order_status_impl` on a
+  referred member's first `completed` order.
+- `TASK-ACCT-001` would add a customer self-service `delete_own_account()`
+  RPC, satisfying App/Play Store account-deletion review requirements, with
+  a permanent placeholder account absorbing deleted customers' past order
+  history for audit-trail integrity.
 
 ## Authority
 
@@ -289,7 +308,8 @@ Separate bounded tasks remain:
 - terminal/sales-point authority;
 - shifts/cash reconciliation;
 - payment capture/refunds;
-- loyalty earning/redemption;
+- loyalty earning/redemption — **partial exception:** `TASK-REFERRAL-001`
+  drafted, unapplied (see above);
 - inventory depletion;
 - promotions/discounts;
 - tax/accounting/reporting;

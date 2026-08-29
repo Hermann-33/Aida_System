@@ -1010,3 +1010,759 @@ alongside TASK-MENU-CUSTOMIZATION-001.
 
 Cross-repository documentation sync for this merge remains **PENDING** —
 same Dashboard-repository-out-of-scope boundary as §18.
+
+## 20. 2026-08-29 update — TASK-REDESIGN-001
+
+**Verdict: COMPLETE** for presentation-layer scope. `flutter analyze` → 1
+pre-existing issue only (`axisAlignment` deprecation in
+`order_checkout_sheet.dart`, unrelated — see §12/§16). `flutter test` →
+55/55 passed, run 2026-08-29 from `apps/customer`, including the four
+previously-failing golden baselines (`home`, `home_scrolled`,
+`membership_card`, `menu_selected`) which are now green because this pass
+regenerated them for real visual changes (reviewed, not blindly accepted —
+see Verification below), not to force the suite green.
+
+This section, like §19, records an addition rather than rewriting §A–§19 in
+place. It covers a much larger, uncommitted body of work than §19's merge:
+a full second presentation pass across most of the app, plus three new
+customer-only screens and one demo-only subsystem. None of the code
+described here has been committed as of this writing — it is the working
+tree on `customer-app-redesign` on top of commit `def63f3`.
+
+**Backend contracts changed:** No, with one narrow exception already
+tracked separately. This section is presentation-only. Two real backend
+migrations were also drafted in this same working tree
+(`TASK-REFERRAL-001`, `TASK-ACCT-001`) but they are unrelated in kind to
+this redesign pass and are documented on their own in
+`docs/context/BACKEND_MIGRATIONS_2026-08-29.md`, not here. The one place
+this section's UI reads a field those migrations add
+(`members.points_balance`, via the pre-existing `pointsProvider`) is
+call-through only — no screen in this section constructs or validates that
+value itself.
+
+### New shared components
+
+| Component | File | Purpose |
+|---|---|---|
+| `AidaPopup` | `core/widgets/aida_popup.dart` | App-wide replacement for every screen's local `SnackBar`/`ScaffoldMessenger` helper. `Overlay`-based (survives `Navigator.pop()`), glassmorphism card (`BackdropFilter` + low-alpha fill — see Maintenance rule below), slides/fades in from the top, auto-dismisses on a `LinearProgressIndicator` countdown (default 4s, overridable), swipeable via an explicit close button. Only one popup shows at a time — a new call replaces whatever is showing. |
+| `ErrorPage` | `features/error/error_page.dart` | Full-page "something went wrong" state. One baked-in illustration image (`assets/images/aida_error.png`, `BoxFit.contain` — deliberate, see the file's own doc comment on why `.cover` would risk cropping the artwork's baked-in "Oops!" text) plus a compact pill "Go home" button that switches to the Home tab and pops to root. Reachable in this task only via Profile → "Test error page" — no real error boundary wires to it yet (see Known gaps). |
+| `TicketTear` + `EarnedRewardsList` | `features/rewards/widgets/ticket_tear.dart`, `.../earned_rewards_list.dart` | Tear-to-apply animation for the Rewards screen's earned-voucher list — see the dedicated Rewards subsection below. |
+| `SplashScreen` | `features/splash/splash_screen.dart` | New `main.dart` entry point — see its own subsection below. |
+| `OrderProgressCapsule` + `DemoOrderProgress`/`StaffDemoScreen`/`LiquidStageTracker` | `features/order_progress/*.dart` | Demo-only order-progress system — see its own subsection below. |
+| `SettingsScreen` | `features/profile/settings_screen.dart` | New pastel masonry-grid settings screen — see its own subsection below. |
+
+### Screen-by-screen specification
+
+#### Membership card
+
+**Implementation:** `apps/customer/lib/features/card/membership_card_screen.dart`.
+`_Hero` is new; `_Card` is materially rewritten; `_QrPanel` and
+`_ShareCornerButton` are new; `_TierPill`/`_VerifiedStudentPill`/
+`_CardUnavailable` are unchanged.
+
+**Layout:** `Scaffold.backgroundColor` changed `cream` → `latte`. Body is a
+`Stack`: a full-bleed `_Hero` photo band (`assets/images/qr_hero.webp`,
+`height: 260`, top-to-bottom `espresso`-alpha→`latte` scrim, with "My QR" +
+`AidaLogo(height: 34, onDark: true)` overlaid via `SafeArea`), and the card
+`Positioned` to overlap the hero by 56px (`top: 260 - 56`, `left/right: 20`,
+`bottom: 112` — explicit clearance for `AppShell`'s floating nav, same
+convention `FloatingCartBar` already used).
+
+The card itself changed shape from a plain 28px-rounded rectangle to a real
+**ticket shape**: `ClipPath` with `TicketClipper` (the same clipper already
+used by Rewards' voucher cards — its first reuse here), semicircular
+bite-outs cut into the left/right edges at a seam whose position is computed
+from the fixed 156px details-block height (`notchFraction = (1 -
+156/totalHeight).clamp(0.35, 0.85)`). Inside: `_TierPill` top-right over a
+centered `_QrPanel`, then a horizontal dashed seam
+(`TicketDashPainter`, `cream@0.35`), then the fixed-height details block
+("MEMBER · code", the points figure + "Aida Points" label, and
+`_VerifiedStudentPill` when applicable).
+
+**Removed:** the member's name row (24px serif, previously under the
+in-card logo) and the in-card `AidaLogo` itself — both superseded by the
+hero band's own top-of-screen title/logo. The caption sentence below the
+old card ("Show this to the barista…") is gone with no replacement text.
+
+**`_QrPanel`:** extracted from inline code. Quiet-zone color changed from
+plain white to `AidaColors.latte`; sizing is now
+`constraints.biggest.shortestSide.clamp(120.0, 260.0)` via `LayoutBuilder`
+instead of a fixed size; corner radius 20px, padding 16.
+
+**`_ShareCornerButton`:** `Positioned(right: 16, bottom: 16)` inside the
+card's `Stack`. Exact shape per the literal reference code supplied during
+this work: `BorderRadius.only(topLeft: 30, bottomLeft: 30, topRight: 6,
+bottomRight: 20)`, blue glass gradient
+(`[0xFF56A7FF, 0xFFBBDFFF, 0xFFE8F5FF]`), `Material`+`InkWell`+`Ink`. Label
+text is `'Share'`.
+
+**Primary actions (new):** tapping `_ShareCornerButton` calls
+`_inviteFriend(Member member)`, which invokes
+`SharePlus.instance.share(ShareParams(text: "Join me on Aida Cafe! Use my
+code ${member.memberCode} when you sign up and we'll both earn bonus points
+☕️", subject: 'Join me on Aida Cafe'))` — the OS share sheet. **This is a
+new outbound data flow:** the member's real `memberCode` now leaves the app
+via whatever share target the user picks (Messages, WhatsApp, copy, etc.).
+The QR code's own `data: memberCode` payload logic is untouched — this is a
+new *use* of the value, not a change to how it's generated, validated, or
+rendered on the QR.
+
+**New dependency:** `package:share_plus: ^13.3.0` (new pub dependency, added
+via `flutter pub add share_plus`; modern non-deprecated
+`SharePlus.instance.share(ShareParams(...))` API).
+
+**Data boundary:** unchanged — still `ref.watch(displayedMemberProvider)`
+and `ref.watch(pointsProvider)`, the same two reads as before.
+
+**Protected-boundary check:** does not touch `application/providers.dart`,
+member-repository files, auth/navigation lifecycle, or money/cart models.
+QR/member-code *generation/validation* logic is untouched; the only
+member-code-adjacent change is the new share text interpolating the
+existing value.
+
+**Behavioral delta:** the new outbound share flow above. Nothing else.
+
+**Evidence:** `flutter test` golden `membership_card` regenerated and
+reviewed this pass (part of the 55/55 total — see Verification).
+
+---
+
+#### Profile
+
+**Implementation:** `apps/customer/lib/features/profile/profile_screen.dart`.
+
+**Header (`_CollapsingProfileHeader`, structurally unchanged, materially
+re-themed):** background changed from a flat `LinearGradient`
+(`coffeeLight → latte → latte`) to a `Stack` of a full-bleed photo
+(`assets/images/profile_background.jpg`, `BoxFit.cover`,
+`Alignment.topCenter`) behind a dark scrim
+(`espresso@0.62 → espresso@0.42 → latte`, stops `[0, 0.62, 1.0]`). Every
+text/icon color inside the header (both expanded and collapsed states, both
+top-bar variants) changed from `textPrimary`/`textMuted` to
+`cream`/`cream@0.8` for legibility against the photo. The "Employee/Student
+ID" text color changed `coffee` → `rewardGold`. The header's settings icon
+now pushes `SettingsScreen` directly instead of calling
+`onComingSoon('Settings')`.
+
+**Primary actions — new "bento" grid (`_PrimaryActionsGrid`/`_BentoTile`):**
+replaces the old single-column list of "My Orders"/"Edit profile"/"My
+stats"/"Settings" rows with a 2-up-plus-full-width tile grid: "My Orders"
+(coffee-tinted, live subtitle from `ref.watch(orderHistoryProvider)` — a
+**new read on this screen**, though the provider itself is pre-existing and
+shared with `order_history_screen.dart`/`cart_screen.dart`/the new
+`settings_screen.dart`), "Invite a friend" (city-red-tinted, subtitle
+"Share the love", `onTap: onInviteFriend` — switches to `AppTab.qr` via
+`selectedTabProvider`, landing on the membership card where the actual
+share action lives), and full-width "Settings" (espresso-tinted, subtitle
+"Stats, account, and preferences"). Each `_BentoTile` is a 112px rounded
+(22px) card: circular icon badge top-left, label + muted subtitle bottom,
+gradient fill/border derived from a per-tile `baseColor` at low alpha.
+
+**Secondary row list — recomposed:**
+- **Removed** (moved into the grid or elsewhere): "My Orders", "Edit
+  profile" (now reachable only from the header's own pill), "Settings",
+  "Invite a friend".
+- **Removed entirely, no replacement:** "My stats" — its content "now lives
+  inside Settings instead" per the code's own comment (see Settings
+  subsection).
+- **Kept, restyled:** "Help" (gradient stop order flipped to
+  `cream, caramelTint, latte`; still `onComingSoon('Help')`).
+- **New:** "Staff demo" (gold-tinted, pushes `StaffDemoScreen`), "Test error
+  page" (error-tinted, pushes `ErrorPage`), "Test popup" (gold-tinted,
+  `AidaPopup.show(context, title: 'Reward claimed!', message: 'Your reward
+  has been added to your account.')`).
+- "Logout" unchanged in position/behavior.
+
+**`_comingSoon`** no longer uses `ScaffoldMessenger`/`SnackBar` — calls
+`AidaPopup.show(context, title: '$feature is coming soon')`, same migration
+every other screen in this pass got (see the AidaPopup subsection below).
+
+**Data boundary:** `orderHistoryProvider` is a new read on this specific
+screen (read-only, no mutation); everything else is unchanged provider
+usage.
+
+**Protected-boundary check:** does not touch `application/providers.dart`
+itself (that file's real change — `AuthState.deleteAccount()` — is driven
+by `settings_screen.dart`, not by this file, even though this file is what
+navigates there). Does not touch member-repository files, auth/navigation
+lifecycle beyond the pre-existing `authStateProvider.notifier.logOut()`
+call, money/cart models, or QR/member-code semantics.
+
+**Behavioral delta:** none beyond the new `orderHistoryProvider` read and
+the `AidaPopup` messaging-mechanism swap; no cart/checkout/money mutation.
+
+---
+
+#### Order confirmation
+
+**Implementation:** `apps/customer/lib/features/cart/order_confirmation_screen.dart`.
+
+**Real behavioral delta — read this first, not just a restyle:** this
+screen now has a demo-status override. Its class doc comment was rewritten
+to explain: while staff/POS status updates aren't wired to the real
+backend yet, a genuinely-placed order's real Supabase status "resolves
+successfully… it just never advances past 'confirmed'." So `build()` now
+also reads `ref.watch(demoOrderProgressProvider)`, looks for a `DemoOrder`
+whose `id` matches this order, and — **when found — shows that in-memory
+demo status instead of the real backend-fetched one**:
+`current = demoMatch != null ? demoOrderSnapshot(demoMatch) :
+ref.watch(orderProvider(order.id)).value ?? order`. `demoOrderSnapshot()`
+maps `DemoStage.placed/preparing/ready/completed` to
+`OrderStatus.confirmed/preparing/ready/completed` and constructs a
+synthetic `OrderSnapshot` with `lines: const []` (always empty) and
+`createdAt`/`updatedAt: DateTime.now()` (not the real order's timestamps).
+This screen does not currently render `current.lines`, so the empty-lines
+fact has no visible effect here specifically, but it is a fact about what's
+being displayed whenever the demo path is active. The doc comment is
+explicit that this is a temporary stand-in: "Once real status wiring lands,
+delete this screen's demo branch and the whole `order_progress` demo
+feature along with it."
+
+**New auto-navigation:** a `ref.listen<List<DemoOrder>>(demoOrderProgressProvider,
+...)` callback pops the screen back to root
+(`Navigator.of(context).popUntil((r) => r.isFirst)`) if the matched demo
+order transitions from live to no-longer-live (dismissed or removed) while
+this screen is open — e.g. after `DemoOrderProgress.complete()`'s 6-second
+"thank you" grace period elapses. This is a real behavior change: the
+screen can now navigate itself away without user action.
+
+**Visual redesign:** whole-screen background changed from flat
+`AidaColors.cream` to a full-bleed photo (`assets/images/order_confirmed.png`)
+under a light `cardWhite@0.35` wash. The status icon circle (previously
+shown for every state, swapping icon by state) is now rendered **only** for
+the cancelled state — for every other state there's no icon, the
+background photo takes its place. Content moved from a fixed
+`Column`+`Spacer()` layout (which could overflow on short screens) into a
+`SingleChildScrollView`/`ConstrainedBox`, so it scrolls instead of
+overflowing.
+
+Copy: the `completed` state's title changed `'Order completed'` →
+`'Thank you!'`, with new body copy `'Enjoy your drink. See you again
+soon.'`. The `ready` state's em dash was replaced with a period (`'Head to
+the counter. Order X is waiting for you.'`) — the same em-dash sweep
+applied app-wide (see below).
+
+The old vertical numbered/dotted timeline (`_TimelineStep`, `_StepState` —
+both **deleted**) is replaced by `LiquidStageTracker(stageIndex:
+activeStage, labels: ['Confirmed', 'Preparing', 'Ready for pickup',
+'Completed'])`, shown only when not cancelled — see the Order-progress
+subsection below for what `LiquidStageTracker` is. The full-width
+`FilledButton` "Back to Menu" is replaced by a new `_PopInButton`: a
+smaller, centered, pill-shaped button with a one-shot elastic pop-in
+entrance (`TweenAnimationBuilder`, 420ms, `Curves.elasticOut` — explicitly
+not a looping animation, so `pumpAndSettle()` still terminates in tests
+that pass through this screen).
+
+**Data boundary:** `demoOrderProgressProvider` is a new read/listen on this
+screen (provider itself defined in the new
+`order_progress/demo_order_progress_provider.dart`). `orderProvider(order.id)`
+remains the pre-existing real read, now used only as the fallback when no
+demo match exists. No cart/money model is mutated by this file —
+`Money`/`OrderSnapshot` are read/constructed (via the imported provider
+file's types), never written back.
+
+**Protected-boundary check:** does not touch `application/providers.dart`,
+member-repository files, or QR/member-code semantics. The new `popUntil`
+call reuses the exact `Navigator` pattern the old button already used, now
+also triggered by a listener rather than only a tap — a real navigation
+behavior change, but not a change to navigation *lifecycle infrastructure*
+(`app_shell.dart`'s own tab/route structure is untouched by this file).
+Does not touch money/cart *model* files, though it imports and reads their
+types.
+
+**Evidence:** `flutter test` golden coverage for this screen is unchanged
+from what already existed; no new golden was added specifically for the
+demo-status-override path (see Known gaps).
+
+---
+
+#### Menu — search
+
+**Implementation:** `apps/customer/lib/features/menu/menu_screen.dart`.
+`MenuScreen` converted `ConsumerWidget` → `ConsumerStatefulWidget`
+(`_MenuScreenState`) to hold a `TextEditingController _searchController`
+and `String _query`.
+
+**Layout:** the old header row ("Menu" title + a top-right heart
+`_FavoritesToggle`) is replaced by the title alone, with a new rounded-pill
+`_SearchField` (search icon, "Search the menu" hint, a clear button that
+only renders once text is present) directly below it. **`_FavoritesToggle`
+is deleted entirely** — Favorites is now reachable via Menu's own left rail
+(pre-existing) and, new this pass, via Home's category strip (see Home
+subsection).
+
+**Behavior:** search matches `item.name`/`item.description`
+case-insensitively across every product, **ignoring the selected category**
+(search and category browsing are treated as two separate ways to find
+something, not combinable filters — per the file's own new doc comment). A
+non-empty query renders a flat "Results" section (count omitted — see
+below) instead of the normal category sections, or `_NoSearchResults`
+(new widget: search-off icon, `'No matches for "$query"'`, a hint to try
+category browsing) when nothing matches. Tapping a category, Favorites, or
+the rail clears any active search (`_clearSearch()`) so a stale result set
+never masks a category tap.
+
+**Removed in the same diff, not directly search-related:** `_MenuSectionHeader`'s
+item-count badge (`if (count != null) ...`) — the count `Text` next to a
+section title is gone; the header now shows only the title/divider.
+
+**Data boundary:** unchanged providers (`categoriesProvider`,
+`menuItemsProvider`, `favoritesProvider`, `favoritesOnlyProvider`); search
+matching is pure local `String.contains` filtering over already-fetched
+data, no new network call.
+
+**Protected-boundary check:** presentational/filtering only; no cart/order
+model touched.
+
+---
+
+#### Home — Favorites chip and browsable-category fix
+
+**Implementation:** `apps/customer/lib/features/home/home_screen.dart`.
+
+**New:** `CategoryStrip` (shared with Menu's rail-less strip usage) gains
+`showFavorites`/`onSelectFavorites` params; Home passes `showFavorites:
+true`, rendering a `CategoryChip` (icon `Icons.favorite_rounded`, label
+"Favorites") as the strip's first tile. Tapping it calls a new
+`_openFavorites()`: clears the selected category, sets
+`favoritesOnlyProvider` true, switches to the Menu tab. `CategoryChip`
+itself gained a `'favorites'` case to its image-lookup switch
+(`assets/images/favorite_mascot.png`, a new asset, cut-out mascot photo —
+same "real image, no card fill" treatment the other category chips already
+use).
+
+**Real (non-cosmetic) fix bundled in the same diff:** Home's category strip
+now filters to only categories that actually have `kind == 'product'` items
+(`browsableCategoryIds`), rather than showing every category the backend
+returns regardless of whether it has any browsable products — this closes
+a latent gap where an empty or add-on-only category could appear on Home's
+strip and lead nowhere useful.
+
+**Also in this diff:** every remaining `ScaffoldMessenger`/`SnackBar` call
+on this screen (`_showNoNotificationsYet`, `_onDayTap`'s three call sites)
+is now `AidaPopup.show(...)` — completing the migration this screen had
+already started earlier in the branch's history (see §17's protected-
+boundary note, which predates this). The daily-check-in success message
+changed from a single string (`'Checked in — see you tomorrow'`) to
+`AidaPopup.show(context, title: 'Checked in', message: 'See you
+tomorrow.')` — title/message split, em dash removed. The free-drinks banner
+was restyled: icon moved into a solid coffee-colored circle badge, fill
+changed from a flat `latte@0.45` to a `latte→rewardGold` gradient with a
+gold border, and its copy lost its em dash (`'Free drink ready — show your
+QR'` → `'Free drink ready, show your QR'`). The "My Balance" caption above
+the points figure was removed; "Aida Points" label size bumped 13→16.
+
+**Protected-boundary check:** presentational + a category-visibility fix;
+no provider added beyond consuming pre-existing `menuItemsProvider` (now
+also read here to compute `browsableCategoryIds`); no cart/order/money
+model touched.
+
+---
+
+#### Rewards — tear-to-apply animation and "Coming soon" catalogue
+
+**Implementation:**
+`apps/customer/lib/features/rewards/rewards_screen.dart`,
+`apps/customer/lib/features/rewards/widgets/reward_ticket_card.dart`
+(materially changed), `.../widgets/ticket_tear.dart` (new),
+`.../widgets/earned_rewards_list.dart` (new).
+
+**Earned Rewards — real tear animation:** the earned-voucher list, previously
+a plain `for` loop of `RewardTicketCard`s, is now owned by the new
+`EarnedRewardsList` (a `StatefulWidget` wrapping its own `AnimatedList`).
+Tapping "Apply" on a card no longer just shows a message — it plays
+`TicketTear`: a `CustomClipper`-based jagged vertical tear (9-tooth zigzag,
+computed so the left/content piece and right/coffee-cup piece interlock
+seamlessly at rest), driven by a 900ms `AnimationController` through two
+named `Interval`s — `_separate` (0.0–0.4, `Curves.easeOutBack`: a quick snap
+with overshoot, both halves translating/rotating apart) and `_fade`
+(0.66–1.0, `Curves.easeIn`: both halves fade out together once the tear has
+had time to read). When the controller completes, `_EarnedTicketItemState`
+reports `onTornAway` to the parent list, which removes the card from its
+old position and re-inserts it at the bottom via real `AnimatedList`
+insert/remove calls (200ms remove / 320–340ms insert), not a blind rebuild.
+
+**Permanent torn state:** a card that is already `applied` when constructed
+(i.e., the fresh instance that lands at the bottom after its own tear
+finished, not one mid-animation) renders `TicketTear` at a fixed
+`progress = 0.5` — the tear's "held" plateau (fully separated, fully
+opaque, past the fade) — so an applied voucher stays visibly torn at the
+bottom of the list rather than reverting to a whole card. This is the
+resting-state fix requested mid-session after the first tear-only version
+was reviewed.
+
+**`RewardTicketCard`** gained an `applied` bool (default `false`): when
+true, the whole card (whichever piece `TicketTear` is currently rendering,
+or the intact card before any tear starts) is wrapped in `AnimatedOpacity`
+to 0.6 over 300ms — a quiet "acknowledged" dimming cue independent of the
+tear itself.
+
+**Purely local/cosmetic, by design:** there is no "used" status on the
+`Voucher` domain model — staff still consume the entitlement at the
+counter. "Applied" exists only for this screen's session lifetime and
+resyncs to the server list (real insert/remove diffing against
+`widget.vouchers` in `didUpdateWidget`) whenever the underlying list
+actually changes.
+
+**Redeem with Points — "Coming soon" disclosure, popup removed:**
+`_SectionTitle` gained a `comingSoon` bool; when true it renders a
+`_ComingSoonBadge` pill (`'COMING SOON'`, 9px, `latte@0.65` fill) next to
+the section title. The "Redeem with Points" section now sets this. Every
+catalogue tile's primary button is now unconditionally
+`primaryEnabled: false, onPrimary: null` (previously affordable tiers were
+tappable and triggered a `_snack` explaining redemption "is next"); the
+button's label logic (`'Redeem'`/`'Need more'`) is unchanged as
+informational-only text. The old snackbar string for this
+("Points-to-voucher redemption is next — your balance stays put until
+then.") is deleted, not reworded — superseded by the section-level
+disclosure instead of a per-tap explanation.
+
+**Em dashes removed** (part of the app-wide sweep, see below):
+`'Show at the counter — staff apply them'` → `'Show at the counter, staff
+apply them'`; `'No earned rewards yet — complete...'` → `'No earned
+rewards yet. Complete...'`; `'Show this reward at the counter — staff will
+apply it.'` → `'... counter. Staff will apply it.'`.
+
+**Data boundary:** unchanged — points/stamps/rewards/vouchers/offers remain
+`MockMemberRepository`-backed (per `MOCKS_AND_PLACEHOLDERS.md`), except
+`pointsProvider`'s underlying balance, which as of `TASK-REFERRAL-001`
+(separately documented, see
+`docs/context/BACKEND_MIGRATIONS_2026-08-29.md`) reads real data when that
+migration is applied and falls back to mock otherwise — this screen itself
+made no change to how it reads `pointsProvider`.
+
+**Protected-boundary check:** presentational/interaction only; no
+cart/order/money model touched; no new provider.
+
+---
+
+#### Item detail — size/option tile restyle
+
+**Implementation:** `apps/customer/lib/features/menu/item_detail_screen.dart`.
+
+Beverage-size (`_VariantTile`) and drink-option (`_ChoiceTile`) tiles now
+share one consistent card language via new shared constants
+(`_optionTileWidth = 108`, `_optionTileHeight = 100`,
+`_optionTileRadius = 20`) instead of two differently-sized/shaped tile
+styles. Both `Wrap`s are now centered (`WrapAlignment.center`) inside a
+full-width `SizedBox`. `_VariantTile`'s cup icon grew (28→32px max) and its
+per-price delta caption below the label was **removed** (variant price
+deltas are no longer shown on the size tile itself). `_ChoiceTile` gained
+an optional leading `icon` — a new `_iconForOption(groupCode, optionCode)`
+helper returns a flame icon for `temperature`/`hot` and a snowflake for
+`temperature`/`iced`|`cold` (null, i.e. no icon, for every other group
+including Sweetness); the old small inline checkmark shown only when
+selected is removed in favor of the icon slot (present or absent
+regardless of selection) plus the existing selected-state color/weight
+change on the label text, which also grew 12.5px→15px.
+
+**Behavioral delta:** none — this is a pure restyle of already-existing
+Size/Temperature/Sweetness selection UI; the underlying
+`_selectOption`/`setState` selection logic is untouched.
+
+**Protected-boundary check:** presentational only.
+
+---
+
+#### Cart — wired into the demo order-progress system
+
+**Implementation:** `apps/customer/lib/features/cart/cart_screen.dart`.
+
+`_orderPlaced(OrderSnapshot order)` gained one new line after the existing
+`cartProvider.notifier.clear()`/`orderHistoryProvider` invalidation:
+`ref.read(demoOrderProgressProvider.notifier).addFromCheckout(order)` — per
+the new provider file's own doc comment, "this is what actually makes
+`OrderProgressCapsule` appear." This is the real integration point between
+a genuine checkout and the demo order-progress subsystem described below;
+every other real checkout/order-placement call in this file is unchanged.
+
+Also in this diff: the promo-code-unavailable message
+(`_PromoRow`) migrated from `ScaffoldMessenger`/`SnackBar` to
+`AidaPopup.show(context, title: "Promo codes aren't available in this demo
+yet")` — part of the app-wide sweep below.
+
+**Protected-boundary check:** does not touch `application/providers.dart`,
+member-repository files, or money/cart *model* files — `demo_order_progress_provider.dart`
+imports and reads `Money`/`OrderSnapshot` types to build its own local
+`DemoOrder` records but does not modify the cart/order model files
+themselves. `cartProvider.notifier.clear()` and the checkout call path are
+unchanged.
+
+---
+
+#### New: Settings screen
+
+**Implementation:** `apps/customer/lib/features/profile/settings_screen.dart`
+(new file, replacing whatever settings surface existed before — no prior
+committed `settings_screen.dart` exists in this repository's history to
+diff against).
+
+A pastel "masonry" grid matching a supplied reference's literal palette
+(named constants `_lavender`, `_tan`, `_mauve`, `_sageLight`, `_sageDark`,
+`_mustard` — flat hex values, deliberately not derived from `AidaColors`,
+per the file's own doc comment: "the user asked for these exact colors, not
+an Aida-tinted translation"). Layout: a full-width headline stat card
+("Aida Points" balance, 44px serif), a row of three equal squares (Stamps,
+Orders, Profile), a masonry pair (one tall "Password" tile beside two
+stacked "Logout"/"Privacy" tiles), then a final row (Terms, Delete
+Account), followed by a version footer.
+
+**Functional tiles:**
+- **Stamps** — display-only (`onTap: null`), subtitle from
+  `ref.watch(stampCardProvider)`.
+- **Orders** — subtitle from `ref.watch(orderHistoryProvider)`'s length;
+  pushes `OrderHistoryScreen`.
+- **Profile** — pushes `EditProfileScreen(member: member)` once loaded (else
+  shows a "Loading your profile…" popup).
+- **Password** — `_changePassword`: reads the member's email, calls
+  `memberRepositoryProvider.requestPasswordReset(email: ...)` (pre-existing
+  repository method), reports success/failure via `AidaPopup`.
+- **Logout** — unchanged `authStateProvider.notifier.logOut()`.
+- **Privacy** / **Terms** — both `_toast`-only "coming soon" placeholders.
+- **Delete Account** — see below.
+
+**Delete Account flow (`_confirmDeleteAccount`):** a destructive-styled
+`AlertDialog` ("Delete your account? This permanently erases your profile,
+membership, points, and stamps. This cannot be undone.") with Cancel/Delete
+actions; on confirm, a non-dismissible progress dialog shows while
+`ref.read(authStateProvider.notifier).deleteAccount()` runs (the new
+method backing `TASK-ACCT-001` — see
+`docs/context/BACKEND_MIGRATIONS_2026-08-29.md` for the backend/migration
+side). On success, the progress dialog is popped and nothing else
+navigates explicitly — `AuthGate` reacts to `authStateProvider` on its own
+and swaps to `LoginScreen`. On failure, the returned failure message is
+shown via `AidaPopup`.
+
+**Data boundary:** reads `memberProvider`, `pointsProvider`,
+`stampCardProvider`, `orderHistoryProvider` — all pre-existing providers,
+no new reads beyond what a settings surface would be expected to show.
+`deleteAccount()` is a real, if unverified, backend mutation — see the
+backend evidence doc for why it's PARTIAL, not COMPLETE.
+
+**Protected-boundary check:** this screen is the one place in this entire
+redesign pass that touches account-deletion authority, which is why
+`TASK-ACCT-001` is tracked separately from this presentation-only section
+rather than folded into it — see
+`docs/context/BACKEND_MIGRATIONS_2026-08-29.md`.
+
+---
+
+#### New: Splash screen
+
+**Implementation:** `apps/customer/lib/features/splash/splash_screen.dart`;
+`lib/main.dart`'s `AidaApp.home` changed from `const AuthGate()` to `const
+SplashScreen()`.
+
+Plays a bundled 1.5s brand video (`assets/images/splash_screen.mp4`, muted,
+trimmed with a built-in fade to `AidaColors.cream` at its tail — matching
+every real destination's own background, so the handoff reads as invisible
+rather than a dark-splash-to-light-app flash) on an `espresso`-background
+`Scaffold`, then `pushReplacement`s into `AuthGate` via a 260ms
+cross-fade `PageRouteBuilder`. Never gets stuck: a failed/missing video
+(asset error, unsupported codec, plugin unavailable in a test harness)
+falls through to `AuthGate` immediately; a 3-second safety timer covers a
+video that initializes but never reports finishing; tapping anywhere skips
+straight through. Per its own doc comment, the screen's `espresso`
+background is only ever visible for the brief gap before the video
+initializes — it is not a designed "brand color" moment, it is the video's
+own opening tone.
+
+**New dependency:** `package:video_player: ^2.10.1`.
+
+**Protected-boundary check:** changes `main.dart`'s app entry point (flagged
+here explicitly since `main.dart`/navigation lifecycle is a protected-
+adjacent area per `AGENTS.md`) — the change is additive (one new screen
+inserted before the existing `AuthGate`), does not alter `AuthGate` itself,
+and every fallback path still lands on the exact same `AuthGate` the app
+opened on before this change.
+
+---
+
+#### New: demo order-progress system
+
+**Implementation:**
+`apps/customer/lib/features/order_progress/demo_order_progress_provider.dart`,
+`order_progress_capsule.dart`, `staff_demo_screen.dart`,
+`liquid_stage_tracker.dart`.
+
+**Explicitly, repeatedly self-documented as DEMO ONLY** — every file in
+this directory carries a doc comment to this effect. It stands in for real
+staff/POS-driven order status until the Dashboard/POS repository is wired
+up; nothing in this subsystem touches Supabase. It is local, in-memory
+`Notifier` state.
+
+- `DemoOrderProgress` (`Notifier<List<DemoOrder>>`, starts `build() => const
+  []`): `addFromCheckout(OrderSnapshot)` (called from `cart_screen.dart`
+  right after a real checkout — see Cart subsection above — this is the
+  only way a demo order is created from real customer action);
+  `addTestOrder()` (staff-only, alternates ASAP/scheduled fixtures);
+  `accept`/`markReady`/`complete` (explicit staff taps — no timer advances
+  a stage automatically, since real prep time depends on queue depth, which
+  only a barista knows); `complete()` schedules a 6-second
+  `thankYouDuration` after which the order auto-dismisses (hidden from the
+  capsule, not deleted from state, so staff can still find/reset it);
+  `reset`/`clearAll`.
+- `activeDemoOrderProvider`: the single non-dismissed order the
+  customer-facing capsule shows (mirrors `FloatingCartBar`'s one-aggregate-view
+  pattern rather than a per-order list).
+- `OrderProgressCapsule`: same fixed-slot pill language as
+  `FloatingCartBar`, `AnimatedSwitcher`-driven fade/slide entrance/exit,
+  visible on any tab whenever a demo order is in flight. Its body is a
+  horizontal liquid-fill pill (`_LiquidFillPainter`, a wavy leading edge
+  driven by an `AnimationController` that animates *to* each stage's fill
+  fraction on an explicit staff transition, not on a running clock — a
+  fixed per-order wave phase, not a repeating animation, so
+  `pumpAndSettle()` still terminates in tests, since this capsule lives in
+  `AppShell` and is therefore present during nearly every widget test in
+  the app). Tapping it pushes `OrderConfirmationScreen(order:
+  demoOrderSnapshot(order))`.
+- `StaffDemoScreen`: reachable from Profile → "Staff demo" (see Profile
+  subsection). Lists every demo order with Accept/Mark ready/Done/Reset
+  controls and an "Add test order" button, so the customer-facing capsule
+  can be driven live without a second device or a real backend.
+- `LiquidStageTracker`: a vertical variant of the same liquid-fill
+  metaphor (`stageIndex`/`labels`-driven, not order-object-driven), used by
+  `OrderConfirmationScreen` (see that subsection) for a taller, more
+  spacious version of the same visual language, animated once via
+  `TweenAnimationBuilder` (900ms, `easeOutCubic`) rather than an
+  `AnimationController` that responds to further transitions in place — a
+  screen visited once per order status view, not one that needs to react
+  to live changes while mounted, unlike the capsule.
+
+**`AppShell` integration:** `app_shell.dart` gained `_StackedOrderProgress`,
+a `ConsumerWidget` that positions `OrderProgressCapsule` above
+`FloatingCartBar` when the cart is non-empty (stacked, with a gap so the
+two never touch), or drops into the cart bar's own slot when the cart is
+empty (no dead gap). The bottom nav's own layout changed too: height
+72→80px, each `_NeumorphicNavButton` gained a text label below its icon
+(previously icon-only), and the floating-nav clearance calculation changed
+from a hardcoded `bottom: 96` to `_navClearance (112) +
+MediaQuery.paddingOf(context).bottom` — fixing a real cross-device bug
+where the original constant (tuned on a device with zero bottom safe-area
+inset) shrank the gap above the nav bar on devices with a taller
+home-indicator area (iPhones) than the constant assumed.
+
+**Data boundary:** entirely local/in-memory; no Supabase call anywhere in
+this subsystem.
+
+**Protected-boundary check:** `app_shell.dart` is navigation-lifecycle-
+adjacent (flagged per `AGENTS.md`), but the change is additive layout
+(a new `Positioned` capsule stacked alongside the existing cart bar) plus a
+real cross-device clearance bugfix — the five-tab `IndexedStack` structure
+and tab-switching logic are untouched.
+
+**Known limitation, stated plainly:** this entire subsystem is a
+placeholder. `OrderConfirmationScreen`'s own class doc comment says outright
+that once real staff/POS status wiring lands, "delete this screen's demo
+branch and the whole `order_progress` demo feature along with it." Nothing
+here should be treated as a real fulfilment-status feature — see
+`docs/context/ARCHITECTURE.md`'s "explicitly separate authority" list,
+which already excludes staff/POS status wiring in this task's scope from
+this app.
+
+---
+
+#### App icon and asset housekeeping
+
+`pubspec.yaml` added `flutter_launcher_icons: ^0.14.4` (dev dependency) and
+a `flutter_launcher_icons:` config block (`image_path:
+"assets/images/app_icon.jpg"`, `android: true`, `ios: true`,
+`remove_alpha_ios: true`), regenerating every iOS/Android launcher icon
+size from that one source image (`dart run flutter_launcher_icons`,
+regenerating the `ios/Runner/Assets.xcassets/AppIcon.appiconset/*` and
+`android/app/src/main/res/mipmap-*/ic_launcher.png` files present in the
+working tree). New assets registered this pass:
+`qr_hero.webp`, `profile_background.jpg`, `splash_screen.mp4`,
+`order_confirmed.png`, `capsule_character.png`, `favorite_mascot.png`,
+`aida_error.png` (all listed in `pubspec.yaml`'s `flutter.assets`).
+
+### App-wide: `AidaPopup` replaces every `SnackBar`
+
+Every remaining `ScaffoldMessenger`/`SnackBar` call site in the app —
+across Home, Menu (none had any), Rewards, Cart, Login/sign-up, Profile,
+Settings (new, born using `AidaPopup` from the start) — now calls
+`AidaPopup.show(context, title: ..., message: ...)` instead. Verified via
+`grep -rln "ScaffoldMessenger\|SnackBar(" apps/customer/lib` returning
+empty as of this pass.
+
+### App-wide: em dash sweep
+
+Every user-facing message string containing an em dash (`—`) was reworded
+to plain punctuation (usually a period or comma), per explicit instruction.
+Affected strings are listed under each screen's own subsection above
+(Home, Rewards, Order confirmation, and — from earlier in this branch's
+history, already recorded — Staff demo's info paragraph). This was a
+wording-only change in every case; no string's meaning changed.
+
+### Known gaps
+
+- **No widget test exercises:** the Settings delete-account confirmation
+  dialog/progress/success/failure flow; the Rewards tear animation itself
+  (tap Apply → tear plays → card resettles at the bottom torn); the
+  Splash screen's video-failure/timeout fallback paths; the
+  `OrderProgressCapsule`/`StaffDemoScreen` demo flow end-to-end; Menu
+  search; Home's new Favorites chip/`browsableCategoryIds` filtering;
+  `_ShareCornerButton`'s share-sheet invocation (not testable without
+  mocking the OS share intent).
+- **`order_confirmation_screen.dart`'s demo-status-override path has no
+  dedicated golden** — only the pre-existing non-demo golden coverage
+  carries forward.
+- **The entire `order_progress/` demo subsystem is explicitly temporary**
+  by its own authors' doc comments (see above) — it should not be extended
+  with more demo-only features; the next real step is wiring actual
+  Dashboard/POS status, at which point this whole directory is meant to be
+  deleted, not grown.
+- **`ErrorPage` has no real error boundary wired to it** — it is reachable
+  only via Profile → "Test error page" in this task. Deciding where/how it
+  should actually trigger (a global Flutter error handler? specific
+  provider-error fallbacks?) is unscoped here.
+- **Two backend migrations this same working tree also drafted
+  (`TASK-REFERRAL-001`, `TASK-ACCT-001`) are unverified against live
+  Supabase** — tracked separately in
+  `docs/context/BACKEND_MIGRATIONS_2026-08-29.md`, not a gap in this
+  section's own presentation-layer scope, but relevant context since both
+  landed in the same uncommitted working tree.
+- **Nothing in this section has been committed to git** as of this
+  writing — see each affected top-level hub document's own note on this.
+
+### Verification
+
+1. `git diff --stat` / targeted `git diff -- <path>` against baseline
+   commit `def63f3` for every file named in this section, run from the repo
+   root, 2026-08-29.
+2. Full `Read` of every new file named in this section.
+3. `grep -rln "ScaffoldMessenger\|SnackBar("  apps/customer/lib` → empty,
+   confirming the app-wide `AidaPopup` migration claim above.
+4. `flutter analyze` (from `apps/customer`) → 1 issue, the pre-existing
+   `axisAlignment` deprecation in `order_checkout_sheet.dart`, unrelated to
+   this work (see §12/§16's own note on the same warning).
+5. `flutter test` (from `apps/customer`) → **55 passed, 0 failed**,
+   including all four previously-failing golden baselines (`home`,
+   `home_scrolled`, `menu_selected`, `membership_card`) and the two
+   `item_detail_customization_*` goldens, all regenerated for this pass's
+   real visual changes and reviewed, not blindly accepted.
+6. Provider/navigation claims cross-checked against
+   `apps/customer/lib/application/providers.dart` and each screen's actual
+   `ref.watch`/`ref.read`/`ref.listen` calls.
+7. Protected-boundary claims (per `AGENTS.md`/§17's own checklist) verified
+   per-file above rather than asserted once for the whole section, since
+   this pass is much larger in surface area than §A–§18's original scope.
+
+### Existing documents updated by this task
+
+- `docs/context/AUDIT_LOG.md`, `docs/context/ACTIVE_CONTEXT.md`,
+  `docs/context/HANDOFF.md` — see each file's own diff.
+- `docs/context/CODEBASE_MAP.md` — new "2026-08-29 additions" section.
+- `docs/context/BACKEND_MIGRATIONS_2026-08-29.md` — new file, the backend
+  half of this same working tree (`TASK-REFERRAL-001`, `TASK-ACCT-001`),
+  intentionally kept separate from this presentation-only section.
+- `docs/context/SUPABASE_STATUS.md`, `docs/contracts/SHARED_BACKEND_CONTRACT.md`,
+  `docs/context/ROADMAP.md`, `docs/context/PROJECT_BRIEF.md`,
+  `docs/security/SECURITY_REVIEW.md` — updated for the backend migrations
+  above, not for anything in this presentation-only section.
+
+### Cross-repository synchronization
+
+`Cross-repository documentation sync: PENDING — Dashboard repository not
+available in this task`, same boundary as §18/§19. Nothing in this section
+touches `Hermann-33/Aida_System-Dashboard`.

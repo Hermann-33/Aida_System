@@ -1,6 +1,49 @@
 # Codebase Map
 
-Updated: 2026-08-23
+Updated: 2026-08-29
+
+## 2026-08-29 additions (uncommitted on `customer-app-redesign`)
+
+Full evidence: `docs/frontend/UI_REDESIGN_SPEC.md` §20 (`TASK-REDESIGN-001`,
+presentation-layer) and `docs/context/BACKEND_MIGRATIONS_2026-08-29.md`
+(`TASK-REFERRAL-001`, `TASK-ACCT-001`, backend).
+
+- `apps/customer/lib/core/widgets/aida_popup.dart` — app-wide replacement for
+  every screen's local `SnackBar` helper.
+- `apps/customer/lib/features/error/error_page.dart` — full-page error state.
+- `apps/customer/lib/features/rewards/widgets/ticket_tear.dart`,
+  `apps/customer/lib/features/rewards/widgets/earned_rewards_list.dart` —
+  tear-to-apply animation for earned reward tickets.
+- `apps/customer/lib/features/splash/splash_screen.dart` — brand video splash,
+  now `main.dart`'s `home`.
+- `apps/customer/lib/features/order_progress/` — demo-only order-progress
+  system: `demo_order_progress_provider.dart`, `order_progress_capsule.dart`,
+  `staff_demo_screen.dart`, `liquid_stage_tracker.dart`.
+- `apps/customer/lib/features/profile/settings_screen.dart` — new pastel
+  masonry-grid settings screen, including the account-deletion confirmation
+  flow.
+- `supabase/migrations/20260828120000_add_referral_program.sql`,
+  `supabase/migrations/20260826120000_add_customer_account_deletion.sql`,
+  `supabase/tests/account_deletion_integration.sql` — see
+  `docs/context/BACKEND_MIGRATIONS_2026-08-29.md`; **neither migration is
+  applied to the live project.**
+
+Materially changed (not new): `lib/features/card/membership_card_screen.dart`,
+`lib/features/profile/profile_screen.dart`,
+`lib/features/cart/order_confirmation_screen.dart`,
+`lib/features/menu/menu_screen.dart` (search), `lib/features/home/home_screen.dart`
+(Favorites chip), `lib/features/shell/app_shell.dart` (order-progress capsule
+stacking), `lib/features/rewards/rewards_screen.dart`,
+`lib/features/rewards/widgets/reward_ticket_card.dart`,
+`lib/features/menu/widgets/category_chip.dart`/`category_strip.dart`,
+`lib/features/menu/item_detail_screen.dart` (size/option tile restyle),
+`lib/features/cart/cart_screen.dart` (wires checkout into the demo
+order-progress provider), `lib/features/auth/login_screen.dart` (referral
+code field), `lib/data/repository/supabase_member_repository.dart`
+(`deleteAccount()`, real `getPoints()`, `referralCode` on `signUp()`),
+`lib/application/providers.dart` (`AuthState.deleteAccount()`),
+`lib/main.dart` (routes to `SplashScreen` first). Full per-file detail in
+the two evidence documents linked above.
 
 ## Customer repository — `Hermann-33/Aida_System`
 

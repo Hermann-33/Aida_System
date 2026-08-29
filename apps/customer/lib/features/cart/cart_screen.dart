@@ -4,11 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/providers.dart';
 import '../../core/theme/aida_colors.dart';
 import '../../core/theme/aida_type.dart';
+import '../../core/widgets/aida_popup.dart';
 import '../../core/widgets/product_image.dart';
 import '../../domain/model/cart.dart';
 import '../../domain/model/menu_item.dart';
 import '../../domain/model/money.dart';
 import '../../domain/model/order.dart';
+import '../order_progress/demo_order_progress_provider.dart';
 import 'order_confirmation_screen.dart';
 import 'order_checkout_sheet.dart';
 
@@ -38,6 +40,9 @@ class _CartScreenState extends ConsumerState<CartScreen> {
   void _orderPlaced(OrderSnapshot order) {
     ref.read(cartProvider.notifier).clear();
     ref.invalidate(orderHistoryProvider);
+    // DEMO: this is what actually makes OrderProgressCapsule appear — see
+    // demo_order_progress_provider.dart's doc comment.
+    ref.read(demoOrderProgressProvider.notifier).addFromCheckout(order);
 
     Navigator.of(context)
       ..pop()
@@ -402,19 +407,10 @@ class _PromoRow extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap:
-            () =>
-                ScaffoldMessenger.of(context)
-                  ..hideCurrentSnackBar()
-                  ..showSnackBar(
-                    SnackBar(
-                      behavior: SnackBarBehavior.floating,
-                      backgroundColor: AidaColors.espresso,
-                      content: Text(
-                        "Promo codes aren't available in this demo yet",
-                        style: AidaType.sans(size: 13, color: AidaColors.cream),
-                      ),
-                    ),
-                  ),
+            () => AidaPopup.show(
+              context,
+              title: "Promo codes aren't available in this demo yet",
+            ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(

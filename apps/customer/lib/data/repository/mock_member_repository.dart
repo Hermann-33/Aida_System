@@ -45,6 +45,7 @@ class MockMemberRepository implements MemberRepository {
     required String email,
     required String password,
     required bool isStudent,
+    String? referralCode,
   }) async {
     await Future<void>.delayed(latency);
     return const Ok(null);

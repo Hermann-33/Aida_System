@@ -225,6 +225,7 @@ void main() {
         expect(find.byType(OrderConfirmationScreen), findsOneWidget);
         expect(find.text('Order confirmed'), findsOneWidget);
 
+        await tester.ensureVisible(find.text('Back to Menu'));
         await tester.tap(find.text('Back to Menu'));
         await tester.pumpAndSettle();
 

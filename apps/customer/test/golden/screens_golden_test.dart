@@ -63,6 +63,13 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    // Category/hero photos decode on a real async codec that pumpAndSettle
+    // alone doesn't reliably drive to completion in a widget test — without
+    // this, goldens intermittently capture an image mid-decode.
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pumpAndSettle();
   }
 
   testWidgets('golden: home', (tester) async {
@@ -110,6 +117,13 @@ void main() {
     await withClock(Clock.fixed(_fixedNow), () async {
       await pumpApp(tester);
       await tester.tap(find.byKey(const ValueKey('nav_qr')));
+      await tester.pumpAndSettle();
+      // The hero photo decodes on a real async codec that pumpAndSettle
+      // alone never drives to completion in a widget test — without this,
+      // the golden would capture the hero permanently blank.
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
       await tester.pumpAndSettle();
       await expectLater(
         find.byType(AppShell),

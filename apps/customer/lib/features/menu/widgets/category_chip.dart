@@ -5,10 +5,11 @@ import '../../../core/theme/aida_type.dart';
 
 /// A floating category tile with the label sitting free below it.
 ///
-/// Real categories (Coffee, Iced Drinks, Food, Add-ons) show a cut-out product
-/// photo — just the item on transparent pixels, no card fill behind it —
-/// matching the client's "real images, no background" ask. "All" has no
-/// single item to represent it, so it falls back to the icon-in-a-square tile.
+/// Real categories (Coffee, Iced Drinks, Food, Add-ons) and Favorites show a
+/// cut-out product/mascot photo — just the item on transparent pixels, no
+/// card fill behind it — matching the client's "real images, no background"
+/// ask. "All" has no single item to represent it, so it falls back to the
+/// icon-in-a-square tile.
 ///
 /// The label is deliberately **not** enclosed by the tile's border or shadow —
 /// only the tile itself carries the floating look.
@@ -61,6 +62,7 @@ class CategoryChip extends StatefulWidget {
       'iced drinks' => 'assets/images/cat_iced.png',
       'food' => 'assets/images/cat_food.png',
       'add-ons' => 'assets/images/cat_addons.png',
+      'favorites' => 'assets/images/favorite_mascot.png',
       _ => null,
     };
   }

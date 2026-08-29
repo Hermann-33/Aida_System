@@ -145,12 +145,29 @@ No new task-related security WARN/ERROR remains.
 
 Performance advisor findings are INFO-only unused indexes on the current small dataset, including recent customization FK-supporting indexes.
 
+## 2026-08-29 update — two drafted, unapplied migrations
+
+`20260828120000_add_referral_program.sql` (`TASK-REFERRAL-001`) and
+`20260826120000_add_customer_account_deletion.sql` (`TASK-ACCT-001`) are
+drafted in `supabase/migrations/` but have not been applied to the live
+Aida System project and were not checked against the security advisor —
+this task's environment had no access to the live project or to a local
+Postgres instance (see `docs/context/SUPABASE_STATUS.md`). Both follow this
+codebase's established `security definer` + `set search_path = ''`
+hardening pattern and both restrict `execute` to `authenticated` only
+(`delete_own_account` additionally rejects the caller deleting anyone but
+themselves, and the referral trigger extensions run inside already-trusted
+existing functions rather than new client-callable surface). Neither should
+be treated as security-reviewed until applied and advisor-checked. Full
+evidence: `docs/context/BACKEND_MIGRATIONS_2026-08-29.md`.
+
 ## Explicitly deferred authority
 
 No trusted implementation currently exists for:
 
 - real payment/refunds;
-- loyalty earning/redemption;
+- loyalty earning/redemption — partial exception: `TASK-REFERRAL-001`
+  drafted, unapplied (see above);
 - inventory depletion;
 - promotions/discounts;
 - tax/accounting/reporting;

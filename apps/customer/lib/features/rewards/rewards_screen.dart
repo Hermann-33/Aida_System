@@ -5,11 +5,13 @@ import '../../application/providers.dart';
 import '../../core/theme/aida_colors.dart';
 import '../../core/theme/aida_theme.dart';
 import '../../core/theme/aida_type.dart';
+import '../../core/widgets/aida_popup.dart';
 import '../../core/widgets/entrance.dart';
 import '../../domain/model/loyalty.dart';
 import '../../domain/model/member.dart';
 import '../../domain/model/reward.dart';
 import '../../domain/model/voucher.dart';
+import 'widgets/earned_rewards_list.dart';
 import 'widgets/reward_ticket_card.dart';
 
 /// Rewards tab — earned voucher wallet + points catalogue. PRD CUS-06 / CUS-07.
@@ -53,18 +55,7 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
   }
 
   void _snack(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: AidaColors.espresso,
-          content: Text(
-            message,
-            style: AidaType.sans(size: 13, color: AidaColors.cream),
-          ),
-        ),
-      );
+    AidaPopup.show(context, title: message);
   }
 
   void _showDetails({required String title, required String body}) {
@@ -180,7 +171,7 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
                         key: _earnedKey,
                         child: _SectionTitle(
                           title: 'Earned Rewards',
-                          subtitle: 'Show at the counter — staff apply them',
+                          subtitle: 'Show at the counter, staff apply them',
                         ),
                       ),
                     ),
@@ -196,6 +187,7 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
                         child: _SectionTitle(
                           title: 'Redeem with Points',
                           subtitle: 'Convert points into a voucher in-app',
+                          comingSoon: true,
                         ),
                       ),
                     ),
@@ -233,41 +225,31 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
         if (list.isEmpty) {
           return [
             Text(
-              'No earned rewards yet — complete a stamp card or redeem points.',
+              'No earned rewards yet. Complete a stamp card or redeem points.',
               style: AidaType.sans(size: 13, color: AidaColors.textMuted),
             ),
           ];
         }
         return [
-          for (var i = 0; i < list.length; i++) ...[
-            if (i > 0) const SizedBox(height: 14),
-            ScrollReveal(
-              controller: _scrollController,
-              viewportKey: _viewportKey,
-              order: 2 + i,
-              child: RewardTicketCard(
-                title: list[i].title,
-                description: list[i].description,
-                metaLabel: list[i].expiresLabel,
-                kind: list[i].kind,
-                imageCategory: list[i].imageCategory,
-                primaryLabel: 'Apply',
-                onPrimary:
-                    () => _snack(
-                      'Show this reward at the counter — staff will apply it.',
-                    ),
-                onDetails:
-                    () => _showDetails(
-                      title: list[i].title,
-                      body:
-                          '${list[i].description}\n\n'
-                          '${list[i].expiresLabel}.\n\n'
-                          'Points are not refunded if a voucher expires unused. '
-                          'Only staff can apply this at checkout.',
-                    ),
-              ),
-            ),
-          ],
+          EarnedRewardsList(
+            vouchers: list,
+            scrollController: _scrollController,
+            viewportKey: _viewportKey,
+            revealOrderStart: 2,
+            onApply:
+                (voucher) => _snack(
+                  'Show this reward at the counter. Staff will apply it.',
+                ),
+            onDetails:
+                (voucher) => _showDetails(
+                  title: voucher.title,
+                  body:
+                      '${voucher.description}\n\n'
+                      '${voucher.expiresLabel}.\n\n'
+                      'Points are not refunded if a voucher expires unused. '
+                      'Only staff can apply this at checkout.',
+                ),
+          ),
         ];
       },
     );
@@ -311,16 +293,14 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
                 imageCategory:
                     list[i].kind == RewardKind.freeItem ? 'Pastries' : 'Drinks',
                 showRewardBadge: false,
+                // Always muted, never tappable — the section header's own
+                // "Coming soon" badge already discloses that redemption
+                // isn't live yet, so there's nothing left for a tap to do
+                // here even for an affordable tier.
                 primaryLabel:
                     list[i].isAffordableAt(balance) ? 'Redeem' : 'Need more',
-                primaryEnabled: list[i].isAffordableAt(balance),
-                onPrimary:
-                    list[i].isAffordableAt(balance)
-                        ? () => _snack(
-                          'Points-to-voucher redemption is next — '
-                          'your balance stays put until then.',
-                        )
-                        : null,
+                primaryEnabled: false,
+                onPrimary: null,
                 onDetails:
                     () => _showDetails(
                       title: list[i].name,
@@ -375,23 +355,39 @@ class _Header extends StatelessWidget {
 }
 
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.title, required this.subtitle});
+  const _SectionTitle({
+    required this.title,
+    required this.subtitle,
+    this.comingSoon = false,
+  });
 
   final String title;
   final String subtitle;
+
+  /// Discloses that this section isn't live yet up front, on the section
+  /// itself, rather than only after someone taps into it.
+  final bool comingSoon;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: AidaType.sans(
-            size: 16,
-            weight: FontWeight.w700,
-            color: AidaColors.textPrimary,
-          ),
+        Row(
+          children: [
+            Text(
+              title,
+              style: AidaType.sans(
+                size: 16,
+                weight: FontWeight.w700,
+                color: AidaColors.textPrimary,
+              ),
+            ),
+            if (comingSoon) ...[
+              const SizedBox(width: 8),
+              const _ComingSoonBadge(),
+            ],
+          ],
         ),
         const SizedBox(height: 2),
         Text(
@@ -399,6 +395,30 @@ class _SectionTitle extends StatelessWidget {
           style: AidaType.sans(size: 12, color: AidaColors.textMuted),
         ),
       ],
+    );
+  }
+}
+
+class _ComingSoonBadge extends StatelessWidget {
+  const _ComingSoonBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AidaColors.latte.withValues(alpha: 0.65),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        'COMING SOON',
+        style: AidaType.sans(
+          size: 9,
+          weight: FontWeight.w800,
+          letterSpacing: 0.4,
+          color: AidaColors.textMuted,
+        ),
+      ),
     );
   }
 }

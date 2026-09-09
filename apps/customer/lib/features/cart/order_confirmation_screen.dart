@@ -5,19 +5,12 @@ import '../../application/providers.dart';
 import '../../core/theme/aida_colors.dart';
 import '../../core/theme/aida_type.dart';
 import '../../domain/model/order.dart';
-import '../order_progress/demo_order_progress_provider.dart';
 import '../order_progress/liquid_stage_tracker.dart';
 
 const _stages = ['Confirmed', 'Preparing', 'Ready for pickup', 'Completed'];
 
-/// DEMO: while staff/POS status updates aren't wired to the real backend,
-/// an order this screen also finds in [demoOrderProgressProvider] shows that
-/// live demo status instead of the (permanently "confirmed") real one —
-/// otherwise the real [orderProvider] fetch would silently win over
-/// whatever the Staff demo screen just did, since it resolves successfully
-/// for a genuinely-placed order, it just never advances past "confirmed".
-/// Once real status wiring lands, delete this screen's demo branch and the
-/// whole `order_progress` demo feature along with it.
+/// Shows the persisted backend order status. Realtime invalidation/refetch
+/// remains authoritative; this visual redesign never manufactures progression.
 class OrderConfirmationScreen extends ConsumerWidget {
   const OrderConfirmationScreen({super.key, required this.order});
 
@@ -25,25 +18,7 @@ class OrderConfirmationScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final demoOrders = ref.watch(demoOrderProgressProvider);
-    final demoMatch = demoOrders.where((o) => o.id == order.id).firstOrNull;
-
-    // If this order used to be tracked in the demo system but just
-    // dismissed (thank-you grace period elapsed), follow it back to the
-    // menu rather than leaving this screen showing a "ghost" order.
-    ref.listen<List<DemoOrder>>(demoOrderProgressProvider, (previous, next) {
-      final wasLive =
-          previous?.any((o) => o.id == order.id && !o.dismissed) ?? false;
-      final stillLive = next.any((o) => o.id == order.id && !o.dismissed);
-      if (wasLive && !stillLive && context.mounted) {
-        Navigator.of(context).popUntil((r) => r.isFirst);
-      }
-    });
-
-    final current =
-        demoMatch != null
-            ? demoOrderSnapshot(demoMatch)
-            : ref.watch(orderProvider(order.id)).value ?? order;
+    final current = ref.watch(orderProvider(order.id)).value ?? order;
     final activeStage = _stageIndex(current.status);
     final cancelled = current.status == OrderStatus.cancelled;
     final ready = current.status == OrderStatus.ready;

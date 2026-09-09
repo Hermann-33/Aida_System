@@ -152,15 +152,17 @@ Branch authority/capacity, terminal/sales-point lifecycle, shifts/cash reconcili
 
 ## 2026-09-09 — TASK-UI-REDESIGN-004
 
-Audited integration of `customer-app-redesign` is being carried by PR #19 from `codex/task-ui-redesign-004-audit-integration`.
+PR #19 integrates the audited `customer-app-redesign` work through `codex/task-ui-redesign-004-audit-integration`.
 
-The merge strategy preserves useful source work without silently activating unfinished backend features:
+Final scope:
 
-- active UI/branding refresh is included;
+- active customer UI/branding refresh is included;
 - account-deletion/referral SQL prototypes are preserved under `supabase/drafts/`, not canonical migrations;
-- related client paths are compile-time gated off by default;
-- Staff/order demo/test controls are retained only for debug builds and use synthetic demo orders;
-- production order state remains Supabase-authoritative;
-- stale generated iOS project churn is not copied; App Store migration notes are preserved separately.
+- related account-deletion/referral client paths are compile-time gated off by default;
+- useful iOS migration observations are documented separately while stale generated Xcode/CocoaPods state is excluded;
+- all demo-only order/status/test tooling is removed;
+- production order status remains Supabase-authoritative;
+- generated golden failure artifacts are removed.
 
-Final merge requires the customer release-audit workflow to pass on the final PR head. PR #19 must be squash-merged so mixed source-branch ancestry is not introduced into `master`.
+The PR must pass the customer release-audit workflow on its final head and be squash-merged so mixed source-branch ancestry does not enter `master`.
+

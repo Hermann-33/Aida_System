@@ -1,5 +1,19 @@
 # Audit Log
 
+## 2026-09-10 — TASK-UI-REDESIGN-004 audited customer UI refresh
+
+**Verdict:** READY TO MERGE after final PR-head CI; executable code validation is COMPLETE.
+
+Audited source branch `customer-app-redesign` against current `master`. The source mixed customer presentation work, useful but unfinished account-deletion/referral/loyalty prototypes, and demo-only order/status/test tooling. The final integration on `codex/task-ui-redesign-004-audit-integration` keeps the reviewed AIDA UI/branding refresh, preserves useful future privacy/referral work in a dormant non-deployed form, and removes all demo-only order-progress/test surfaces.
+
+No new canonical Supabase migration is introduced. Account-deletion/referral SQL prototypes live under `supabase/drafts/`; their customer client paths require default-off compile-time flags. Production order status continues to come exclusively from persisted Supabase snapshots plus authorized invalidation/refetch.
+
+UI review retained the AIDA cream/coffee/espresso/rose palette, Playfair/Plus Jakarta typography, rounded/tactile control language and existing commercial trust boundaries. The bright-blue source membership action was replaced with AIDA tokens. Two Item Detail golden baselines produced Linux-vs-Windows raster drift of 3.46% and 3.37%; CI failure evidence was inspected and showed text/icon/border-edge rasterization rather than structural movement. A 3.5% tolerance is scoped only to those two reviewed comparisons; functional viewport assertions and the remaining golden suite remain exact.
+
+Release CI initially failed only at Android APK assembly because preserved `share_plus 13.3.0` brought Kotlin 2.2 metadata into AIDA's older Android toolchain. Rather than widen this UI task into Gradle/AGP/Kotlin modernization, referral sharing was pinned to `share_plus 11.1.0` with compatible lockfile versions. Customer release audit run #87 at code head `7388c1bd40b7da4c0ce56041b8e0e02ece3847db` then passed dependency resolution, zero-issue Flutter analysis, non-golden regressions, golden regressions, release APK assembly and artifact upload.
+
+PR #19 is the integration vehicle and must be squash-merged so mixed source-branch ancestry is not introduced into `master`.
+
 ## 2026-08-21 — TASK-SCHEDULED-OPS-001 scheduled operations closeout
 
 **Verdict:** COMPLETE.

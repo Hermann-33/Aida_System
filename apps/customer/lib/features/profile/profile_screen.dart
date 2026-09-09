@@ -8,9 +8,7 @@ import '../../core/theme/aida_colors.dart';
 import '../../core/theme/aida_type.dart';
 import '../../core/widgets/aida_popup.dart';
 import '../../domain/model/member.dart';
-import '../error/error_page.dart';
 import '../history/order_history_screen.dart';
-import '../order_progress/staff_demo_screen.dart';
 import 'edit_profile_screen.dart';
 import 'settings_screen.dart';
 
@@ -733,9 +731,9 @@ class _PrimaryActionsGrid extends ConsumerWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: _BentoTile(
-                  icon: Icons.person_add_alt_1_rounded,
-                  label: 'Invite a friend',
-                  subtitle: 'Share the love',
+                  icon: Icons.qr_code_2_rounded,
+                  label: 'My QR',
+                  subtitle: 'Membership code',
                   baseColor: AidaColors.cityRed,
                   onTap: onInviteFriend,
                 ),

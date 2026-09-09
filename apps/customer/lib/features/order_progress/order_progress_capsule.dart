@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/aida_colors.dart';
 import '../../core/theme/aida_type.dart';
-import '../cart/order_confirmation_screen.dart';
+import 'staff_demo_screen.dart';
 import 'demo_order_progress_provider.dart';
 
 /// Same fixed slot and pill language as [FloatingCartBar] — visible on any
@@ -123,16 +123,7 @@ class _CapsuleState extends State<_Capsule>
         borderRadius: BorderRadius.circular(_radius),
         onTap:
             () => Navigator.of(context).push(
-              MaterialPageRoute(
-                // Just the current snapshot — OrderConfirmationScreen
-                // itself now stays subscribed to the demo provider (it
-                // needs to, since real order history/checkout can land on
-                // the same screen), so this doesn't need to.
-                builder:
-                    (_) => OrderConfirmationScreen(
-                      order: demoOrderSnapshot(order),
-                    ),
-              ),
+              MaterialPageRoute(builder: (_) => const StaffDemoScreen()),
             ),
         // Shadow lives on this outer, unclipped box — the ClipRRect below
         // only shapes the liquid fill, and clipping it would clip the

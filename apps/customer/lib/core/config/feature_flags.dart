@@ -1,9 +1,7 @@
-import 'package:flutter/foundation.dart';
-
-/// Gates for preserved future/demo surfaces.
+/// Gates for preserved future backend-dependent surfaces.
 ///
-/// Production builds keep future backend-dependent features disabled until
-/// their dedicated backend tasks are promoted from `supabase/drafts/`.
+/// Production builds keep these disabled until their dedicated backend tasks
+/// are promoted from `supabase/drafts/` and deployed.
 abstract final class AidaFeatureFlags {
   static bool get referralDraft => const bool.fromEnvironment(
     'AIDA_ENABLE_REFERRAL_DRAFT',
@@ -14,6 +12,4 @@ abstract final class AidaFeatureFlags {
     'AIDA_ENABLE_ACCOUNT_DELETION_DRAFT',
     defaultValue: false,
   );
-
-  static bool get developerDemo => kDebugMode;
 }

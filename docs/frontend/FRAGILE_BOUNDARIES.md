@@ -2,7 +2,7 @@
 
 # Fragile Boundaries
 
-Updated: 2026-08-24
+Updated: 2026-08-20
 
 ## Highest-risk customer areas
 
@@ -53,19 +53,6 @@ Redesign work commonly invalidates pixel baselines and selector assumptions. Fix
 Reward ladder, narrow student states and payment-method labels must not become shared schema by accident. Catalogue identifiers/variants/add-ons, permanent member code, ordering policy, trusted totals and order status already have accepted server contracts and must not be shadowed by client constants.
 
 The completed live order E2E does not relax these boundaries: customer payloads remain intent-only, server totals/status remain authoritative and customer status changes arrive through authorized backend state.
-
-**2026-08-19 addition, resolved 2026-08-24:** the checkout-sheet
-pickup-time redesign (`features/cart/order_checkout_sheet.dart`, see
-`docs/frontend/UI_REDESIGN_SPEC.md` §F) originally violated the
-schedule-policy-interpretation boundary above: its minute picker did not
-clamp selections to `OrderingPolicy.slotIntervalMinutes`, and it gated
-same-day scheduling behind a hardcoded 8am–5pm window with no server-side
-counterpart. Both were open items, not accepted behavior. The 2026-08-24
-merge with `hermann/master` replaced that picker with `_PickupSlotWheel`,
-which renders only values `derivePickupSlots(OrderingPolicy)` returns —
-see `UI_REDESIGN_SPEC.md` §19. Both items are now closed; do not
-reintroduce a free-minute or client-only-hours picker without a matching
-backend contract change.
 
 ## Cross-repo rule
 

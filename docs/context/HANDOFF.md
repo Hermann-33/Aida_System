@@ -149,3 +149,18 @@ After a customer merge, build a fresh APK from the merged customer default branc
 ## Deferred domains
 
 Branch authority/capacity, terminal/sales-point lifecycle, shifts/cash reconciliation, payment/refunds, loyalty, inventory, promotions/discounts, tax/accounting/reporting, delivery and hosted production operations remain separate tasks.
+
+## 2026-09-09 — TASK-UI-REDESIGN-004
+
+Audited integration of `customer-app-redesign` is being carried by PR #19 from `codex/task-ui-redesign-004-audit-integration`.
+
+The merge strategy preserves useful source work without silently activating unfinished backend features:
+
+- active UI/branding refresh is included;
+- account-deletion/referral SQL prototypes are preserved under `supabase/drafts/`, not canonical migrations;
+- related client paths are compile-time gated off by default;
+- Staff/order demo/test controls are retained only for debug builds and use synthetic demo orders;
+- production order state remains Supabase-authoritative;
+- stale generated iOS project churn is not copied; App Store migration notes are preserved separately.
+
+Final merge requires the customer release-audit workflow to pass on the final PR head. PR #19 must be squash-merged so mixed source-branch ancestry is not introduced into `master`.

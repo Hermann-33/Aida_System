@@ -176,56 +176,6 @@ class _ProfileScroll extends StatelessWidget {
                   ),
                   const _RowDivider(),
                   _ProfileRow(
-                    icon: Icons.storefront_rounded,
-                    label: 'Staff demo',
-                    gradient: [
-                      AidaColors.rewardGold.withValues(alpha: 0.35),
-                      AidaColors.caramelTint,
-                      AidaColors.cream,
-                    ],
-                    iconColor: AidaColors.rewardGoldDeep,
-                    onTap:
-                        () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const StaffDemoScreen(),
-                          ),
-                        ),
-                  ),
-                  const _RowDivider(),
-                  _ProfileRow(
-                    icon: Icons.error_outline_rounded,
-                    label: 'Test error page',
-                    gradient: [
-                      AidaColors.error.withValues(alpha: 0.16),
-                      AidaColors.caramelTint,
-                      AidaColors.cream,
-                    ],
-                    iconColor: AidaColors.error,
-                    onTap:
-                        () => Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const ErrorPage()),
-                        ),
-                  ),
-                  const _RowDivider(),
-                  _ProfileRow(
-                    icon: Icons.chat_bubble_rounded,
-                    label: 'Test popup',
-                    gradient: [
-                      AidaColors.rewardGold.withValues(alpha: 0.2),
-                      AidaColors.caramelTint,
-                      AidaColors.cream,
-                    ],
-                    iconColor: AidaColors.rewardGoldDeep,
-                    onTap:
-                        () => AidaPopup.show(
-                          context,
-                          title: 'Reward claimed!',
-                          message:
-                              'Your reward has been added to your account.',
-                        ),
-                  ),
-                  const _RowDivider(),
-                  _ProfileRow(
                     icon: Icons.logout_rounded,
                     label: 'Logout',
                     gradient: [

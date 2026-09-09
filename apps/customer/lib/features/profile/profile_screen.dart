@@ -8,7 +8,6 @@ import '../../core/theme/aida_colors.dart';
 import '../../core/theme/aida_type.dart';
 import '../../core/widgets/aida_popup.dart';
 import '../../domain/model/member.dart';
-import '../error/error_page.dart';
 import '../history/order_history_screen.dart';
 import 'edit_profile_screen.dart';
 import 'settings_screen.dart';

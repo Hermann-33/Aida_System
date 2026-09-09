@@ -192,9 +192,10 @@ class _CapsuleState extends State<_Capsule>
                               end: Alignment.bottomRight,
                             ),
                           ),
-                          child: Image.asset(
-                            'assets/images/capsule_character.png',
-                            fit: BoxFit.cover,
+                          child: const Icon(
+                            Icons.local_cafe_rounded,
+                            color: AidaColors.coffee,
+                            size: 30,
                           ),
                         ),
                       ),

@@ -326,9 +326,9 @@ Full cross-repository evidence: `docs/context/MENU_CUSTOMIZATION_2026-08-23.md`.
 
 ## 2026-09-09 audited UI refresh — TASK-UI-REDESIGN-004
 
-The later `customer-app-redesign` branch was audited against current `master` before integration. It was not merged directly because it mixed presentation work with unapplied backend/referral/account-deletion code and local demo order-state authority.
+The later `customer-app-redesign` branch was audited against current `master` before integration. It mixed presentation work with useful but unfinished privacy/referral/loyalty drafts and developer-only order-progress tooling.
 
-The accepted presentation delta adds/refines:
+The accepted active presentation delta adds/refines:
 
 - bundled Splash presentation before the unchanged `AuthGate`;
 - refreshed launcher artwork;
@@ -337,11 +337,20 @@ The accepted presentation delta adds/refines:
 - Menu local search over the shared catalogue;
 - unified Size/Temperature/Sweetness card presentation;
 - refreshed Cart and Order confirmation visuals;
-- refreshed Membership QR ticket presentation with member-code copy;
+- refreshed Membership QR ticket presentation;
 - Profile collapsing header/bento layout;
 - a new Settings presentation over existing providers/actions;
 - refreshed Rewards ticket/voucher presentation;
 - visible labels and safer bottom-inset handling in the five-tab shell.
+
+Useful future work is preserved without being silently activated:
+
+- account-deletion SQL/test prototypes live under `supabase/drafts/`;
+- referral/points SQL prototype lives under `supabase/drafts/`;
+- account-deletion client UI/RPC path requires `AIDA_ENABLE_ACCOUNT_DELETION_DRAFT=true`;
+- referral signup/share/real-points path requires `AIDA_ENABLE_REFERRAL_DRAFT=true`;
+- both compile-time flags default to false;
+- developer Staff/order-progress/test controls are available only in `kDebugMode`.
 
 The following invariants are mandatory after this refresh:
 
@@ -350,10 +359,10 @@ The following invariants are mandatory after this refresh:
 - configured/cart amounts remain estimates until server quote;
 - Add to cart returns immediately to Menu;
 - Checkout Schedule remains the accepted policy-derived wheel;
-- Order confirmation consumes persisted backend status only;
-- no customer-side Staff/demo status controls are shipped;
-- member-code copy is not referral authority;
+- production Order confirmation consumes persisted backend status only;
+- debug demo orders remain synthetic and never override a persisted order;
+- the production membership action remains member-code copy until referral activation;
 - Privacy/Terms remain explicitly unavailable until real destinations exist;
-- account deletion/referrals/real loyalty remain separate backend tasks.
+- draft SQL is not canonical/deployed migration state.
 
 Detailed audit evidence: `UI_REDESIGN_AUDIT_2026-09-09.md`.

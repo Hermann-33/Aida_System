@@ -18,7 +18,6 @@ abstract interface class MemberRepository {
     required String email,
     required String password,
     required bool isStudent,
-    String? referralCode,
   });
 
   Future<Result<void>> requestPasswordReset({required String email});

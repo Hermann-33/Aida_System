@@ -36,7 +36,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   final _signUpEmail = TextEditingController();
   final _signUpPassword = TextEditingController();
   final _confirmController = TextEditingController();
-  final _referralCodeController = TextEditingController();
 
   bool _obscureLogin = true;
   bool _obscureSignUp = true;
@@ -64,7 +63,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     _signUpEmail.dispose();
     _signUpPassword.dispose();
     _confirmController.dispose();
-    _referralCodeController.dispose();
     super.dispose();
   }
 
@@ -125,7 +123,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       email: _signUpEmail.text.trim(),
       password: _signUpPassword.text,
       isStudent: _isStudent,
-      referralCode: _referralCodeController.text.trim(),
     );
 
     if (!mounted) return;
@@ -418,15 +415,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 18),
-          AuthField(
-            label: 'Referral code (optional)',
-            controller: _referralCodeController,
-            icon: Icons.card_giftcard_rounded,
-            textCapitalization: TextCapitalization.characters,
-            textInputAction: TextInputAction.done,
-            onFieldSubmit: (_) => _submitSignUp(),
           ),
           const SizedBox(height: 20),
           _PillButton(

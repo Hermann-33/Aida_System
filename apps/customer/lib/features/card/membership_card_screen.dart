@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../application/providers.dart';
+import '../../core/config/feature_flags.dart';
 import '../../core/theme/aida_colors.dart';
 import '../../core/theme/aida_logo.dart';
 import '../../core/theme/aida_theme.dart';
@@ -142,6 +144,17 @@ class _Card extends StatelessWidget {
     }
   }
 
+  Future<void> _shareReferral(Member member) {
+    return SharePlus.instance.share(
+      ShareParams(
+        text:
+            "Join me on Aida Cafe! Use my code ${member.memberCode} when "
+            "you sign up and we'll both earn bonus points ☕️",
+        subject: 'Join me on Aida Cafe',
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -266,7 +279,13 @@ class _Card extends StatelessWidget {
             Positioned(
               right: 16,
               bottom: 16,
-              child: _ShareCornerButton(onTap: () => _copyMemberCode(context, member)),
+              child: _ShareCornerButton(
+                label: AidaFeatureFlags.referralDraft ? 'Share' : 'Copy',
+                onTap:
+                    AidaFeatureFlags.referralDraft
+                        ? () => _shareReferral(member)
+                        : () => _copyMemberCode(context, member),
+              ),
             ),
           ],
         );
@@ -327,8 +346,9 @@ class _QrPanel extends StatelessWidget {
 /// nothing here is a guessed/derived shape. Colors, border, and shadow are
 /// the client's own working Flutter code, given directly.
 class _ShareCornerButton extends StatelessWidget {
-  const _ShareCornerButton({required this.onTap});
+  const _ShareCornerButton({required this.label, required this.onTap});
 
+  final String label;
   final VoidCallback onTap;
 
   static const _radius = BorderRadius.only(
@@ -378,7 +398,7 @@ class _ShareCornerButton extends StatelessWidget {
             ],
           ),
           child: Text(
-            'Copy',
+            label,
             style: AidaType.sans(
               size: 17,
               weight: FontWeight.w400,

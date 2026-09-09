@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -41,12 +39,6 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
   int _quantity = 1;
   final _noteController = TextEditingController();
 
-  /// Drives the bottom bar's brief "Added ✓" state — replaces the old
-  /// SnackBar. The confirmation lives right on the button the user just
-  /// pressed instead of a separate message at the bottom of the screen.
-  bool _justAdded = false;
-  Timer? _justAddedTimer;
-
   @override
   void initState() {
     super.initState();
@@ -59,7 +51,6 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
 
   @override
   void dispose() {
-    _justAddedTimer?.cancel();
     _noteController.dispose();
     super.dispose();
   }
@@ -126,14 +117,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
           ),
         );
 
-    setState(() => _justAdded = true);
-    _justAddedTimer?.cancel();
-    // Long enough for the checkmark transition to actually be seen, then
-    // back to Menu — configuration is required now, so there's no longer a
-    // "maybe add another variant" reason to linger on this screen.
-    _justAddedTimer = Timer(const Duration(milliseconds: 450), () {
-      if (mounted) Navigator.of(context).pop();
-    });
+    Navigator.of(context).pop();
   }
 
   @override
@@ -412,7 +396,6 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
               disabledLabel: item.isAvailable ? 'Choose options' : 'Sold out',
               quantity: _quantity,
               total: total,
-              justAdded: _justAdded,
               onDecrement:
                   _quantity > 1 ? () => setState(() => _quantity--) : null,
               onIncrement: () => setState(() => _quantity++),
@@ -772,7 +755,6 @@ class _BottomBar extends StatelessWidget {
     required this.disabledLabel,
     required this.quantity,
     required this.total,
-    required this.justAdded,
     required this.onDecrement,
     required this.onIncrement,
     required this.onAddToCart,
@@ -783,9 +765,6 @@ class _BottomBar extends StatelessWidget {
   final int quantity;
   final Money total;
 
-  /// True for a brief moment right after tapping — swaps the button to a
-  /// checkmark confirmation instead of the old bottom SnackBar message.
-  final bool justAdded;
   final VoidCallback? onDecrement;
   final VoidCallback onIncrement;
   final VoidCallback onAddToCart;
@@ -831,64 +810,26 @@ class _BottomBar extends StatelessWidget {
               child: NeumorphicControl(
                 height: 56,
                 accent: available,
-                accentColors:
-                    justAdded
-                        ? (AidaColors.success, AidaColors.successLight)
-                        : null,
                 onTap: available ? onAddToCart : null,
                 // No separate semanticsLabel: the visible Text below already
                 // says exactly what a screen reader should announce (name
                 // plus running total) — an extra static label here would
                 // just get merged into a redundant two-line announcement.
                 child: Center(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 220),
-                    transitionBuilder:
-                        (child, animation) => ScaleTransition(
-                          scale: animation,
-                          child: FadeTransition(
-                            opacity: animation,
-                            child: child,
-                          ),
-                        ),
-                    child:
-                        justAdded
-                            ? Row(
-                              key: const ValueKey('added'),
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.check_circle_rounded,
-                                  size: 20,
-                                  color: AidaColors.cream,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Added',
-                                  style: AidaType.sans(
-                                    size: 15,
-                                    weight: FontWeight.w700,
-                                    color: AidaColors.cream,
-                                  ),
-                                ),
-                              ],
-                            )
-                            : Text(
-                              available
-                                  ? 'Add to cart · ${total.formatted}'
-                                  : disabledLabel,
-                              key: const ValueKey('default'),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AidaType.sans(
-                                size: 15,
-                                weight: FontWeight.w700,
-                                color:
-                                    available
-                                        ? AidaColors.cream
-                                        : AidaColors.textMuted,
-                              ),
-                            ),
+                  child: Text(
+                    available
+                        ? 'Add to cart · ${total.formatted}'
+                        : disabledLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AidaType.sans(
+                      size: 15,
+                      weight: FontWeight.w700,
+                      color:
+                          available
+                              ? AidaColors.cream
+                              : AidaColors.textMuted,
+                    ),
                   ),
                 ),
               ),

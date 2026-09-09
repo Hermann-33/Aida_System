@@ -102,17 +102,27 @@ class SupabaseMemberRepository implements MemberRepository {
     final userId = _client.auth.currentUser?.id ?? _activeUserId;
     try {
       await _client.rpc('delete_own_account');
-      await _client.auth.signOut();
-      if (userId != null) await _bestEffortRemove(userId);
-      _activeUserId = null;
-      return const Ok(null);
-    } on PostgrestException catch (error) {
-      return Err(ServerFailure(error.message));
+    } on PostgrestException {
+      return const Err(
+        ServerFailure('Unable to delete your account right now'),
+      );
     } catch (_) {
       return const Err(
         ServerFailure('Unable to delete your account right now'),
       );
     }
+
+    // The server-side delete is the authoritative operation. Local session
+    // cleanup must not turn an already-completed deletion into a false error.
+    try {
+      await _client.auth.signOut();
+    } catch (_) {
+      // Session will be invalid after the deleted identity can no longer
+      // authenticate; Auth state refresh handles any remaining local token.
+    }
+    if (userId != null) await _bestEffortRemove(userId);
+    _activeUserId = null;
+    return const Ok(null);
   }
 
   Future<Result<void>> logOut() async {

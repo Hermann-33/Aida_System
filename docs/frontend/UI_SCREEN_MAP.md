@@ -58,6 +58,8 @@ Additional/updated surfaces:
 | Menu search | `features/menu/menu_screen.dart` | Active local filtering over authoritative catalogue snapshot |
 | Settings | `features/profile/settings_screen.dart` | Active UI over existing providers/actions; Privacy/Terms unavailable; account deletion draft-gated |
 | Liquid order tracker | `features/order_progress/liquid_stage_tracker.dart` | Active presentation of persisted backend order status |
-| Staff/order demo | `features/order_progress/*demo*` + capsule | Debug-only synthetic demo; not production order authority |
 | Referral signup/share | Auth + Membership QR | Preserved behind `AIDA_ENABLE_REFERRAL_DRAFT`; off by default |
 | Account deletion | Settings/Auth/member repository | Preserved behind `AIDA_ENABLE_ACCOUNT_DELETION_DRAFT`; off by default |
+
+Demo-only Staff/order-progress/test tooling is intentionally not part of the final customer tree.
+

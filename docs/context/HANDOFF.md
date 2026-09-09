@@ -1,12 +1,12 @@
 # Current Handoff
 
-Updated: 2026-08-23
+Updated: 2026-09-10
 
 ## Task
 
-`TASK-MENU-CUSTOMIZATION-001 — per-drink option groups, per-line add-ons, Now terminology, and post-add navigation`
+`TASK-UI-REDESIGN-004 — audited customer UI refresh and safe future-work preservation`
 
-**Verdict:** COMPLETE.
+**Verdict:** READY TO MERGE.
 
 Detailed implementation/validation evidence:
 
@@ -150,19 +150,36 @@ After a customer merge, build a fresh APK from the merged customer default branc
 
 Branch authority/capacity, terminal/sales-point lifecycle, shifts/cash reconciliation, payment/refunds, loyalty, inventory, promotions/discounts, tax/accounting/reporting, delivery and hosted production operations remain separate tasks.
 
-## 2026-09-09 — TASK-UI-REDESIGN-004
+## 2026-09-10 — TASK-UI-REDESIGN-004 final handoff
 
-PR #19 integrates the audited `customer-app-redesign` work through `codex/task-ui-redesign-004-audit-integration`.
+PR #19 carries the audited integration from `codex/task-ui-redesign-004-audit-integration`.
 
-Final scope:
+Final accepted scope:
 
-- active customer UI/branding refresh is included;
-- account-deletion/referral SQL prototypes are preserved under `supabase/drafts/`, not canonical migrations;
-- related account-deletion/referral client paths are compile-time gated off by default;
-- useful iOS migration observations are documented separately while stale generated Xcode/CocoaPods state is excluded;
+- reviewed customer UI/branding refresh is active;
 - all demo-only order/status/test tooling is removed;
+- account-deletion/referral SQL prototypes are preserved under `supabase/drafts/`, not canonical migrations;
+- related account-deletion/referral client surfaces are compile-time gated off by default;
+- useful iOS migration observations are documented, while stale generated Xcode/CocoaPods state is excluded;
 - production order status remains Supabase-authoritative;
-- generated golden failure artifacts are removed.
+- generated golden failure artifacts are excluded.
 
-The PR must pass the customer release-audit workflow on its final head and be squash-merged so mixed source-branch ancestry does not enter `master`.
+Release compatibility correction:
+
+- `share_plus 13.3.0` caused the release APK build to fail because that package generation requires Kotlin 2.2-era Android artifacts;
+- the dormant referral-sharing prototype is pinned to `share_plus 11.1.0` instead of forcing an unrelated Android toolchain migration in this UI task;
+- lockfile dependencies are reconciled accordingly.
+
+Executable validation:
+
+- workflow: Customer release audit run #87;
+- code head: `7388c1bd40b7da4c0ce56041b8e0e02ece3847db`;
+- dependency resolution PASS;
+- Flutter analyze PASS;
+- non-golden regression PASS;
+- golden regression PASS;
+- release APK build PASS;
+- release APK upload PASS.
+
+The subsequent branch changes are documentation-only closeout. PR #19 must be squash-merged so the original mixed source-branch ancestry does not enter `master`.
 

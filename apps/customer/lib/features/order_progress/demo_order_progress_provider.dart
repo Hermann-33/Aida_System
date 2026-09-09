@@ -3,11 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/model/money.dart';
 import '../../domain/model/order.dart';
 
-/// DEMO ONLY. Stands in for real staff/POS-driven order status until that
-/// side is wired to this repository — see `docs/frontend/UI_REDESIGN_SPEC.md`
-/// for why the real Dashboard/POS repository is out of scope here. Nothing
-/// in this file touches Supabase; it is local, in-memory state a barista
-/// would normally drive from the Dashboard.
+/// DEBUG DEMO ONLY. Synthetic local state used to exercise the customer
+/// progress presentation without touching Supabase or the real Dashboard/POS.
 enum DemoStage { placed, preparing, ready, completed }
 
 class DemoOrder {
@@ -131,3 +128,14 @@ class DemoOrderProgress extends Notifier<List<DemoOrder>> {
     ];
   }
 }
+
+final demoOrderProgressProvider =
+    NotifierProvider<DemoOrderProgress, List<DemoOrder>>(DemoOrderProgress.new);
+
+final activeDemoOrderProvider = Provider<DemoOrder?>((ref) {
+  final orders = ref.watch(demoOrderProgressProvider);
+  for (final order in orders.reversed) {
+    if (!order.dismissed) return order;
+  }
+  return null;
+});

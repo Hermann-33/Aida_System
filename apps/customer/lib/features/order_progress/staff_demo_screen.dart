@@ -6,11 +6,9 @@ import '../../core/theme/aida_type.dart';
 import '../../domain/model/order.dart';
 import 'demo_order_progress_provider.dart';
 
-/// DEMO ONLY — stands in for the real Dashboard/POS "Accept" and "Done"
-/// actions until that repository is wired to this one (see
-/// `demo_order_progress_provider.dart`). Reachable from Profile → "Staff
-/// demo" so the customer-facing [OrderProgressCapsule] can be driven live
-/// without a second device or a real backend.
+/// DEBUG DEMO ONLY. Exercises the customer order-progress presentation using
+/// synthetic orders without touching the real Dashboard/POS or Supabase order
+/// state. Reachable only through the debug-gated Profile developer controls.
 class StaffDemoScreen extends ConsumerWidget {
   const StaffDemoScreen({super.key});
 
@@ -49,13 +47,10 @@ class StaffDemoScreen extends ConsumerWidget {
           padding: const EdgeInsets.all(20),
           children: [
             Text(
-              'Stands in for the barista side of the Dashboard until that '
-              'repository is wired up. A demo order only appears here (and '
-              'the capsule only shows on the customer tabs) once someone '
-              'actually checks out, or you add a test order below. Accept, '
-              'Mark ready, and Done are all staff calls; nothing advances on '
-              'a timer, since real prep time depends on how many orders are '
-              'queued ahead of it.',
+              'Synthetic UI demo only. Add a test order below, then use '
+              'Accept, Mark ready, and Done to exercise the customer-facing '
+              'progress presentation. These actions never update a real '
+              'customer order or the Dashboard/POS queue.',
               style: AidaType.sans(size: 13, color: AidaColors.textMuted),
             ),
             const SizedBox(height: 16),
@@ -79,7 +74,7 @@ class StaffDemoScreen extends ConsumerWidget {
                 padding: const EdgeInsets.only(top: 24),
                 child: Center(
                   child: Text(
-                    'No orders yet.\nCheck out in the app, or add a test order above.',
+                    'No demo orders yet.\nAdd a synthetic test order above.',
                     textAlign: TextAlign.center,
                     style: AidaType.sans(size: 13, color: AidaColors.textMuted),
                   ),

@@ -59,3 +59,12 @@ The completed live order E2E does not relax these boundaries: customer payloads 
 Any change to member code, verification, catalogue IDs/pricing/modifiers, order status, payment semantics, rewards/vouchers or promotions must be reviewed against the POS/Admin consumer before completion.
 
 See `UI_REDESIGN_AUDIT_2026-08-20.md` for the redesign-specific backend-impact matrix.
+
+## 2026-09-09 preserved draft/demo boundaries
+
+- `core/config/feature_flags.dart`: future backend-dependent UI must stay disabled by default until its backend task is deployed and validated.
+- `supabase/drafts/`: reference/prototype SQL only. Never move a file into canonical migrations without a new task/timestamp/review.
+- `features/order_progress/demo_order_progress_provider.dart`: debug synthetic orders only; never inject a real placed order into this state.
+- `features/order_progress/order_progress_capsule.dart` and `staff_demo_screen.dart`: developer/demo UI only.
+- `features/cart/order_confirmation_screen.dart`: persisted backend status remains authoritative even though it reuses the redesigned liquid-stage presentation.
+- Membership referral sharing must remain gated until the referral/loyalty backend is deployed.

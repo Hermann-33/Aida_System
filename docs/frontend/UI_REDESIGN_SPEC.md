@@ -322,3 +322,48 @@ Environment/results:
 No Android device was connected for this final validation pass; mobile UI evidence is widget/golden based rather than physical-device smoke.
 
 Full cross-repository evidence: `docs/context/MENU_CUSTOMIZATION_2026-08-23.md`.
+
+## 2026-09-09 audited UI refresh — TASK-UI-REDESIGN-004
+
+The later `customer-app-redesign` branch was audited against current `master` before integration. It mixed production UI with unfinished privacy/referral/loyalty work and demo-only order/test tooling.
+
+The accepted active presentation delta adds/refines:
+
+- bundled Splash presentation before the unchanged `AuthGate`;
+- refreshed launcher artwork;
+- shared `AidaPopup` feedback;
+- Home visual refinements;
+- Menu local search over the shared catalogue;
+- unified Size/Temperature/Sweetness card presentation;
+- refreshed Cart and Order confirmation visuals;
+- refreshed Membership QR ticket presentation;
+- Profile collapsing header/bento layout;
+- a new Settings presentation over existing providers/actions;
+- refreshed Rewards ticket/voucher presentation;
+- visible labels and safer bottom-inset handling in the five-tab shell.
+
+Useful future work is preserved without being silently activated:
+
+- account-deletion SQL/test prototypes live under `supabase/drafts/`;
+- referral/points SQL prototype lives under `supabase/drafts/`;
+- account-deletion client UI/RPC path requires `AIDA_ENABLE_ACCOUNT_DELETION_DRAFT=true`;
+- referral signup/share/real-points path requires `AIDA_ENABLE_REFERRAL_DRAFT=true`;
+- both feature flags default to false.
+
+Demo-only order/status/test tooling is deliberately excluded.
+
+The following invariants are mandatory after this refresh:
+
+- Splash never owns or fabricates authentication state;
+- Menu search is local filtering only;
+- configured/cart amounts remain estimates until server quote;
+- Add to cart returns immediately to Menu;
+- Checkout Schedule remains the accepted policy-derived wheel;
+- Order confirmation consumes persisted backend status only;
+- no local/demo order-status provider exists;
+- the production membership action remains member-code copy until referral activation;
+- Privacy/Terms remain explicitly unavailable until real destinations exist;
+- draft SQL is not canonical/deployed migration state.
+
+Detailed audit evidence: `UI_REDESIGN_AUDIT_2026-09-09.md`.
+

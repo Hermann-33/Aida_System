@@ -24,8 +24,10 @@ class CategoryStrip extends StatelessWidget {
     required this.categories,
     this.selectedId,
     this.showAll = false,
+    this.showFavorites = false,
     this.keyPrefix = 'cat',
     this.onSelect,
+    this.onSelectFavorites,
   });
 
   final List<MenuCategory> categories;
@@ -39,6 +41,10 @@ class CategoryStrip extends StatelessWidget {
   /// filter. Synthesising it here keeps the server's data honest.
   final bool showAll;
 
+  /// Whether to prepend a "Favorites" card, before "All"/every category.
+  /// Home only — Menu's own left rail already has its own Favorites entry.
+  final bool showFavorites;
+
   /// Distinguishes Home's cards from Menu's in the widget tree, so a test can
   /// target one screen's strip without matching the other's.
   final String keyPrefix;
@@ -46,16 +52,32 @@ class CategoryStrip extends StatelessWidget {
   /// Receives null when "All" is tapped.
   final ValueChanged<String?>? onSelect;
 
+  /// Called when the "Favorites" card is tapped. Ignored unless
+  /// [showFavorites] is true.
+  final VoidCallback? onSelectFavorites;
+
   static const _gap = 12.0;
 
   @override
   Widget build(BuildContext context) {
     if (categories.isEmpty) return const SizedBox.shrink();
 
-    final count = categories.length + (showAll ? 1 : 0);
+    final leading = (showFavorites ? 1 : 0) + (showAll ? 1 : 0);
+    final count = categories.length + leading;
 
     Widget itemAt(int i) {
-      if (showAll && i == 0) {
+      if (showFavorites && i == 0) {
+        return CategoryChip(
+          key: ValueKey('${keyPrefix}_favorites'),
+          label: 'Favorites',
+          icon: Icons.favorite_rounded,
+          selected: false,
+          onTap: onSelectFavorites,
+        );
+      }
+      final afterFavorites = showFavorites ? i - 1 : i;
+
+      if (showAll && afterFavorites == 0) {
         return CategoryChip(
           key: ValueKey('${keyPrefix}_all'),
           label: 'All',
@@ -65,7 +87,7 @@ class CategoryStrip extends StatelessWidget {
         );
       }
 
-      final c = categories[showAll ? i - 1 : i];
+      final c = categories[showAll ? afterFavorites - 1 : afterFavorites];
       return CategoryChip(
         key: ValueKey('${keyPrefix}_${c.id}'),
         label: c.name,

@@ -18,7 +18,12 @@ abstract interface class MemberRepository {
     required String email,
     required String password,
     required bool isStudent,
+    String? referralCode,
   });
+
+  /// Future privacy boundary. Production UI is compile-time gated until the
+  /// corresponding backend draft is promoted and deployed.
+  Future<Result<void>> deleteAccount();
 
   Future<Result<void>> requestPasswordReset({required String email});
 

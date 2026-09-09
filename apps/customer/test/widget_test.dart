@@ -44,12 +44,12 @@ void main() {
       expect(qr.semanticsLabel, contains('AIDA-2049-7731'));
     });
 
-    testWidgets('shows member name and code', (tester) async {
+    testWidgets('shows member code and the default copy action', (tester) async {
       await tester.pumpWidget(_wrap(const MembershipCardScreen()));
       await tester.pumpAndSettle();
 
-      expect(find.text('Aida Rahman'), findsOneWidget);
       expect(find.text('MEMBER · AIDA-2049-7731'), findsOneWidget);
+      expect(find.text('Copy'), findsOneWidget);
     });
 
     testWidgets('shows the verified-student pill for a verified student', (

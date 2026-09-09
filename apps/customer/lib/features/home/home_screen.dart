@@ -5,9 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/providers.dart';
 import '../../core/theme/aida_colors.dart';
 import '../../core/theme/aida_type.dart';
+import '../../core/widgets/aida_popup.dart';
 import '../../core/widgets/entrance.dart';
 import '../../domain/model/member.dart';
 import '../../domain/model/loyalty.dart';
+import '../../domain/model/menu_item.dart';
 import '../history/order_history_screen.dart';
 import '../menu/item_detail_screen.dart';
 import '../menu/widgets/category_chip.dart';
@@ -48,7 +50,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// Passing the category through is what makes the chip worth tapping: "View
   /// All" clears the filter, while tapping Coffee lands you on Coffee.
   void _openMenu({String? categoryId}) {
+    ref.read(favoritesOnlyProvider.notifier).set(false);
     ref.read(selectedCategoryProvider.notifier).select(categoryId);
+    ref.read(selectedTabProvider.notifier).select(AppTab.menu);
+  }
+
+  /// Open the Menu tab filtered to favorites — the strip's first tile.
+  void _openFavorites() {
+    ref.read(selectedCategoryProvider.notifier).select(null);
+    ref.read(favoritesOnlyProvider.notifier).set(true);
     ref.read(selectedTabProvider.notifier).select(AppTab.menu);
   }
 
@@ -61,18 +71,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// tappable and silently does nothing reads as a bug, not an unbuilt
   /// feature.
   void _showNoNotificationsYet(BuildContext context) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: AidaColors.espresso,
-          content: Text(
-            'No notifications yet',
-            style: AidaType.sans(size: 13, color: AidaColors.cream),
-          ),
-        ),
-      );
+    AidaPopup.show(context, title: 'No notifications yet');
   }
 
   /// Points and stamps load together. Showing a balance above an empty track
@@ -94,7 +93,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final stamps = ref.watch(stampCardProvider);
     final promos = ref.watch(promosProvider);
     final categories = ref.watch(categoriesProvider);
+    final menuItems = ref.watch(menuItemsProvider);
     final popular = ref.watch(popularItemsProvider);
+
+    // Only categories a customer can actually browse to — Add-ons has no
+    // product-kind items of its own (see MenuScreen's own doc comment), so
+    // it never gets a tile here either.
+    final browsableCategoryIds =
+        (menuItems.value ?? const <MenuItem>[])
+            .where((item) => item.kind == 'product')
+            .map((item) => item.categoryId)
+            .toSet();
 
     return Scaffold(
       backgroundColor: AidaColors.cream,
@@ -211,29 +220,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             controller: _scrollController,
                             viewportKey: _viewportKey,
                             child: categories.when(
-                              data:
-                                  (list) =>
-                                      list.isEmpty
-                                          ? const SizedBox.shrink()
-                                          : Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              _SectionHeader(
-                                                title: 'Explore Our Menu',
-                                                onViewAll: () => _openMenu(),
-                                              ),
-                                              const SizedBox(height: 14),
-                                              CategoryStrip(
-                                                categories: list,
-                                                keyPrefix: 'home_cat',
-                                                onSelect:
-                                                    (id) => _openMenu(
-                                                      categoryId: id,
-                                                    ),
-                                              ),
-                                            ],
-                                          ),
+                              data: (list) {
+                                final browsable = list
+                                    .where(
+                                      (c) =>
+                                          browsableCategoryIds.contains(c.id),
+                                    )
+                                    .toList(growable: false);
+                                return browsable.isEmpty
+                                    ? const SizedBox.shrink()
+                                    : Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        _SectionHeader(
+                                          title: 'Explore Our Menu',
+                                          onViewAll: () => _openMenu(),
+                                        ),
+                                        const SizedBox(height: 14),
+                                        CategoryStrip(
+                                          categories: browsable,
+                                          keyPrefix: 'home_cat',
+                                          showFavorites: true,
+                                          onSelectFavorites: _openFavorites,
+                                          onSelect:
+                                              (id) => _openMenu(categoryId: id),
+                                        ),
+                                      ],
+                                    );
+                              },
                               loading:
                                   () => const _Skeleton(
                                     height: CategoryChip.height + 20,
@@ -687,52 +702,23 @@ class _LoyaltyInfoState extends State<_LoyaltyInfo> {
 
   void _onDayTap(int weekday) {
     if (weekday != _today) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: AidaColors.espresso,
-            content: Text(
-              weekday < _today
-                  ? 'Already checked in'
-                  : 'Come back on ${_weekdays[weekday - 1]}',
-              style: AidaType.sans(size: 13, color: AidaColors.cream),
-            ),
-          ),
-        );
+      AidaPopup.show(
+        context,
+        title:
+            weekday < _today
+                ? 'Already checked in'
+                : 'Come back on ${_weekdays[weekday - 1]}',
+      );
       return;
     }
 
     if (_checkedDays.contains(_today)) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: AidaColors.espresso,
-            content: Text(
-              'You already checked in today',
-              style: AidaType.sans(size: 13, color: AidaColors.cream),
-            ),
-          ),
-        );
+      AidaPopup.show(context, title: 'You already checked in today');
       return;
     }
 
     setState(() => _checkedDays.add(_today));
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: AidaColors.espresso,
-          content: Text(
-            'Checked in — see you tomorrow',
-            style: AidaType.sans(size: 13, color: AidaColors.cream),
-          ),
-        ),
-      );
+    AidaPopup.show(context, title: 'Checked in', message: 'See you tomorrow.');
   }
 
   @override
@@ -749,14 +735,6 @@ class _LoyaltyInfoState extends State<_LoyaltyInfo> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'My Balance',
-                    style: AidaType.sans(
-                      size: 14,
-                      weight: FontWeight.w600,
-                      color: AidaColors.espresso,
-                    ),
-                  ),
                   const SizedBox(height: 4),
                   Text(
                     widget.points.formatted,
@@ -766,7 +744,7 @@ class _LoyaltyInfoState extends State<_LoyaltyInfo> {
                   Text(
                     'Aida Points',
                     style: AidaType.sans(
-                      size: 13,
+                      size: 16,
                       weight: FontWeight.w600,
                       color: AidaColors.coffee,
                     ),
@@ -854,29 +832,49 @@ class _LoyaltyInfoState extends State<_LoyaltyInfo> {
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
+                    horizontal: 14,
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color: AidaColors.latte.withValues(alpha: 0.45),
-                    borderRadius: BorderRadius.circular(14),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        AidaColors.latte.withValues(alpha: 0.55),
+                        AidaColors.rewardGold.withValues(alpha: 0.22),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AidaColors.rewardGold.withValues(alpha: 0.35),
+                    ),
                   ),
                   child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
-                        Icons.card_giftcard_rounded,
-                        size: 16,
-                        color: AidaColors.coffee,
+                      Container(
+                        width: 24,
+                        height: 24,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AidaColors.coffee,
+                        ),
+                        child: const Icon(
+                          Icons.card_giftcard_rounded,
+                          size: 14,
+                          color: AidaColors.cream,
+                        ),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
+                      const SizedBox(width: 10),
+                      Flexible(
                         child: Text(
                           stamps.freeDrinksAvailable == 1
-                              ? 'Free drink ready — show your QR'
-                              : '${stamps.freeDrinksAvailable} free drinks — show your QR',
+                              ? 'Free drink ready, show your QR'
+                              : '${stamps.freeDrinksAvailable} free drinks ready, show your QR',
+                          textAlign: TextAlign.center,
                           style: AidaType.sans(
-                            size: 12,
-                            weight: FontWeight.w600,
+                            size: 12.5,
+                            weight: FontWeight.w700,
                             color: AidaColors.coffee,
                           ),
                         ),

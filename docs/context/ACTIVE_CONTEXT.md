@@ -1,16 +1,36 @@
 # Active Context
 
-**As of:** 2026-08-23
-**Current task:** `TASK-MENU-CUSTOMIZATION-001 — per-drink option groups, per-line add-ons, Now terminology, and post-add navigation`
-**Current verdict:** COMPLETE — live Supabase catalogue/order customization authority is in place; Customer and Dashboard/POS integrations pass executable validation and UI/theme review; backend grants/RLS/advisors and canonical documentation are reconciled.
+**As of:** 2026-09-10
+**Current task:** `TASK-UI-REDESIGN-004 — audited customer UI refresh and safe preservation of future privacy/referral work`
+**Current verdict:** READY TO MERGE — audited customer redesign is production-safe, demo-only tooling is removed, future account-deletion/referral work is preserved but default-off/non-deployed, and the full customer release audit passes including release APK build.
 
-Detailed closeout evidence:
+Detailed current evidence:
+
+- `docs/frontend/UI_REDESIGN_AUDIT_2026-09-09.md`
+- PR #19 / `codex/task-ui-redesign-004-audit-integration`
+- customer release audit run #87 PASS on code head `7388c1bd40b7da4c0ce56041b8e0e02ece3847db`
+
+Previous menu-customization closeout remains COMPLETE and is documented in:
 
 - `docs/context/MENU_CUSTOMIZATION_2026-08-23.md`
 
 Previous scheduled-order operations work remains COMPLETE and is documented in:
 
 - `docs/context/SCHEDULED_ORDER_OPERATIONS_2026-08-20.md`
+
+## TASK-UI-REDESIGN-004 current integration
+
+The final integration accepts the reviewed mobile presentation refresh and excludes all demo-only order/status/test tooling. Production order status remains persisted Supabase state only.
+
+Useful future work is preserved without becoming live authority:
+
+- account-deletion/referral SQL prototypes live only under `supabase/drafts/`;
+- `AIDA_ENABLE_ACCOUNT_DELETION_DRAFT` defaults false;
+- `AIDA_ENABLE_REFERRAL_DRAFT` defaults false;
+- no new canonical Supabase migration is introduced;
+- referral sharing is pinned to `share_plus 11.1.0` to remain compatible with the current Android toolchain until a dedicated Android modernization task.
+
+The reviewed UI remains within AIDA's existing cream/coffee/espresso/rose theme and accepted typography/control language.
 
 ## Current product reality
 

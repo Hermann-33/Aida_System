@@ -34,6 +34,11 @@ class MenuListItem extends StatelessWidget {
           highlightColor: AidaColors.caramelTint.withValues(alpha: 0.35),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
+            // No card fill, no shadow — sits flat on the page like the
+            // reference cart row, separated only by whitespace between rows.
+            // Top-aligned, not centered: the "+" lives at the bottom of the
+            // text column, so it lands in the card's bottom-right corner
+            // rather than floating beside the whole row.
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -139,6 +144,8 @@ class MenuListItem extends StatelessWidget {
   }
 }
 
+/// A "squircle" with one sharp corner (bottom-left) — softer than a plain
+/// rounded square, more distinctive than a circle, per the reference shape.
 const _addButtonRadius = BorderRadius.only(
   topLeft: Radius.circular(18),
   topRight: Radius.circular(18),
@@ -146,6 +153,9 @@ const _addButtonRadius = BorderRadius.only(
   bottomLeft: Radius.circular(4),
 );
 
+/// Gradient fill plus a cast shadow below and a rim highlight above, so it
+/// reads as a pressable button rather than a flat dot. Same two-shadow trick
+/// as the category rail's tiles.
 class _AddButton extends StatelessWidget {
   const _AddButton({required this.disabled, this.onTap});
 

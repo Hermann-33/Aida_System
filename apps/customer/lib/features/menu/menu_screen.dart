@@ -14,8 +14,33 @@ import 'widgets/menu_list_item.dart';
 /// The customer-facing menu. Only product rows are browsable; `addon` catalogue
 /// rows remain in the shared snapshot so an individual product can resolve its
 /// compatible extras during configuration.
-class MenuScreen extends ConsumerWidget {
+class MenuScreen extends ConsumerStatefulWidget {
   const MenuScreen({super.key});
+
+  @override
+  ConsumerState<MenuScreen> createState() => _MenuScreenState();
+}
+
+class _MenuScreenState extends ConsumerState<MenuScreen> {
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _setQuery(String value) => setState(() => _query = value);
+
+  /// Search and category browsing are two different ways to land on an
+  /// item; keeping only one active at a time avoids a category tap
+  /// appearing to do nothing while stale search results are still showing.
+  void _clearSearch() {
+    if (_query.isEmpty) return;
+    _searchController.clear();
+    setState(() => _query = '');
+  }
 
   static List<(String title, List<MenuItem> items)> _groupSections(
     List<MenuItem> items,
@@ -44,12 +69,13 @@ class MenuScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final categories = ref.watch(categoriesProvider);
     final items = ref.watch(menuItemsProvider);
     final selected = ref.watch(selectedCategoryProvider);
     final favorites = ref.watch(favoritesProvider);
     final favoritesOnly = ref.watch(favoritesOnlyProvider);
+    final query = _query.trim();
 
     final currentProducts = (items.value ?? const <MenuItem>[])
         .where((item) => item.kind == 'product')
@@ -67,23 +93,16 @@ class MenuScreen extends ConsumerWidget {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Menu',
-                      style: AidaType.serif(
-                        size: 28,
-                        color: AidaColors.textPrimary,
-                      ),
-                    ),
-                  ),
-                  _FavoritesToggle(
-                    active: favoritesOnly,
-                    onTap:
-                        () => ref.read(favoritesOnlyProvider.notifier).toggle(),
-                  ),
-                ],
+              child: Text(
+                'Menu',
+                style: AidaType.serif(size: 28, color: AidaColors.textPrimary),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+              child: _SearchField(
+                controller: _searchController,
+                onChanged: _setQuery,
               ),
             ),
             Expanded(
@@ -106,12 +125,14 @@ class MenuScreen extends ConsumerWidget {
                                 : null,
                         favoritesOnly: favoritesOnly,
                         onSelect: (id) {
+                          _clearSearch();
                           ref
                               .read(selectedCategoryProvider.notifier)
                               .select(id);
                           ref.read(favoritesOnlyProvider.notifier).set(false);
                         },
                         onSelectFavorites: () {
+                          _clearSearch();
                           ref
                               .read(selectedCategoryProvider.notifier)
                               .select(null);
@@ -140,6 +161,68 @@ class MenuScreen extends ConsumerWidget {
                               final products = all
                                   .where((item) => item.kind == 'product')
                                   .toList(growable: false);
+
+                              if (query.isNotEmpty) {
+                                final needle = query.toLowerCase();
+                                final matches = products
+                                    .where(
+                                      (item) =>
+                                          item.name.toLowerCase().contains(
+                                            needle,
+                                          ) ||
+                                          item.description
+                                              .toLowerCase()
+                                              .contains(needle),
+                                    )
+                                    .toList(growable: false);
+
+                                if (matches.isEmpty) {
+                                  return SliverFillRemaining(
+                                    hasScrollBody: false,
+                                    child: _NoSearchResults(query: query),
+                                  );
+                                }
+
+                                return SliverPadding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    4,
+                                    12,
+                                    20,
+                                    16,
+                                  ),
+                                  sliver: SliverList.list(
+                                    children: [
+                                      _MenuSectionHeader(
+                                        title: 'Results',
+                                        count: matches.length,
+                                      ),
+                                      const SizedBox(height: 12),
+                                      for (
+                                        var j = 0;
+                                        j < matches.length;
+                                        j++
+                                      ) ...[
+                                        if (j > 0)
+                                          Divider(
+                                            height: 1,
+                                            color: AidaColors.latte.withValues(
+                                              alpha: 0.5,
+                                            ),
+                                          ),
+                                        MenuListItem(
+                                          item: matches[j],
+                                          onTap:
+                                              () => openItemDetail(
+                                                context,
+                                                matches[j],
+                                              ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                );
+                              }
+
                               final categoryName =
                                   browseCategories
                                       ?.where((c) => c.id == selected)
@@ -258,6 +341,63 @@ class MenuScreen extends ConsumerWidget {
   }
 }
 
+/// Rounded pill search field. Matches results against every item's name and
+/// description regardless of the selected category — search and category
+/// browsing are two separate ways to find something, not filters that
+/// combine.
+class _SearchField extends StatelessWidget {
+  const _SearchField({required this.controller, required this.onChanged});
+
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AidaColors.cardWhite,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AidaColors.latte.withValues(alpha: 0.9)),
+      ),
+      child: TextField(
+        controller: controller,
+        onChanged: onChanged,
+        textInputAction: TextInputAction.search,
+        style: AidaType.sans(size: 14.5, color: AidaColors.textPrimary),
+        decoration: InputDecoration(
+          isDense: true,
+          hintText: 'Search the menu',
+          hintStyle: AidaType.sans(size: 14.5, color: AidaColors.textMuted),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(vertical: 12),
+          prefixIcon: const Icon(
+            Icons.search_rounded,
+            size: 21,
+            color: AidaColors.coffee,
+          ),
+          suffixIcon: ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller,
+            builder: (context, value, _) {
+              if (value.text.isEmpty) return const SizedBox.shrink();
+              return IconButton(
+                onPressed: () {
+                  controller.clear();
+                  onChanged('');
+                },
+                icon: const Icon(
+                  Icons.close_rounded,
+                  size: 18,
+                  color: AidaColors.textMuted,
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _MenuSectionHeader extends StatelessWidget {
   const _MenuSectionHeader({required this.title, this.count});
 
@@ -290,6 +430,39 @@ class _MenuSectionHeader extends StatelessWidget {
         ),
       ],
     ],
+  );
+}
+
+class _NoSearchResults extends StatelessWidget {
+  const _NoSearchResults({required this.query});
+
+  final String query;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.all(40),
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Icon(Icons.search_off_rounded, size: 64, color: AidaColors.latte),
+        const SizedBox(height: 14),
+        Text(
+          'No matches for "$query"',
+          textAlign: TextAlign.center,
+          style: AidaType.sans(
+            size: 14,
+            weight: FontWeight.w700,
+            color: AidaColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Try a different word, or browse by category instead.',
+          textAlign: TextAlign.center,
+          style: AidaType.sans(size: 12, color: AidaColors.textMuted),
+        ),
+      ],
+    ),
   );
 }
 
@@ -355,31 +528,6 @@ class _MenuUnavailable extends StatelessWidget {
           style: AidaType.sans(size: 12, color: AidaColors.textMuted),
         ),
       ],
-    ),
-  );
-}
-
-class _FavoritesToggle extends StatelessWidget {
-  const _FavoritesToggle({required this.active, required this.onTap});
-
-  final bool active;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Material(
-    color: active ? AidaColors.cityRed : AidaColors.cardWhite,
-    shape: const CircleBorder(),
-    child: InkWell(
-      onTap: onTap,
-      customBorder: const CircleBorder(),
-      child: Padding(
-        padding: const EdgeInsets.all(10),
-        child: Icon(
-          active ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-          size: 20,
-          color: active ? AidaColors.cream : AidaColors.textMuted,
-        ),
-      ),
     ),
   );
 }

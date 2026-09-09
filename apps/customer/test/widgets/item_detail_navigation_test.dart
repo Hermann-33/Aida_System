@@ -89,9 +89,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // The redesign intentionally repeats the unavailable state in the product
-    // tag and in the disabled bottom action so it remains visible at both ends
-    // of the scrollable detail screen.
+    // The category tag and the bottom-bar CTA both say "Sold out" — the
+    // button explains why it's disabled instead of just greying out.
     expect(find.text('Sold out'), findsNWidgets(2));
   });
 }

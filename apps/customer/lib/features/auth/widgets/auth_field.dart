@@ -16,6 +16,7 @@ class AuthField extends StatelessWidget {
     this.onToggleObscure,
     this.keyboardType,
     this.textInputAction,
+    this.textCapitalization = TextCapitalization.none,
     this.validator,
     this.onFieldSubmit,
   });
@@ -31,6 +32,7 @@ class AuthField extends StatelessWidget {
   final VoidCallback? onToggleObscure;
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
+  final TextCapitalization textCapitalization;
   final String? Function(String?)? validator;
   final ValueChanged<String>? onFieldSubmit;
 
@@ -48,6 +50,7 @@ class AuthField extends StatelessWidget {
       obscureText: obscureText,
       keyboardType: keyboardType,
       textInputAction: textInputAction,
+      textCapitalization: textCapitalization,
       validator: validator,
       onFieldSubmitted: onFieldSubmit,
       style: AidaType.sans(

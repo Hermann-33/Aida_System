@@ -59,3 +59,13 @@ The completed live order E2E does not relax these boundaries: customer payloads 
 Any change to member code, verification, catalogue IDs/pricing/modifiers, order status, payment semantics, rewards/vouchers or promotions must be reviewed against the POS/Admin consumer before completion.
 
 See `UI_REDESIGN_AUDIT_2026-08-20.md` for the redesign-specific backend-impact matrix.
+
+## 2026-09-09 preserved future-work boundaries
+
+- `core/config/feature_flags.dart`: account-deletion/referral client paths must stay disabled by default until their backend tasks are deployed and validated.
+- `supabase/drafts/`: prototype/reference SQL only. Never promote a draft into canonical migrations without a dedicated task, fresh timestamp and full migration/security validation.
+- `features/cart/order_confirmation_screen.dart`: persisted backend status remains authoritative; no demo/local status substitute exists.
+- Membership referral sharing must remain gated until the referral/loyalty backend is deployed.
+- Account deletion UI must remain gated until the deletion/anonymisation backend is promoted and live.
+- Demo order-progress/test tooling was deliberately removed from TASK-UI-REDESIGN-004 and must not be reintroduced into customer production paths.
+

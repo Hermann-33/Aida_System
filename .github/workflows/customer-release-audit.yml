@@ -63,7 +63,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: customer-golden-evidence
-          path: apps/customer/test/golden/failures/
+          path: |
+            apps/customer/test/golden/failures/
+            apps/customer/test/widgets/failures/
           if-no-files-found: ignore
           retention-days: 14
 

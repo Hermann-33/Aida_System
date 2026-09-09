@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/providers.dart';
 import '../../core/theme/aida_colors.dart';
 import '../../core/theme/aida_type.dart';
+import '../../core/widgets/aida_popup.dart';
 import '../../core/widgets/product_image.dart';
 import '../../domain/model/cart.dart';
 import '../../domain/model/menu_item.dart';
@@ -38,7 +39,6 @@ class _CartScreenState extends ConsumerState<CartScreen> {
   void _orderPlaced(OrderSnapshot order) {
     ref.read(cartProvider.notifier).clear();
     ref.invalidate(orderHistoryProvider);
-
     Navigator.of(context)
       ..pop()
       ..push(
@@ -117,6 +117,9 @@ class _CartScreenState extends ConsumerState<CartScreen> {
   }
 }
 
+/// "N items" pill next to the title, matching the floating cart bar's own
+/// singular/plural wording so the count never reads differently in two
+/// places.
 class _CountBadge extends StatelessWidget {
   const _CountBadge({required this.count});
 
@@ -180,6 +183,11 @@ class _EmptyCart extends StatelessWidget {
   }
 }
 
+/// One line item — thumbnail, name, price, and a quantity pill, sitting flat
+/// on the page (no card box) with size/add-on/note details folded in as
+/// captions underneath the price rather than a separate row, since this
+/// app's real ordering options (unlike a plain candy-shop cart) can't just
+/// be dropped. Swipe left to remove — see [Dismissible] below.
 class _CartLineCard extends StatelessWidget {
   const _CartLineCard({
     required this.index,
@@ -205,6 +213,9 @@ class _CartLineCard extends StatelessWidget {
         final notifier = ref.read(cartProvider.notifier);
 
         return Dismissible(
+          // Identity, not position: the index shifts under a line once any
+          // earlier line is removed, but the item/size/add-ons/options/note
+          // tuple (the same identity `sameConfigurationAs` uses) doesn't.
           key: ValueKey(
             '${line.item.id}_${line.size?.id}_${normalizedAddOns.join(',')}_${normalizedOptions.join(',')}_${line.note}',
           ),
@@ -285,6 +296,8 @@ class _CartLineCard extends StatelessWidget {
   }
 }
 
+/// Revealed as a line is swiped left — soft, not a jarring solid-red bar, to
+/// match the flat/smooth style the rest of the row already carries.
 class _DeleteReveal extends StatelessWidget {
   const _DeleteReveal();
 
@@ -375,6 +388,9 @@ class _QtyButton extends StatelessWidget {
   }
 }
 
+/// Promo code affordance shown in the reference. There is no promo/coupon
+/// system in this app — tapping it says so plainly rather than doing
+/// nothing, which would read as a bug rather than an unbuilt feature.
 class _PromoRow extends StatelessWidget {
   const _PromoRow();
 
@@ -386,19 +402,10 @@ class _PromoRow extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap:
-            () =>
-                ScaffoldMessenger.of(context)
-                  ..hideCurrentSnackBar()
-                  ..showSnackBar(
-                    SnackBar(
-                      behavior: SnackBarBehavior.floating,
-                      backgroundColor: AidaColors.espresso,
-                      content: Text(
-                        "Promo codes aren't available in this demo yet",
-                        style: AidaType.sans(size: 13, color: AidaColors.cream),
-                      ),
-                    ),
-                  ),
+            () => AidaPopup.show(
+              context,
+              title: "Promo codes aren't available in this demo yet",
+            ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(
@@ -428,6 +435,7 @@ class _PromoRow extends StatelessWidget {
   }
 }
 
+/// Local catalogue estimate and entry to the authoritative quote step.
 class _CheckoutBar extends StatelessWidget {
   const _CheckoutBar({required this.subtotal, required this.onCheckout});
 

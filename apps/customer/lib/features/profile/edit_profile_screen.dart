@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/providers.dart';
 import '../../core/theme/aida_colors.dart';
 import '../../core/theme/aida_type.dart';
+import '../../core/widgets/aida_popup.dart';
 import '../../domain/model/member.dart';
 
 /// Edits name, phone, birthday, and student/employee ID — the CUS-21 field
@@ -75,18 +76,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     );
     ref.read(memberEditsProvider.notifier).apply(edited);
 
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: AidaColors.espresso,
-          content: Text(
-            'Profile updated',
-            style: AidaType.sans(size: 13, color: AidaColors.cream),
-          ),
-        ),
-      );
+    AidaPopup.show(context, title: 'Profile updated');
     Navigator.of(context).pop();
   }
 

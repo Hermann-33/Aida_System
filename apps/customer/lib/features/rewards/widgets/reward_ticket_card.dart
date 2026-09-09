@@ -23,6 +23,7 @@ class RewardTicketCard extends StatelessWidget {
     this.imageCategory = 'Drinks',
     this.primaryEnabled = true,
     this.showRewardBadge = true,
+    this.applied = false,
   });
 
   final String title;
@@ -38,125 +39,135 @@ class RewardTicketCard extends StatelessWidget {
   final bool primaryEnabled;
   final bool showRewardBadge;
 
+  /// True once this card has been tapped "Apply" this session — dims the
+  /// whole ticket a touch as a quiet "acknowledged" cue. Purely local/visual;
+  /// nothing about the voucher itself changes (see rewards_screen.dart's
+  /// class doc — staff still consume the entitlement at the counter).
+  final bool applied;
+
   static const _notchFraction = 0.72;
   static const _notchRadius = 10.0;
 
   @override
   Widget build(BuildContext context) {
     return PressableScale(
-      child: ClipPath(
-        clipper: const TicketClipper(
-          notchFraction: _notchFraction,
-          notchRadius: _notchRadius,
-        ),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            // Soft Rose wash — cream → latte pink with a whisper of gold so
-            // the ticket feels branded without drowning the text.
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AidaColors.cardWhite,
-                AidaColors.cream,
-                AidaColors.latte.withValues(alpha: 0.72),
-                AidaColors.rewardGold.withValues(alpha: 0.18),
-              ],
-              stops: const [0.0, 0.35, 0.78, 1.0],
-            ),
+      child: AnimatedOpacity(
+        opacity: applied ? 0.6 : 1.0,
+        duration: const Duration(milliseconds: 300),
+        child: ClipPath(
+          clipper: const TicketClipper(
+            notchFraction: _notchFraction,
+            notchRadius: _notchRadius,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(18, 16, 14, 12),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (showRewardBadge) ...[
-                            const _RewardBadge(),
-                            const SizedBox(height: 12),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              // Soft Rose wash — cream → latte pink with a whisper of gold so
+              // the ticket feels branded without drowning the text.
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AidaColors.cardWhite,
+                  AidaColors.cream,
+                  AidaColors.latte.withValues(alpha: 0.72),
+                  AidaColors.rewardGold.withValues(alpha: 0.18),
+                ],
+                stops: const [0.0, 0.35, 0.78, 1.0],
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 16, 14, 12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (showRewardBadge) ...[
+                              const _RewardBadge(),
+                              const SizedBox(height: 12),
+                            ],
+                            Text(
+                              title,
+                              style: AidaType.sans(
+                                size: 18,
+                                weight: FontWeight.w700,
+                                color: AidaColors.textPrimary,
+                                height: 1.2,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              description,
+                              style: AidaType.sans(
+                                size: 13,
+                                color: AidaColors.textMuted,
+                                height: 1.35,
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            Text(
+                              metaLabel,
+                              style: AidaType.sans(
+                                size: 11,
+                                weight: FontWeight.w600,
+                                letterSpacing: 0.6,
+                                color: AidaColors.textMuted,
+                              ),
+                            ),
                           ],
-                          Text(
-                            title,
-                            style: AidaType.sans(
-                              size: 18,
-                              weight: FontWeight.w700,
-                              color: AidaColors.textPrimary,
-                              height: 1.2,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            description,
-                            style: AidaType.sans(
-                              size: 13,
-                              color: AidaColors.textMuted,
-                              height: 1.35,
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          Text(
-                            metaLabel,
-                            style: AidaType.sans(
-                              size: 11,
-                              weight: FontWeight.w600,
-                              letterSpacing: 0.6,
-                              color: AidaColors.textMuted,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    _TicketArt(kind: kind),
-                  ],
-                ),
-              ),
-              // Dashed seam aligned with the side notches.
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: _notchRadius + 4,
-                ),
-                child: CustomPaint(
-                  painter: TicketDashPainter(
-                    color: AidaColors.coffee.withValues(alpha: 0.22),
-                  ),
-                  child: const SizedBox(height: 1, width: double.infinity),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
-                child: Row(
-                  children: [
-                    _ApplyButton(
-                      label: primaryLabel,
-                      enabled: primaryEnabled,
-                      onTap: onPrimary,
-                    ),
-                    const SizedBox(width: 18),
-                    GestureDetector(
-                      onTap: onDetails,
-                      child: Text(
-                        'Details',
-                        style: AidaType.sans(
-                          size: 14,
-                          weight: FontWeight.w600,
-                          color: AidaColors.coffee,
-                        ).copyWith(
-                          decoration: TextDecoration.underline,
-                          decorationColor: AidaColors.coffee,
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+                      _TicketArt(kind: kind),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                // Dashed seam aligned with the side notches.
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: _notchRadius + 4,
+                  ),
+                  child: CustomPaint(
+                    painter: TicketDashPainter(
+                      color: AidaColors.coffee.withValues(alpha: 0.22),
+                    ),
+                    child: const SizedBox(height: 1, width: double.infinity),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
+                  child: Row(
+                    children: [
+                      _ApplyButton(
+                        label: primaryLabel,
+                        enabled: primaryEnabled,
+                        onTap: onPrimary,
+                      ),
+                      const SizedBox(width: 18),
+                      GestureDetector(
+                        onTap: onDetails,
+                        child: Text(
+                          'Details',
+                          style: AidaType.sans(
+                            size: 14,
+                            weight: FontWeight.w600,
+                            color: AidaColors.coffee,
+                          ).copyWith(
+                            decoration: TextDecoration.underline,
+                            decorationColor: AidaColors.coffee,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/config/feature_flags.dart';
 import '../../core/error/failures.dart';
 import '../../core/error/result.dart';
 import '../../domain/model/loyalty.dart';
@@ -67,6 +68,7 @@ class SupabaseMemberRepository implements MemberRepository {
     required String email,
     required String password,
     required bool isStudent,
+    String? referralCode,
   }) async {
     try {
       final response = await _client.auth.signUp(
@@ -75,6 +77,8 @@ class SupabaseMemberRepository implements MemberRepository {
         data: <String, dynamic>{
           'display_name': name.trim(),
           'is_student': isStudent,
+          if (referralCode != null && referralCode.trim().isNotEmpty)
+            'referral_code': referralCode.trim(),
         },
       );
       if (response.user == null) {
@@ -91,6 +95,34 @@ class SupabaseMemberRepository implements MemberRepository {
         ServerFailure('Unable to create your account right now'),
       );
     }
+  }
+
+  @override
+  Future<Result<void>> deleteAccount() async {
+    final userId = _client.auth.currentUser?.id ?? _activeUserId;
+    try {
+      await _client.rpc('delete_own_account');
+    } on PostgrestException {
+      return const Err(
+        ServerFailure('Unable to delete your account right now'),
+      );
+    } catch (_) {
+      return const Err(
+        ServerFailure('Unable to delete your account right now'),
+      );
+    }
+
+    // The server-side delete is the authoritative operation. Local session
+    // cleanup must not turn an already-completed deletion into a false error.
+    try {
+      await _client.auth.signOut();
+    } catch (_) {
+      // Session will be invalid after the deleted identity can no longer
+      // authenticate; Auth state refresh handles any remaining local token.
+    }
+    if (userId != null) await _bestEffortRemove(userId);
+    _activeUserId = null;
+    return const Ok(null);
   }
 
   Future<Result<void>> logOut() async {
@@ -302,7 +334,35 @@ class SupabaseMemberRepository implements MemberRepository {
   }
 
   @override
-  Future<Result<Points>> getPoints() => _pendingFeatures.getPoints();
+  Future<Result<Points>> getPoints() async {
+    if (!AidaFeatureFlags.referralDraft) {
+      return _pendingFeatures.getPoints();
+    }
+
+    final user = _client.auth.currentUser;
+    if (user == null) {
+      return const Err(AuthFailure('Sign in to load your points'));
+    }
+
+    try {
+      final row =
+          await _client
+              .from('members')
+              .select('points_balance')
+              .eq('user_id', user.id)
+              .single();
+      return Ok(
+        Points(
+          balance: (row['points_balance'] as num).toInt(),
+          asOf: DateTime.now(),
+        ),
+      );
+    } catch (_) {
+      return const Err(
+        ServerFailure('Unable to load your loyalty balance right now'),
+      );
+    }
+  }
 
   @override
   Future<Result<StampCard>> getStampCard() => _pendingFeatures.getStampCard();

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/providers.dart';
 import '../../core/theme/aida_colors.dart';
+import '../../core/theme/aida_type.dart';
 import '../card/membership_card_screen.dart';
 import '../cart/widgets/floating_cart_bar.dart';
 import '../home/home_screen.dart';
@@ -26,9 +27,18 @@ class AppShell extends ConsumerWidget {
     ProfileScreen(),
   ];
 
+  // Clearance above _FloatingNav's own content on a device with zero
+  // bottom safe-area inset (where this was originally tuned) — the actual
+  // Positioned.bottom always adds the device's real inset on top of this,
+  // so the gap above the nav bar stays consistent across devices instead
+  // of shrinking on phones with a taller home-indicator area (iPhones)
+  // than whatever this constant assumed.
+  static const _navClearance = 112.0;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tab = ref.watch(selectedTabProvider);
+    final navBottomInset = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
       backgroundColor: AidaColors.cream,
@@ -39,13 +49,14 @@ class AppShell extends ConsumerWidget {
       body: Stack(
         children: [
           IndexedStack(index: tab.index, children: _tabs),
-          // Positioned above the nav (72 tall + 12 bottom padding), not
-          // inside its 5 fixed slots — see FloatingCartBar's own doc for why.
-          const Positioned(
+          // Positioned above the nav (80 tall, icon + label, + 14 bottom
+          // padding), not inside its 5 fixed slots — see FloatingCartBar's
+          // own doc for why.
+          Positioned(
             left: 20,
             right: 20,
-            bottom: 96,
-            child: FloatingCartBar(),
+            bottom: _navClearance + navBottomInset,
+            child: const FloatingCartBar(),
           ),
         ],
       ),
@@ -80,7 +91,7 @@ class _FloatingNav extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
         child: SizedBox(
-          height: 72,
+          height: 80,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
@@ -228,59 +239,76 @@ class _NeumorphicNavButtonState extends State<_NeumorphicNavButton> {
       button: true,
       selected: widget.selected,
       label: widget.label,
+      excludeSemantics: true,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: widget.onTap,
         onTapDown: (_) => setState(() => _pressed = true),
         onTapUp: (_) => setState(() => _pressed = false),
         onTapCancel: () => setState(() => _pressed = false),
-        child: AnimatedScale(
-          scale: _inset ? 0.9 : 1.0,
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOutCubic,
-            width: _NeumorphicNavButton._size,
-            height: _NeumorphicNavButton._size,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: _gradient,
-              boxShadow: _shadows(),
-              border:
-                  widget.variant == _NavButtonVariant.qr && widget.selected
-                      ? Border.all(color: AidaColors.cream, width: 2.5)
-                      : Border.all(
-                        color:
-                            _inset
-                                ? AidaColors.latte.withValues(alpha: 0.5)
-                                : AidaColors.cardWhite.withValues(alpha: 0.6),
-                        width: 1,
-                      ),
-            ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                if (_inset)
-                  Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: RadialGradient(
-                          center: const Alignment(-0.55, -0.55),
-                          radius: 1.05,
-                          colors: [
-                            AidaColors.espresso.withValues(alpha: 0.16),
-                            Colors.transparent,
-                          ],
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedScale(
+              scale: _inset ? 0.9 : 1.0,
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                width: _NeumorphicNavButton._size,
+                height: _NeumorphicNavButton._size,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: _gradient,
+                  boxShadow: _shadows(),
+                  border:
+                      widget.variant == _NavButtonVariant.qr && widget.selected
+                          ? Border.all(color: AidaColors.cream, width: 2.5)
+                          : Border.all(
+                            color:
+                                _inset
+                                    ? AidaColors.latte.withValues(alpha: 0.5)
+                                    : AidaColors.cardWhite.withValues(
+                                      alpha: 0.6,
+                                    ),
+                            width: 1,
+                          ),
+                ),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    if (_inset)
+                      Positioned.fill(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: RadialGradient(
+                              center: const Alignment(-0.55, -0.55),
+                              radius: 1.05,
+                              colors: [
+                                AidaColors.espresso.withValues(alpha: 0.16),
+                                Colors.transparent,
+                              ],
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                Icon(widget.icon, size: 24, color: _iconColor),
-              ],
+                    Icon(widget.icon, size: 24, color: _iconColor),
+                  ],
+                ),
+              ),
             ),
-          ),
+            const SizedBox(height: 4),
+            Text(
+              widget.label,
+              style: AidaType.sans(
+                size: 10,
+                weight: widget.selected ? FontWeight.w700 : FontWeight.w600,
+                color: _iconColor,
+              ),
+            ),
+          ],
         ),
       ),
     );

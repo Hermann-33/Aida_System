@@ -322,3 +322,38 @@ Environment/results:
 No Android device was connected for this final validation pass; mobile UI evidence is widget/golden based rather than physical-device smoke.
 
 Full cross-repository evidence: `docs/context/MENU_CUSTOMIZATION_2026-08-23.md`.
+
+
+## 2026-09-09 audited UI refresh — TASK-UI-REDESIGN-004
+
+The later `customer-app-redesign` branch was audited against current `master` before integration. It was not merged directly because it mixed presentation work with unapplied backend/referral/account-deletion code and local demo order-state authority.
+
+The accepted presentation delta adds/refines:
+
+- bundled Splash presentation before the unchanged `AuthGate`;
+- refreshed launcher artwork;
+- shared `AidaPopup` feedback;
+- Home visual refinements;
+- Menu local search over the shared catalogue;
+- unified Size/Temperature/Sweetness card presentation;
+- refreshed Cart and Order confirmation visuals;
+- refreshed Membership QR ticket presentation with member-code copy;
+- Profile collapsing header/bento layout;
+- a new Settings presentation over existing providers/actions;
+- refreshed Rewards ticket/voucher presentation;
+- visible labels and safer bottom-inset handling in the five-tab shell.
+
+The following invariants are mandatory after this refresh:
+
+- Splash never owns or fabricates authentication state;
+- Menu search is local filtering only;
+- configured/cart amounts remain estimates until server quote;
+- Add to cart returns immediately to Menu;
+- Checkout Schedule remains the accepted policy-derived wheel;
+- Order confirmation consumes persisted backend status only;
+- no customer-side Staff/demo status controls are shipped;
+- member-code copy is not referral authority;
+- Privacy/Terms remain explicitly unavailable until real destinations exist;
+- account deletion/referrals/real loyalty remain separate backend tasks.
+
+Detailed audit evidence: `UI_REDESIGN_AUDIT_2026-09-09.md`.

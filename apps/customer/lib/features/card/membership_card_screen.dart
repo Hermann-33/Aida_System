@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:flutter/services.dart';
 
 import '../../application/providers.dart';
 import '../../core/theme/aida_colors.dart';
 import '../../core/theme/aida_logo.dart';
 import '../../core/theme/aida_theme.dart';
+import '../../core/widgets/aida_popup.dart';
 import '../../domain/model/member.dart';
 import '../../core/theme/aida_type.dart';
 import '../rewards/widgets/ticket_shape.dart';
@@ -134,15 +135,11 @@ class _Card extends StatelessWidget {
   /// replaced by the Share button.
   static const _detailsHeight = 156.0;
 
-  Future<void> _inviteFriend(Member member) {
-    return SharePlus.instance.share(
-      ShareParams(
-        text:
-            "Join me on Aida Cafe! Use my code ${member.memberCode} when "
-            "you sign up and we'll both earn bonus points ☕️",
-        subject: 'Join me on Aida Cafe',
-      ),
-    );
+  Future<void> _copyMemberCode(BuildContext context, Member member) async {
+    await Clipboard.setData(ClipboardData(text: member.memberCode));
+    if (context.mounted) {
+      AidaPopup.show(context, title: 'Membership code copied');
+    }
   }
 
   @override
@@ -269,7 +266,7 @@ class _Card extends StatelessWidget {
             Positioned(
               right: 16,
               bottom: 16,
-              child: _ShareCornerButton(onTap: () => _inviteFriend(member)),
+              child: _ShareCornerButton(onTap: () => _copyMemberCode(context, member)),
             ),
           ],
         );
@@ -357,7 +354,11 @@ class _ShareCornerButton extends StatelessWidget {
             gradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFF56A7FF), Color(0xFFBBDFFF), Color(0xFFE8F5FF)],
+              colors: [
+                AidaColors.coffee,
+                AidaColors.latte,
+                AidaColors.caramelTint,
+              ],
             ),
             border: Border.all(
               color: Colors.white.withValues(alpha: 0.75),
@@ -365,7 +366,7 @@ class _ShareCornerButton extends StatelessWidget {
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF4DA3FF).withValues(alpha: 0.45),
+                color: AidaColors.coffee.withValues(alpha: 0.32),
                 blurRadius: 20,
                 spreadRadius: 1,
               ),
@@ -377,11 +378,11 @@ class _ShareCornerButton extends StatelessWidget {
             ],
           ),
           child: Text(
-            'Share',
+            'Copy',
             style: AidaType.sans(
               size: 17,
               weight: FontWeight.w400,
-              color: const Color(0xFF08182E),
+              color: AidaColors.espresso,
             ),
           ),
         ),

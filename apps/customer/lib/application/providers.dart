@@ -73,6 +73,19 @@ class AuthState extends Notifier<bool> {
     }
   }
 
+  Future<Result<void>> deleteAccount() async {
+    final repository = ref.read(memberRepositoryProvider);
+    final result = await repository.deleteAccount();
+    if (result is Ok<void>) {
+      state = false;
+      ref.read(memberEditsProvider.notifier).clear();
+      ref.invalidate(memberProvider);
+      ref.invalidate(orderUpdatesProvider);
+      ref.invalidate(orderHistoryProvider);
+    }
+    return result;
+  }
+
   void logOut() {
     final repository = ref.read(memberRepositoryProvider);
     state = false;

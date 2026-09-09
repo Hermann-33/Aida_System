@@ -10,7 +10,6 @@ import '../../domain/model/cart.dart';
 import '../../domain/model/menu_item.dart';
 import '../../domain/model/money.dart';
 import '../../domain/model/order.dart';
-import '../order_progress/demo_order_progress_provider.dart';
 import 'order_confirmation_screen.dart';
 import 'order_checkout_sheet.dart';
 
@@ -40,10 +39,6 @@ class _CartScreenState extends ConsumerState<CartScreen> {
   void _orderPlaced(OrderSnapshot order) {
     ref.read(cartProvider.notifier).clear();
     ref.invalidate(orderHistoryProvider);
-    // DEMO: this is what actually makes OrderProgressCapsule appear — see
-    // demo_order_progress_provider.dart's doc comment.
-    ref.read(demoOrderProgressProvider.notifier).addFromCheckout(order);
-
     Navigator.of(context)
       ..pop()
       ..push(

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../core/theme/aida_colors.dart';
-import '../../main.dart' show AuthGate;
 
 /// Plays the bundled brand video once, then hands off to [AuthGate].
 ///
@@ -22,7 +21,9 @@ import '../../main.dart' show AuthGate;
 /// covers a video that initializes but never reports finishing. Tapping
 /// anywhere skips straight to the app.
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+  const SplashScreen({super.key, required this.destination});
+
+  final Widget destination;
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -76,7 +77,7 @@ class _SplashScreenState extends State<SplashScreen> {
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         transitionDuration: const Duration(milliseconds: 260),
-        pageBuilder: (_, __, ___) => const AuthGate(),
+        pageBuilder: (_, __, ___) => widget.destination,
         transitionsBuilder:
             (_, animation, __, child) =>
                 FadeTransition(opacity: animation, child: child),

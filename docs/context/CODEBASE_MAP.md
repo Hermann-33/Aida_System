@@ -128,14 +128,16 @@ No PR/merge is included in this closeout. Payment, loyalty, inventory, reporting
 
 ## 2026-09-09 customer redesign / preserved future work
 
-New/updated customer presentation and support areas:
+New/updated customer areas:
 
 - `apps/customer/lib/core/widgets/aida_popup.dart` — shared transient customer feedback overlay.
-- `apps/customer/lib/core/config/feature_flags.dart` — compile-time gates for preserved future backend-dependent surfaces and debug/demo UI.
+- `apps/customer/lib/core/config/feature_flags.dart` — compile-time gates for preserved account-deletion/referral client surfaces.
 - `apps/customer/lib/features/splash/splash_screen.dart` — branded startup presentation that hands off to the existing Auth gate.
 - `apps/customer/lib/features/profile/settings_screen.dart` — redesigned Settings surface; account deletion remains draft-gated.
-- `apps/customer/lib/features/order_progress/liquid_stage_tracker.dart` — reusable status presentation for real persisted order status.
-- `apps/customer/lib/features/order_progress/demo_order_progress_provider.dart`, `order_progress_capsule.dart`, `staff_demo_screen.dart` — debug-only synthetic-order demo tooling.
+- `apps/customer/lib/features/order_progress/liquid_stage_tracker.dart` — presentation for real persisted order status.
 - `supabase/drafts/` — preserved, non-applied privacy/referral backend prototypes.
-- `docs/frontend/UI_REDESIGN_AUDIT_2026-09-09.md` — audit/merge evidence and accepted/rejected boundaries.
-- `docs/frontend/IOS_TOOLCHAIN_DRAFT_2026-08-29.md` — retained iOS migration/toolchain observations for the later App Store task.
+- `docs/frontend/UI_REDESIGN_AUDIT_2026-09-09.md` — final audit/merge boundaries.
+- `docs/frontend/IOS_TOOLCHAIN_DRAFT_2026-08-29.md` — retained iOS migration/toolchain observations.
+
+Demo-only order-progress provider/capsule/staff-test tooling is intentionally absent from the final tree.
+

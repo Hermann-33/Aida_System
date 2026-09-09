@@ -1,27 +1,6 @@
 # Roadmap
 
-Updated: 2026-08-29
-
-## 2026-08-29 update
-
-Two backend migrations against item 2 below ("loyalty earning/redemption and
-voucher lifecycle") and one App/Play Store compliance item are now drafted
-but **not applied/verified** — see `docs/context/BACKEND_MIGRATIONS_2026-08-29.md`:
-
-- `TASK-REFERRAL-001`: a referral-bonus points ledger (`members.points_balance`,
-  `referrals` table, reward on a referred member's first completed order).
-  Stamps, the rewards catalogue, vouchers and offers remain fully mock.
-- `TASK-ACCT-001`: customer self-service account deletion
-  (`delete_own_account()` RPC) — not itself on the "next bounded work" list
-  below, but recorded here since it's a real backend/identity change made
-  this session.
-
-Separately, a large uncommitted customer-app presentation-layer pass
-(rewards tear-to-apply animation, app-wide popup redesign, menu search,
-membership card/profile/order-confirmation redesigns, a splash screen, and a
-demo order-progress capsule) landed as `TASK-REDESIGN-001` — see
-`docs/frontend/UI_REDESIGN_SPEC.md` for full evidence. It does not change
-this roadmap's scope, only presentation.
+Updated: 2026-08-17
 
 ## Current tranche
 

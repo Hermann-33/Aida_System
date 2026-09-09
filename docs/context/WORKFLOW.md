@@ -1,10 +1,10 @@
 # AIDA Café Cross-Repository Workflow
 
-Updated: 2026-08-12
+Updated: 2026-09-10
 
 ## Task startup
 
-1. Read root `AGENTS.md` and mandatory shared docs.
+1. Read root `AGENTS.md`, `docs/ai/BOOTSTRAP.md`, `docs/ai/context/CURRENT_STATE.md` and the matching reusable prompt.
 2. Identify whether the task affects customer, dashboard, backend or multiple areas.
 3. Inspect Git status/branch/history in every affected checkout.
 4. Inspect current implementation evidence before planning.
@@ -77,7 +77,9 @@ Add seeded RLS/authorization/idempotency/concurrency tests for risky operations.
 
 ## Documentation synchronization
 
-The canonical governance paths listed in `docs/README.md` must be mirrored in both repos. Every material task asks: did this change a shared project fact? If yes, update both copies before `COMPLETE`.
+The canonical governance paths listed in `docs/README.md`, including `docs/ai/**`, must be mirrored in both repos. Every material task asks: did this change a shared project fact? If yes, update both copies before `COMPLETE`.
+
+After a logical project change, run `docs/ai/playbooks/CONTEXT_UPDATE_PROTOCOL.md`.
 
 Repository-local screenshots/specs/evidence may differ.
 

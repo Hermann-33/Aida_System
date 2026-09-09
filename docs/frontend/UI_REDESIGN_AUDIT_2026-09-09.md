@@ -182,6 +182,23 @@ A 3.5% tolerance is therefore scoped only to these two Item Detail golden compar
 
 The release workflow now uploads failure evidence from both `test/golden/failures/` and `test/widgets/failures/` so future widget-level golden failures remain inspectable.
 
+## Android release dependency compatibility
+
+The preserved referral-sharing prototype initially used `share_plus 13.3.0`. The release APK gate proved that this package generation pulls Android artifacts compiled for Kotlin 2.2 while the current AIDA Android project uses the older Kotlin/Gradle toolchain. The failure was confined to Gradle/Kotlin metadata compatibility in `share_plus`; Flutter analysis, non-golden tests and goldens had already passed.
+
+Rather than broaden this UI integration into an Android Gradle/Kotlin/AGP migration, the dormant referral share dependency is pinned to `share_plus 11.1.0`, which retains the `SharePlus.instance.share(ShareParams(...))` API used by the prototype and stays below the plugin generation that introduced the Kotlin 2.2 Android requirement. The lockfile is reconciled to `share_plus_platform_interface 6.1.0` and `win32 5.15.0`.
+
+The full customer release audit then passed on code head `7388c1bd40b7da4c0ce56041b8e0e02ece3847db`, workflow run #87:
+
+- dependency resolution PASS;
+- Flutter analyze PASS;
+- non-golden regression suite PASS;
+- golden regression suite PASS;
+- release APK build PASS;
+- release APK artifact upload PASS.
+
+The remaining Android Gradle / AGP / Kotlin modernization warnings are existing toolchain maintenance work and are not silently upgraded inside this UI task.
+
 ## Validation and merge gate
 
 PR #19 runs `.github/workflows/customer-release-audit.yml` against the final integration head.

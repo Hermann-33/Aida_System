@@ -167,6 +167,21 @@ The final active production path changes no canonical Supabase migration, RLS po
 
 Draft privacy/referral work is present in source control but cannot be deployed by normal migration replay/push because it is outside `supabase/migrations/`. Related client surfaces default off through compile-time environment gates.
 
+## Golden evidence
+
+The two Item Detail customization baselines were originally reviewed under the Customer Codex validation environment and produced exact-pixel drift on the Linux GitHub Actions runner.
+
+Run evidence showed:
+
+- 390×844: 3.46% exact-pixel difference;
+- 430×932: 3.37% exact-pixel difference.
+
+The CI master/test images and isolated diffs were inspected. Layout, copy, selection state, disabled state, CTA placement and AIDA styling are unchanged; the differences trace text/icon/border rasterization edges.
+
+A 3.5% tolerance is therefore scoped only to these two Item Detail golden comparisons. Functional viewport/layout assertions remain exact, and no global golden tolerance was introduced.
+
+The release workflow now uploads failure evidence from both `test/golden/failures/` and `test/widgets/failures/` so future widget-level golden failures remain inspectable.
+
 ## Validation and merge gate
 
 PR #19 runs `.github/workflows/customer-release-audit.yml` against the final integration head.

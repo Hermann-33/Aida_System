@@ -323,10 +323,9 @@ No Android device was connected for this final validation pass; mobile UI eviden
 
 Full cross-repository evidence: `docs/context/MENU_CUSTOMIZATION_2026-08-23.md`.
 
-
 ## 2026-09-09 audited UI refresh — TASK-UI-REDESIGN-004
 
-The later `customer-app-redesign` branch was audited against current `master` before integration. It mixed presentation work with useful but unfinished privacy/referral/loyalty drafts and developer-only order-progress tooling.
+The later `customer-app-redesign` branch was audited against current `master` before integration. It mixed production UI with unfinished privacy/referral/loyalty work and demo-only order/test tooling.
 
 The accepted active presentation delta adds/refines:
 
@@ -349,8 +348,9 @@ Useful future work is preserved without being silently activated:
 - referral/points SQL prototype lives under `supabase/drafts/`;
 - account-deletion client UI/RPC path requires `AIDA_ENABLE_ACCOUNT_DELETION_DRAFT=true`;
 - referral signup/share/real-points path requires `AIDA_ENABLE_REFERRAL_DRAFT=true`;
-- both compile-time flags default to false;
-- developer Staff/order-progress/test controls are available only in `kDebugMode`.
+- both feature flags default to false.
+
+Demo-only order/status/test tooling is deliberately excluded.
 
 The following invariants are mandatory after this refresh:
 
@@ -359,10 +359,11 @@ The following invariants are mandatory after this refresh:
 - configured/cart amounts remain estimates until server quote;
 - Add to cart returns immediately to Menu;
 - Checkout Schedule remains the accepted policy-derived wheel;
-- production Order confirmation consumes persisted backend status only;
-- debug demo orders remain synthetic and never override a persisted order;
+- Order confirmation consumes persisted backend status only;
+- no local/demo order-status provider exists;
 - the production membership action remains member-code copy until referral activation;
 - Privacy/Terms remain explicitly unavailable until real destinations exist;
 - draft SQL is not canonical/deployed migration state.
 
 Detailed audit evidence: `UI_REDESIGN_AUDIT_2026-09-09.md`.
+

@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:aida_customer/application/providers.dart';
 import 'package:aida_customer/core/error/result.dart';

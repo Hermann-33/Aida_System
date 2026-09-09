@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/config/feature_flags.dart';
 import '../../core/error/failures.dart';
 import '../../core/error/result.dart';
 import '../../domain/model/loyalty.dart';
@@ -323,7 +324,35 @@ class SupabaseMemberRepository implements MemberRepository {
   }
 
   @override
-  Future<Result<Points>> getPoints() => _pendingFeatures.getPoints();
+  Future<Result<Points>> getPoints() async {
+    if (!AidaFeatureFlags.referralDraft) {
+      return _pendingFeatures.getPoints();
+    }
+
+    final user = _client.auth.currentUser;
+    if (user == null) {
+      return const Err(AuthFailure('Sign in to load your points'));
+    }
+
+    try {
+      final row =
+          await _client
+              .from('members')
+              .select('points_balance')
+              .eq('user_id', user.id)
+              .single();
+      return Ok(
+        Points(
+          balance: (row['points_balance'] as num).toInt(),
+          asOf: DateTime.now(),
+        ),
+      );
+    } catch (_) {
+      return const Err(
+        ServerFailure('Unable to load your loyalty balance right now'),
+      );
+    }
+  }
 
   @override
   Future<Result<StampCard>> getStampCard() => _pendingFeatures.getStampCard();

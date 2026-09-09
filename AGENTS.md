@@ -13,7 +13,17 @@ Neither frontend owns business truth. Both clients consume the same backend cont
 
 ## New-session bootstrap
 
-For a fresh ChatGPT/Codex conversation, use `docs/context/SESSION_BOOTSTRAP.md`. It contains the permanent copy/paste prompt and directs the agent back to repository-resident truth.
+AIDA now uses the durable agent-context model under `docs/ai/`, following the same pattern used by the Cheaters Market documentation project.
+
+For a fresh ChatGPT/Codex/Claude/Astra session:
+
+1. Read `docs/ai/BOOTSTRAP.md`.
+2. Read `docs/ai/context/CURRENT_STATE.md`.
+3. Read `docs/ai/CONTEXT_MANIFEST.yaml`.
+4. Use `docs/ai/prompts/FRESH_CHAT_BOOTSTRAP.md` as the permanent copy/paste context prompt.
+5. Load only the task-specific prompt/playbook needed after that.
+
+`docs/context/SESSION_BOOTSTRAP.md` remains as a compatibility entry point and points to the canonical `docs/ai/` material.
 
 Do not rely on prior chat history as durable project memory.
 
@@ -21,19 +31,20 @@ Do not rely on prior chat history as durable project memory.
 
 Read in this order:
 
-1. `docs/context/ACTIVE_CONTEXT.md`
-2. `docs/context/PROJECT_BRIEF.md`
-3. `docs/context/ARCHITECTURE.md`
-4. `docs/context/SYSTEM_MAP.md`
-5. `docs/context/SUPABASE_STATUS.md`
-6. `docs/contracts/SHARED_BACKEND_CONTRACT.md`
-7. `docs/context/CODEBASE_MAP.md`
-8. `docs/context/ROADMAP.md`
-9. `docs/context/WORKFLOW.md`
-10. `docs/context/HANDOFF.md`
-11. Relevant `docs/decisions/ADR-*.md`
-12. Relevant customer docs under `docs/frontend/` and dashboard docs under `docs/dashboard/`.
-13. `docs/security/SECURITY_REVIEW.md` when security, authorization, trusted data, payments, loyalty, inventory, staff or audit boundaries are affected.
+1. `docs/ai/context/CURRENT_STATE.md`
+2. `docs/context/ACTIVE_CONTEXT.md`
+3. `docs/context/PROJECT_BRIEF.md`
+4. `docs/context/ARCHITECTURE.md`
+5. `docs/context/SYSTEM_MAP.md`
+6. `docs/context/SUPABASE_STATUS.md`
+7. `docs/contracts/SHARED_BACKEND_CONTRACT.md`
+8. `docs/context/CODEBASE_MAP.md`
+9. `docs/context/ROADMAP.md`
+10. `docs/context/WORKFLOW.md`
+11. `docs/context/HANDOFF.md`
+12. Relevant `docs/decisions/ADR-*.md`
+13. Relevant customer docs under `docs/frontend/` and dashboard docs under `docs/dashboard/`.
+14. `docs/security/SECURITY_REVIEW.md` when security, authorization, trusted data, payments, loyalty, inventory, staff or audit boundaries are affected.
 
 ## Authority order
 
@@ -107,4 +118,4 @@ Where applicable, completion requires UI/client behavior, service/adapter contra
 
 ## Documentation updates
 
-After material work update `ACTIVE_CONTEXT.md`, `HANDOFF.md`, and `AUDIT_LOG.md`; update architecture, system map, Supabase status, contract, codebase map, roadmap, security review or ADRs when their facts change. Shared governance updates must be applied to both repositories in the same task.
+After material work update `ACTIVE_CONTEXT.md`, `HANDOFF.md`, and `AUDIT_LOG.md`; update architecture, system map, Supabase status, contract, codebase map, roadmap, security review or ADRs when their facts change. Run `docs/ai/playbooks/CONTEXT_UPDATE_PROTOCOL.md` when durable agent context changes. Shared governance updates, including `docs/ai/**`, must be applied to both repositories in the same task.

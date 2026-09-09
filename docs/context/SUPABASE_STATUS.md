@@ -181,3 +181,15 @@ Still not implemented as trusted live domains:
 - tax/accounting/reporting;
 - delivery;
 - hosted production operations.
+
+## 2026-09-09 preserved backend drafts
+
+TASK-UI-REDESIGN-004 preserves useful account-deletion and referral/loyalty prototypes under `supabase/drafts/`.
+
+These files are **not live Supabase state** and are deliberately outside `supabase/migrations/`:
+
+- `supabase/drafts/20260826120000_add_customer_account_deletion.sql`;
+- `supabase/drafts/20260828120000_add_referral_program.sql`;
+- `supabase/drafts/tests/account_deletion_integration.sql`.
+
+They must not be listed as applied migrations. Promotion requires a dedicated bounded backend task, a new canonical migration timestamp, replay/regression validation, RLS/security review and advisor checks.

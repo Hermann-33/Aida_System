@@ -1,0 +1,79 @@
+version: 1
+project:
+  name: AIDA Cafe
+  customerRepository: Hermann-33/Aida_System
+  dashboardRepository: Hermann-33/Aida_System-Dashboard
+  backendProjectRef: eswovqxqzfevcdwwcmuh
+  bootstrap: docs/ai/BOOTSTRAP.md
+  currentState: docs/ai/context/CURRENT_STATE.md
+  projectMemory: docs/ai/PROJECT_MEMORY.md
+
+systems:
+  customer-app:
+    paths:
+      - apps/customer/**
+      - docs/frontend/**
+    context:
+      - docs/frontend/STATE_AND_DATA_FLOW.md
+      - docs/frontend/UI_SCREEN_MAP.md
+      - docs/frontend/FRAGILE_BOUNDARIES.md
+      - docs/frontend/MOCKS_AND_PLACEHOLDERS.md
+    prompts:
+      - docs/ai/prompts/CUSTOMER_APP_TASK.md
+
+  dashboard:
+    paths:
+      - src/**
+      - docs/dashboard/**
+    context:
+      - docs/dashboard/STATE_AND_DATA_FLOW.md
+      - docs/dashboard/UI_SCREEN_MAP.md
+      - docs/dashboard/FRAGILE_BOUNDARIES.md
+      - docs/dashboard/MOCKS_AND_PLACEHOLDERS.md
+    prompts:
+      - docs/ai/prompts/DASHBOARD_TASK.md
+
+  shared-backend:
+    paths:
+      - supabase/**
+      - docs/contracts/**
+      - docs/database/**
+      - docs/security/**
+    context:
+      - docs/context/SUPABASE_STATUS.md
+      - docs/contracts/SHARED_BACKEND_CONTRACT.md
+      - docs/contracts/ORDER_AND_SCHEDULING_CONTRACT.md
+      - docs/security/SECURITY_REVIEW.md
+    prompts:
+      - docs/ai/prompts/SHARED_BACKEND_TASK.md
+
+  cross-repository:
+    paths:
+      - docs/context/**
+      - docs/contracts/**
+      - docs/frontend/**
+      - docs/dashboard/**
+      - docs/security/**
+    prompts:
+      - docs/ai/prompts/CROSS_REPO_TASK.md
+      - docs/ai/prompts/DOCUMENTATION_SYNC.md
+
+  release:
+    paths:
+      - .github/workflows/**
+      - apps/customer/android/**
+      - apps/customer/ios/**
+      - package.json
+    prompts:
+      - docs/ai/prompts/RELEASE_AUDIT.md
+
+  project-memory:
+    paths:
+      - AGENTS.md
+      - docs/README.md
+      - docs/ai/**
+      - docs/context/**
+    playbooks:
+      - docs/ai/playbooks/CONTEXT_UPDATE_PROTOCOL.md
+    prompts:
+      - docs/ai/prompts/FRESH_CHAT_BOOTSTRAP.md

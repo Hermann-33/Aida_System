@@ -1,6 +1,6 @@
 # AIDA Café Documentation Model
 
-Updated: 2026-08-12
+Updated: 2026-09-10
 
 AIDA Café uses mirrored project-level documentation because the customer app and POS/Admin dashboard are separate repositories over one shared backend.
 
@@ -10,6 +10,7 @@ The following paths are intended to be byte-for-byte equivalent in both reposito
 
 - root `AGENTS.md`
 - `docs/README.md`
+- `docs/ai/`
 - `docs/context/`
 - `docs/decisions/`
 - `docs/contracts/`
@@ -18,7 +19,7 @@ The following paths are intended to be byte-for-byte equivalent in both reposito
 - `docs/database/`
 - `docs/security/`
 
-`docs/context/SESSION_BOOTSTRAP.md` contains the permanent prompt for starting a new ChatGPT/Codex session. Its purpose is to direct the agent back to the repository-resident source of truth rather than restating the entire project from chat memory.
+`docs/ai/` is the canonical durable agent-context layer. `docs/ai/prompts/FRESH_CHAT_BOOTSTRAP.md` is the permanent copy/paste prompt for a fresh agent; `docs/ai/BOOTSTRAP.md`, `docs/ai/context/CURRENT_STATE.md`, and `docs/ai/CONTEXT_MANIFEST.yaml` reconstruct the project from repository-resident truth. `docs/context/SESSION_BOOTSTRAP.md` remains only as a compatibility entry point.
 
 ## Repository-local evidence
 
@@ -41,6 +42,7 @@ The initial AIDA project setup/governance phase is complete and merged into both
 - Supabase identity/membership foundation;
 - dual-repository/shared-backend architecture;
 - mirrored context, ADRs, security review, backend contract and handoff;
-- permanent new-session bootstrap prompt.
+- permanent new-session bootstrap prompt;
+- mirrored `docs/ai/` project memory, reusable prompts, context manifest and update playbook.
 
 Future implementation work should start from fresh task branches based on `master` and `main`, with project-level documentation kept mirrored as changes occur.

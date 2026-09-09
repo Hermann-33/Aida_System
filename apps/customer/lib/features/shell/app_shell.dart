@@ -8,7 +8,6 @@ import '../card/membership_card_screen.dart';
 import '../cart/widgets/floating_cart_bar.dart';
 import '../home/home_screen.dart';
 import '../menu/menu_screen.dart';
-import '../order_progress/order_progress_capsule.dart';
 import '../profile/profile_screen.dart';
 import '../rewards/rewards_screen.dart';
 
@@ -59,41 +58,12 @@ class AppShell extends ConsumerWidget {
             bottom: _navClearance + navBottomInset,
             child: const FloatingCartBar(),
           ),
-          // Order-progress capsule stacks directly above the cart bar when
-          // both are visible (an active order and a separate in-progress
-          // cart at once), or drops into the cart bar's own slot when the
-          // cart is empty so there's no dead gap.
-          _StackedOrderProgress(navBottomInset: navBottomInset),
         ],
       ),
       bottomNavigationBar: _FloatingNav(
         current: tab,
         onSelect: (t) => ref.read(selectedTabProvider.notifier).select(t),
       ),
-    );
-  }
-}
-
-class _StackedOrderProgress extends ConsumerWidget {
-  const _StackedOrderProgress({required this.navBottomInset});
-
-  final double navBottomInset;
-
-  // Cart bar's own height (24 vertical padding + 30 content row) plus a
-  // gap, so the two capsules never touch when both are showing.
-  static const _cartBarHeight = 64.0;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final cartEmpty = ref.watch(cartProvider).isEmpty;
-    return Positioned(
-      left: 20,
-      right: 20,
-      bottom:
-          AppShell._navClearance +
-          navBottomInset +
-          (cartEmpty ? 0 : _cartBarHeight),
-      child: const OrderProgressCapsule(),
     );
   }
 }

@@ -82,7 +82,7 @@ class AidaApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AidaTheme.light,
       scrollBehavior: _AidaScrollBehavior(),
-      home: const SplashScreen(),
+      home: const SplashScreen(destination: AuthGate()),
     );
   }
 }

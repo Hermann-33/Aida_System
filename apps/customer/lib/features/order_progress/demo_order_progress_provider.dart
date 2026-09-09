@@ -47,10 +47,9 @@ class DemoOrder {
   );
 }
 
-/// Starts empty — a demo order only exists once the customer actually places
-/// one (see [addFromCheckout], called from `cart_screen.dart` right after a
-/// real checkout succeeds), or once staff adds a test order from the Staff
-/// demo screen to exercise the flow without a full checkout each time.
+/// Starts empty. Demo orders are always synthetic and are created only from
+/// developer tooling. Persisted customer orders are intentionally never copied
+/// into this provider, so debug demonstrations cannot become order authority.
 class DemoOrderProgress extends Notifier<List<DemoOrder>> {
   @override
   List<DemoOrder> build() => const [];

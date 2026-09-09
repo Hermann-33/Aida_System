@@ -3,168 +3,188 @@
 **Date:** 2026-09-09  
 **Source branch:** `customer-app-redesign`  
 **Integration branch:** `codex/task-ui-redesign-004-audit-integration`  
-**Default branch:** `master`  
-**Scope:** customer Flutter presentation only
+**Default branch:** `master`
 
-## Audit verdict
+## Integration decision
 
-The source branch was **not merge-safe as-is** even though its primary intent was a customer UI refresh.
+The source branch mixed production-ready UI work with useful but unfinished backend/domain work and developer demo tooling. The final integration therefore preserves all work that has credible future value, but separates **presence in source control** from **production activation**.
 
-Relative to `master`, it also contained:
+Three rules govern the merge:
 
-- unapplied customer-account-deletion and referral Supabase migrations;
-- referral/points client integration coupled to those unapplied migrations;
-- a local demo order-progress provider that could override the real persisted order status;
-- a customer-visible Staff demo and developer test controls;
-- unrelated iOS toolchain/generated-project churn;
-- unrelated Dashboard sidebar planning documents;
-- a regression from the accepted checkout animation implementation.
+1. accepted customer UI/branding changes are active normally;
+2. future backend-dependent client paths are compile-time gated off by default;
+3. developer/demo order tooling is retained under `kDebugMode` and is isolated from real persisted orders.
 
-Those changes were excluded from this UI integration.
+Unfinished SQL is preserved under `supabase/drafts/`, not `supabase/migrations/`, so normal migration replay/push tooling cannot silently deploy it.
 
-The integration branch retains only the reviewed presentation delta plus tests/assets needed by that presentation.
+## Accepted active UI changes
 
-## Accepted presentation changes
+### Branding/startup
 
-### App startup and branding
-
-- bundled AIDA splash video with fail-through/tap-to-skip behavior;
-- refreshed Android/iOS launcher artwork;
-- startup still hands off to the existing `AuthGate`; Splash owns no authentication state.
+- refreshed Android and iOS launcher artwork;
+- bundled AIDA splash video with tap-to-skip/fail-through;
+- Splash receives the existing `AuthGate` as its destination and owns no auth state.
 
 ### Shared feedback
 
-- new `AidaPopup` top overlay replaces scattered customer SnackBar presentation;
-- popup uses the existing cream/coffee/espresso/gold type and surface language;
-- popup state is transient UI only.
+- `AidaPopup` provides a consistent top-overlay feedback treatment using existing AIDA colors/type.
 
-### Home
+### Home / Menu
 
-- refreshed layout/spacing and visual hierarchy;
-- existing catalogue and loyalty/provider boundaries are unchanged;
-- favorites remain local presentation state.
-
-### Menu
-
-- search field added as local filtering over the already-authoritative catalogue snapshot;
-- category/favorites browsing remains catalogue/local presentation;
-- add-on catalogue rows remain excluded from normal product browsing.
+- refreshed hierarchy, spacing and presentation;
+- Menu search is local filtering over the authoritative catalogue snapshot;
+- add-on catalogue rows remain excluded from ordinary product browsing.
 
 ### Item detail
 
-- Size, Temperature and Sweetness use one consistent rounded choice-card language;
-- Hot/Iced may show context icons; availability/default/pricing still comes from the catalogue;
-- add-ons remain per-line catalogue compatibility;
-- local configured total remains an estimate;
-- successful Add to cart still returns immediately to Menu.
+- unified rounded-card language for Size, Temperature and Sweetness;
+- Hot/Iced contextual icons where appropriate;
+- availability/defaults/pricing remain catalogue-owned;
+- compatible add-ons remain per-line;
+- configured total is local estimate only;
+- Add to cart still returns immediately to Menu.
 
-### Cart
+### Cart / Checkout
 
-- presentation/spacing refinements retained;
-- line identity, option/add-on state and quote-before-place behavior are unchanged;
-- cart still clears only after persisted placement succeeds.
+- presentation refinements retained;
+- authoritative quote-before-place remains unchanged;
+- Schedule remains the accepted policy-derived wheel;
+- no local opening-hours/capacity authority was introduced.
 
 ### Membership QR
 
 - refreshed ticket/hero treatment;
-- QR payload remains the server-owned member code and continues to support the existing offline-critical path;
-- the new corner action copies the existing member code to the clipboard; it does **not** claim or implement a referral program.
+- QR still encodes the trusted member code;
+- default production action copies the member code;
+- referral sharing is present but hidden unless `AIDA_ENABLE_REFERRAL_DRAFT=true`.
 
 ### Order confirmation
 
-- refreshed background and liquid-stage tracker presentation;
-- the tracker consumes the real persisted `OrderSnapshot.status`;
-- no local timer/provider can manufacture Preparing/Ready/Completed.
+- refreshed image/background and liquid stage tracker;
+- production order status still comes only from persisted backend snapshots + invalidation/refetch;
+- demo status never overrides a real order.
 
-### Profile and Settings
+### Profile / Settings / Rewards / Shell
 
-- Profile receives a collapsing header/bento presentation and clearer Settings entry;
-- developer-only Staff demo/Test error/Test popup rows from the source branch are excluded;
-- Settings is presentation over existing providers/actions;
-- Privacy and Terms are explicitly disabled as `Coming soon`;
-- no account-deletion action is included until the backend deletion contract is separately approved and implemented.
+- collapsing Profile header and bento actions;
+- new Settings visual surface;
+- refreshed Rewards ticket/voucher presentation;
+- bottom navigation labels and safe-area spacing;
+- Privacy and Terms remain explicitly unavailable until real destinations exist.
 
-### Rewards
+## Preserved future work
 
-- refreshed voucher/ticket presentation;
-- existing mixed-data boundary remains explicit: trusted member identity plus deferred/mock loyalty surfaces where already documented;
-- redemption does not become authoritative through the redesign.
+### Account deletion
 
-### Shell/navigation
+Preserved prototype SQL:
 
-- existing five-tab architecture remains;
-- nav buttons gain visible text labels and improved safe-area clearance;
-- floating cart remains local intent/estimate presentation;
-- the source branch's demo order-progress capsule is excluded.
+`supabase/drafts/20260826120000_add_customer_account_deletion.sql`
 
-## Explicitly rejected from the source branch
+Preserved prototype regression:
 
-The audited integration does **not** include:
+`supabase/drafts/tests/account_deletion_integration.sql`
 
-- `20260826120000_add_customer_account_deletion.sql`;
-- `20260828120000_add_referral_program.sql`;
-- `account_deletion_integration.sql`;
-- referral-code signup UI;
-- real `points_balance` reads/fallback logic introduced by the referral draft;
-- customer account deletion RPC/UI;
-- `DemoOrderProgress`, `OrderProgressCapsule`, or `StaffDemoScreen`;
-- developer-only Profile test controls;
-- the bright-blue referral/share action;
-- unrelated Dashboard sidebar docs;
-- unrelated iOS generated/toolchain changes;
-- the deprecated checkout `axisAlignment` regression.
+The customer repository also retains the account-deletion repository/Auth/UI path behind:
 
-## Trust-boundary result
+`AIDA_ENABLE_ACCOUNT_DELETION_DRAFT=true`
 
-The integration branch changes no canonical Supabase migration, RPC, RLS policy, customer Auth repository contract, order repository contract, pricing authority, scheduling authority, or persisted status authority.
+Default production builds keep it disabled.
 
-The accepted order boundary remains:
+Before activation, the draft must be promoted through a dedicated privacy task with a new canonical migration timestamp, RLS/security review, executable regression, live advisor checks, anonymisation/retention review and deployed-backend validation.
+
+### Referral / real points
+
+Preserved prototype SQL:
+
+`supabase/drafts/20260828120000_add_referral_program.sql`
+
+Client signup metadata, referral field, referral sharing and real `points_balance` read are retained behind:
+
+`AIDA_ENABLE_REFERRAL_DRAFT=true`
+
+When enabled, failure to read the real balance produces an error; it does not silently substitute mock points.
+
+The referral draft should still be reworked around the eventual authoritative loyalty ledger before production activation.
+
+### iOS migration evidence
+
+Potentially useful generated/toolchain observations from the source branch are recorded in:
+
+`docs/frontend/IOS_TOOLCHAIN_DRAFT_2026-08-29.md`
+
+The AppIcon artwork is accepted now. Generated Xcode/CocoaPods state is not copied blindly and must be regenerated/validated during the dedicated iOS/App Store release task.
+
+## Preserved developer/demo work
+
+The following are retained because they are useful for development and UI demonstrations:
+
+- `DemoOrderProgress`;
+- `OrderProgressCapsule`;
+- `StaffDemoScreen`;
+- Profile actions for Staff demo / Test error / Test popup.
+
+They are exposed only when `kDebugMode` is true.
+
+The demo provider creates synthetic `demo-test-*` orders only. The real cart placement flow does not inject persisted orders into the demo provider, and the production order confirmation screen does not consume demo state.
+
+Therefore:
 
 ```text
-customer selection
- -> authoritative quote
- -> persisted placement
- -> backend order status
- -> owner-scoped invalidation/refetch
- -> customer UI
+real order
+ -> Supabase status
+ -> invalidation/refetch
+ -> production UI
 ```
 
-No client-only substitute is permitted in that chain.
+and separately:
 
-## Theme review
+```text
+debug synthetic order
+ -> DemoOrderProgress
+ -> debug capsule/staff demo
+```
 
-The accepted delta continues to use the AIDA customer language:
+The two state machines do not cross.
 
-- cream/ivory page surfaces;
-- coffee/burgundy primary accent;
+## Not carried forward as runtime changes
+
+- deprecated Checkout animation regression;
+- unrelated Dashboard sidebar documents in the customer runtime task;
+- stale/generated iOS project state from a different toolchain;
+- direct canonical deployment of the unfinished account/referral SQL.
+
+## Theme audit
+
+The active redesign remains within the AIDA customer language:
+
+- cream/ivory background;
+- coffee/burgundy accent;
 - espresso text;
 - blush/latte secondary surfaces;
-- Playfair Display for display hierarchy;
-- Plus Jakarta Sans for interface/body copy;
-- rounded cards/controls and soft shadows;
-- existing tactile/neumorphic primary controls.
+- Playfair Display hierarchy;
+- Plus Jakarta Sans UI/body;
+- rounded cards and tactile/neumorphic primary controls.
 
-The redesigned Settings surface introduces a scoped muted pastel utility palette (lavender/tan/mauve/sage/mustard). It remains low-saturation and subordinate to AIDA's cream/coffee shell rather than becoming a competing app-wide theme.
+Settings uses a scoped low-saturation pastel utility palette while remaining inside the cream/coffee shell.
 
-A bright blue membership action present in the source branch was rejected and replaced with AIDA coffee/latte/caramel tokens.
+The source branch's bright-blue membership action was replaced by AIDA coffee/latte/caramel styling.
 
-## Validation
+## Validation and merge gate
 
-Final executable validation is performed by `.github/workflows/customer-release-audit.yml` against the PR head.
+PR #19 runs `.github/workflows/customer-release-audit.yml` against the final integration head.
 
-**Final run:** pending at time of initial audit write.
-
-The merge gate is:
+Required before merge:
 
 - dependency resolution PASS;
 - Flutter analyze PASS;
 - non-golden regressions PASS;
-- golden differences deliberately reviewed;
+- golden suite/evidence reviewed;
 - release APK build PASS;
-- no backend/trust-boundary regression in final diff.
+- final diff contains no new canonical Supabase migration;
+- future flags default false;
+- demo tooling remains debug-only;
+- real order state remains backend-authoritative.
 
 ## Merge strategy
 
-Because the source branch history contains unrelated/non-accepted backend commits, the audited PR must be **squash-merged**.
-
-This ensures `master` receives only the final reviewed UI diff, not the source branch's rejected commit ancestry.
+The source history contains mixed/unaccepted commits. PR #19 must therefore be **squash-merged**, so `master` receives the final audited tree rather than the source branch's mixed commit ancestry.

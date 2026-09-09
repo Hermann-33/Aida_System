@@ -165,12 +165,13 @@ Frontend presentation must not imply those domains are authoritative.
 
 ## 2026-09-09 future-work gating
 
-The customer repository now preserves future account-deletion/referral client code without enabling it in normal production builds.
+The customer repository preserves future account-deletion/referral client code without enabling it in normal production builds.
 
 - `AIDA_ENABLE_ACCOUNT_DELETION_DRAFT` defaults to false.
 - `AIDA_ENABLE_REFERRAL_DRAFT` defaults to false.
 - draft SQL remains outside canonical `supabase/migrations/`.
-- developer order-progress/test controls are gated by `kDebugMode`.
-- persisted customer orders never feed the demo provider, and production order confirmation never consumes demo status.
+- no demo order-progress provider, Staff demo screen, or customer-visible test controls remain in the final integration.
+- production order confirmation consumes persisted backend order state only.
 
-This is source preservation only; it does not expand the current deployed Supabase/Auth/order trust boundary.
+This is source preservation only; it does not expand the currently deployed Supabase/Auth/order trust boundary.
+

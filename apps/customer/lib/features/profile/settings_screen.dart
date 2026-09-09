@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/providers.dart';
+import '../../core/config/feature_flags.dart';
 import '../../core/error/result.dart';
 import '../../core/theme/aida_colors.dart';
 import '../../core/theme/aida_type.dart';
@@ -53,6 +54,60 @@ class SettingsScreen extends ConsumerWidget {
         _toast(context, 'Password reset link sent to $email');
       case Err(:final failure):
         _toast(context, failure.message);
+    }
+  }
+
+  Future<void> _confirmDeleteAccount(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (dialogContext) => AlertDialog(
+            backgroundColor: AidaColors.cardWhite,
+            title: Text(
+              'Delete your account?',
+              style: AidaType.serif(size: 20, color: AidaColors.textPrimary),
+            ),
+            content: Text(
+              'This permanently removes your customer account. Historical '
+              'commercial records may be retained in anonymised form.',
+              style: AidaType.sans(size: 13.5, color: AidaColors.textMuted),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AidaColors.error,
+                  foregroundColor: AidaColors.cream,
+                ),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (_) => const Center(
+            child: CircularProgressIndicator(color: AidaColors.coffee),
+          ),
+    );
+
+    final result = await ref.read(authStateProvider.notifier).deleteAccount();
+    if (!context.mounted) return;
+    Navigator.of(context).pop();
+
+    if (result case Err(:final failure)) {
+      _toast(context, failure.message);
     }
   }
 
@@ -252,17 +307,46 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: _PastelTile(
-              icon: Icons.gavel_rounded,
-              label: 'Terms',
-              subtitle: 'Coming soon',
-              color: _tan,
-              height: 112,
-              onTap: null,
+          if (AidaFeatureFlags.accountDeletionDraft)
+            Row(
+              children: [
+                Expanded(
+                  child: _PastelTile(
+                    icon: Icons.gavel_rounded,
+                    label: 'Terms',
+                    subtitle: 'Coming soon',
+                    color: _tan,
+                    height: 128,
+                    onTap: null,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _PastelTile(
+                    icon: Icons.delete_forever_rounded,
+                    label: 'Delete',
+                    subtitle: 'Account',
+                    color: AidaColors.error.withValues(alpha: 0.85),
+                    height: 128,
+                    iconColor: AidaColors.cream,
+                    textColor: AidaColors.cream,
+                    onTap: () => _confirmDeleteAccount(context, ref),
+                  ),
+                ),
+              ],
+            )
+          else
+            SizedBox(
+              width: double.infinity,
+              child: _PastelTile(
+                icon: Icons.gavel_rounded,
+                label: 'Terms',
+                subtitle: 'Coming soon',
+                color: _tan,
+                height: 112,
+                onTap: null,
+              ),
             ),
-          ),
           const SizedBox(height: 20),
           Center(
             child: Text(

@@ -1,4 +1,6 @@
-# Backend Migrations — 2026-08-29
+# Backend Drafts — 2026-08-29
+
+> **2026-09-09 preservation note:** this file is historical design evidence from the source branch. The SQL prototypes have been moved to `supabase/drafts/` and are **not canonical migrations or live Supabase state**. Runtime client hooks are preserved behind feature gates that default off. The referral-gated real-points path now returns an error on backend failure instead of silently falling back to mock points. Account deletion is also exposed through the repository interface only for the gated draft flow. Any older path names or fallback descriptions below should be read as the original 2026-08-29 draft, superseded by `docs/frontend/UI_REDESIGN_AUDIT_2026-09-09.md` for current integration truth.
 
 Evidence for two drafted Supabase migrations sitting uncommitted on
 `customer-app-redesign` as of 2026-08-29. Both changed shared-backend

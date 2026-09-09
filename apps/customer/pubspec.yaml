@@ -104,6 +104,7 @@ flutter:
     - assets/images/profile_background.jpg
     - assets/images/splash_screen.mp4
     - assets/images/order_confirmed.png
+    - assets/images/capsule_character.png
     - assets/images/favorite_mascot.png
     - assets/images/cat_coffee.png
     - assets/images/cat_iced.png

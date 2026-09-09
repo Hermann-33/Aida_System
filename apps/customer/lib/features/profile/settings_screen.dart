@@ -21,9 +21,9 @@ const _sageDark = Color(0xFFC3D3B6);
 const _mustard = Color(0xFFEACE68);
 const _darkIcon = Color(0xFF3A3530);
 
-/// Account preferences, loyalty stats, and the danger zone (account
-/// deletion) — everything Profile's old separate "My stats" tile would
-/// have shown now lives here too, since it never had a page of its own.
+/// Account preferences and loyalty/order summary. Everything Profile's old
+/// separate "My stats" tile would have shown now lives here too, since it
+/// never had a page of its own.
 ///
 /// Matches the reference's actual structure this time: a masonry grid (a
 /// row of equal squares, then a big tile beside two stacked smaller ones)
@@ -51,75 +51,6 @@ class SettingsScreen extends ConsumerWidget {
     switch (result) {
       case Ok():
         _toast(context, 'Password reset link sent to $email');
-      case Err(:final failure):
-        _toast(context, failure.message);
-    }
-  }
-
-  Future<void> _confirmDeleteAccount(
-    BuildContext context,
-    WidgetRef ref,
-  ) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder:
-          (dialogContext) => AlertDialog(
-            backgroundColor: AidaColors.cardWhite,
-            title: Text(
-              'Delete your account?',
-              style: AidaType.serif(size: 20, color: AidaColors.textPrimary),
-            ),
-            content: Text(
-              'This permanently erases your profile, membership, points, '
-              'and stamps. This cannot be undone.',
-              style: AidaType.sans(size: 13.5, color: AidaColors.textMuted),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: Text(
-                  'Cancel',
-                  style: AidaType.sans(
-                    size: 14,
-                    weight: FontWeight.w700,
-                    color: AidaColors.textMuted,
-                  ),
-                ),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(dialogContext).pop(true),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AidaColors.error,
-                  foregroundColor: AidaColors.cream,
-                ),
-                child: Text(
-                  'Delete',
-                  style: AidaType.sans(size: 14, weight: FontWeight.w700),
-                ),
-              ),
-            ],
-          ),
-    );
-    if (confirmed != true || !context.mounted) return;
-
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder:
-          (_) => const Center(
-            child: CircularProgressIndicator(color: AidaColors.coffee),
-          ),
-    );
-
-    final result = await ref.read(authStateProvider.notifier).deleteAccount();
-    if (!context.mounted) return;
-    Navigator.of(context).pop(); // The progress dialog.
-
-    switch (result) {
-      case Ok():
-        // AuthGate reacts to authStateProvider itself and swaps to
-        // LoginScreen — nothing else to navigate here.
-        break;
       case Err(:final failure):
         _toast(context, failure.message);
     }
@@ -308,14 +239,10 @@ class SettingsScreen extends ConsumerWidget {
                         child: _PastelTile(
                           icon: Icons.description_outlined,
                           label: 'Privacy',
-                          subtitle: 'Policy',
+                          subtitle: 'Coming soon',
                           color: _lavender,
                           height: double.infinity,
-                          onTap:
-                              () => _toast(
-                                context,
-                                'Privacy Policy is coming soon',
-                              ),
+                          onTap: null,
                         ),
                       ),
                     ],
@@ -325,33 +252,16 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: _PastelTile(
-                  icon: Icons.gavel_rounded,
-                  label: 'Terms',
-                  subtitle: 'of Service',
-                  color: _tan,
-                  height: 128,
-                  onTap:
-                      () => _toast(context, 'Terms of Service is coming soon'),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _PastelTile(
-                  icon: Icons.delete_forever_rounded,
-                  label: 'Delete',
-                  subtitle: 'Account',
-                  color: AidaColors.error.withValues(alpha: 0.85),
-                  height: 128,
-                  iconColor: AidaColors.cream,
-                  textColor: AidaColors.cream,
-                  onTap: () => _confirmDeleteAccount(context, ref),
-                ),
-              ),
-            ],
+          SizedBox(
+            width: double.infinity,
+            child: _PastelTile(
+              icon: Icons.gavel_rounded,
+              label: 'Terms',
+              subtitle: 'Coming soon',
+              color: _tan,
+              height: 112,
+              onTap: null,
+            ),
           ),
           const SizedBox(height: 20),
           Center(

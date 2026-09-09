@@ -38,12 +38,9 @@ dependencies:
   go_router: ^17.0.0
   qr_flutter: ^4.1.0
   clock: ^1.1.2
-  # supabase_flutter 2.16.x and shared_preferences 2.5.4+ both raise the
-  # minimum Dart SDK to 3.9, while this project currently declares support
-  # from Dart 3.7 — pinned/capped below those floors until the project's own
-  # SDK constraint moves up.
-  supabase_flutter: 2.15.4
-  shared_preferences: ^2.5.3
+  # 2.16.x raises the minimum Dart SDK to 3.9, while this project currently
+  # declares support from Dart 3.7. Keep the dependency compatible with that floor.
+  shared_preferences: 2.5.5
   timezone: ^0.10.1
   video_player: ^2.10.1
 

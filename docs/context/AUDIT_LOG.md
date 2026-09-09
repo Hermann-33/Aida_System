@@ -1,5 +1,21 @@
 # Audit Log
 
+## 2026-09-10 — TASK-DOC-SYNC-001 mirrored governance and durable AI context
+
+**Verdict:** PARTIAL — documentation content is synchronized on matching task branches in both repositories; default-branch merge remains outstanding.
+
+Started from customer `master` merge head `5dac63de972d9a0761bc817c4ae9ad5079d9385c` and Dashboard `main` head `b8e4b11dbc093106d4f62383dbb0d13ba85001b8`.
+
+The customer default branch had accumulated post-menu-customization governance/frontend changes from the merged PR #19 UI audit that were not yet mirrored into the Dashboard documentation copy. This task mirrored the drifted project/frontend/security files without changing Dashboard runtime code or live Supabase state.
+
+A durable agent-context system modeled after `Hermann-33/Cheaters-Market-Docs/docs/ai/` was added identically to both repositories. It provides a bootstrap sequence, current-state summary, project-memory hierarchy, context manifest, context-update playbook and reusable prompts for fresh sessions, customer tasks, Dashboard tasks, shared-backend tasks, cross-repository tasks, release audits and documentation synchronization.
+
+Root `AGENTS.md`, `docs/README.md`, `docs/context/SESSION_BOOTSTRAP.md` and `docs/context/WORKFLOW.md` now route fresh agents through `docs/ai/`. The canonical copy/paste prompt is `docs/ai/prompts/FRESH_CHAT_BOOTSTRAP.md`; the older Session Bootstrap remains only as a compatibility pointer.
+
+This task also records the post-merge state of `TASK-UI-REDESIGN-004`: PR #19 is merged into customer `master` at `5dac63de972d9a0761bc817c4ae9ad5079d9385c`; demo-only order/status/test tooling is absent; useful account-deletion/referral work remains dormant under feature flags and `supabase/drafts/`; production order status remains Supabase-authoritative.
+
+No canonical Supabase migration, customer runtime source, Dashboard runtime source or live backend state is changed by TASK-DOC-SYNC-001.
+
 ## 2026-09-10 — TASK-UI-REDESIGN-004 audited customer UI refresh
 
 **Verdict:** READY TO MERGE after final PR-head CI; executable code validation is COMPLETE.

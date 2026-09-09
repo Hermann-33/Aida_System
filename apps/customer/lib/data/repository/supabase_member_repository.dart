@@ -67,6 +67,7 @@ class SupabaseMemberRepository implements MemberRepository {
     required String email,
     required String password,
     required bool isStudent,
+    String? referralCode,
   }) async {
     try {
       final response = await _client.auth.signUp(
@@ -75,6 +76,8 @@ class SupabaseMemberRepository implements MemberRepository {
         data: <String, dynamic>{
           'display_name': name.trim(),
           'is_student': isStudent,
+          if (referralCode != null && referralCode.trim().isNotEmpty)
+            'referral_code': referralCode.trim(),
         },
       );
       if (response.user == null) {
@@ -89,6 +92,24 @@ class SupabaseMemberRepository implements MemberRepository {
     } catch (_) {
       return const Err(
         ServerFailure('Unable to create your account right now'),
+      );
+    }
+  }
+
+  @override
+  Future<Result<void>> deleteAccount() async {
+    final userId = _client.auth.currentUser?.id ?? _activeUserId;
+    try {
+      await _client.rpc('delete_own_account');
+      await _client.auth.signOut();
+      if (userId != null) await _bestEffortRemove(userId);
+      _activeUserId = null;
+      return const Ok(null);
+    } on PostgrestException catch (error) {
+      return Err(ServerFailure(error.message));
+    } catch (_) {
+      return const Err(
+        ServerFailure('Unable to delete your account right now'),
       );
     }
   }

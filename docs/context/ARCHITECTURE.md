@@ -207,3 +207,27 @@ Executable evidence:
 ## Explicitly separate authority
 
 Payment settlement/refunds, loyalty, inventory, promotions/discounts, tax/accounting/reporting, branch scheduling/capacity, branch-scoped operations, terminal/sales-point lifecycle, shifts/cash reconciliation, delivery and hosted production remain separate trusted domains.
+
+
+## Branch / operational-scope architecture
+
+ADR-0011 introduces a trusted operational parent for future terminals, shifts, inventory and reporting.
+
+```text
+branches
+  -> employee_branch_assignments
+  -> orders.branch_id
+```
+
+Current authority:
+
+- `BR-MAIN — Main Café` is the single active default branch;
+- every order carries immutable trusted `branch_id`;
+- ordinary staff may read/transition only orders from assigned branches;
+- Admin/Owner remain global operational roles;
+- customer ownership rules are unchanged;
+- existing customer/POS placement requests resolve the active default branch server-side and do not yet send trusted branch IDs.
+
+The Dashboard employee BFF reads branch assignments with the caller JWT and does not invent branch scope in React.
+
+Explicit branch selection, sales points/terminals, shifts, branch inventory, branch hours/closures/capacity and branch-scoped reporting are not part of this foundation.

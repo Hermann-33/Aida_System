@@ -211,7 +211,7 @@ employee assignments      3
 staff without assignment  0
 ```
 
-Dashboard task-branch integration replaces the hardcoded empty `assignedBranchIds` session claim with caller-JWT-backed `employee_branch_assignments` reads and fails closed for ordinary staff with no branch assignment.
+Dashboard task-branch integration replaces the hardcoded empty `assignedBranchIds` session claim with caller-JWT-backed `employee_branch_assignments` reads, fails closed for ordinary staff with no branch assignment, and exposes same-origin BFF/API routes for public/Admin branch reads, branch mutation, Admin employee listing and employee-branch assignment mutation.
 
 Validation gap: the connected SQL inspection role is read-only, so `supabase/tests/branch_authority_integration.sql` is committed but has not been executed against a writable local/dev database in this session.
 

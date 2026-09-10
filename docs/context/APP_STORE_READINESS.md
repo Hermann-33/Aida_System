@@ -1,7 +1,8 @@
 # Apple App Store Readiness Guardrails
 
-**Applies to:** AIDA customer iOS application and any backend behavior exposed by it.  
-**Source of truth:** Apple's current App Review Guidelines and linked Apple Developer guidance. Re-check before every release because the guidelines are living documents.
+**Applies to:** AIDA customer iOS application and backend behavior exposed by it.  
+**Reviewed:** 2026-09-11 against Apple App Review Guidelines last updated 2026-06-08 and Apple's account-deletion guidance.  
+**Source of truth:** Apple's current published guidance; re-check before every release.
 
 Official references:
 
@@ -12,79 +13,98 @@ Official references:
 
 ### Physical goods payments
 
-AIDA sells coffee/food consumed outside the app. Those purchases must use non-IAP payment methods. Do not add StoreKit/In-App Purchase for café orders.
+AIDA sells café food/drink consumed outside the app. These are physical goods/services outside the app and must use non-IAP payment methods. Do not introduce StoreKit/In-App Purchase for café orders.
 
-Future Apple Pay/card/e-wallet integrations belong to the physical-goods payment path.
+Future Apple Pay/card/e-wallet work belongs to the physical-goods payment path.
 
 ### Account creation and deletion
 
-The customer app supports account creation, therefore production iOS must offer an easy-to-find in-app account-deletion initiation flow.
+The customer app supports account creation. Production iOS therefore must provide an easy-to-find in-app path to initiate deletion of the whole account and associated personal data except data legally required to be retained.
 
-Deletion must cover the complete account and associated personal data except data AIDA is legally required to retain. Temporary deactivation alone is not sufficient.
-
-The existing dormant account-deletion draft is not App Store-compliant until it becomes a production, user-accessible path.
+Temporary deactivation alone is insufficient. The current preserved account-deletion draft is not a production-compliant feature until promoted through its dedicated phase.
 
 ### Login boundary
 
-AIDA currently uses its own email/password account system. A separate Apple login option is not required solely because first-party login exists.
+AIDA currently uses its own email/password account system. If third-party/social primary login is added later, re-review the current Apple login requirements before implementation.
 
-If a third-party/social primary login is introduced later, re-review App Review Guideline 4.8 before implementation.
-
-Public catalogue/branch information should remain usable without unnecessary authentication where practical. Account-required features include member identity, loyalty, order ownership/history and other personalized services.
+Public catalogue/branch information should remain usable without unnecessary authentication where practical. Personalized member/order features may require authentication.
 
 ### Privacy and data minimization
 
-Only collect personal data required for a defined feature.
+Only collect data required for a defined feature. For every new personal or device-related field/SDK, document purpose, access, retention/deletion, sharing and permission/consent requirements.
 
-Each new table/field/SDK must document:
-
-- why the data is needed;
-- who can access it;
-- retention/deletion behavior;
-- whether it is shared with a third party;
-- consent or system permission requirements.
-
-Do not request location, camera, contacts, photos, tracking or notification access merely for convenience. Provide non-permission alternatives where reasonable.
+Do not request location, camera, contacts, photos, tracking or notification permission merely for convenience. Prefer non-permission alternatives where practical.
 
 ### Notifications and marketing
 
-Push notifications must not be required for core functionality.
-
-Promotional/direct-marketing notifications require explicit in-app opt-in and an in-app opt-out path.
-
-Transactional order-status notifications must remain distinguishable from marketing preferences.
+Push notifications must not be required for core functionality. Promotional/direct-marketing notification behavior requires explicit user control and must remain distinguishable from transactional order communication.
 
 ### Security
 
-Continue the current AIDA rules:
+Continue AIDA's standing rules:
 
 - public/publishable key only in the customer app;
-- no service-role/secret credentials in the client;
-- trusted prices, roles, identifiers and commercial state validated server-side;
+- no service-role/secret credential in customer code;
+- trusted prices, roles, identifiers and commercial/operational state validated server-side;
 - RLS/authorization around personal data;
 - QR/member possession is not authentication.
 
-### App completeness
+### App completeness/review
 
-App Store submissions must not depend on disabled placeholder features, unavailable backends or hidden functionality.
+Before App Store submission:
 
-Before submission:
+- required backend services must be live and accessible;
+- review credentials/demo mode and any required sample resource must be provided;
+- non-obvious flows should be explained in App Review notes;
+- support/privacy URLs must work;
+- screenshots/metadata must match the submitted build;
+- hidden/dormant development features must not become undocumented accessible production functionality.
 
-- backend services are live;
-- review credentials/sample QR resources are supplied where necessary;
-- all URLs work;
-- significant functionality is disclosed in Notes for Review;
-- screenshots and metadata match the submitted build.
+## Phase 1 review — operational topology
 
-### Hidden/dormant features
+**Task:** `TASK-OPS-002`  
+**Reviewed:** 2026-09-11  
+**Result:** no new App Store blocker introduced.
 
-Draft database scripts or compile-time-disabled development features must not create undocumented accessible functionality in the submitted app.
+```text
+Apple guideline impact:
+- account/login:
+    No customer account/login behavior changed.
 
-Any production feature introduced after review must be documented in the next App Store submission.
+- payments:
+    No processor, StoreKit, Apple Pay, card or e-wallet settlement was added.
+    Existing pay-at-counter/unpaid semantics remain.
 
-## Phase review template
+- privacy/data collected:
+    Phase 1 adds operational branch, sales-point, terminal, employee branch
+    assignment and POS workstation attribution in the backend/Dashboard.
+    No new customer personal-data field was introduced.
 
-At the close of every implementation phase, record:
+- permissions:
+    No iOS protected-data permission was added.
+
+- notifications:
+    No notification behavior changed.
+
+- third-party SDKs:
+    None added by Phase 1.
+
+- review/demo implications:
+    No new customer-app hardware permission or payment flow.
+    Backend must remain available during any future review as already required.
+
+- App Store blocker introduced? no
+```
+
+Operational terminal enrolment is a Dashboard/POS concern and does not require customer iOS hardware permission or expose a terminal credential to the customer app.
+
+## Existing release blocker not caused by Phase 1
+
+Production account deletion remains mandatory before an App Store release candidate because the customer app supports account creation. This is assigned to the dedicated customer privacy/App Store phase and remains intentionally separate from Phase 1.
+
+## Future phase review template
+
+At every phase closeout record:
 
 ```text
 Apple guideline impact:
@@ -98,4 +118,4 @@ Apple guideline impact:
 - App Store blocker introduced? yes/no
 ```
 
-If a phase introduces an App Store blocker, it cannot be marked COMPLETE without an explicit follow-up task in an earlier release gate.
+A phase-created App Store blocker must have an explicit release-gate resolution before an App Store candidate is declared ready.

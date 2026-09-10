@@ -223,6 +223,47 @@ begin
     raise exception 'terminal credential resolved the wrong topology';
   end if;
 
+  -- Removing staff branch scope must invalidate terminal status immediately,
+  -- even though the terminal credential itself is still active.
+  perform set_config(
+    'request.jwt.claims',
+    jsonb_build_object('sub',v_admin_id,'role','authenticated')::text,
+    true
+  );
+  perform public.save_employee_branch_assignments(
+    v_staff_id,
+    array[(select private.default_branch_id())]
+  );
+
+  perform set_config(
+    'request.jwt.claims',
+    jsonb_build_object('sub',v_staff_id,'role','authenticated')::text,
+    true
+  );
+  begin
+    perform public.resolve_terminal_credential(v_credential);
+    raise exception 'removed branch scope still resolved terminal credential';
+  exception when insufficient_privilege then
+    null;
+  end;
+
+  perform set_config(
+    'request.jwt.claims',
+    jsonb_build_object('sub',v_admin_id,'role','authenticated')::text,
+    true
+  );
+  perform public.save_employee_branch_assignments(
+    v_staff_id,
+    array[(select private.default_branch_id()),v_branch_id]
+  );
+
+  perform set_config(
+    'request.jwt.claims',
+    jsonb_build_object('sub',v_staff_id,'role','authenticated')::text,
+    true
+  );
+  select public.resolve_terminal_credential(v_credential) into v_context;
+
   select id into strict v_item_id
   from public.catalogue_items
   where kind='product'

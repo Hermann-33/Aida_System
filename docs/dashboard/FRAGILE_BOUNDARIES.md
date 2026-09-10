@@ -1,99 +1,94 @@
 # POS/Admin Fragile Boundaries
 
-Updated: 2026-08-23
+Updated: 2026-09-11
 
-## High-risk areas
+## Authorization/session boundary
 
-- `src/App.tsx` / `ProtectedRoute`: UI route guards are presentation only; same-origin BFF + Supabase remain authorization authority.
-- `src/auth/`: employee session semantics must not regress from HttpOnly cookies into browser-readable bearer tokens.
-- `src/pages/EmployeeWelcomePage.tsx` / `PosShellPage.tsx`: live staff access must remain independent of deferred terminal/shift authority; preview repositories stay preview-only.
-- `src/features/catalogue/catalogueClient.ts`: shared catalogue decoding must retain `isDrink`, `customizationGroups`, variants and compatible add-ons without inventing commercial defaults client-side. Older/missing customization arrays may safely decode to empty presentation state, but malformed trusted fields must not be used as new authority.
-- `src/features/admin/AdminMenuEditorPage.tsx`: drink option controls must preserve at least one available option and exactly one available default per required group; client validation supplements but never replaces backend validation.
-- `src/features/pos/posCatalogue.ts` / `ModifierSheet.tsx`: variants and Temperature/Sweetness are required single-choice groups; compatible add-ons are optional multi-select. Do not collapse this into global/per-order modifier state.
-- `src/features/orders/orderClient.ts`: `optionValueIds` are selection IDs only. Do not add product/option prices, labels or totals as trusted placement input. `scheduleState`/`prepareAt` also remain server projections.
-- Local POS cart arithmetic is estimate-only. Server quote is commercial authority.
-- `src/preview/`: fixtures must never be promoted to live business truth.
-- Manager approval/void/refund/cancel previews are not trusted privilege boundaries.
-- Shift/cash, branch/terminal, loyalty, inventory and reporting remain deferred authority domains.
-- Preview/live build gates must remain fail-closed against preview/auth bypass.
+- React route guards are presentation only; same-origin BFF + Supabase remain authorization authority.
+- Employee session semantics must not regress from HttpOnly cookies to browser-readable bearer tokens.
+- `assignedBranchIds` must come from `employee_branch_assignments`, never preview fixtures/browser storage.
+- Ordinary staff with no trusted branch assignment must fail closed.
+- Admin/Owner are intentionally global for the current tranche; do not generalize that scope to ordinary staff.
 
-## Cross-repo modifier fragility
+## Terminal authority boundary
 
-Customer Flutter and Dashboard/POS must remain contract-compatible on:
+Terminal authority is now live and must not regress to preview/local identifiers.
 
-```text
-catalogue item IDs
-variant IDs
-option group/value IDs
-compatible add-on IDs
-option/add-on availability/default semantics
-integer-sen price deltas
-order option snapshots
-pricingVersion
-```
+- real terminal credential stays in an HttpOnly BFF cookie;
+- React may consume only trusted terminal status/location projections;
+- one-time enrolment code possession alone is insufficient—backend employee branch authorization is required;
+- removing employee branch scope must immediately prevent that employee from using the terminal in that branch;
+- revoking a terminal must immediately prevent resolution/new placement;
+- browser-supplied `branchId`, `salesPointId` or `terminalId` must never replace credential resolution;
+- credentialless `place_pos_order(jsonb)` must remain unavailable to authenticated live clients;
+- accepted order topology attribution is immutable.
 
-A change to the standard option template, option-group requirements, ID shape or quote payload is a cross-repository contract change, not an isolated frontend edit.
+Do not write the terminal credential to localStorage, sessionStorage, URL parameters, logs or normal React state.
 
-## Per-line independence
+## Operational topology boundary
 
-Cart equality/identity must include option/add-on selections.
+`branches`, `sales_points` and `terminals` are trusted backend entities.
 
-These configurations must never merge implicitly:
+- fixture IDs must never be promoted to backend foreign keys;
+- Admin live pages must use the operational BFF/API rather than session-local records;
+- explicit UI Preview may continue to show fixtures but cannot call them trusted state;
+- FORCE-RLS and controlled mutation RPCs must remain intact;
+- authenticated SELECT on sales points/terminals must remain RLS-constrained to Admin/Owner rather than becoming public directory access.
 
-```text
-Latte · Hot · Regular · no add-on
-Latte · Iced · Less sweet · Boba
-```
+## POS/order boundary
 
-Do not reintroduce a global Add-ons ordering section/state that cannot identify the target drink.
+- local cart arithmetic is estimate-only; server quote is commercial authority;
+- order intents contain selection/fulfilment data, not trusted prices/totals or topology IDs;
+- POS placement requires employee session plus valid terminal credential;
+- customer placement remains terminal-free;
+- `clientRequestId` retry semantics must remain stable;
+- `orders.branchId`, `salesPointId` and `terminalId` are backend truth and must not be rewritten from workstation state.
 
-## Admin option rules
+## Catalogue/modifier boundary
 
-- An unavailable option cannot remain the active default.
-- Every required group needs at least one available option and exactly one available default.
-- Customer-facing labels may change without changing stable option IDs.
-- Price deltas are integer sen and remain backend-authoritative.
-- Disabling an option changes future availability only; historical order snapshots must remain unchanged.
-- Preview Admin must remain read-only.
+- shared catalogue decoding must preserve variants, customization groups and compatible add-ons without inventing commercial defaults client-side;
+- required drink groups need one available default;
+- client validation supplements backend validation only;
+- cart identity must include option/add-on selections so distinct configured drinks never merge implicitly;
+- unavailable catalogue state cannot be bypassed with preview data.
 
-## UI/theme rules
+## Scheduling/fulfilment boundary
 
-New modifier/Admin UI must reuse the existing Dashboard token/component language:
+- customer/POS display may say `Now`; shared wire value remains `asap`;
+- do not manufacture schedule slots or branch hours locally;
+- do not reconstruct authoritative `scheduleState` from workstation time;
+- reaching `prepareAt` never auto-transitions an order;
+- legal fulfilment mutations require expected `statusVersion` and server authorization.
 
-- `src/styles/tokens.css` colors/spacing/radii;
-- Plus Jakarta Sans / Playfair typography;
-- existing modifier cards/forms/buttons;
-- visible focus behavior and reduced-motion handling.
+Branch hours/closures/capacity and explicit customer pickup branch remain Phase 4 and must not be inferred from current branch/terminal topology.
 
-Do not import Luckin/reference-app branding or create a second modifier design system.
+## Preview boundary
 
-Unavailable/selected/required state must not rely on color alone.
+`src/preview/` remains demonstration-only. Preview staff, branch, sales-point, terminal, shift, inventory, payment and reporting values must never authorize live APIs or become persisted business truth.
 
-## Scheduling / fulfilment rules
+The Phase 1 change is specifically that branches/sales points/terminals now also have a separate trusted live path. Preview copies are still non-authoritative.
 
-- Customer/POS display may say `Now`, but the shared wire enum remains `asap` until a coordinated contract change.
-- Do not manufacture valid schedule slots or branch hours locally.
-- Do not recreate `scheduleState` from workstation time or auto-transition orders.
-- Keep legal versioned fulfilment transitions and conflict refetch behavior.
+## Still deferred high-risk domains
 
-## Change rules
+- shift/cash lifecycle and variance approval;
+- employee Auth-user creation/role mutation/badge-PIN lifecycle;
+- branch hours/capacity/customer branch selection;
+- inventory/recipes/depletion;
+- loyalty/rewards;
+- promotions;
+- reporting/accounting;
+- payment/refunds;
+- printer/KDS/payment-device integration;
+- delivery/hosted production.
 
-- Define/modify server authority before changing trusted modifier semantics.
-- Coordinate option/add-on/order payload changes across both repositories.
-- Keep terminal/shift rails preview-only until their authoritative schema/BFF exists.
-- Preserve explicit preview labeling for deferred domains.
-- Do not silently change shared lifecycle strings/IDs.
-- Keep local estimates clearly subordinate to quote results.
+Do not wire a later domain against preview identifiers simply because its UI already exists.
 
-TASK-MENU-CUSTOMIZATION-001 validation evidence is in `docs/context/MENU_CUSTOMIZATION_2026-08-23.md`.
+## Cross-repository change rule
 
+Changes to shared IDs, order payloads, terminal credential semantics, staff branch scope, scheduling state or lifecycle strings are coordinated backend + Dashboard/customer contract changes. Update accepted ADRs/contracts and both mirrored governance sets before treating them as complete.
 
-## Branch authority fragility
+## Phase 1 audit boundary
 
-- `assignedBranchIds` is now trusted session data loaded from `employee_branch_assignments`; never repopulate it from preview fixtures or browser storage.
-- ordinary staff with no trusted branch assignment must fail closed.
-- Admin/Owner are intentionally global for this tranche; do not infer that ordinary staff are global.
-- `orders.branchId` is persisted backend truth and must not be rewritten from workstation/UI state.
-- current placement is default-branch compatible; adding a client `branchId` field without coordinated server validation is a contract violation.
-- Admin Locations/Employees UI remains preview until explicitly wired to `/api/v1/admin/branches*` and `/api/v1/admin/employees*`.
-- sales-point/terminal/shift fixture identifiers remain untrusted and must not be used as foreign keys in future migrations.
+`TASK-OPS-002` is `COMPLETE`; evidence is in `docs/context/PHASE_1_OPERATIONAL_TOPOLOGY_CLOSEOUT_2026-09-11.md`.
+
+PR #20 and PR #17 are frozen for Astra. Phase 2 must not begin until Astra findings are resolved or explicitly accepted.

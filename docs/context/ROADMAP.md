@@ -61,3 +61,26 @@ Do not conflate these deferred domains with the completed closeout tranche. Futu
 6. branch-scoped staff/order visibility and branch hours/capacity;
 7. delivery;
 8. hosted production deployment, signing/distribution and operational release work.
+
+
+## 2026-09-10 backend completion sequence
+
+The remaining backend is now being completed in dependency order rather than by wiring isolated preview screens.
+
+Current task:
+
+1. **TASK-OPS-001 branch/location authority** — live backend foundation deployed; repository validation/integration remains PARTIAL.
+
+Recommended dependency chain after this foundation:
+
+2. trusted sales points + terminal/device authority;
+3. shift lifecycle + cash-opening/closing/variance authority;
+4. branch hours/closures/capacity and explicit pickup-location selection;
+5. inventory items, recipes, stock movements and order depletion;
+6. authoritative loyalty ledger, rewards/vouchers and redemption;
+7. promotions/discount calculation authority;
+8. trusted sales/tax/accounting/reporting projections and export;
+9. external payment capture/refunds and accounting integration;
+10. hosted production/release operations.
+
+This order prevents terminals, inventory, loyalty and reporting from being built on fake global-branch or session-local identifiers.

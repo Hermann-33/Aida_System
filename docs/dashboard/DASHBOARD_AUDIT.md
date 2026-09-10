@@ -81,3 +81,20 @@ Current Supabase security advisor has one WARN: leaked-password protection disab
 ## Historical baseline note
 
 The original TASK-WF-002/TASK-MENU-001 audits correctly described a much earlier preview-first state. Those measurements remain historical evidence only. Current system truth is maintained in `docs/context/ACTIVE_CONTEXT.md`, `SUPABASE_STATUS.md`, `CLOSEOUT_EVIDENCE_2026-08-17.md`, the accepted ADRs/contracts, and this updated audit.
+
+
+## 2026-09-10 branch authority update
+
+Trusted branch scope is no longer wholly deferred.
+
+Backend/BFF authority now exists for:
+
+- active public branch directory;
+- Admin/Owner full branch directory and mutation;
+- trusted employee branch assignments;
+- employee session `assignedBranchIds` loaded with the caller JWT;
+- ordinary staff branch-scoped order queue/detail/status authorization;
+- immutable branch identity in order snapshots;
+- Admin employee directory and branch-assignment mutation endpoints.
+
+The existing `AdminLocationsPage.tsx` and `AdminEmployeesPage.tsx` are still session-local preview UI and are **not yet wired** to these APIs. Sales points, terminals, shifts, branch hours/capacity and inventory remain deferred.

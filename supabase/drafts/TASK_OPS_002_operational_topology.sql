@@ -111,7 +111,8 @@ on conflict (code) do nothing;
 
 create or replace function private.terminal_context_impl(
   p_credential text,
-  p_touch boolean default true
+  p_touch boolean,
+  p_actor_user_id uuid
 )
 returns jsonb
 language plpgsql
@@ -131,6 +132,13 @@ declare
   v_credential_expires_at timestamptz;
   v_now timestamptz := now();
 begin
+  if p_actor_user_id is null
+     or p_actor_user_id is distinct from (select auth.uid())
+     or not (select private.is_staff_or_above()) then
+    raise exception 'employee authentication required for terminal access'
+      using errcode = '42501';
+  end if;
+
   if p_credential is null or char_length(p_credential) < 40 then
     raise exception 'terminal credential is invalid' using errcode = '42501';
   end if;
@@ -822,11 +830,15 @@ returns jsonb
 language sql
 security invoker
 set search_path = public, pg_temp
-as $$
-  select private.terminal_context_impl(p_credential, true);
-$$;
+as $
+  select private.terminal_context_impl(
+    p_credential,
+    true,
+    (select auth.uid())
+  );
+$;
 
-revoke all on function private.terminal_context_impl(text, boolean)
+revoke all on function private.terminal_context_impl(text, boolean, uuid)
 from public, anon, authenticated;
 revoke all on function private.enrol_terminal_impl(text, uuid)
 from public, anon, authenticated;
@@ -839,9 +851,9 @@ from public, anon, authenticated;
 revoke all on function private.revoke_terminal_impl(uuid, uuid)
 from public, anon, authenticated;
 
-grant usage on schema private to anon, authenticated;
-grant execute on function private.terminal_context_impl(text, boolean)
-to anon, authenticated;
+grant usage on schema private to authenticated;
+grant execute on function private.terminal_context_impl(text, boolean, uuid)
+to authenticated;
 grant execute on function private.enrol_terminal_impl(text, uuid)
 to authenticated;
 grant execute on function private.issue_terminal_enrolment_code_impl(uuid, uuid)
@@ -881,7 +893,7 @@ to authenticated;
 grant execute on function public.enrol_terminal(text)
 to authenticated;
 grant execute on function public.resolve_terminal_credential(text)
-to anon, authenticated;
+to authenticated;
 
 alter table public.orders
   add column sales_point_id uuid,
@@ -1052,8 +1064,11 @@ begin
         using errcode = '42501';
     end if;
 
-    v_terminal_context :=
-      private.terminal_context_impl(p_terminal_credential, true);
+    v_terminal_context := private.terminal_context_impl(
+      p_terminal_credential,
+      true,
+      p_actor_user_id
+    );
 
     v_branch_id := (v_terminal_context ->> 'branchId')::uuid;
     v_sales_point_id := (v_terminal_context ->> 'salesPointId')::uuid;

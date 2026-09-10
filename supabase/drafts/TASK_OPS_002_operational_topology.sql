@@ -810,12 +810,12 @@ returns jsonb
 language sql
 security invoker
 set search_path = public, pg_temp
-as $
+as $$
   select private.enrol_terminal_impl(
     p_code,
     (select auth.uid())
   );
-$;
+$$;
 
 create or replace function public.resolve_terminal_credential(p_credential text)
 returns jsonb

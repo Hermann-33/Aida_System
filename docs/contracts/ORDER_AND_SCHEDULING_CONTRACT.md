@@ -301,3 +301,24 @@ Still separate bounded tasks:
 - tax/accounting/reporting;
 - delivery;
 - hosted production operations.
+
+
+## Branch authority extension
+
+Every persisted order now has immutable trusted `branch_id`.
+
+Order snapshots expose:
+
+```text
+branchId
+branch.id
+branch.code
+branch.name
+branch.timezone
+```
+
+For current backward compatibility, `quote_order` and placement payloads do not yet require a branch selector. `place_customer_order` and `place_pos_order` persist the active default branch through the server-owned order path.
+
+Ordinary staff queue access and `transition_order_status` are authorized against `employee_branch_assignments`. Admin/Owner remain global operational roles for this tranche.
+
+Branch opening hours, closures, capacity and branch-specific schedule policy remain unimplemented. The existing singleton scheduling policy therefore still governs accepted pickup times until a later branch-scheduling contract supersedes it.

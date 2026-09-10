@@ -141,3 +141,21 @@ New/updated customer areas:
 
 Demo-only order-progress provider/capsule/staff-test tooling is intentionally absent from the final tree.
 
+
+
+## TASK-OPS-001 branch authority additions
+
+### Canonical Supabase migrations
+
+- `supabase/migrations/20260910014434_create_branch_location_authority.sql` — trusted branch directory, employee assignments, immutable order branch identity, branch-scoped order authorization and Admin/Owner branch RPCs.
+- `supabase/migrations/20260910014457_index_employee_branch_assignment_actor.sql` — FK-supporting actor index identified by the Supabase performance advisor.
+- `supabase/tests/branch_authority_integration.sql` — transactional branch/RLS/role/order-scope regression; committed but not executed in this session because the connected inspection role is read-only.
+
+### Dashboard employee session
+
+- `server/employeeBff.ts` on `codex/task-ops-001-branch-authority` reads `employee_branch_assignments` with the authenticated employee caller JWT and returns real `assignedBranchIds`.
+- ordinary staff with no trusted assignment fail closed with `EMPLOYEE_BRANCH_REQUIRED`;
+- Admin/Owner preserve global operational authority for this tranche;
+- `server/employeeBff.test.ts` covers branch-claim mapping and missing-assignment failure.
+
+The existing `AdminLocationsPage.tsx` and `AdminEmployeesPage.tsx` remain preview/session-local presentation until their dedicated BFF/API wiring task. Their fixture branch data is not backend authority.

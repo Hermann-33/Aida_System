@@ -200,7 +200,10 @@ begin
 end;
 $$;
 
-create or replace function private.enrol_terminal_impl(p_code text)
+create or replace function private.enrol_terminal_impl(
+  p_code text,
+  p_actor_user_id uuid
+)
 returns jsonb
 language plpgsql
 security definer
@@ -222,6 +225,13 @@ declare
   v_expires_at timestamptz := now() + interval '180 days';
   v_now timestamptz := now();
 begin
+  if p_actor_user_id is null
+     or p_actor_user_id is distinct from (select auth.uid())
+     or not (select private.is_staff_or_above()) then
+    raise exception 'employee authentication required for terminal enrolment'
+      using errcode = '42501';
+  end if;
+
   p_code := upper(btrim(coalesce(p_code, '')));
   if char_length(p_code) < 8 or char_length(p_code) > 64 then
     raise exception 'enrolment code is invalid or expired'
@@ -271,6 +281,11 @@ begin
 
   if v_terminal_code is null then
     raise exception 'terminal is unavailable for enrolment'
+      using errcode = '42501';
+  end if;
+
+  if not (select private.can_operate_branch(v_branch_id)) then
+    raise exception 'employee is not authorized for the terminal branch'
       using errcode = '42501';
   end if;
 
@@ -795,9 +810,12 @@ returns jsonb
 language sql
 security invoker
 set search_path = public, pg_temp
-as $$
-  select private.enrol_terminal_impl(p_code);
-$$;
+as $
+  select private.enrol_terminal_impl(
+    p_code,
+    (select auth.uid())
+  );
+$;
 
 create or replace function public.resolve_terminal_credential(p_credential text)
 returns jsonb
@@ -810,7 +828,7 @@ $$;
 
 revoke all on function private.terminal_context_impl(text, boolean)
 from public, anon, authenticated;
-revoke all on function private.enrol_terminal_impl(text)
+revoke all on function private.enrol_terminal_impl(text, uuid)
 from public, anon, authenticated;
 revoke all on function private.issue_terminal_enrolment_code_impl(uuid, uuid)
 from public, anon, authenticated;
@@ -824,8 +842,8 @@ from public, anon, authenticated;
 grant usage on schema private to anon, authenticated;
 grant execute on function private.terminal_context_impl(text, boolean)
 to anon, authenticated;
-grant execute on function private.enrol_terminal_impl(text)
-to anon, authenticated;
+grant execute on function private.enrol_terminal_impl(text, uuid)
+to authenticated;
 grant execute on function private.issue_terminal_enrolment_code_impl(uuid, uuid)
 to authenticated;
 grant execute on function private.save_sales_point_impl(jsonb, uuid)
@@ -861,7 +879,7 @@ to authenticated;
 grant execute on function public.revoke_terminal(uuid)
 to authenticated;
 grant execute on function public.enrol_terminal(text)
-to anon, authenticated;
+to authenticated;
 grant execute on function public.resolve_terminal_credential(text)
 to anon, authenticated;
 

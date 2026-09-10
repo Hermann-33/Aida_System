@@ -101,3 +101,39 @@ The customer repository owns transactional SQL regressions for:
 - order pricing, compatibility, scheduling, identity derivation, idempotency, owner-scoped reads, direct-DML denial, staff queue/POS behavior and legal/stale/terminal fulfilment transitions.
 
 Synthetic test rows roll back and do not replace approved live/demo state.
+
+
+## Branch / operational scope foundation
+
+Live branch tables:
+
+- `branches` — stable branch UUID/code/name, timezone, contact/location text, active/default state;
+- `employee_branch_assignments` — trusted employee-to-branch operational scope.
+
+`orders.branch_id` is now non-null, foreign-keyed to `branches` and immutable after placement.
+
+Current seed:
+
+```text
+BR-MAIN — Main Café
+timezone Asia/Kuala_Lumpur
+active/default
+```
+
+Authorization model:
+
+- customer order ownership remains customer-scoped;
+- ordinary staff can read/transition only assigned-branch orders;
+- Admin/Owner remain global;
+- public clients can read active branch directory data only;
+- branch and assignment mutation is controlled by Admin/Owner RPCs;
+- all branch tables use RLS + FORCE RLS.
+
+Live migrations:
+
+```text
+20260910014434 create_branch_location_authority
+20260910014457 index_employee_branch_assignment_actor
+```
+
+Sales points, terminals, shifts/cash, branch inventory and branch scheduling capacity are not yet modeled.

@@ -167,6 +167,7 @@ declare
   v_policy jsonb;
   v_expected_unit integer;
   v_expected_pos_total integer;
+  v_terminal_id uuid;
   v_terminal_issue jsonb;
   v_terminal_enrol jsonb;
   v_terminal_credential text;
@@ -278,9 +279,15 @@ begin
     jsonb_build_object('sub', v_admin_id, 'role', 'authenticated')::text,
     true
   );
-  select public.issue_terminal_enrolment_code(
-    (select id from public.terminals where code = 'POS-MAIN-01')
-  ) into v_terminal_issue;
+  select (terminal ->> 'id')::uuid
+  into strict v_terminal_id
+  from jsonb_array_elements(public.list_admin_operational_locations()) branch,
+       jsonb_array_elements(branch -> 'salesPoints') sales_point,
+       jsonb_array_elements(sales_point -> 'terminals') terminal
+  where terminal ->> 'code' = 'POS-MAIN-01';
+
+  select public.issue_terminal_enrolment_code(v_terminal_id)
+  into v_terminal_issue;
 
   perform set_config(
     'request.jwt.claims',

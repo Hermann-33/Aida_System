@@ -86,3 +86,14 @@ Unavailable/selected/required state must not rely on color alone.
 - Keep local estimates clearly subordinate to quote results.
 
 TASK-MENU-CUSTOMIZATION-001 validation evidence is in `docs/context/MENU_CUSTOMIZATION_2026-08-23.md`.
+
+
+## Branch authority fragility
+
+- `assignedBranchIds` is now trusted session data loaded from `employee_branch_assignments`; never repopulate it from preview fixtures or browser storage.
+- ordinary staff with no trusted branch assignment must fail closed.
+- Admin/Owner are intentionally global for this tranche; do not infer that ordinary staff are global.
+- `orders.branchId` is persisted backend truth and must not be rewritten from workstation/UI state.
+- current placement is default-branch compatible; adding a client `branchId` field without coordinated server validation is a contract violation.
+- Admin Locations/Employees UI remains preview until explicitly wired to `/api/v1/admin/branches*` and `/api/v1/admin/employees*`.
+- sales-point/terminal/shift fixture identifiers remain untrusted and must not be used as foreign keys in future migrations.

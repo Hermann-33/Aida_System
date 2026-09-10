@@ -1,86 +1,145 @@
 # Roadmap
 
-Updated: 2026-08-17
+Updated: 2026-09-11
 
-## Current tranche
+## Current status
+
+Phase 1 — operational topology — is `COMPLETE` and frozen for Astra audit.
+
+Matching audit PRs:
+
+```text
+Customer/backend PR #20
+Dashboard/POS PR #17
+```
+
+Do not merge the Phase 1 PRs as part of the closeout. Do not begin Phase 2 until Astra findings are resolved or explicitly accepted.
+
+Detailed Phase 1 evidence:
+
+`docs/context/PHASE_1_OPERATIONAL_TOPOLOGY_CLOSEOUT_2026-09-11.md`
+
+## Trusted foundation now complete
 
 Implemented and validated to the current closeout standard:
 
 - governance and shared-backend ownership;
-- trusted identity/member foundation;
-- customer Supabase Auth/member integration and physical signup;
+- trusted customer/employee identity and membership foundation;
+- customer Supabase Auth/member integration;
 - same-origin employee/Admin session boundary;
-- protected Dashboard Members;
-- shared catalogue, protected Admin mutation, POS/customer reads and customer revision refresh;
-- TASK-AUTH-005 preview/live session separation;
-- Android release networking and reproducible committed build toolchain;
+- shared catalogue and protected Admin mutation;
+- catalogue-driven variants, drink options and compatible add-ons;
 - authoritative quote/order/schedule/status backend;
-- customer authoritative quote/place/history/detail/status frontend;
-- Dashboard authoritative POS quote/place and server-policy scheduling;
-- Dashboard live polled order queue and versioned fulfilment transitions;
-- customer and Dashboard full local toolchain/test/build gates;
-- credential-backed live cross-client order lifecycle.
+- customer authoritative quote/place/history/detail/status flow;
+- Dashboard live POS ordering and polled order queue;
+- versioned fulfilment transitions;
+- immutable commercial order snapshots;
+- trusted branch identity and staff branch scope;
+- trusted sales-point and terminal topology;
+- manager-issued one-time terminal enrolment;
+- HttpOnly terminal credential handling;
+- terminal revocation;
+- terminal-bound POS order placement;
+- immutable branch/sales-point/terminal POS attribution;
+- clean Supabase migration replay and writable-database regressions;
+- current customer release and Dashboard CI gates.
 
-## Current status
+## Phase 1 validation boundary
 
-`TASK-CLOSEOUT-001`: **COMPLETE** for implementation and applicable ADR-0004 validation.
+```text
+Backend database audit #22
+  branch authority regression              PASS
+  operational topology regression         PASS
+  order regression                         PASS
+  scheduled-order operations regression   PASS
 
-Live proof completed on 2026-08-17:
+Customer release audit #114               PASS
+Dashboard CI #23                           PASS
+```
 
-customer placement
-→ persisted order
-→ Dashboard observation
-→ preparing
-→ customer authorized refresh
-→ ready
-→ customer authorized refresh
-→ completed
-→ customer authorized refresh.
+Supabase advisor review shows one pre-existing leaked-password-protection WARN and INFO-only unused-index findings. No Phase 1-created security/performance blocker remains.
 
-The retained evidence is order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`), authoritative total 1,290 sen, completed at status version 4. Approved demo credentials were process-local, were not committed and were removed after the run.
+## Dependency-ordered backend completion
 
-## Merge state
+The remaining backend continues in this order:
 
-Customer PR #13 and Dashboard PR #12 are independently verified mergeable and have completed the closeout gates. Final merge is repository housekeeping, not an implementation blocker.
+1. **Phase 2 — shift and cash authority**
+   - open/lock/resume/close shifts;
+   - opening float;
+   - cash movement ledger;
+   - expected/actual cash and variance;
+   - manager approval for material variance;
+   - order/sale shift attribution.
 
-Hosted/Vercel deployment is **DEFERRED** for the accepted local-PC + cloud-Supabase + installed-phone demo topology.
+2. **Phase 3 — customer privacy and App Store account requirements**
+   - production account deletion;
+   - retention/deletion rules;
+   - privacy/terms/support surfaces;
+   - consent/preferences and marketing opt-in/out.
 
-## Security operations
+3. **Phase 4 — branch scheduling and pickup authority**
+   - branch opening hours;
+   - closures/holidays;
+   - capacity;
+   - explicit customer pickup branch;
+   - server validation of branch/time availability.
 
-Current Supabase security-advisor evidence has one WARN: leaked-password protection is disabled. Enabling it is hosted Auth configuration work and does not justify weakening application Auth/RLS boundaries.
+4. **Phase 5 — inventory and recipes**
+   - inventory items/units;
+   - recipes/BOM;
+   - receiving/adjustment/transfer;
+   - stock movement ledger;
+   - order depletion;
+   - branch/inventory-pool attribution.
 
-## Next bounded product work
+5. **Phase 6 — loyalty, rewards and vouchers**
+   - append-only loyalty ledger;
+   - earning/redemption;
+   - voucher/reward issuance and expiry;
+   - idempotent transaction linkage.
 
-Do not conflate these deferred domains with the completed closeout tranche. Future bounded tasks include:
+6. **Phase 7 — promotions and discounts**
+   - definitions/eligibility;
+   - stacking/exclusions;
+   - student/member rules;
+   - authoritative discount snapshots.
 
-1. trusted payment capture/refunds;
-2. loyalty earning/redemption and voucher lifecycle;
-3. inventory/recipes/depletion;
-4. promotions/discount authority;
-5. tax/accounting and trusted reporting;
-6. branch-scoped staff/order visibility and branch hours/capacity;
-7. delivery;
-8. hosted production deployment, signing/distribution and operational release work.
+7. **Phase 8 — reporting, accounting and audit**
+   - trusted sales/operational projections;
+   - branch/terminal/staff/shift breakdowns;
+   - tax-ready transaction records;
+   - export and privileged audit events.
 
+8. **Phase 9 — payments, refunds and external integrations**
+   - card/e-wallet/Apple Pay for physical goods where selected;
+   - refunds;
+   - processor idempotency/webhooks;
+   - accounting/device integrations.
 
-## 2026-09-10 backend completion sequence
+9. **Phase 10 — App Store release gate**
+   - iOS release build/current compatibility;
+   - privacy manifest/App Privacy answers;
+   - account deletion physically verified;
+   - support/privacy URLs;
+   - review credentials/notes;
+   - final on-device stability/accessibility.
 
-The remaining backend is now being completed in dependency order rather than by wiring isolated preview screens.
+## Dependency rule
 
-Current task:
+Do not skip forward when a later domain depends on an unaudited earlier authority boundary.
 
-1. **TASK-OPS-001 branch/location authority** — live backend foundation deployed; repository validation/integration remains PARTIAL.
+```text
+branch
+ -> sales point / terminal
+ -> shift
+ -> inventory / sales attribution
+ -> loyalty / promotions
+ -> reporting
+ -> payments / refunds
+```
 
-Recommended dependency chain after this foundation:
+The first two links are now complete through Phase 1. Phase 2 is the next dependency once Astra accepts the frozen boundary.
 
-2. trusted sales points + terminal/device authority;
-3. shift lifecycle + cash-opening/closing/variance authority;
-4. branch hours/closures/capacity and explicit pickup-location selection;
-5. inventory items, recipes, stock movements and order depletion;
-6. authoritative loyalty ledger, rewards/vouchers and redemption;
-7. promotions/discount calculation authority;
-8. trusted sales/tax/accounting/reporting projections and export;
-9. external payment capture/refunds and accounting integration;
-10. hosted production/release operations.
+## Current deployment boundary
 
-This order prevents terminals, inventory, loyalty and reporting from being built on fake global-branch or session-local identifiers.
+Hosted production deployment remains deferred. The current Phase 1 verdict proves application/backend correctness for its defined scope; it does not claim final production hosting, payment settlement, device integration or App Store release readiness.

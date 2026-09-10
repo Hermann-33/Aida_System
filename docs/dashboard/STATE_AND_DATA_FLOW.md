@@ -1,200 +1,166 @@
 # POS/Admin State and Data Flow
 
-Updated: 2026-08-23
+Updated: 2026-09-11
 
-## Employee/Admin session
+## Employee session
 
 ```text
-Admin/employee login
- -> same-origin employee BFF
- -> Supabase Auth server session
- -> trusted user_profiles role/disabled-state check
- -> HttpOnly cookies
- -> React session identity
+employee login
+ -> same-origin BFF
+ -> Supabase Auth
+ -> user_profiles role/disabled check
+ -> employee_branch_assignments
+ -> HttpOnly access/refresh cookies
+ -> React receives identity + assignedBranchIds only
 ```
 
-The browser does not persist the employee access token. Preview identity remains explicitly non-authoritative.
+The employee bearer token is never persisted/read by browser JavaScript. Ordinary staff with no trusted branch assignment fail closed.
 
-## Admin catalogue / drink customization
+## Terminal enrolment/session
 
 ```text
-AdminMenuPage / AdminMenuEditorPage
- -> catalogueClient
- -> employeeFetch(credentials: include)
- -> same-origin catalogue BFF
- -> employee session validation
- -> caller Admin/Owner JWT
- -> get_catalogue / save_catalogue_item
- -> catalogue + audit + revision bump
+Admin creates terminal
+ -> manager issues one-time enrolment code
+ -> employee enters code on workstation
+ -> POST terminal enrol endpoint
+ -> BFF validates employee session and forwards caller JWT
+ -> Supabase validates code + terminal + employee branch scope
+ -> one terminal credential returned
+ -> BFF stores credential in HttpOnly cookie
+ -> React receives only trusted location/status projection
 ```
 
-The catalogue snapshot includes `isDrink`, variants, compatible add-on IDs and `customizationGroups`.
+The terminal credential is not exposed to normal React state or local storage.
 
-For a drink, Admin can edit each Temperature/Sweetness option's customer label, price delta, availability and default. The UI requires at least one available option and exactly one available default per required group; the backend remains authoritative and validates the same invariant.
+Terminal status resolution revalidates active terminal, sales point, branch and employee branch scope. Revocation or loss of branch scope blocks the flow.
 
-Preview mode uses the public catalogue in read-only mode and exposes no privileged save control.
-
-## POS catalogue / modifier read
+## Admin operational topology
 
 ```text
-CounterWorkspace
- -> catalogueClient
- -> GET /api/v1/catalogue
- -> get_catalogue(public read)
- -> posCatalogue adapter
- -> product + variants + customization groups + compatible add-ons
+AdminLocationsPage
+ -> operationalLocationClient
+ -> same-origin BFF
+ -> branch / sales-point RPCs
+
+AdminTerminalsPage
+ -> operationalLocationClient
+ -> Admin topology / save terminal / issue code / revoke RPCs
+
+AdminEmployeesPage
+ -> operationalLocationClient
+ -> trusted employee directory / branch-assignment RPCs
 ```
 
-Modifier mapping:
+Live mode uses these APIs. Explicit UI Preview follows a separate fixture path and remains non-authoritative.
+
+## POS catalogue and quote
 
 ```text
-variant (when present)        required single choice
-Temperature / Sweetness       required single choice
-compatible add-ons            optional multi-select
-```
-
-Unavailable options remain visible/disabled and are not selectable. No preview catalogue fallback becomes live authority.
-
-## POS cart versus authoritative quote
-
-```text
-itemId + variantId + optionValueIds[] + addOnIds[] + quantity + note
- -> local POS cart interaction / estimate
+catalogue selection IDs
+ -> local cart + estimate
  -> POST /api/v1/orders/quote
- -> BFF validates employee session
+ -> employee BFF session validation
  -> caller JWT -> quote_order
- -> server revalidates catalogue/options/add-ons
- -> authoritative line/subtotal/total sen
+ -> server catalogue/modifier/schedule validation
+ -> authoritative integer-sen quote
 ```
 
-The local cart may display an estimate including variant, option and add-on deltas, but the server quote is commercial authority. Differently configured copies of the same product remain distinct cart lines.
+Local cart state is interaction only; server quote is commercial authority.
 
-## Now / scheduled POS order
+## Live POS placement — Phase 1
 
 ```text
-GET /api/v1/orders/policy
- -> serverNow + schedule policy
- -> POS offers Now / Schedule for later
- -> selected timestamp + line selection IDs
- -> POST /api/v1/orders/quote
- -> backend validates schedule + modifiers
- -> create/reuse clientRequestId for this intent
+employee session
+ + HttpOnly terminal credential
+ + selection/fulfilment intent
  -> POST /api/v1/orders/place
- -> place_pos_order with employee caller JWT
- -> persisted guest POS order
+ -> order BFF
+ -> caller JWT + server-held terminal credential
+ -> place_pos_order(payload, credential)
+ -> Supabase resolves terminal -> sales point -> branch
+ -> validates employee may operate branch
+ -> persists trusted POS order attribution
 ```
 
-`Now` is presentation only; the trusted wire value remains `asap`. The sale clears only after persisted success.
+Persisted POS snapshot includes immutable branch/sales-point/terminal authority. The browser never supplies trusted topology IDs.
 
-## Staff order queue
+Credentialless `place_pos_order(jsonb)` is not executable by authenticated users.
+
+## Customer placement contrast
+
+Customer Flutter does not participate in terminal flow:
+
+```text
+customer selections
+ -> quote_order
+ -> place_customer_order
+ -> backend derives customer/member + active default branch
+ -> salesPointId/terminalId remain null
+```
+
+## Order queue/status
 
 ```text
 GET /api/v1/orders
- -> strict snapshot parsing
+ -> BFF caller JWT
+ -> backend branch scope
  -> Active / Scheduled / Ready / History projection
- -> refetch every ~2.5 seconds
-```
+ -> periodic refetch
 
-Backend `prepareAt`, `serverNow` and `scheduleState` remain operational authority. No React timer mutates order status.
-
-## Status transition
-
-```text
-staff action + current statusVersion
+staff next-state action + statusVersion
  -> POST /api/v1/orders/status
- -> BFF same-origin/session check
- -> caller JWT
- -> transition_order_status(expectedVersion)
- -> updated order + event
- -> queue/detail invalidation
+ -> transition_order_status
+ -> branch authorization + legal transition + optimistic version check
+ -> order event + updated snapshot
 ```
 
-Legal progression remains:
+Backend `prepareAt`, `serverNow` and `scheduleState` remain operational scheduling authority. No React timer changes persisted order state.
+
+## Catalogue propagation
 
 ```text
-confirmed -> preparing | cancelled
-scheduled -> preparing | cancelled
-preparing -> ready | cancelled
-ready -> completed
+Admin catalogue mutation
+ -> Supabase
+ -> catalogue_revision bump
+ -> customer/POS invalidate and refetch
 ```
 
-Completed/cancelled remain terminal; stale versions refetch rather than replay stale state.
+Preview catalogue data cannot override live catalogue state.
 
-## Live staff POS entry
-
-```text
-/employee
- -> trusted employee Auth
- -> HttpOnly session
- -> /pos
- -> Sale + Orders + Help
-```
-
-Live mode does not depend on deferred terminal/current-shift authority. Preview terminal/shift/member state never authorizes live APIs.
-
-## Customer propagation
+## Customer order propagation
 
 ```text
-catalogue Admin save
- -> catalogue_revision
- -> customer catalogue invalidation/refetch
-
-staff order transition
+staff fulfilment transition
  -> orders change
- -> customer owner-scoped Realtime invalidation
- -> authorized order refetch
+ -> owner-scoped Realtime invalidation
+ -> customer authorized refetch
 ```
+
+Dashboard employee flows do not expose employee JWT for direct Realtime.
 
 ## Payment boundary
 
-There is no trusted payment processor state. Current live ordering remains explicit `Pay at counter` / unpaid.
+There is no trusted processor/settlement state. Current flow remains explicit pay-at-counter/unpaid semantics.
 
-## Validation
-
-TASK-MENU-CUSTOMIZATION-001 Dashboard validation passed lint, typecheck, 129/129 Vitest tests, production build and Playwright 10/10, plus 1366x768 and 1440x900 UI QA with no task-related console errors.
-
-Detailed cross-repository evidence: `docs/context/MENU_CUSTOMIZATION_2026-08-23.md`.
-
-## Deferred data flows
-
-Loyalty, inventory depletion, refunds, tax/accounting, reporting, branch scope/capacity/hours, terminal/sales-point authority, shifts/cash, delivery and hosted production remain separate trusted domains.
-
-
-## Branch/session authority
+## Phase 1 validation
 
 ```text
-employee login/session
- -> caller JWT
- -> user_profiles
- -> employee_branch_assignments
- -> assignedBranchIds in HttpOnly-session response
+Dashboard CI #23              PASS — 31 files / 150 tests
+Backend database audit #22   PASS — all four SQL suites
+Customer release audit #114  PASS
 ```
 
-Ordinary staff with no trusted assignment fail closed.
+Detailed evidence: `docs/context/PHASE_1_OPERATIONAL_TOPOLOGY_CLOSEOUT_2026-09-11.md`.
 
-Branch administration:
+## Deferred flows
 
-```text
-GET  /api/v1/branches
- -> list_branches
-
-GET  /api/v1/admin/branches
-POST /api/v1/admin/branches/save
- -> Admin session
- -> list_admin_branches / save_branch
-
-GET  /api/v1/admin/employees
-POST /api/v1/admin/employees/branches
- -> Admin session
- -> list_admin_employees / save_employee_branch_assignments
-```
-
-Order operations now apply branch authorization server-side:
-
-```text
-orders.branch_id
- + employee_branch_assignments
- -> list_orders / get_order / transition_order_status
-```
-
-Current POS placement resolves the active default branch for backward compatibility. Explicit selected-branch POS/customer payloads are not implemented yet.
+- shift/cash open/lock/close and variance;
+- employee provisioning/role/badge/PIN lifecycle;
+- branch hours/closures/capacity/customer branch selection;
+- inventory/recipes/depletion;
+- loyalty/rewards;
+- promotions;
+- tax/accounting/reporting;
+- payment/refunds;
+- printer/KDS/payment-device integrations;
+- delivery/hosted production.

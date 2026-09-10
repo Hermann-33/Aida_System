@@ -158,3 +158,43 @@ Detailed cross-repository evidence: `docs/context/MENU_CUSTOMIZATION_2026-08-23.
 ## Deferred data flows
 
 Loyalty, inventory depletion, refunds, tax/accounting, reporting, branch scope/capacity/hours, terminal/sales-point authority, shifts/cash, delivery and hosted production remain separate trusted domains.
+
+
+## Branch/session authority
+
+```text
+employee login/session
+ -> caller JWT
+ -> user_profiles
+ -> employee_branch_assignments
+ -> assignedBranchIds in HttpOnly-session response
+```
+
+Ordinary staff with no trusted assignment fail closed.
+
+Branch administration:
+
+```text
+GET  /api/v1/branches
+ -> list_branches
+
+GET  /api/v1/admin/branches
+POST /api/v1/admin/branches/save
+ -> Admin session
+ -> list_admin_branches / save_branch
+
+GET  /api/v1/admin/employees
+POST /api/v1/admin/employees/branches
+ -> Admin session
+ -> list_admin_employees / save_employee_branch_assignments
+```
+
+Order operations now apply branch authorization server-side:
+
+```text
+orders.branch_id
+ + employee_branch_assignments
+ -> list_orders / get_order / transition_order_status
+```
+
+Current POS placement resolves the active default branch for backward compatibility. Explicit selected-branch POS/customer payloads are not implemented yet.

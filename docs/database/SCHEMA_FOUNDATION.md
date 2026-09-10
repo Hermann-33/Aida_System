@@ -1,6 +1,6 @@
 # Database Schema Foundation
 
-Updated: 2026-08-17
+Updated: 2026-09-11
 
 Canonical executable migrations are owned by `Hermann-33/Aida_System/supabase/`. The Dashboard repository mirrors this schema documentation but does not own a second migration ledger.
 
@@ -8,132 +8,221 @@ Canonical executable migrations are owned by `Hermann-33/Aida_System/supabase/`.
 
 Trusted identity/membership tables:
 
-- `user_profiles` — Auth-linked application profile, trusted `app_role`, disabled state and profile fields.
-- `members` — customer membership identity, server-generated member code, member type/student state and membership status.
+- `user_profiles` — Auth-linked application profile, trusted `app_role`, disabled state and profile fields;
+- `members` — customer membership identity and server-generated member code;
 - `student_verifications` — trusted verification-review records.
 
-These tables use RLS/FORCE RLS according to the accepted identity/member migrations. Public signup provisions customer-only trusted state through the Auth trigger; clients cannot self-promote employee roles or assign trusted member codes/verification outcomes.
+Public signup provisions customer-only trusted state. Clients cannot self-promote employee roles, assign trusted member codes/verification outcomes or grant branch scope.
 
 ## Shared catalogue foundation
 
-Live catalogue tables:
+Core live catalogue tables:
 
-- `catalogue_categories` — server UUID, slug/name/image, sort and active state.
-- `catalogue_items` — server UUID/SKU/slug, category, product/add-on kind, integer-sen base price, publication/availability/merchandising fields, image/volume/prep-route/sort.
-- `catalogue_item_variants` — item-specific option label/code, integer-sen delta, default/availability/sort.
-- `catalogue_item_addons` — normalized product-to-add-on compatibility.
-- `catalogue_revision` — singleton public read-only invalidation counter; published to Realtime.
-- `catalogue_audit_events` — append-only trusted catalogue mutation evidence.
+```text
+catalogue_categories
+catalogue_items
+catalogue_item_variants
+catalogue_item_addons
+catalogue_option_groups
+catalogue_option_values
+catalogue_item_option_values
+catalogue_revision
+catalogue_audit_events
+```
 
-Controlled catalogue RPCs:
+Money is integer sen. Catalogue IDs are server-owned UUIDs. Product/add-on availability, variants, option values, compatibility and prices are backend authority.
 
-- `get_catalogue()`
-- `save_catalogue_category(jsonb)`
-- `save_catalogue_item(jsonb)`
-
-All exposed catalogue tables use RLS/FORCE RLS. Customer/public reads are publication-scoped; Admin/owner writes use trusted caller identity.
+`catalogue_revision` is a public read-only invalidation signal, not catalogue truth.
 
 ## Authoritative order/scheduling foundation
 
-Live order/scheduling tables:
+Core order tables:
 
-- `order_schedule_settings` — singleton scheduling policy.
-- `orders` — server-owned order identity, source, trusted actor references, fulfilment intent, status/version, integer-sen totals and lifecycle timestamps.
-- `order_lines` — immutable item/variant naming and price snapshots, quantity, note and line total.
-- `order_line_addons` — immutable add-on naming/price snapshots.
-- `order_events` — append-only creation/status transition evidence.
+```text
+order_schedule_settings
+orders
+order_lines
+order_line_addons
+order_line_options
+order_events
+```
 
-All five order/scheduling tables use RLS + FORCE RLS. Ordinary authenticated customers do not receive direct commercial order INSERT/UPDATE authority; controlled RPCs own quote/place/read/status operations.
+`orders` contains server-owned order identity, source, trusted actor references, fulfilment intent, versioned status, integer-sen totals, scheduling timestamps and operational topology attribution.
 
-Current order/scheduling RPC surface:
+`order_lines`, `order_line_addons` and `order_line_options` preserve immutable accepted commercial snapshots.
 
-- `get_ordering_policy()`
-- `quote_order(jsonb)`
-- `place_customer_order(jsonb)`
-- `place_pos_order(jsonb)`
-- `get_order(uuid)`
-- `get_my_orders(integer)`
-- `list_orders(text[], integer)`
-- `transition_order_status(uuid,text,bigint,text)`
-- `save_ordering_policy(jsonb)`
+All exposed order tables use RLS + FORCE RLS. Ordinary customers receive no direct commercial INSERT/UPDATE authority; controlled RPCs own quote/place/read/status operations.
 
-`orders` is published to Realtime for authorized customer invalidation/refetch. Immutable order line/add-on snapshots are not separately published.
+Current core RPC surface includes:
 
-Current scheduling defaults:
+```text
+get_ordering_policy()
+quote_order(jsonb)
+place_customer_order(jsonb)
+place_pos_order(jsonb,text)
+get_order(uuid)
+get_my_orders(integer)
+list_orders(text[],integer)
+transition_order_status(uuid,text,bigint,text)
+save_ordering_policy(jsonb)
+```
 
-- timezone `Asia/Kuala_Lumpur`
-- enabled
-- 15-minute minimum lead
-- 15-minute slot interval
-- 7-day maximum horizon
+The legacy credentialless `place_pos_order(jsonb)` signature is not executable by `authenticated`.
 
-Branch opening hours, closures and capacity are not modeled in the current schema.
+## Branch and employee operational scope
 
-## Commercial authority rules
+Live branch resources:
 
-- Money is integer sen.
-- Catalogue item/variant/add-on IDs are server-owned UUIDs.
-- `quote_order` re-prices from current orderable catalogue state and ignores client price/total fields.
-- Customer placement derives customer/member identity from the authenticated session and active member record.
-- POS placement requires staff-or-above through the trusted caller boundary.
-- Order number, totals, commercial snapshots, initial status and lifecycle timestamps are server-owned.
-- Placement is idempotent through actor-scoped `clientRequestId`.
-- Fulfilment transitions are allow-listed and require expected `statusVersion`.
+```text
+branches
+employee_branch_assignments
+orders.branch_id
+```
 
-## Current live inventory/evidence
-
-At the 2026-08-17 closeout verification:
-
-- 14 public base tables exist in the accepted identity/member + catalogue + order/scheduling architecture;
-- 9 Auth users / 9 profiles / 6 members are present;
-- trusted roles owner/admin/staff = 1/1/1;
-- catalogue revision = 15;
-- 1 retained completed order exists.
-
-Retained E2E order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`) is customer-source, total 1,290 sen, final `completed` version 4, with creation/preparing/ready/completed event evidence.
-
-## Canonical regression coverage
-
-The customer repository owns transactional SQL regressions for:
-
-- Auth/member provisioning and member-directory/RLS behavior;
-- catalogue publication, mutation, audit/revision and customer write denial;
-- order pricing, compatibility, scheduling, identity derivation, idempotency, owner-scoped reads, direct-DML denial, staff queue/POS behavior and legal/stale/terminal fulfilment transitions.
-
-Synthetic test rows roll back and do not replace approved live/demo state.
-
-
-## Branch / operational scope foundation
-
-Live branch tables:
-
-- `branches` — stable branch UUID/code/name, timezone, contact/location text, active/default state;
-- `employee_branch_assignments` — trusted employee-to-branch operational scope.
-
-`orders.branch_id` is now non-null, foreign-keyed to `branches` and immutable after placement.
+`orders.branch_id` is non-null, foreign-keyed and immutable.
 
 Current seed:
 
 ```text
 BR-MAIN — Main Café
-timezone Asia/Kuala_Lumpur
+Asia/Kuala_Lumpur
 active/default
 ```
 
-Authorization model:
+Authorization:
 
-- customer order ownership remains customer-scoped;
+- customer ownership remains owner-scoped;
 - ordinary staff can read/transition only assigned-branch orders;
-- Admin/Owner remain global;
-- public clients can read active branch directory data only;
-- branch and assignment mutation is controlled by Admin/Owner RPCs;
-- all branch tables use RLS + FORCE RLS.
+- staff without assignments fail closed;
+- Admin/Owner remain global operational roles for the current tranche;
+- public branch directory reads expose active branch data only;
+- branch/assignment mutations use controlled Admin/Owner RPCs.
 
-Live migrations:
+## Phase 1 sales-point and terminal foundation
+
+Live topology tables:
 
 ```text
-20260910014434 create_branch_location_authority
-20260910014457 index_employee_branch_assignment_actor
+public.sales_points
+public.terminals
+private.terminal_enrolment_codes
+private.terminal_credentials
+orders.sales_point_id
+orders.terminal_id
 ```
 
-Sales points, terminals, shifts/cash, branch inventory and branch scheduling capacity are not yet modeled.
+Relationships:
+
+```text
+branches.id
+  <- sales_points.branch_id
+     <- terminals.sales_point_id
+
+orders.branch_id
+orders.sales_point_id
+orders.terminal_id
+```
+
+Database constraints and server functions preserve topology consistency. Accepted POS attribution is immutable.
+
+Live seed:
+
+```text
+BR-MAIN
+  SP-MAIN
+    POS-MAIN-01 [pending]
+```
+
+The terminal remains pending until manager-issued one-time enrolment creates an active credential.
+
+`terminal_enrolment_codes` and `terminal_credentials` are private schema state and are not direct client tables.
+
+Terminal credential resolution validates credential state, terminal status, sales-point/branch active state and employee branch authorization.
+
+Customer orders keep `sales_point_id` and `terminal_id` null.
+
+## RLS/grant model
+
+Operational tables use RLS + FORCE RLS.
+
+- browser roles have no direct INSERT/UPDATE/DELETE on branches, sales points or terminals;
+- `authenticated` SELECT on `sales_points`/`terminals` exists to support SECURITY INVOKER Admin topology RPCs;
+- RLS policies expose those rows only to Admin/Owner;
+- anonymous SELECT remains denied;
+- branch public reads are separately active/read-only;
+- private terminal credential tables are not client-readable.
+
+## Scheduling defaults
+
+Current singleton policy:
+
+```text
+timezone                 Asia/Kuala_Lumpur
+schedule_enabled         true
+minimum_lead_minutes     15
+preparation_lead_minutes 15
+slot_interval_minutes    15
+maximum_advance_days     7
+```
+
+Scheduled orders persist immutable `prepare_at`. Branch hours/closures/capacity are not yet modeled and belong to Phase 4.
+
+## Phase 1 canonical migrations
+
+```text
+20260910014434_create_branch_location_authority.sql
+20260910014457_index_employee_branch_assignment_actor.sql
+20260910023510_create_operational_sales_points_and_terminals.sql
+20260910023552_harden_operational_topology_rls_and_indexes.sql
+20260910040814_revoke_direct_branch_mutation_grants.sql
+20260910041057_enforce_terminal_branch_scope_on_resolution.sql
+20260910042619_differentiate_terminal_resolution_failures.sql
+20260910044613_grant_branch_rpc_private_impl_execution.sql
+20260910050152_grant_admin_operational_topology_reads.sql
+```
+
+## Canonical regression coverage
+
+Phase 1 database audit executes transactionally:
+
+```text
+branch_authority_integration.sql
+operational_topology_integration.sql
+order_integration.sql
+scheduled_order_operations_integration.sql
+```
+
+GitHub Actions backend database audit run #22 rebuilt a clean Supabase environment from the canonical ledger and all four suites passed.
+
+Synthetic test data rolls back.
+
+## Current live Phase 1 observations
+
+```text
+branches                      1
+sales points                  1
+terminals                     1
+active seeded terminals       0
+orders total                 25
+orders without branch         0
+customer orders with terminal 0
+```
+
+Historical orders are not assigned fabricated sales-point/terminal IDs.
+
+## Deferred schema domains
+
+Not yet trusted/live schema authority:
+
+- shifts and cash movement/reconciliation;
+- employee provisioning/role/badge/PIN lifecycle;
+- branch hours/closures/capacity;
+- inventory/recipes/depletion;
+- loyalty/rewards/vouchers;
+- promotions/discounts;
+- tax/accounting/reporting;
+- payment settlement/refunds;
+- device/KDS/printer integrations;
+- delivery.
+
+Full closeout evidence: `docs/context/PHASE_1_OPERATIONAL_TOPOLOGY_CLOSEOUT_2026-09-11.md`.

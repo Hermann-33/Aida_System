@@ -230,7 +230,8 @@ Repository integration:
 - branch authority SQL regression added;
 - Dashboard employee BFF now loads trusted `assignedBranchIds`;
 - missing staff assignment fails closed;
-- BFF unit tests updated.
+- same-origin branch/Admin employee BFF/API routes are implemented;
+- employee and location BFF unit tests are committed.
 
 Remaining gate:
 

@@ -1,110 +1,95 @@
 # POS/Admin Mocks and Placeholders Register
 
-Updated: 2026-08-23
+Updated: 2026-09-11
 
-## Trusted current paths
+## Trusted live paths
 
-These are shared/live backend integrations, not preview authority:
+The following are live backend integrations, not preview authority:
 
-- protected Admin Members directory;
-- Admin Menu categories/items/prices/publication/availability;
-- variants/sizes;
-- Drink flag and Temperature/Sweetness per-item configuration;
-- compatible add-on links;
-- POS catalogue browsing and modifier groups;
-- authoritative POS quote/place;
-- Now/scheduled pickup policy;
-- scheduled preparation classification;
-- Active/Scheduled/Ready/History order workloads;
-- live staff Sale/Orders entry in accepted global single-café scope;
-- live order queue/detail and versioned fulfilment transitions.
+- employee/Admin session and trusted branch assignments;
+- Admin Members;
+- catalogue categories/items/variants/options/add-ons;
+- authoritative POS quote/order placement;
+- Now/scheduled pickup policy and workload classification;
+- live order queue/detail and versioned fulfilment transitions;
+- branches and sales points;
+- terminals and terminal status;
+- manager-issued terminal enrolment codes;
+- terminal enrolment/revocation;
+- Admin employee directory and branch assignment;
+- terminal-bound POS placement and persisted branch/sales-point/terminal attribution.
 
-Preview menu/modifier/order fixtures are not runtime authority for those paths.
+## Allowed local browser state
 
-## Local UI state that is allowed
+Transient UI state is allowed for:
 
-The browser may keep transient interaction state such as:
-
-- current unsaved cart lines;
-- selected item/variant IDs;
-- selected `optionValueIds` for Temperature/Sweetness;
-- selected compatible add-on IDs;
+- unsaved cart lines and selected catalogue IDs;
 - quantity/note;
-- local estimated price before quote;
-- selected Now/scheduled intent;
-- view/filter/dialog/loading/error state;
-- one `clientRequestId` reused for retry of the same intended placement.
+- local price estimates before quote;
+- Now/Schedule intent;
+- filters/dialog/loading/error state;
+- one retry-stable `clientRequestId`;
+- decoded terminal display context returned by trusted status endpoints.
 
-Local state must not become authority for modifier availability, compatibility or final prices.
+Local state must not become authority for catalogue validity/pricing, employee branch scope, terminal credential validity or operational attribution.
 
-## Modifier-specific boundary
+## Preview boundary
 
-Temperature/Sweetness and add-on metadata come from the shared catalogue.
+Explicit UI Preview may use fixture branches, sales points, terminals, employees and shifts for demonstration. Those fixture values are presentation-only.
 
-The browser may render catalogue price deltas in an estimate, but `quote_order` revalidates IDs and returns authoritative `pricingVersion=2` totals.
+Live mode must not use preview identifiers as database foreign keys, authorization claims, terminal credentials or persisted order attribution.
 
-If the Admin disables or reprices an option after a cart was staged, the client must tolerate quote rejection/repricing rather than preserving stale local truth.
+Admin Locations, Admin Terminals and Admin Employees now consume trusted APIs in live mode. Their Preview behavior remains intentionally separate.
 
-Add-ons are per-line optional selections. Do not use a global add-on selection that implicitly applies to an entire sale.
+## Terminal credential boundary
 
-## Removed order/POS preview authority
+The real terminal credential is not a preview/local-storage value and must not be exposed to normal React state.
 
-The live Sale/Orders path must not use:
+Live flow:
 
-- client-computed totals as final commercial truth;
+```text
+one-time enrolment code
+ -> BFF enrol endpoint
+ -> Supabase validates caller/branch/terminal
+ -> credential returned once
+ -> HttpOnly terminal cookie
+ -> server-side forwarding for status/POS placement
+```
+
+Preview terminal samples must never be accepted by live APIs.
+
+## Removed/fake authority forbidden in live mode
+
+Do not use:
+
+- client-computed totals as final truth;
 - preview/local orders as persisted-order fallback;
 - fake order numbers;
-- fake processor/tender success;
-- local-only fulfilment status;
-- fake timer-driven progression;
-- preview option/add-on values to bypass unavailable live catalogue state.
-
-## Admin preview boundary
-
-UI Preview may inspect the public catalogue but is read-only. It must not expose or simulate successful Admin catalogue mutation.
-
-Real option/add-on edits require the authenticated Admin/Owner BFF/RPC path.
-
-## Payment boundary
-
-No trusted processor exists. Use explicit `Pay at counter` / unpaid semantics. Preview tender/payment UI is never settlement evidence.
+- fake payment/tender success;
+- local-only fulfilment state;
+- timer-driven order progression;
+- preview catalogue options to bypass live availability;
+- preview branch/sales-point/terminal IDs for live POS attribution;
+- local-storage employee or terminal secrets.
 
 ## Still preview/deferred
 
-- loyalty/rewards;
-- terminal/device enrolment authority;
-- shift/cash authority;
-- POS Member, Shift and Terminal preview rails;
-- branch/branch-scope and deeper employee-management mutation;
-- inventory/depletion;
-- marketing publication;
-- payment/refunds;
-- tax/accounting;
-- sales/revenue reporting;
-- branch opening-hours/capacity scheduling;
-- many settings/integration/audit presentation surfaces;
+The following are not trusted live authority yet:
+
+- shifts, opening float, cash movement and variance;
+- employee Auth-user creation/role mutation/badge-PIN lifecycle;
+- branch opening hours/closures/capacity and explicit customer branch selection;
+- inventory/recipes/depletion/transfers;
+- loyalty/reward balances and redemption;
+- promotions/marketing publication authority;
+- payment settlement/refunds;
+- tax/accounting/trusted sales reporting;
+- printer/KDS/payment-device integrations;
+- many settings/integration presentation surfaces;
 - hosted production operations.
 
-TASK-MENU-CUSTOMIZATION-001 closeout and executable validation are documented in `docs/context/MENU_CUSTOMIZATION_2026-08-23.md`.
+## Phase 1 boundary
 
+`TASK-OPS-002` is `COMPLETE`. Phase 1 evidence is in `docs/context/PHASE_1_OPERATIONAL_TOPOLOGY_CLOSEOUT_2026-09-11.md`.
 
-## Branch authority boundary
-
-The following branch data is now trusted backend state rather than preview-only:
-
-- branch UUID/code/name/timezone/active/default state;
-- employee-to-branch assignments;
-- order `branchId` / branch snapshot;
-- ordinary staff branch authorization.
-
-Dashboard same-origin endpoints now exist for the public branch directory, Admin branch directory/mutation, Admin employee directory and employee branch assignments.
-
-Still preview-only:
-
-- the current Admin Locations and Employees screen state until those components consume the BFF APIs;
-- sales-point definitions;
-- terminal lists/device enrolment;
-- branch opening-hours/capacity presentation;
-- inventory-pool labels in `PREVIEW_ORG`.
-
-Do not copy the fixture IDs such as `br-main`, `sp-main` or `POS-MAIN-01` into trusted backend records.
+PR #20 and PR #17 remain the frozen Astra audit boundary. Do not begin Phase 2 until Astra findings are resolved or explicitly accepted.

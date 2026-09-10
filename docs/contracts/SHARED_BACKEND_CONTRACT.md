@@ -295,3 +295,62 @@ Separate bounded tasks remain:
 - tax/accounting/reporting;
 - delivery;
 - hosted production operations.
+
+
+## Branch identity and operational scope
+
+Trusted branch entities:
+
+```text
+branches
+employee_branch_assignments
+orders.branch_id
+```
+
+### Branch invariants
+
+- branch IDs are server-owned UUIDs;
+- branch codes are unique stable operational codes;
+- exactly one active default branch exists in the current compatibility model;
+- order branch identity is immutable after placement;
+- ordinary staff may operate only assigned branches;
+- Admin/Owner are global operational roles until a later ADR narrows them.
+
+### Branch RPCs
+
+```text
+list_branches()
+list_admin_branches()
+save_branch(jsonb)
+list_admin_employees()
+save_employee_branch_assignments(uuid, uuid[])
+```
+
+Public/customer branch access is read-only and active-only. Branch and employee-assignment mutation is Admin/Owner-authorized.
+
+### Order compatibility
+
+Current customer and POS request payloads remain:
+
+```text
+fulfillmentType
+requestedPickupAt?
+items[]
+clientRequestId
+```
+
+They do not yet carry a trusted `branchId`. Placement resolves the active default branch server-side.
+
+Order snapshots now additionally expose:
+
+```text
+branchId
+branch {
+  id
+  code
+  name
+  timezone
+}
+```
+
+Future explicit branch selection is a coordinated contract change and must validate branch availability and actor/customer rules at the server boundary.

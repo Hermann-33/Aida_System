@@ -345,8 +345,8 @@ begin
   )) into v_customer_order;
 
   if v_customer_order->>'source' <> 'customer'
-     or v_customer_order->'salesPoint' is not null
-     or v_customer_order->'terminal' is not null
+     or v_customer_order->>'salesPoint' is not null
+     or v_customer_order->>'terminal' is not null
      or v_customer_order->>'salesPointId' is not null
      or v_customer_order->>'terminalId' is not null then
     raise exception 'customer order unexpectedly received terminal authority';

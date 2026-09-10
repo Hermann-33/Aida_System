@@ -1,8 +1,8 @@
 # Active Context
 
 **As of:** 2026-09-10
-**Current task:** `TASK-UI-REDESIGN-004 — audited customer UI refresh and safe preservation of future privacy/referral work`
-**Current verdict:** READY TO MERGE — audited customer redesign is production-safe, demo-only tooling is removed, future account-deletion/referral work is preserved but default-off/non-deployed, and the full customer release audit passes including release APK build.
+**Current task:** `TASK-OPS-001 — branch/location authority foundation`
+**Current verdict:** PARTIAL — live Supabase branch authority is deployed and repository integration is in progress; executable writable-database regression and Dashboard location-management wiring remain open.
 
 Detailed current evidence:
 
@@ -177,3 +177,44 @@ No PR or merge is part of this closeout. Merge, APK build/install and hosted rel
 - tax/accounting/reporting;
 - delivery;
 - hosted production deployment.
+
+
+## TASK-OPS-001 — branch/location authority foundation
+
+Live Supabase now contains trusted branch authority:
+
+- `branches` with one active default `BR-MAIN — Main Café`;
+- `employee_branch_assignments` for trusted employee operational scope;
+- immutable `orders.branch_id`, backfilled for all pre-existing orders;
+- ordinary staff order reads/transitions restricted to assigned branches;
+- Admin/Owner remain global operational roles for this tranche;
+- existing customer/POS payloads remain compatible by resolving the active default branch server-side;
+- branch directory and employee-assignment mutation RPCs are Admin/Owner-authorized;
+- all new exposed tables use RLS + FORCE RLS and explicit Data API grants.
+
+Live migrations:
+
+```text
+20260910014434 create_branch_location_authority
+20260910014457 index_employee_branch_assignment_actor
+```
+
+Current live verification:
+
+```text
+branches                  1
+active default branches   1
+default code              BR-MAIN
+orders without branch     0
+existing orders           25
+employee assignments      3
+staff without assignment  0
+```
+
+Dashboard task-branch integration replaces the hardcoded empty `assignedBranchIds` session claim with caller-JWT-backed `employee_branch_assignments` reads and fails closed for ordinary staff with no branch assignment.
+
+Validation gap: the connected SQL inspection role is read-only, so `supabase/tests/branch_authority_integration.sql` is committed but has not been executed against a writable local/dev database in this session.
+
+The previous customer UI redesign PR #19 is merged and closed. Any earlier `READY TO MERGE` wording for PR #19 is historical/stale.
+
+Accepted decision: `docs/decisions/ADR-0011-branch-authority-and-operational-scope.md`.

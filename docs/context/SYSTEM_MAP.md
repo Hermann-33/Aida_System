@@ -201,3 +201,31 @@ Detailed evidence: `docs/context/MENU_CUSTOMIZATION_2026-08-23.md`.
 Hosted deployment remains deferred and is not implied by local/client validation.
 
 Real payments/refunds, loyalty, inventory, promotions/discounts, tax/accounting/reporting, branch scheduling/capacity, branch-scoped operations, terminal/sales-point lifecycle, shifts/cash reconciliation and delivery remain separate trusted tasks.
+
+
+## Trusted branch scope
+
+```text
+Admin/Owner
+ -> save_branch / save_employee_branch_assignments
+ -> branches + employee_branch_assignments
+
+current customer/POS placement
+ -> server resolves active default branch
+ -> orders.branch_id immutable
+
+ordinary staff queue/status
+ -> employee assignment
+ -> matching branch order only
+```
+
+Current default:
+
+```text
+BR-MAIN — Main Café
+Asia/Kuala_Lumpur
+```
+
+The current wire order intent still omits `branchId`. This is deliberate rollout compatibility, not a permanent single-branch contract. A later explicit-branch task must validate branch choice on the server before placement.
+
+Preview sales points, terminal IDs and shift IDs remain non-authoritative.

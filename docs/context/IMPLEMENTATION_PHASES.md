@@ -1,8 +1,8 @@
 # AIDA Backend Completion Phases
 
-**Status:** Active  
+**Status:** Active — Phase 1 complete and frozen for Astra audit  
 **Started:** 2026-09-10  
-**Audit model:** each phase stops at a frozen audit boundary for Astra before the next phase begins.
+**Current boundary:** do not begin Phase 2 until Astra findings for Phase 1 are resolved or explicitly accepted.
 
 ## Phase rule
 
@@ -22,35 +22,47 @@ Astra findings must be resolved or explicitly accepted before the next phase beg
 ## Phase 1 — Operational topology
 
 **Task:** `TASK-OPS-002`  
-**Goal:** trusted branch -> sales point -> terminal -> employee -> POS order attribution.
+**Status:** `COMPLETE`  
+**Frozen audit boundary:** Customer/backend PR #20 and Dashboard/POS PR #17.  
+**Evidence:** `docs/context/PHASE_1_OPERATIONAL_TOPOLOGY_CLOSEOUT_2026-09-11.md`
 
-Scope:
+Goal:
 
+```text
+branch
+ -> sales point
+ -> terminal
+ -> employee branch scope
+ -> POS order attribution
+```
+
+Implemented:
+
+- trusted branches and employee branch assignments;
 - trusted sales points under branches;
 - trusted terminals under sales points;
 - one-time manager-issued terminal enrolment;
-- terminal credential stored only in an HttpOnly cookie on the Dashboard/POS browser;
-- terminal status/revocation;
-- live terminal activation flow;
-- POS order snapshots persist sales-point/terminal attribution;
-- current customer ordering remains unaffected;
-- Admin location/terminal surfaces consume trusted APIs rather than session fixtures where implemented.
+- terminal credential stored only in an HttpOnly Dashboard/POS cookie;
+- terminal status and immediate revocation;
+- live terminal activation/status/clear-credential flow;
+- immutable POS branch/sales-point/terminal attribution;
+- branch-scoped staff order access;
+- Admin Locations, Terminals and Employees live data paths backed by trusted APIs;
+- customer ordering preserved without terminal authority;
+- clean-database migration replay and all four SQL regression suites passing;
+- Dashboard CI and customer release audit passing;
+- Supabase advisor review completed with no Phase 1-created blocker;
+- App Store impact reviewed with no new blocker.
 
-Non-goals:
+Audit question result:
 
-- shifts/cash;
-- inventory;
-- loyalty;
-- branch opening hours/capacity;
-- payment devices/processor settlement;
-- printer/KDS health;
-- employee Auth-user provisioning.
+> Yes. Every new live POS sale requires a valid active enrolled terminal credential. The backend resolves the terminal's sales point and branch and validates the employee's operational branch scope; browser-supplied topology identifiers are not trusted placement authority.
 
-Audit question:
-
-> Can every new live POS sale be attributed to a valid active terminal and sales point that belongs to a branch the employee may operate, without trusting browser-supplied location identifiers?
+Phase 1 non-goals remain deferred: shifts/cash, inventory, loyalty, branch hours/capacity, employee Auth-user provisioning, payment devices/processor settlement, printer/KDS health, reporting and external payments.
 
 ## Phase 2 — Shift and cash authority
+
+**Status:** blocked pending Astra acceptance of Phase 1.
 
 Goal:
 
@@ -85,7 +97,7 @@ Goal:
 - closures/holidays;
 - schedule capacity;
 - explicit customer pickup branch;
-- explicit POS branch context;
+- explicit POS branch context where required;
 - server validation of branch/time availability.
 
 ## Phase 5 — Inventory and recipes
@@ -95,7 +107,7 @@ Goal:
 - inventory items/units;
 - recipe/BOM definitions;
 - stock movement ledger;
-- receiving, adjustment, transfer;
+- receiving, adjustment and transfer;
 - order depletion;
 - branch/inventory-pool attribution;
 - low-stock projections.
@@ -167,8 +179,6 @@ Goal:
 ## Dependency rule
 
 Do not skip forward when a later domain depends on an unaudited earlier authority boundary.
-
-In particular:
 
 ```text
 branch

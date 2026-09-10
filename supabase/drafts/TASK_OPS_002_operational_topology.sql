@@ -830,13 +830,13 @@ returns jsonb
 language sql
 security invoker
 set search_path = public, pg_temp
-as $
+as $$
   select private.terminal_context_impl(
     p_credential,
     true,
     (select auth.uid())
   );
-$;
+$$;
 
 revoke all on function private.terminal_context_impl(text, boolean, uuid)
 from public, anon, authenticated;

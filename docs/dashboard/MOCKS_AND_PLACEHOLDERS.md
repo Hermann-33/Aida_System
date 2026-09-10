@@ -86,3 +86,25 @@ No trusted processor exists. Use explicit `Pay at counter` / unpaid semantics. P
 - hosted production operations.
 
 TASK-MENU-CUSTOMIZATION-001 closeout and executable validation are documented in `docs/context/MENU_CUSTOMIZATION_2026-08-23.md`.
+
+
+## Branch authority boundary
+
+The following branch data is now trusted backend state rather than preview-only:
+
+- branch UUID/code/name/timezone/active/default state;
+- employee-to-branch assignments;
+- order `branchId` / branch snapshot;
+- ordinary staff branch authorization.
+
+Dashboard same-origin endpoints now exist for the public branch directory, Admin branch directory/mutation, Admin employee directory and employee branch assignments.
+
+Still preview-only:
+
+- the current Admin Locations and Employees screen state until those components consume the BFF APIs;
+- sales-point definitions;
+- terminal lists/device enrolment;
+- branch opening-hours/capacity presentation;
+- inventory-pool labels in `PREVIEW_ORG`.
+
+Do not copy the fixture IDs such as `br-main`, `sp-main` or `POS-MAIN-01` into trusted backend records.

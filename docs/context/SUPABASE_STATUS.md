@@ -193,3 +193,55 @@ These files are **not live Supabase state** and are deliberately outside `supaba
 - `supabase/drafts/tests/account_deletion_integration.sql`.
 
 They must not be listed as applied migrations. Promotion requires a dedicated bounded backend task, a new canonical migration timestamp, replay/regression validation, RLS/security review and advisor checks.
+
+
+## 2026-09-10 branch authority foundation
+
+`TASK-OPS-001` adds the first trusted operational-location layer.
+
+Live migrations:
+
+```text
+20260910014434 create_branch_location_authority
+20260910014457 index_employee_branch_assignment_actor
+```
+
+New live tables:
+
+- `branches`;
+- `employee_branch_assignments`.
+
+`orders.branch_id` is now non-null, foreign-keyed to `branches`, indexed for branch queue/history access and protected as immutable persisted order state.
+
+Current compatibility seed:
+
+```text
+BR-MAIN — Main Café
+timezone    Asia/Kuala_Lumpur
+active      true
+default     true
+```
+
+All 25 orders present at migration time were backfilled to `BR-MAIN`. Current staff/admin/owner profiles were backfilled to the default branch, and staff role promotion with no assignment now receives the active default branch automatically. Demotion to customer clears employee branch assignments.
+
+Authority model:
+
+- customer ownership reads remain unchanged;
+- ordinary staff order reads/fulfilment transitions require an assignment to the order's branch;
+- Admin/Owner remain global operational roles in this tranche;
+- existing customer/POS order payloads do not yet contain `branchId`; placement resolves the active default branch server-side;
+- explicit branch selection, branch hours/capacity, sales points, terminals, shifts and inventory remain separate tasks.
+
+New RPCs:
+
+```text
+list_branches()
+list_admin_branches()
+save_branch(jsonb)
+list_admin_employees()
+save_employee_branch_assignments(uuid, uuid[])
+```
+
+Security advisor after deployment remains unchanged with one pre-existing WARN only: leaked-password protection disabled.
+
+Performance advisor found one new missing foreign-key index on `employee_branch_assignments.assigned_by`; migration `20260910014457` corrected it. Remaining performance findings are unused-index INFOs on the current small dataset.

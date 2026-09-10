@@ -1,100 +1,82 @@
 # POS/Admin Dashboard Audit
 
-Updated: 2026-08-17
+Updated: 2026-09-11
 
 ## Current verdict
 
-`COMPLETE` for the trusted Auth/member/catalogue/order tranche defined by TASK-CLOSEOUT-001. Broader payment, loyalty, inventory, reporting, branch/terminal/shift and hosted-production domains remain preview/deferred and are not promoted by this verdict.
+`COMPLETE` for Phase 1 operational topology. Dashboard live mode now consumes trusted branch, employee-branch, sales-point and terminal authority in addition to the previously trusted Auth/member/catalogue/order tranche.
 
-## Runtime
+Full evidence: `docs/context/PHASE_1_OPERATIONAL_TOPOLOGY_CLOSEOUT_2026-09-11.md`.
 
-React 19.2.7, TypeScript 6.0.3, Vite 8.1.5, React Router DOM 7.18.1, Tailwind CSS 4, Radix/shadcn-style components, TanStack Query, Vitest and Playwright. npm with lockfile.
-
-## Trusted current surfaces
+## Trusted live surfaces
 
 - same-origin employee/Admin authentication/session BFF with HttpOnly cookies;
-- trusted role/disabled-state checks from shared profiles;
-- protected Admin Members directory;
-- shared public/POS catalogue read;
-- protected Admin catalogue management;
-- TASK-AUTH-005 preview/live session separation;
-- authoritative POS quote/place with stable idempotency;
-- server-policy ASAP/scheduled pickup;
-- explicit Pay-at-counter/unpaid order semantics;
-- live BFF-backed order queue;
-- legal versioned fulfilment transitions with conflict refetch.
+- trusted role/disabled-state and `assignedBranchIds`;
+- protected Admin member/catalogue operations;
+- shared catalogue and authoritative quote/order flows;
+- live order queue and versioned fulfilment transitions;
+- Admin branch and sales-point management;
+- Admin terminal list/create/enrolment-code/revoke flows;
+- Admin employee directory and branch-assignment mutation;
+- terminal enrolment/status/credential clearing;
+- live POS requiring trusted terminal context;
+- terminal-bound POS placement with immutable branch/sales-point/terminal attribution.
 
-The browser does not receive a service-role credential or persistent employee bearer token. Route guards remain presentation/access-routing logic, not backend authorization authority.
+The browser receives neither a service-role credential nor a readable employee/terminal secret. Employee tokens and the terminal credential remain HttpOnly/BFF-held.
 
-## Current non-authoritative/deferred behavior
+## Preview boundary
 
-The following remain outside the trusted tranche unless separately backed by a current contract:
+Explicit UI Preview still uses fixtures for demonstrations. Preview identifiers/state are not trusted backend authority and cannot be used to authorize live employee, location, terminal or order operations.
 
-- payment settlement/refunds;
-- loyalty/reward balances and redemptions;
+Admin Locations, Terminals and Employees now use trusted APIs in live mode. Their preview branches remain deliberately separate.
+
+## Phase 1 runtime evidence
+
+Dashboard code head before documentation-only closeout:
+
+`50c559f4ed5a5f0ddd373a4bf450a38c7e9716ba`
+
+Dashboard CI run #23:
+
+```text
+npm ci                 PASS
+lint                   PASS
+typecheck              PASS
+Vitest files      31 / 31 PASS
+Vitest tests     150 / 150 PASS
+production build        PASS
+```
+
+Backend database audit #22 separately proves the database/RPC allow/deny boundary on a clean migration replay.
+
+## Security result
+
+- ordinary staff with no branch assignment fail closed;
+- employee branch scope is backend state;
+- terminal enrolment requires authenticated branch authorization in addition to possession of the one-time code;
+- the terminal credential stays in an HttpOnly cookie;
+- terminal revocation immediately blocks terminal resolution/POS placement;
+- browser-supplied location IDs are not POS attribution authority;
+- direct topology mutation is denied;
+- no service-role/browser bearer-token bypass exists.
+
+Supabase security advisor has one pre-existing leaked-password-protection WARN only. No Phase 1-created security blocker remains.
+
+## Still non-authoritative/deferred
+
+- shifts/cash movements/opening float/variance;
+- employee Auth-user creation, role mutation and badge/PIN lifecycle;
+- branch opening hours/closures/capacity and explicit customer branch selection;
 - inventory/recipes/depletion/transfers;
-- branch scope and branch opening-hours/capacity;
-- terminal enrolment/device authority beyond current preview/local behavior;
-- shift/cash-movement authority;
-- employee/branch management surfaces not yet backed by a trusted server contract;
-- marketing publication;
-- sales/revenue/tax/accounting reporting;
-- several settings/integration/audit display surfaces.
+- loyalty/rewards/vouchers;
+- promotions/marketing authority;
+- trusted sales/revenue/tax/accounting reporting;
+- payment settlement/refunds;
+- printer/KDS/payment-device integrations;
+- hosted production operations.
 
-Preview/local fixtures in these domains must not be used as catalogue/order/member/payment truth.
+Presentation in those areas must not imply backend authority before their phases are implemented.
 
-## Final verification baseline
+## Audit boundary
 
-TASK-CLOSEOUT-001 Dashboard validation:
-
-- lint: PASS with two established Fast Refresh warnings;
-- typecheck: PASS;
-- Vitest: PASS, 25 files / 111 tests;
-- production build: PASS;
-- legacy token/localStorage safety assertion: PASS;
-- Playwright: PASS, 8/8;
-- `npm audit`: PASS, 0 vulnerabilities;
-- `git diff --check`: PASS;
-- no service-role/secret/browser employee-token persistence introduced.
-
-## Cross-client evidence
-
-Physical/manual proof:
-
-- Android customer signup → trusted member → protected Dashboard Members;
-- real Owner catalogue mutation → installed customer catalogue refresh.
-
-Final live order proof on 2026-08-17:
-
-- customer quoted Sandwich ASAP at 1,290 sen;
-- customer placed order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`) as `confirmed` v1;
-- authenticated Owner Dashboard queue observed the same order;
-- Dashboard persisted `preparing` v2 → `ready` v3 → `completed` v4;
-- customer-authorized reads observed each status.
-
-One completed order remains retained as closeout evidence.
-
-## Security/operations
-
-Current Supabase security advisor has one WARN: leaked-password protection disabled. Hosted/Vercel deployment remains DEFERRED for the accepted local Dashboard PC → cloud Supabase → installed-phone topology.
-
-## Historical baseline note
-
-The original TASK-WF-002/TASK-MENU-001 audits correctly described a much earlier preview-first state. Those measurements remain historical evidence only. Current system truth is maintained in `docs/context/ACTIVE_CONTEXT.md`, `SUPABASE_STATUS.md`, `CLOSEOUT_EVIDENCE_2026-08-17.md`, the accepted ADRs/contracts, and this updated audit.
-
-
-## 2026-09-10 branch authority update
-
-Trusted branch scope is no longer wholly deferred.
-
-Backend/BFF authority now exists for:
-
-- active public branch directory;
-- Admin/Owner full branch directory and mutation;
-- trusted employee branch assignments;
-- employee session `assignedBranchIds` loaded with the caller JWT;
-- ordinary staff branch-scoped order queue/detail/status authorization;
-- immutable branch identity in order snapshots;
-- Admin employee directory and branch-assignment mutation endpoints.
-
-The existing `AdminLocationsPage.tsx` and `AdminEmployeesPage.tsx` are still session-local preview UI and are **not yet wired** to these APIs. Sales points, terminals, shifts, branch hours/capacity and inventory remain deferred.
+Dashboard PR #17 and customer/backend PR #20 form the frozen Phase 1 Astra audit boundary. Do not start Phase 2 until Astra findings are resolved or explicitly accepted.

@@ -175,3 +175,25 @@ The customer repository preserves future account-deletion/referral client code w
 
 This is source preservation only; it does not expand the currently deployed Supabase/Auth/order trust boundary.
 
+
+
+## TASK-OPS-001 branch-scope security result
+
+Branch authority removes the previous global-staff order assumption.
+
+Controls now in place:
+
+- `branches` and `employee_branch_assignments` use RLS + FORCE RLS;
+- public branch access is active/read-only;
+- employee assignment reads are own-or-Admin/Owner;
+- branch/assignment writes are only through Admin/Owner-authorized RPCs;
+- ordinary staff order table/RPC access is restricted by trusted branch assignment;
+- status transitions re-check branch authorization at the server boundary;
+- `orders.branch_id` is protected as immutable persisted state;
+- the Dashboard BFF obtains assignment IDs using the employee caller JWT and does not expose a service-role credential;
+- ordinary staff with no assignment fail closed rather than receiving global access;
+- existing customer/POS clients cannot forge branch authority because they do not submit trusted branch IDs in the current compatibility model.
+
+Post-deployment security advisor state is unchanged: one pre-existing `auth_leaked_password_protection` WARN only.
+
+The first performance-advisor run identified a missing index on `employee_branch_assignments.assigned_by`; migration `20260910014457` fixed that finding.

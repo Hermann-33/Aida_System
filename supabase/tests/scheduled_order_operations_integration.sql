@@ -57,6 +57,7 @@ declare
   v_policy jsonb;
   v_pos_order jsonb;
   v_prep_lead integer;
+  v_terminal_id uuid;
   v_terminal_issue jsonb;
   v_terminal_enrol jsonb;
   v_terminal_credential text;
@@ -139,9 +140,15 @@ begin
     null;
   end;
 
-  select public.issue_terminal_enrolment_code(
-    (select id from public.terminals where code = 'POS-MAIN-01')
-  ) into v_terminal_issue;
+  select (terminal ->> 'id')::uuid
+  into strict v_terminal_id
+  from jsonb_array_elements(public.list_admin_operational_locations()) branch,
+       jsonb_array_elements(branch -> 'salesPoints') sales_point,
+       jsonb_array_elements(sales_point -> 'terminals') terminal
+  where terminal ->> 'code' = 'POS-MAIN-01';
+
+  select public.issue_terminal_enrolment_code(v_terminal_id)
+  into v_terminal_issue;
   select public.enrol_terminal(v_terminal_issue ->> 'code') into v_terminal_enrol;
   v_terminal_credential := v_terminal_enrol ->> 'credential';
 

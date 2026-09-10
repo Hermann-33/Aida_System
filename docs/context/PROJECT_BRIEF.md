@@ -68,3 +68,19 @@ Real payment/refunds, loyalty ledger/redemption, inventory, promotions/discount 
 ## Success criteria
 
 AIDA succeeds when role-appropriate users complete their flows against one trusted backend with consistent IDs/state transitions, server-authoritative value calculations, secure ownership/role access, reproducible migrations/builds, cross-client integration evidence and current mirrored documentation. The current tranche meets those criteria for its defined scope.
+
+
+## 2026-09-10 operational branch foundation
+
+AIDA now has trusted branch identity as a prerequisite for the remaining operations backend.
+
+Implemented live:
+
+- `branches` with a single active default `BR-MAIN — Main Café`;
+- `employee_branch_assignments`;
+- immutable `orders.branch_id`;
+- branch-scoped ordinary staff order visibility and fulfilment transitions;
+- Admin/Owner branch and assignment management RPCs;
+- automatic default-branch compatibility for current customer and POS clients.
+
+This does not make the existing preview sales-point, terminal, shift, inventory, branch-hours/capacity or reporting screens authoritative. Those remain subsequent bounded backend domains.

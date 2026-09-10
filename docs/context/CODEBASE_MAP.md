@@ -158,4 +158,4 @@ Demo-only order-progress provider/capsule/staff-test tooling is intentionally ab
 - Admin/Owner preserve global operational authority for this tranche;
 - `server/employeeBff.test.ts` covers branch-claim mapping and missing-assignment failure.
 
-The existing `AdminLocationsPage.tsx` and `AdminEmployeesPage.tsx` remain preview/session-local presentation until their dedicated BFF/API wiring task. Their fixture branch data is not backend authority.
+`server/locationBff.ts` plus `/api/v1/branches`, `/api/v1/admin/branches*` and `/api/v1/admin/employees*` expose the trusted branch/assignment RPCs through the same-origin caller-JWT boundary. `AdminLocationsPage.tsx` and `AdminEmployeesPage.tsx` remain preview/session-local presentation until their UI data layer is wired to these endpoints. Their fixture branch data is not backend authority.

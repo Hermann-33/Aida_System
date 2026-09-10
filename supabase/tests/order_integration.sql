@@ -19,8 +19,13 @@ begin
   end if;
   if has_function_privilege('anon', 'public.place_customer_order(jsonb)', 'execute')
      or has_function_privilege('anon', 'public.place_pos_order(jsonb)', 'execute')
+     or has_function_privilege('anon', 'public.place_pos_order(jsonb,text)', 'execute')
      or has_function_privilege('anon', 'public.transition_order_status(uuid,text,bigint,text)', 'execute') then
     raise exception 'anonymous role has privileged order capability';
+  end if;
+  if has_function_privilege('authenticated', 'public.place_pos_order(jsonb)', 'execute')
+     or not has_function_privilege('authenticated', 'public.place_pos_order(jsonb,text)', 'execute') then
+    raise exception 'POS placement privilege does not require terminal credential';
   end if;
 
   if has_table_privilege('authenticated', 'public.orders', 'insert')
@@ -162,6 +167,10 @@ declare
   v_policy jsonb;
   v_expected_unit integer;
   v_expected_pos_total integer;
+  v_terminal_id uuid;
+  v_terminal_issue jsonb;
+  v_terminal_enrol jsonb;
+  v_terminal_credential text;
 begin
   select id into strict v_item_id
   from public.catalogue_items
@@ -264,12 +273,37 @@ begin
     null;
   end;
 
-  -- Staff queue, POS placement and legal transitions use the caller JWT.
+  -- Manager-issued terminal enrolment is required before POS placement.
+  perform set_config(
+    'request.jwt.claims',
+    jsonb_build_object('sub', v_admin_id, 'role', 'authenticated')::text,
+    true
+  );
+  select (terminal ->> 'id')::uuid
+  into strict v_terminal_id
+  from jsonb_array_elements(public.list_admin_operational_locations()) branch,
+       jsonb_array_elements(branch -> 'salesPoints') sales_point,
+       jsonb_array_elements(sales_point -> 'terminals') terminal
+  where terminal ->> 'code' = 'POS-MAIN-01';
+
+  select public.issue_terminal_enrolment_code(v_terminal_id)
+  into v_terminal_issue;
+
   perform set_config(
     'request.jwt.claims',
     jsonb_build_object('sub', v_staff_id, 'role', 'authenticated')::text,
     true
   );
+  select public.enrol_terminal(v_terminal_issue ->> 'code') into v_terminal_enrol;
+  v_terminal_credential := v_terminal_enrol ->> 'credential';
+
+  if v_terminal_credential is null
+     or v_terminal_enrol #>> '{location,branchCode}' <> 'BR-MAIN'
+     or v_terminal_enrol #>> '{location,salesPointCode}' <> 'SP-MAIN' then
+    raise exception 'staff terminal enrolment did not return trusted Main Counter authority';
+  end if;
+
+  -- Staff queue, terminal-bound POS placement and legal transitions use the caller JWT.
 
   select public.list_orders(array['scheduled'], 100) into v_orders;
   if not exists (
@@ -279,17 +313,23 @@ begin
     raise exception 'staff order queue did not return scheduled order';
   end if;
 
-  select public.place_pos_order(jsonb_build_object(
-    'clientRequestId', '31000000-0000-0000-0000-000000000002',
-    'fulfillmentType', 'asap',
-    'items', jsonb_build_array(jsonb_build_object(
-      'itemId', (select id from public.catalogue_items where sku = 'FD-SAN'),
-      'addOnIds', '[]'::jsonb,
-      'quantity', 1
-    ))
-  )) into v_pos_order;
+  select public.place_pos_order(
+    jsonb_build_object(
+      'clientRequestId', '31000000-0000-0000-0000-000000000002',
+      'fulfillmentType', 'asap',
+      'items', jsonb_build_array(jsonb_build_object(
+        'itemId', (select id from public.catalogue_items where sku = 'FD-SAN'),
+        'addOnIds', '[]'::jsonb,
+        'quantity', 1
+      ))
+    ),
+    v_terminal_credential
+  ) into v_pos_order;
   if v_pos_order ->> 'source' <> 'pos'
      or v_pos_order ->> 'status' <> 'confirmed'
+     or v_pos_order #>> '{branch,code}' <> 'BR-MAIN'
+     or v_pos_order #>> '{salesPoint,code}' <> 'SP-MAIN'
+     or v_pos_order #>> '{terminal,code}' <> 'POS-MAIN-01'
      or (v_pos_order ->> 'totalSen')::bigint <> v_expected_pos_total then
     raise exception 'staff POS order did not persist authoritative quote';
   end if;

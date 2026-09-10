@@ -1,185 +1,185 @@
 # Current Handoff
 
-Updated: 2026-09-10
+Updated: 2026-09-11
 
-## Task
+## Current task
 
-`TASK-UI-REDESIGN-004 — audited customer UI refresh and safe future-work preservation`
+`TASK-OPS-002 — Phase 1 operational topology`
 
-**Verdict:** READY TO MERGE.
+**Verdict:** `COMPLETE`  
+**State:** frozen for Astra audit. Do not merge the Phase 1 PRs and do not begin Phase 2 until Astra findings are resolved or explicitly accepted.
 
-Detailed implementation/validation evidence:
+Detailed evidence:
 
-`docs/context/MENU_CUSTOMIZATION_2026-08-23.md`
+`docs/context/PHASE_1_OPERATIONAL_TOPOLOGY_CLOSEOUT_2026-09-11.md`
 
-Matching task branches:
-
-`codex/task-menu-customization-001-modifier-groups`
-
-No PR or merge was created by this closeout.
-
-## What changed
-
-### Customer
-
-- drink detail is catalogue-driven for Size, Temperature, Sweetness and compatible add-ons;
-- selected option/add-on state belongs to the individual cart line;
-- add-on catalogue rows/categories are hidden from normal customer browsing;
-- local cart estimates include variant + option + add-on deltas while server quote remains final authority;
-- order intents include `optionValueIds` but no trusted prices/totals;
-- unavailable options remain visible/disabled with explicit text/semantics;
-- `Add to cart` immediately returns to Menu;
-- checkout presentation says `Now`, while the backend wire value remains `asap`;
-- accepted policy-derived Schedule wheel remains intact.
-
-### Dashboard / POS
-
-- Admin can mark a product as a drink;
-- each drink option exposes editable customer label, price delta, availability and default;
-- every required group must have at least one available option and exactly one available default;
-- compatible add-ons remain per-product checkboxes;
-- POS maps variants + required Temperature/Sweetness + optional add-ons into per-line modifier state;
-- POS order payload includes `optionValueIds` only as selection IDs;
-- preview remains read-only; staff remains excluded from Admin.
-
-### Backend
-
-Live migrations:
+Matching Phase 1 branches:
 
 ```text
-20260822135421 add_drink_customization_catalogue
-20260822135602 integrate_drink_customizations_with_orders
-20260822141814 harden_drink_customization_indexes_and_rls
-20260822143542 grant_public_drink_customization_reads
+Hermann-33/Aida_System
+  codex/phase-1-operational-topology
+
+Hermann-33/Aida_System-Dashboard
+  codex/phase-1-operational-topology
 ```
 
-Trusted additions:
-
-- `catalogue_items.is_drink`;
-- `catalogue_option_groups`;
-- `catalogue_option_values`;
-- `catalogue_item_option_values`;
-- `order_lines.option_total_sen`;
-- `order_line_options` immutable selected-option snapshots;
-- `pricingVersion=2` quote calculation includes option deltas.
-
-The live quote definition supplies the configured available default for a required group when an older client omits an `optionValueId`, preserving rollout compatibility.
-
-## Live closeout checks
-
-Checked on 2026-08-23:
+Matching audit PRs:
 
 ```text
-catalogue revision         130
-drink products              11
-non-drink products           4
-add-ons                      4
-invalid required groups      0
-Iced Drinks with Hot on      0
+Customer/backend PR #20
+Dashboard/POS PR #17
 ```
 
-Public/authenticated function/table grants align with the intended RLS boundary. Ordinary authenticated users have no direct read grant on immutable `order_line_options`.
+## Trusted state handed off
 
-Supabase security advisor has one pre-existing WARN only: Leaked Password Protection Disabled. Performance findings are INFO-only unused indexes.
+AIDA now has authoritative operational topology through POS placement:
 
-## Executable validation
+```text
+branch
+ -> sales point
+ -> terminal
+ -> employee branch scope
+ -> POS order
+```
 
-### Customer
+Live seed topology:
 
-Final validation commit:
+```text
+BR-MAIN — Main Café
+  SP-MAIN — Main Counter
+    POS-MAIN-01
+```
 
-`404662aec382364c8e70fcee8d66b38d4b303f0a`
+The seeded terminal remains `pending` until explicitly enrolled/activated by a manager.
 
-Results:
+Backend authority now covers:
 
-- Flutter 3.44.7 / Dart 3.12.2 / JDK 21.0.12;
-- `flutter pub get` PASS;
-- format PASS;
-- analyze PASS;
-- Flutter tests 55 passed / 0 failed / 0 skipped;
-- `git diff --check` PASS;
-- secret scan PASS;
-- UI/golden review PASS at 390x844 and 430x932;
-- no physical Android device was connected for this final pass.
+- trusted branches and employee branch assignments;
+- trusted sales points and terminals;
+- one-time manager-issued terminal enrolment codes;
+- HttpOnly terminal credential storage through the Dashboard BFF;
+- terminal status and immediate revocation;
+- staff branch-scope enforcement during terminal resolution and order operations;
+- terminal-bound live POS placement;
+- immutable `branch_id`, `sales_point_id` and `terminal_id` attribution on POS orders;
+- customer orders remaining terminal-free.
 
-### Dashboard
+Admin/Owner remain global operational roles for this tranche. Ordinary staff may operate only assigned branches.
 
-Final validation commit:
+## Validation evidence
 
-`af0fcd2babfa02073f882ec63ddbec102e591672`
+Customer/backend code head before documentation-only closeout:
 
-Results:
+`d355cedb45995615a9946fb2844d55a1e6cde28d`
 
-- Node v24.11.1 / npm 11.6.2;
-- `npm ci` PASS, 0 vulnerabilities;
-- lint PASS with two established Fast Refresh warnings;
-- typecheck PASS;
-- Vitest 29 files / 129 tests PASS;
-- build PASS with existing large-chunk advisory only;
-- Playwright 10/10 PASS;
-- `git diff --check` PASS;
-- visual QA PASS at 1366x768 and 1440x900;
-- no task-related browser console errors/warnings.
+Backend database audit run #22 — PASS on clean local Supabase replay:
 
-## UI consistency
+```text
+branch authority regression              PASS
+operational topology regression         PASS
+order regression                         PASS
+scheduled-order operations regression    PASS
+```
 
-Customer customization keeps the accepted AIDA rose/cream/espresso palette, Playfair + Plus Jakarta Sans, tactile/neumorphic controls, existing hero/sheet hierarchy, selected check indicators and explicit disabled text.
+Customer release audit run #114:
 
-Dashboard uses the existing design tokens, Admin cards/form classes, labelled native radios/checkboxes, focus-visible/reduced-motion behavior and existing POS modifier density. No Luckin styling or second theme was introduced.
+```text
+dependency resolution          PASS
+Flutter static analysis        PASS
+non-golden regressions         PASS
+golden regressions             PASS
+release APK build              PASS
+release APK artifact upload    PASS
+```
 
-## Security/trust result
+Dashboard code head before documentation-only closeout:
 
-Preserved:
+`50c559f4ed5a5f0ddd373a4bf450a38c7e9716ba`
 
-- Supabase commercial authority;
-- RLS/FORCE-RLS boundaries;
-- Admin/Owner catalogue mutation;
-- caller-JWT same-origin HttpOnly employee BFF;
-- no browser employee token persistence;
-- no service-role credential in clients;
-- no fabricated branch/terminal/shift authority;
-- Pay-at-counter remains unpaid presentation, not payment settlement.
+Dashboard CI run #23:
+
+```text
+npm ci                 PASS
+lint                   PASS
+typecheck              PASS
+Vitest files      31 / 31 PASS
+Vitest tests     150 / 150 PASS
+production build        PASS
+```
+
+## Canonical live migrations
+
+```text
+20260910014434 create_branch_location_authority
+20260910014457 index_employee_branch_assignment_actor
+20260910023510 create_operational_sales_points_and_terminals
+20260910023552 harden_operational_topology_rls_and_indexes
+20260910040814 revoke_direct_branch_mutation_grants
+20260910041057 enforce_terminal_branch_scope_on_resolution
+20260910042619 differentiate_terminal_resolution_failures
+20260910044613 grant_branch_rpc_private_impl_execution
+20260910050152 grant_admin_operational_topology_reads
+```
+
+The final permission fixes preserve the intended boundary: authenticated table SELECT on operational topology is still constrained by FORCE-RLS Admin/Owner policies; anonymous reads and direct DML remain denied.
+
+## Live closeout verification
+
+```text
+branches                      1
+active/default branches       1
+sales points                  1
+terminals                     1
+active seeded terminals       0
+orders total                 25
+orders without branch         0
+customer orders with terminal 0
+```
+
+Supabase security advisor: one pre-existing leaked-password-protection WARN only. Performance advisor findings are INFO-only unused-index observations. No Phase 1-created security blocker remains.
+
+## Dashboard handoff
+
+Live mode now uses trusted APIs for:
+
+- branch/sales-point management;
+- terminal listing/creation/enrolment-code issuance/revocation;
+- employee branch assignment;
+- terminal enrolment/status/credential clearing;
+- terminal-bound POS placement.
+
+Explicit UI Preview remains fixture-backed by design and must never become backend authority.
+
+Employee Auth-user creation, role mutation, disable/reactivation workflow and badge/PIN credential lifecycle are not part of Phase 1.
+
+## Customer handoff
+
+No Phase 1 customer request-contract change was required. Customer placement continues to resolve the current default branch server-side and never carries terminal authority.
+
+Explicit pickup-branch selection plus branch hours/closures/capacity remain Phase 4.
+
+## App Store review impact
+
+Phase 1 added no customer login change, no payment processor, no iOS permission, no notification change and no third-party customer SDK. It introduces operational branch/sales-point/terminal attribution only.
+
+No new App Store blocker was introduced. The previously identified production account-deletion requirement remains a later mandatory pre-release phase.
 
 ## Next action
 
-This task is ready for repository merge/release handling, but those are separate explicit actions. If merging, merge both matching task branches so the two frontends remain contract-compatible with the already-live backend.
+Astra audits PR #20 and PR #17 as one Phase 1 boundary. Resolve or explicitly accept every Astra finding before starting Phase 2.
 
-After a customer merge, build a fresh APK from the merged customer default branch before distribution. The final Codex validation did not use a connected physical Android device.
+After Astra acceptance, the next bounded implementation phase is **Phase 2 — shift and cash authority**.
 
-## Deferred domains
+Still deferred after Phase 1:
 
-Branch authority/capacity, terminal/sales-point lifecycle, shifts/cash reconciliation, payment/refunds, loyalty, inventory, promotions/discounts, tax/accounting/reporting, delivery and hosted production operations remain separate tasks.
-
-## 2026-09-10 — TASK-UI-REDESIGN-004 final handoff
-
-PR #19 carries the audited integration from `codex/task-ui-redesign-004-audit-integration`.
-
-Final accepted scope:
-
-- reviewed customer UI/branding refresh is active;
-- all demo-only order/status/test tooling is removed;
-- account-deletion/referral SQL prototypes are preserved under `supabase/drafts/`, not canonical migrations;
-- related account-deletion/referral client surfaces are compile-time gated off by default;
-- useful iOS migration observations are documented, while stale generated Xcode/CocoaPods state is excluded;
-- production order status remains Supabase-authoritative;
-- generated golden failure artifacts are excluded.
-
-Release compatibility correction:
-
-- `share_plus 13.3.0` caused the release APK build to fail because that package generation requires Kotlin 2.2-era Android artifacts;
-- the dormant referral-sharing prototype is pinned to `share_plus 11.1.0` instead of forcing an unrelated Android toolchain migration in this UI task;
-- lockfile dependencies are reconciled accordingly.
-
-Executable validation:
-
-- workflow: Customer release audit run #87;
-- code head: `7388c1bd40b7da4c0ce56041b8e0e02ece3847db`;
-- dependency resolution PASS;
-- Flutter analyze PASS;
-- non-golden regression PASS;
-- golden regression PASS;
-- release APK build PASS;
-- release APK upload PASS.
-
-The subsequent branch changes are documentation-only closeout. PR #19 must be squash-merged so the original mixed source-branch ancestry does not enter `master`.
-
+- shifts/cash reconciliation;
+- employee lifecycle/credentials beyond current role/branch-read contract;
+- branch opening hours/closures/capacity and explicit customer branch selection;
+- inventory/recipes/depletion;
+- loyalty/rewards/vouchers;
+- promotions/discounts;
+- tax/accounting/reporting;
+- payment capture/refunds/external integrations;
+- printer/KDS/payment-device integrations;
+- delivery;
+- hosted production/release operations.

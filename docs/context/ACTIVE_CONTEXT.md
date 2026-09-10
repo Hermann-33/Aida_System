@@ -1,179 +1,217 @@
 # Active Context
 
-**As of:** 2026-09-10
-**Current task:** `TASK-UI-REDESIGN-004 — audited customer UI refresh and safe preservation of future privacy/referral work`
-**Current verdict:** READY TO MERGE — audited customer redesign is production-safe, demo-only tooling is removed, future account-deletion/referral work is preserved but default-off/non-deployed, and the full customer release audit passes including release APK build.
+**As of:** 2026-09-11  
+**Current task:** `TASK-OPS-002 — Phase 1 operational topology`  
+**Current verdict:** `COMPLETE`  
+**Audit state:** frozen for Astra review. Do not begin Phase 2 until Astra findings are resolved or explicitly accepted.
 
-Detailed current evidence:
+Detailed Phase 1 closeout evidence:
 
-- `docs/frontend/UI_REDESIGN_AUDIT_2026-09-09.md`
-- PR #19 / `codex/task-ui-redesign-004-audit-integration`
-- customer release audit run #87 PASS on code head `7388c1bd40b7da4c0ce56041b8e0e02ece3847db`
+- `docs/context/PHASE_1_OPERATIONAL_TOPOLOGY_CLOSEOUT_2026-09-11.md`
+- Customer/backend PR #20
+- Dashboard/POS PR #17
 
-Previous menu-customization closeout remains COMPLETE and is documented in:
-
-- `docs/context/MENU_CUSTOMIZATION_2026-08-23.md`
-
-Previous scheduled-order operations work remains COMPLETE and is documented in:
-
-- `docs/context/SCHEDULED_ORDER_OPERATIONS_2026-08-20.md`
-
-## TASK-UI-REDESIGN-004 current integration
-
-The final integration accepts the reviewed mobile presentation refresh and excludes all demo-only order/status/test tooling. Production order status remains persisted Supabase state only.
-
-Useful future work is preserved without becoming live authority:
-
-- account-deletion/referral SQL prototypes live only under `supabase/drafts/`;
-- `AIDA_ENABLE_ACCOUNT_DELETION_DRAFT` defaults false;
-- `AIDA_ENABLE_REFERRAL_DRAFT` defaults false;
-- no new canonical Supabase migration is introduced;
-- referral sharing is pinned to `share_plus 11.1.0` to remain compatible with the current Android toolchain until a dedicated Android modernization task.
-
-The reviewed UI remains within AIDA's existing cream/coffee/espresso/rose theme and accepted typography/control language.
+Previous accepted work remains documented in its dedicated closeouts, including menu customization, scheduled-order operations and the customer UI redesign. Those historical task documents remain evidence but are not the current operational authority.
 
 ## Current product reality
 
-AIDA Café is one product across the Flutter customer app, React Dashboard/Admin/POS and shared Supabase project `eswovqxqzfevcdwwcmuh`.
+AIDA Café is one product across:
 
-The implemented trusted tranche now includes:
+- Flutter customer app — `Hermann-33/Aida_System`;
+- React Dashboard/Admin/POS — `Hermann-33/Aida_System-Dashboard`;
+- shared Supabase project `eswovqxqzfevcdwwcmuh`.
+
+Canonical executable Supabase migrations remain owned by `Hermann-33/Aida_System/supabase/migrations/`.
+
+The currently trusted backend tranche includes:
 
 - Supabase Auth/member provisioning;
-- protected same-origin employee/Admin sessions;
-- shared catalogue and revision invalidation;
-- catalogue-driven product variants, per-drink option groups and compatible add-ons;
-- authoritative quote/order pricing and immutable line snapshots;
-- Now/scheduled pickup and server-owned scheduled preparation classification;
-- customer history/status plus owner-scoped Realtime invalidation;
-- Dashboard POS ordering, operational queue and legal versioned status transitions;
-- the verified AIDA customer redesign and matching Dashboard theme integration.
+- same-origin HttpOnly employee/Admin sessions with caller-JWT forwarding;
+- trusted employee roles/disabled state;
+- trusted employee branch assignments;
+- shared catalogue, variants, drink options and compatible add-ons;
+- authoritative quote/order pricing and immutable commercial snapshots;
+- Now/scheduled pickup policy and immutable preparation timestamps;
+- customer order history/detail/status plus owner-scoped Realtime invalidation;
+- branch-scoped staff order access and versioned fulfilment transitions;
+- trusted branches, sales points and terminals;
+- one-time manager-issued terminal enrolment and revocation;
+- terminal-bound live POS placement with immutable branch/sales-point/terminal attribution.
 
-Frontends remain non-authoritative for identity, roles, catalogue commercial truth, modifier validity, pricing, order state, payment, loyalty, inventory or reporting.
+Frontends remain non-authoritative for identity, roles, branch scope, catalogue commercial truth, modifier validity, prices/totals, order state, payment settlement, loyalty, inventory, promotions, shifts/cash or reporting.
 
-## Menu customization — live contract
+## Phase 1 trusted topology
 
-Standard drink groups are currently:
-
-```text
-Temperature: Hot | Iced
-Sweetness: Regular | Less sweet | Least sweet
-```
-
-The groups are reusable server catalogue definitions. Per drink, Admin/Owner can configure customer label, price delta, availability and exactly one available default.
-
-Compatible add-ons remain catalogue items of kind `addon`, linked to individual products. Customer browsing hides add-on rows/categories as standalone products; the same add-on can be selected independently on one cart line and omitted from another.
-
-Order intents now support:
+The backend authority chain is now:
 
 ```text
-itemId
-variantId
-optionValueIds[]
-addOnIds[]
-quantity
-note
+branch
+ -> sales point
+ -> terminal
+ -> employee branch scope
+ -> POS order
 ```
 
-Supabase revalidates all selected IDs and calculates authoritative price. `pricingVersion=2` includes option deltas. `order_line_options` stores immutable group/value/label/price snapshots.
+Live seed topology:
 
-Older clients that omit option IDs are handled by the live quote function through each group's configured available default. Clients still must not submit trusted labels/prices/totals.
+```text
+BR-MAIN — Main Café
+  SP-MAIN — Main Counter
+    POS-MAIN-01
+```
 
-## Customer behavior
+The seeded terminal is intentionally `pending` until a manager enrols/activates the workstation. Seed data never creates a live terminal credential automatically.
 
-Customer-facing item configuration now presents Size, Temperature, Sweetness and compatible Customize/add-on controls from the catalogue. Unavailable options remain visible but disabled with explicit semantics; selected state is not color-only.
+Trusted resources include:
 
-`Add to cart` creates the configured line and immediately returns to Menu. Distinct Temperature/Sweetness/add-on combinations remain distinct cart configurations.
+```text
+branches
+employee_branch_assignments
+sales_points
+terminals
+private.terminal_enrolment_codes
+private.terminal_credentials
+orders.branch_id
+orders.sales_point_id
+orders.terminal_id
+```
 
-Checkout terminology is `Now | Schedule`; only the customer-facing label changed. The wire/backend value remains `asap` for compatibility. The accepted tactile scheduling wheel still renders only policy-derived valid pickup slots.
+Operational invariants:
+
+- every persisted order has immutable `branch_id`;
+- ordinary staff can operate only assigned branches;
+- Admin/Owner retain global operational scope for the current tranche;
+- customer orders never receive sales-point/terminal authority;
+- live POS placement requires a valid active terminal credential;
+- terminal credentials resolve branch and sales point server-side;
+- browser-supplied branch/sales-point/terminal IDs are not trusted placement authority;
+- terminal revocation blocks further terminal resolution and POS placement;
+- credentialless `place_pos_order(jsonb)` is not executable by `authenticated`;
+- terminal-bound `place_pos_order(jsonb,text)` is the live POS contract.
 
 ## Dashboard / POS behavior
 
-Admin Menu management exposes drink status plus per-option label, price delta, availability and default controls, along with compatible add-on checkboxes. Invalid required groups are rejected before save and by the backend.
+Live Dashboard behavior now includes:
 
-POS consumes the same catalogue contract:
+- employee `assignedBranchIds` loaded from trusted backend state;
+- staff without branch assignment fail closed;
+- Admin Locations reads/mutates trusted branches and sales points;
+- Admin Terminals reads/mutates trusted terminals, issues enrolment codes and revokes terminals;
+- Admin Employees reads trusted employee roles/status and mutates branch assignments;
+- terminal enrolment/status/credential clearing use same-origin BFF endpoints;
+- live POS requires valid terminal context before placement;
+- POS order placement sends selection/fulfilment intent plus the server-held terminal credential; operational topology is derived server-side.
 
-- variants: required single-choice when present;
-- Temperature/Sweetness: required single-choice;
-- add-ons: optional multi-select;
-- unavailable options: visible/disabled and not selectable.
+Explicit UI Preview mode may continue to use fixtures for demonstrations, but preview identifiers are never backend authority.
 
-Order placement sends IDs/quantity/note/fulfilment intent only. Same-origin HttpOnly employee-session architecture and Admin/Owner authorization remain unchanged.
+## Customer behavior
 
-## Live evidence
+Customer request contracts did not change in Phase 1.
 
-Checked on 2026-08-23:
+Customer ordering continues to send catalogue selections, quantity/note, fulfilment intent and `clientRequestId`. The backend resolves the current default branch for compatibility. Customer orders remain free of terminal/sales-point attribution.
+
+Explicit customer pickup-branch selection, branch hours, closures and capacity remain Phase 4 work.
+
+## Phase 1 executable evidence
+
+Customer/backend code head before documentation-only closeout:
+
+`d355cedb45995615a9946fb2844d55a1e6cde28d`
+
+Backend database audit run #22 — PASS on clean Supabase replay:
 
 ```text
-catalogue revision         130
-drink products              11
-non-drink products           4
-add-ons                      4
-invalid required groups      0
-Iced Drinks with Hot on      0
+branch authority regression              PASS
+operational topology regression         PASS
+order regression                         PASS
+scheduled-order operations regression    PASS
 ```
 
-Live migrations:
+Customer release audit run #114:
 
-- `20260822135421_add_drink_customization_catalogue`
-- `20260822135602_integrate_drink_customizations_with_orders`
-- `20260822141814_harden_drink_customization_indexes_and_rls`
-- `20260822143542_grant_public_drink_customization_reads`
+```text
+dependency resolution          PASS
+Flutter static analysis        PASS
+non-golden regressions         PASS
+golden regressions             PASS
+release APK build              PASS
+release APK upload             PASS
+```
 
-Privilege checks confirm public catalogue/quote execution and intended option-table reads while ordinary authenticated users retain no direct `order_line_options` table read.
+Dashboard code head before documentation-only closeout:
 
-Security advisor: one pre-existing WARN only — `auth_leaked_password_protection` / Leaked Password Protection Disabled. Performance findings are INFO-only unused indexes.
+`50c559f4ed5a5f0ddd373a4bf450a38c7e9716ba`
 
-## Executable client evidence
+Dashboard CI run #23:
 
-Customer final Codex validation commit:
+```text
+npm ci                 PASS
+lint                   PASS
+typecheck              PASS
+Vitest files      31 / 31 PASS
+Vitest tests     150 / 150 PASS
+production build        PASS
+```
 
-`404662aec382364c8e70fcee8d66b38d4b303f0a`
+## Supabase closeout state
 
-- Flutter 3.44.7 / Dart 3.12.2 / JDK 21.0.12;
-- analyze PASS;
-- 55/55 tests PASS;
-- format and `git diff --check` PASS;
-- exact-size UI/golden QA PASS at 390x844 and 430x932;
-- secret scan PASS;
-- no physical Android device was connected for this final validation pass.
+Relevant current migrations:
 
-Dashboard final Codex validation commit:
+```text
+20260910014434 create_branch_location_authority
+20260910014457 index_employee_branch_assignment_actor
+20260910023510 create_operational_sales_points_and_terminals
+20260910023552 harden_operational_topology_rls_and_indexes
+20260910040814 revoke_direct_branch_mutation_grants
+20260910041057 enforce_terminal_branch_scope_on_resolution
+20260910042619 differentiate_terminal_resolution_failures
+20260910044613 grant_branch_rpc_private_impl_execution
+20260910050152 grant_admin_operational_topology_reads
+```
 
-`af0fcd2babfa02073f882ec63ddbec102e591672`
+Live verification at closeout:
 
-- `npm ci` PASS, 0 vulnerabilities;
-- lint PASS with two pre-existing Fast Refresh warnings;
-- typecheck PASS;
-- Vitest 129/129 PASS across 29 files;
-- production build PASS with existing chunk-size advisory;
-- Playwright 10/10 PASS;
-- desktop visual QA PASS at 1366x768 and 1440x900;
-- no task-related console errors/warnings.
+```text
+branches                      1
+active/default branches       1
+sales points                  1
+terminals                     1
+active seeded terminals       0
+orders total                 25
+orders without branch         0
+customer orders with terminal 0
+```
 
-Both UI reviews PASS against the existing AIDA theme/design systems; no Luckin branding/palette or second design system was introduced.
+Supabase advisors:
 
-## Branch state / release boundary
+- security: one pre-existing WARN only — leaked-password protection disabled;
+- performance: INFO-only unused-index findings on the current small dataset;
+- no Phase 1-created security blocker remains.
 
-Matching task branches:
+## App Store impact
 
-`codex/task-menu-customization-001-modifier-groups`
+Phase 1 introduced no customer login change, no payment integration, no iOS protected-data permission, no notification change and no third-party customer SDK. It adds operational branch/sales-point/terminal attribution to Dashboard/POS data only.
 
-Before documentation closeout:
+No new App Store blocker was introduced. The existing production account-deletion requirement remains a later mandatory phase before release.
 
-- customer branch: 37 commits ahead of `master`, 0 behind;
-- Dashboard branch: 12 commits ahead of `main`, 0 behind.
+## Deferred domains
 
-No PR or merge is part of this closeout. Merge, APK build/install and hosted release remain separate explicit actions.
+Still not authoritative:
 
-## Still deferred
-
-- branch-specific catalogue/scheduling/capacity and branch-scoped queues;
-- terminal/sales-point authority;
 - shifts/cash reconciliation;
-- payment/refunds;
-- loyalty;
-- inventory;
-- promotions/discounts;
+- employee Auth-user provisioning, role mutation and badge/PIN credential lifecycle;
+- branch opening hours/closures/capacity and explicit customer branch selection;
+- inventory/recipes/stock movement/depletion;
+- loyalty/rewards/vouchers;
+- promotions/discount authority;
 - tax/accounting/reporting;
+- payment capture/refunds/processor settlement;
+- printer/KDS/payment-device integrations;
 - delivery;
-- hosted production deployment.
+- hosted production/release operations.
+
+## Next boundary
+
+Phase 1 is `COMPLETE` but not merged. PR #20 and PR #17 are the frozen Astra audit boundary.
+
+Phase 2 — shift and cash authority — must not begin until Astra findings for Phase 1 are resolved or explicitly accepted.

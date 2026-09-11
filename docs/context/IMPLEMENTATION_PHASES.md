@@ -1,8 +1,8 @@
 # AIDA Backend Completion Phases
 
-**Status:** Active — Phase 1 complete and frozen for Astra audit  
+**Status:** Active — Phase 2 in progress  
 **Started:** 2026-09-10  
-**Current boundary:** do not begin Phase 2 until Astra findings for Phase 1 are resolved or explicitly accepted.
+**Audit policy:** Astra audit is deferred until Phases 1, 2 and 3 are all complete; the three completed phase boundaries will then be audited together before Phase 4 begins.
 
 ## Phase rule
 
@@ -14,16 +14,15 @@ A phase is complete only when:
 4. Dashboard/customer tests affected by the phase pass;
 5. Supabase security/performance advisors are reviewed and task-created findings are fixed;
 6. shared contracts/context are synchronized across both repositories;
-7. Apple App Review impact is explicitly reviewed;
-8. the phase branch is frozen for Astra audit.
+7. the phase plan, implementation status, validation evidence, non-goals and handoff are documented in both repositories;
+8. Apple App Review impact is explicitly reviewed.
 
-Astra findings must be resolved or explicitly accepted before the next phase begins.
+Phases 1–3 may proceed sequentially without an intermediate Astra audit. After Phase 3 is `COMPLETE`, stop implementation and prepare one combined Phase 1–3 Astra audit boundary. Do not begin Phase 4 until Astra findings from that combined audit are resolved or explicitly accepted.
 
 ## Phase 1 — Operational topology
 
 **Task:** `TASK-OPS-002`  
 **Status:** `COMPLETE`  
-**Frozen audit boundary:** Customer/backend PR #20 and Dashboard/POS PR #17.  
 **Evidence:** `docs/context/PHASE_1_OPERATIONAL_TOPOLOGY_CLOSEOUT_2026-09-11.md`
 
 Goal:
@@ -62,21 +61,54 @@ Phase 1 non-goals remain deferred: shifts/cash, inventory, loyalty, branch hours
 
 ## Phase 2 — Shift and cash authority
 
-**Status:** blocked pending Astra acceptance of Phase 1.
+**Task:** `TASK-OPS-003`  
+**Status:** `PARTIAL` — implementation in progress.  
+**Plan:** `docs/context/PHASE_2_SHIFT_CASH_PLAN.md`
 
 Goal:
 
-- open/lock/resume/close shifts;
-- one active operator/shift policy as defined by ADR;
-- opening float in integer sen;
-- cash movement ledger;
-- expected/actual cash and variance;
-- manager approval for material variance;
-- orders/sales attributed to a shift when required.
+```text
+branch
+ -> sales point
+ -> terminal
+ -> employee
+ -> shift
+ -> POS order / cash ledger
+```
 
-No payment-processor settlement yet.
+Bounded scope:
+
+- trusted shift lifecycle: open, lock, resume and close;
+- one live open/locked shift per terminal;
+- one live open/locked shift per ordinary staff operator;
+- opening float in integer sen;
+- append-only cash movement ledger for non-sale drawer movements;
+- expected cash derived from trusted opening float + trusted cash movements + trusted cash-paid POS orders;
+- actual cash count and closing variance;
+- explicit manager/Admin approval when closing variance is non-zero;
+- immutable shift attribution on newly placed POS orders;
+- terminal credential + employee + shift consistency checked server-side;
+- live POS blocked from sale placement when no valid open shift exists;
+- current-shift and shift-history BFF/API paths;
+- live POS shift UI replacing preview-only shift state where Phase 2 authority exists.
+
+Phase 2 non-goals:
+
+- payment processor/card settlement;
+- cash refunds or return workflows;
+- tax/accounting exports;
+- inventory depletion;
+- employee Auth-user provisioning, badge/PIN credential lifecycle or role mutation;
+- multi-drawer hardware integration;
+- branch hours/capacity;
+- printer/KDS/payment-device health.
+
+Phase 2 completion requires clean-database regressions, Dashboard CI, affected customer audit, Supabase advisor review, synchronized docs and an App Store impact review. Astra audit remains deferred until Phase 3 is also complete.
 
 ## Phase 3 — Customer privacy and App Store account requirements
+
+**Status:** not started.  
+**Plan:** must be documented in both repositories before Phase 3 implementation begins.
 
 Goal:
 
@@ -87,7 +119,7 @@ Goal:
 - explicit guest/public versus authenticated feature boundary;
 - no unnecessary iOS protected-data permissions.
 
-This phase is mandatory before any App Store release candidate.
+This phase is mandatory before any App Store release candidate. After Phase 3 is `COMPLETE`, stop and prepare the combined Phase 1–3 Astra audit.
 
 ## Phase 4 — Branch scheduling and pickup authority
 
@@ -178,12 +210,12 @@ Goal:
 
 ## Dependency rule
 
-Do not skip forward when a later domain depends on an unaudited earlier authority boundary.
+Do not skip forward when a later domain depends on an incomplete earlier authority boundary.
 
 ```text
 branch
  -> sales point / terminal
- -> shift
+ -> shift / cash
  -> inventory / sales attribution
  -> loyalty / promotions
  -> reporting

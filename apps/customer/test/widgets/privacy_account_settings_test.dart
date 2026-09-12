@@ -153,7 +153,8 @@ void main() {
 
     await _openDeleteDialog(tester);
     await tester.tap(find.text('Delete account'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
 
     expect(members.deleteCalls, 1);
     expect(find.text('Deletion failed'), findsOneWidget);
@@ -175,7 +176,12 @@ void main() {
     await tester.tap(find.text('Privacy'));
     await tester.pumpAndSettle();
     expect(find.text('Privacy policy'), findsOneWidget);
-    expect(find.textContaining('notification preferences'), findsOneWidget);
+    expect(
+      find.text(
+        'When you delete your account from Settings, AIDA deletes the authentication identity, profile, membership, student-verification data and notification preferences associated with that account.',
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('terms and support surfaces contain real customer guidance', (

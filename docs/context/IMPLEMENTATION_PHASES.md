@@ -1,6 +1,6 @@
 # AIDA Backend Completion Phases
 
-**Status:** Active — Phases 1 and 2 `COMPLETE`; Phase 3 next  
+**Status:** Active — Phases 1 and 2 `COMPLETE`; Phase 3 `PARTIAL`  
 **Started:** 2026-09-10  
 **Updated:** 2026-09-12  
 **Audit policy:** Astra audit is deferred until Phases 1, 2 and 3 are all `COMPLETE`; the three frozen phase boundaries will then be audited together before Phase 4 begins.
@@ -72,19 +72,6 @@ Implemented boundary:
 - customer ordering remains shift-free and unpaid;
 - cash-paid cancellation remains blocked until trusted refund authority exists.
 
-Final documentation-only Phase 2 heads and checks:
-
-```text
-Hermann-33/Aida_System
-  b9e9eaa98c338a020dacc0d3374f710e1182b6d7
-  Backend database audit #46   COMPLETE
-  Customer release audit #138 COMPLETE
-
-Hermann-33/Aida_System-Dashboard
-  fe5aebdb22264e21646bfcf5ca49b1fd0d9bfe2d
-  Dashboard CI #59             COMPLETE
-```
-
 Phase 2 PRs remain draft and unmerged:
 
 ```text
@@ -92,22 +79,25 @@ Aida_System PR #21
 Aida_System-Dashboard PR #18
 ```
 
-Phase 2 non-goals remain deferred: external card/e-wallet processor settlement, refunds/returns, tax/accounting export, inventory depletion, employee credential lifecycle, physical drawer/printer/KDS/payment-device integration, branch hours/capacity and delivery.
-
 ## Phase 3 — Customer privacy and App Store account requirements
 
-**Status:** `PARTIAL` only after its bounded plan is committed; implementation must not begin before that plan exists in both repositories.
+**Task:** `TASK-PRIVACY-001`  
+**Status:** `PARTIAL` — bounded plan committed in both repositories; implementation active.  
+**Plan:** `docs/context/PHASE_3_CUSTOMER_PRIVACY_ACCOUNT_PLAN.md`
 
 Required boundary:
 
-- production account deletion replacing the dormant draft;
-- explicit retention/deletion rules for personal data versus legally retained transaction records;
+- production whole-account deletion replacing the dormant draft;
+- explicit anonymization/retention rules for historical commercial records;
+- deletion of customer profile/member/student-verification and preference PII;
+- customer privacy/notification preferences with marketing default-off;
 - accessible privacy policy, terms and support/contact surfaces;
-- customer consent/preferences with explicit marketing-notification opt-in/out;
 - explicit guest/public versus authenticated feature boundary;
-- no unnecessary iOS protected-data permissions;
-- regression evidence for authorization, deletion, retention and customer release behavior;
-- synchronized App Store impact documentation.
+- iOS permission/data-minimization audit;
+- database authorization/deletion/retention regressions;
+- customer release validation and synchronized App Store impact documentation.
+
+Design constraint: retained historical customer orders must lose stable customer/member/Auth identifiers without using a permanent synthetic Auth user. POS/staff audit identity must not be weakened by the customer-deletion path.
 
 This phase is mandatory before any App Store release candidate. After Phase 3 reaches `COMPLETE`, stop implementation and prepare the combined Phase 1–3 Astra audit boundary.
 
@@ -123,14 +113,13 @@ Phase 10: App Store release gate.
 
 ## Dependency rule
 
-Do not skip forward when a later domain depends on an incomplete earlier authority boundary.
-
 ```text
 branch
  -> sales point / terminal
  -> shift / cash
  -> customer privacy/account requirements
  -> combined Phase 1–3 Astra audit
- -> branch scheduling / inventory / loyalty / reporting
- -> payments / refunds / external integrations
+ -> later backend phases
 ```
+
+Do not begin Phase 4 while Phase 3 is `PARTIAL` or before the combined Astra boundary is resolved/accepted.

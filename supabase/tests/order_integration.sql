@@ -171,6 +171,7 @@ declare
   v_terminal_issue jsonb;
   v_terminal_enrol jsonb;
   v_terminal_credential text;
+  v_shift jsonb;
 begin
   select id into strict v_item_id
   from public.catalogue_items
@@ -303,6 +304,13 @@ begin
     raise exception 'staff terminal enrolment did not return trusted Main Counter authority';
   end if;
 
+  select public.open_shift(v_terminal_credential, 0) into v_shift;
+  if v_shift ->> 'status' <> 'open'
+     or v_shift ->> 'terminalId' <> v_terminal_id::text
+     or v_shift ->> 'operatorUserId' <> v_staff_id::text then
+    raise exception 'order regression failed to establish trusted open shift: %', v_shift;
+  end if;
+
   -- Staff queue, terminal-bound POS placement and legal transitions use the caller JWT.
 
   select public.list_orders(array['scheduled'], 100) into v_orders;
@@ -327,11 +335,12 @@ begin
   ) into v_pos_order;
   if v_pos_order ->> 'source' <> 'pos'
      or v_pos_order ->> 'status' <> 'confirmed'
+     or v_pos_order ->> 'shiftId' <> v_shift ->> 'id'
      or v_pos_order #>> '{branch,code}' <> 'BR-MAIN'
      or v_pos_order #>> '{salesPoint,code}' <> 'SP-MAIN'
      or v_pos_order #>> '{terminal,code}' <> 'POS-MAIN-01'
      or (v_pos_order ->> 'totalSen')::bigint <> v_expected_pos_total then
-    raise exception 'staff POS order did not persist authoritative quote';
+    raise exception 'staff POS order did not persist authoritative quote/shift';
   end if;
 
   select public.transition_order_status(v_order_id, 'preparing', 1, null) into v_order;

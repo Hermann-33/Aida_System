@@ -72,7 +72,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Marketing is opt-in. Account creation never opts you into promotional notifications.'), findsOneWidget);
+    expect(
+      find.text(
+        'Marketing is opt-in. Account creation never opts you into promotional notifications.',
+      ),
+      findsOneWidget,
+    );
 
     final marketingTile = tester.widget<SwitchListTile>(
       find.widgetWithText(SwitchListTile, 'Marketing notifications'),
@@ -96,7 +101,7 @@ void main() {
   ) async {
     final members = _Phase3MemberRepository();
     final orders = TestOrderRepository();
-    addTearDown(orders.dispose);
+    addTearDown(orders.updates.close);
 
     await tester.pumpWidget(
       _app(
@@ -113,7 +118,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Delete your account?'), findsOneWidget);
-    expect(find.textContaining('retained only in anonymised form'), findsOneWidget);
+    expect(
+      find.textContaining('retained only in anonymised form'),
+      findsOneWidget,
+    );
 
     await tester.tap(find.text('Delete account'));
     await tester.pumpAndSettle();
@@ -126,7 +134,7 @@ void main() {
       deleteFailure: const ServerFailure('Deletion failed'),
     );
     final orders = TestOrderRepository();
-    addTearDown(orders.dispose);
+    addTearDown(orders.updates.close);
 
     await tester.pumpWidget(
       _app(

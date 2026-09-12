@@ -12,67 +12,33 @@ flowchart LR
   S --> A[Supabase Auth]
   S --> P[(Postgres + FORCE RLS)]
   S --> OR[orders Realtime invalidation]
-  D -->|poll/refetch privileged operational data| B
 ```
 
-## Ownership
+AIDA is one product across `Hermann-33/Aida_System`, `Hermann-33/Aida_System-Dashboard`, and Supabase project `eswovqxqzfevcdwwcmuh`. Canonical executable migrations live only in `Hermann-33/Aida_System/supabase/migrations/`.
 
-- Customer/backend repository: `Hermann-33/Aida_System`, default `master`.
-- Dashboard/Admin/POS repository: `Hermann-33/Aida_System-Dashboard`, default `main`.
-- Shared backend: Supabase project `Aida System`, ref `eswovqxqzfevcdwwcmuh`.
-- Canonical executable Supabase migrations live only in `Hermann-33/Aida_System/supabase/migrations/`.
-- Mirrored project governance docs must remain synchronized across both repositories.
+## Trusted authority through Phase 3
 
-## Identity and session authority
+Supabase/server owns authenticated identity, trusted application role/disabled state, membership identity, employee branch scope, branch/sales-point/terminal topology, terminal credential validity, shift state, cash reconciliation, tender/payment classification, catalogue/commercial pricing, persisted order state, customer privacy preferences, and whole-account deletion/anonymization.
 
-Supabase Auth owns authentication. `user_profiles` owns trusted application role/disabled state; `members` owns customer membership identity.
+Dashboard privileged operations stay behind the same-origin BFF. Employee access/refresh and terminal credentials are HttpOnly; the BFF forwards the caller JWT; no service-role secret or browser-readable employee bearer token is used. Preview fixtures are never backend authority.
 
-Dashboard privileged flows remain behind the same-origin BFF:
+Customer Flutter uses publishable Supabase configuration and customer-scoped RPC/RLS boundaries. Customer-editable Auth metadata is never authorization authority.
 
-- employee access/refresh state is held in HttpOnly cookies;
-- terminal credential is held in an HttpOnly cookie and never returned to browser JavaScript;
-- the BFF forwards the caller JWT to Supabase;
-- no service-role secret is used for ordinary staff/Admin operations;
-- no reusable employee bearer token is stored in browser-readable state.
-
-Customer Flutter uses only publishable/public Supabase configuration and customer-scoped authorization boundaries.
-
-## Catalogue and order authority
-
-Supabase is authoritative for catalogue availability, modifiers, prices and order totals. Clients submit selection/fulfilment intent only.
-
-Commercial order history is persisted through immutable snapshots in:
-
-```text
-orders
-order_lines
-order_line_addons
-order_line_options
-order_events
-```
-
-`clientRequestId` provides placement idempotency. Customer orders remain scoped to the authenticated customer/member relationship. Staff fulfilment transitions are branch-scoped and optimistic-versioned.
-
-## Phase 1 operational topology — COMPLETE
+## Phase 1 — operational topology
 
 Trusted chain:
 
 ```text
-branches
- -> sales_points
- -> terminals
- -> terminal credential
-
-employee_branch_assignments
- -> staff operational scope
-
-terminal credential + employee branch scope
- -> immutable POS branch/sales-point/terminal attribution
+branch
+ -> sales point
+ -> terminal
+ -> employee branch scope
+ -> POS order attribution
 ```
 
-The browser does not choose trusted operational IDs for placement. Manager-issued one-time enrolment activates a terminal; revocation invalidates authority immediately.
+The browser does not choose trusted operational IDs for live placement. Manager-issued one-time enrolment activates a terminal; the credential is server-held by the Dashboard BFF; revocation or branch-scope removal invalidates authority. Accepted POS topology attribution is immutable.
 
-## Phase 2 shift and cash authority — COMPLETE
+## Phase 2 — shift and cash authority
 
 Phase 2 extends the chain:
 
@@ -85,116 +51,100 @@ branch
  -> POS order / cash ledger
 ```
 
-Trusted resources:
+`public.shifts` and append-only `public.cash_movements` own shift/cash facts. New POS placement requires a matching open shift. Opening float and movements use integer sen; expected cash and closing variance are server-derived; non-zero variance close requires Admin/Owner authority. Persisted shift/tender/payment attribution is protected from ordinary mutation. Phase 2 tender semantics remain `cash | unpaid`; external processor settlement/refunds remain deferred.
+
+## Phase 3 — customer privacy and account requirements
+
+Phase 3 adds an explicit privacy lifecycle without deleting trusted commercial history or inventing a fake deleted-customer Auth identity.
+
+Trusted resources/contracts:
 
 ```text
-public.shifts
-public.cash_movements
-public.orders.shift_id
-public.orders.tender_type
-public.orders.payment_state
-public.orders.paid_at
+public.customer_privacy_preferences
+public.orders.customer_deleted_at
+public.delete_own_account()
+public.get_my_privacy_preferences()
+public.save_my_privacy_preferences(...)
 ```
 
-Shift contracts:
-
-- lifecycle: `open | locked | closed`;
-- one live open/locked shift per terminal;
-- one live open/locked shift per operator;
-- terminal/branch/sales-point attribution comes from the enrolled terminal authority;
-- operator identity comes from `auth.uid()` and trusted role/scope state;
-- opening float is integer sen;
-- state changes use optimistic `status_version`;
-- closed reconciliation facts are persisted server-side.
-
-Cash contracts:
-
-- ledger is append-only;
-- movement types: `cash_in | cash_out`;
-- amount is integer sen;
-- actor/reason/timestamp are trusted persisted facts;
-- expected cash is derived from opening float + movements + trusted cash-paid POS sales;
-- employee submits actual count only;
-- backend derives variance;
-- non-zero variance close requires Admin/Owner authority.
-
-POS contracts after Phase 2:
-
-- new POS placement requires a valid `open` shift;
-- shift, terminal, sales point, branch and operator must match server-side;
-- persisted `shift_id`, tender and payment state are protected from ordinary mutation;
-- Phase 2 tender classification is deliberately limited to `cash | unpaid`;
-- `cash` persists paid state and server `paid_at`;
-- customer orders remain shift-free/unpaid;
-- cash-paid cancellation is blocked until trusted refund authority exists.
-
-## Dashboard Phase 2 flow
+Active customer order shape:
 
 ```text
-Employee session + terminal HttpOnly credential
- -> same-origin BFF
- -> caller JWT + terminal credential
- -> shift RPC
- -> Supabase validates role/scope/topology/operator
- -> trusted shift snapshot
+customer_user_id != null
+member_id != null
+created_by_user_id != null
+customer_deleted_at == null
 ```
 
-Live endpoints:
+Retained anonymized customer order shape after deletion:
 
 ```text
-GET  /api/v1/shifts/current
-POST /api/v1/shifts/open
-POST /api/v1/shifts/lock
-POST /api/v1/shifts/resume
-POST /api/v1/shifts/cash-movement
-GET  /api/v1/shifts/reconciliation
-POST /api/v1/shifts/close
-GET  /api/v1/admin/shifts
+customer_user_id == null
+member_id == null
+created_by_user_id == null
+customer_deleted_at != null
 ```
 
-Live POS blocks sale placement when there is no open trusted shift. Expected cash is never browser authority. UI Preview remains fixture-backed and explicitly non-authoritative.
+The deletion boundary is caller-bound to `auth.uid()` and accepts no target user ID. Public wrappers remain `SECURITY INVOKER`; privileged mutations live in private `SECURITY DEFINER` helpers that verify the supplied actor equals `auth.uid()` and is a trusted customer profile. Staff/Admin identities cannot use customer self-deletion.
 
-## Scheduling and Realtime boundaries
+Whole-account deletion:
 
-Scheduled-order preparation remains server-owned and versioned. Branch-specific hours, closures, capacity and explicit customer pickup branch remain Phase 4.
+1. selects only the caller's customer orders;
+2. removes customer-authored retained free text (`order_lines.note`, `order_events.reason`);
+3. performs one narrowly scoped internal transition that nulls customer/member/Auth order identity and sets `customer_deleted_at`;
+4. verifies no caller identity/free text remains in retained order rows;
+5. deletes the caller from `auth.users`, allowing profile/member/student/preference/session identity state to disappear through the established ownership/cascade boundary.
 
-Customer Realtime is used as authorized invalidation followed by refetch. Dashboard does not expose its employee JWT for direct Realtime; privileged data continues through the same-origin BFF.
+The deletion right does not depend on an active member row and remains available to a trusted customer profile even when the application profile is disabled. This avoids trapping a customer account behind unrelated membership/feature state.
+
+Historical order number, line/product snapshots, quantities, prices, totals, currency, fulfilment/status timestamps, branch/sales-point/terminal/shift attribution and tender/payment facts remain as anonymized transaction/audit records. POS/staff actor identity is not weakened by customer deletion.
+
+`customer_privacy_preferences` is FORCE-RLS protected and has no direct authenticated table grants. Customer RPCs expose owner-bound preference state; marketing defaults `false`, transactional notifications default `true`. Phase 3 adds preference state only—no push provider or OS notification permission.
+
+Already-issued JWTs can remain cryptographically valid until expiry, so personalized customer RPCs continue requiring trusted profile/member state. Once deletion removes that state and nulls order ownership, a stale token cannot regain personalized history/order/privacy authority.
+
+## Customer app Phase 3 flow
+
+Settings exposes production account deletion, privacy preferences, Privacy Policy, Terms and Support. The server operation must succeed before local deletion success is reported. After success the app signs out best-effort, clears customer identity providers and removes the active offline membership cache.
+
+Public/guest-capable surfaces include catalogue and legal/support information. Membership identity/QR, profile changes, customer order placement/history, student verification, account preferences and account deletion remain authenticated-only. No anonymous Supabase user is auto-created merely to represent a guest.
+
+## iOS data/permission boundary
+
+Phase 3 adds no camera, photo-library, location, contacts, microphone, Bluetooth, calendar/reminder, ATT/tracking or notification authorization request. It adds no tracking/advertising SDK. `qr_flutter` renders a QR and requires no camera permission. No StoreKit/IAP requirement is introduced because AIDA sells physical café goods.
+
+Detailed evidence: `docs/context/PHASE_3_IOS_DATA_PERMISSION_AUDIT.md`.
+
+## Scheduling, Realtime and payment boundaries
+
+Scheduled preparation remains server-owned and versioned. Branch-specific hours/closures/capacity and explicit customer pickup branch remain later work.
+
+Customer Realtime is authorized invalidation followed by refetch. Dashboard privileged data does not expose employee access tokens for direct Realtime.
+
+External payment capture/refunds/processor settlement remain deferred. Phase 2 cash/unpaid state is internal POS authority, not a processor integration.
 
 ## Security invariants
 
-- no authorization decision trusts customer-editable `user_metadata`;
-- public/exposed data access remains under explicit grants plus RLS where applicable;
-- privileged functions validate `auth.uid()`, trusted role and operational scope;
-- private helper functions are not general browser APIs;
-- customer QR/member possession is not authentication;
-- preview fixtures never become backend authority;
-- service-role/secret credentials remain absent from customer and Dashboard browser code.
-
-## Validation boundary
-
-Phase 2 detailed evidence:
-
-`docs/context/PHASE_2_SHIFT_CASH_CLOSEOUT_2026-09-12.md`
-
-Final pre-refresh validation evidence:
-
-```text
-Backend database audit #46   COMPLETE
-Customer release audit #138 COMPLETE
-Dashboard CI #59             COMPLETE
-```
+- no authorization trusts customer-editable `user_metadata`;
+- no service-role/secret credential is shipped to Flutter or browser code;
+- no browser-readable employee bearer token or terminal credential;
+- public RPC wrappers do not accept a target customer ID for deletion;
+- retained customer transaction history loses stable customer/member/Auth identity;
+- retained customer-authored free text is scrubbed on deletion;
+- staff/POS actor retention is preserved;
+- preview fixtures never become backend authority.
 
 ## Deferred authority domains
 
-- Phase 3 customer account deletion/privacy/consent;
 - branch hours/closures/capacity and explicit pickup branch;
-- inventory/recipes/stock depletion;
+- inventory/recipes/depletion;
 - loyalty/rewards/vouchers;
 - promotions/discounts;
-- reporting/tax/accounting;
+- reporting/tax/accounting export;
 - external processor settlement and refunds;
-- employee credential lifecycle;
+- employee Auth-user/credential lifecycle;
 - printer/KDS/payment-device integrations;
+- marketing campaign delivery provider;
 - delivery and deployment-heavy operations.
 
-After Phase 3 becomes `COMPLETE`, implementation stops for the combined Phase 1–3 Astra audit. Phase 4 does not begin before that boundary is resolved or explicitly accepted.
+After Phase 3 completion, implementation stops for the combined Phase 1–3 Astra audit boundary. Phase 4 must not begin before that boundary is resolved or explicitly accepted.

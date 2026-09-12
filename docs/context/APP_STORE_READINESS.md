@@ -2,98 +2,111 @@
 
 **Applies to:** AIDA customer iOS application and backend behavior exposed by it.  
 **Reviewed:** 2026-09-12  
-**Source of truth:** Apple's current published App Review and account-deletion guidance; re-check before release.
+**Current implementation verdict:** Phase 3 privacy/account boundary `COMPLETE`; final App Store release gate remains later work.
 
-Official references:
+Official references must be re-checked before submission:
 
 - https://developer.apple.com/app-store/review/guidelines/
 - https://developer.apple.com/support/offering-account-deletion-in-your-app/
 
 ## Standing rules
 
-AIDA sells physical café food/drink. These are physical goods/services consumed outside the app, so StoreKit/In-App Purchase is not the payment path.
+AIDA sells physical café food/drink, so StoreKit/In-App Purchase is not the payment path.
 
-The customer app supports account creation. A production iOS build therefore requires an easy-to-find in-app path to initiate deletion of the whole account and associated personal data except records that must legitimately be retained. Temporary deactivation alone is insufficient.
+Customer account creation requires an easy-to-find in-app whole-account deletion path. Temporary deactivation alone is insufficient. Personal data not legitimately required for retained transaction/audit history must be deleted or anonymized.
 
-Public catalogue/branch information should remain usable without unnecessary authentication where practical. Personalized membership/order features may require authentication.
+Only collect/request protected data required for a defined shipping feature. Public catalogue and legal/support information should not require unnecessary authentication. Personalized membership/order/account features may require authentication.
 
-Only collect data required for a defined feature. Do not request location, camera, contacts, photos, tracking or notification permission merely for convenience. Promotional/direct-marketing notifications require explicit customer control and must remain separable from transactional order communication.
+## Phase 1 — operational topology
 
-Security guardrails:
-
-- publishable/public key only in customer code;
-- no service-role/secret credential in the app;
-- trusted prices, roles, identifiers and commercial/operational state validated server-side;
-- RLS/authorization around personal data;
-- QR/member possession is not authentication.
-
-## Phase 1 review — operational topology
-
-**Task:** `TASK-OPS-002`  
 **Verdict:** `COMPLETE`
 
-Phase 1 changed Dashboard/POS operational topology only. It added no customer login change, processor, iOS permission, notification behavior, tracking SDK or customer personal-data field.
+Dashboard/POS topology authority changed only. No customer iOS permission, tracking SDK, customer personal-data field or processor path was added.
 
-## Phase 2 review — shift and cash authority
+## Phase 2 — shift and cash authority
 
-**Task:** `TASK-OPS-003`  
 **Verdict:** `COMPLETE`
 
-Phase 2 impact:
+Shift/operator/cash reconciliation is staff operational data. Phase 2 adds only internal `cash | unpaid` tender/payment classification; no external processor, Apple Pay, StoreKit, subscription or digital purchase. No iOS permission or customer personal-data field was added.
+
+## Phase 3 — customer privacy and account requirements
+
+**Verdict:** `COMPLETE`
+
+The known account-deletion/privacy implementation blocker is closed at the code/backend boundary.
+
+Delivered:
+
+- production whole-account deletion initiated from Settings;
+- deletion RPC accepts no target user ID and is caller-bound to `auth.uid()`;
+- customer Auth/profile/member/student/preference identity deletion;
+- anonymized retention of legitimate transaction/audit facts;
+- customer/member/Auth IDs removed from retained customer orders;
+- customer-authored retained `order_lines.note` and `order_events.reason` scrubbed;
+- POS/staff audit identity preserved;
+- privacy/notification preferences with marketing default-off;
+- Privacy Policy, Terms and Support surfaces;
+- signed-out access to legal/support information;
+- explicit public/guest versus authenticated feature split;
+- customer release and clean-database deletion/retention regressions.
+
+Implementation evidence:
 
 ```text
-account/login:
-  No customer account/login contract change.
-
-payments:
-  Internal POS tender classification is limited to cash/unpaid.
-  No external processor, Apple Pay, StoreKit, subscription or digital purchase was added.
-
-privacy/data collected:
-  Shift/operator/cash reconciliation data is staff operational data.
-  No new customer personal-data field was introduced.
-
-permissions:
-  No iOS protected-data permission was added.
-
-notifications:
-  No notification behavior changed.
-
-third-party SDKs:
-  None added by Phase 2.
-
-review/demo implications:
-  No new customer hardware permission or payment review path.
-  Backend availability remains required during future review.
-
-App Store blocker introduced:
-  No new blocker introduced by Phase 2.
+Aida_System head 10ca26a776994e59b76f8afbd7227e296270cd68
+Backend database audit #90   COMPLETE
+Customer release audit #182 COMPLETE
 ```
 
-## Mandatory Phase 3 blocker
+Detailed closeout: `docs/context/PHASE_3_CUSTOMER_PRIVACY_ACCOUNT_CLOSEOUT_2026-09-12.md`.
 
-Before any App Store release candidate, Phase 3 must deliver and validate:
+## iOS permission/data audit
 
-- production whole-account deletion initiated from inside the app;
-- explicit personal-data deletion versus legally retained transaction-record policy;
-- accessible privacy policy, terms and support/contact surfaces;
-- explicit customer consent/preferences and marketing-notification opt-in/out;
-- guest/public versus authenticated feature boundary;
-- proof that no unnecessary iOS protected-data permission is requested;
-- release validation of the complete deletion path.
+`docs/context/PHASE_3_IOS_DATA_PERMISSION_AUDIT.md` is `COMPLETE` for the Phase 3 code boundary.
 
-The preserved/dormant account-deletion draft is not production authority until promoted through Phase 3 with backend authorization, retention semantics and executable regression coverage.
+Phase 3 introduces no camera, photo-library, location, contacts, microphone, Bluetooth, calendar/reminder, tracking/ATT or notification authorization request. It adds no advertising/tracking SDK. Privacy preference state is not OS push permission and is not cross-app tracking consent.
 
-## Release gate
+`qr_flutter` renders the membership QR and does not justify a camera purpose string.
 
-Before submission:
+## Guest/auth boundary
 
-- required backend services must be live and accessible;
-- support/privacy URLs must work;
-- account deletion must be physically verified end-to-end;
-- App Privacy answers and privacy manifest must match actual SDK/data behavior;
-- screenshots/metadata must match the submitted build;
-- review credentials/demo path must be usable;
-- hidden/dormant development functionality must not appear as undocumented production behavior.
+Public/guest-capable:
 
-After Phase 3 becomes `COMPLETE`, implementation stops for the combined Phase 1–3 Astra audit before Phase 4 begins.
+- catalogue browsing;
+- Privacy Policy, Terms and Support information.
+
+Authenticated-only:
+
+- membership identity/QR;
+- profile mutation;
+- order placement/history;
+- student verification;
+- account privacy preferences;
+- whole-account deletion.
+
+No anonymous Supabase user is created merely to represent a guest.
+
+## Security guardrails
+
+- publishable/public Supabase configuration only in customer code;
+- no service-role/secret credential in Flutter/browser code;
+- trusted roles, prices, identifiers, commercial/operational/payment/privacy state validated server-side;
+- customer self-deletion is caller-bound and cannot target another user;
+- RLS/RPC authorization around personal data;
+- preview fixtures are never production authority;
+- QR/member possession is not authentication.
+
+## Remaining final release gate
+
+Phase 3 completion is not an App Store submission verdict. Before submission, the release candidate still requires:
+
+- operational public Privacy Policy and Support URLs matching the in-app disclosures;
+- App Privacy answers and privacy manifests reconciled against the complete release build and all linked SDK manifests;
+- physically verified whole-account deletion against production release infrastructure;
+- usable review credentials/demo path;
+- screenshots/metadata matching the submitted binary;
+- reopening the permission audit if a later phase adds notifications, camera scanning, location, tracking or another protected capability.
+
+## Governance
+
+Phases 1–3 are `COMPLETE` but remain draft/unmerged. Implementation stops for `docs/context/PHASE_1_3_ASTRA_AUDIT_BOUNDARY_2026-09-12.md`, whose verdict remains `PARTIAL` until Astra review is executed/accepted. Do not begin Phase 4 before that boundary is resolved.

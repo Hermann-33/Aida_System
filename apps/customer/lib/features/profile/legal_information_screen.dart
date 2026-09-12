@@ -3,16 +3,27 @@ import 'package:flutter/material.dart';
 import '../../core/theme/aida_colors.dart';
 import '../../core/theme/aida_type.dart';
 
-enum LegalInformationKind { terms, support }
+enum LegalInformationKind { privacy, terms, support }
 
 class LegalInformationScreen extends StatelessWidget {
   const LegalInformationScreen({required this.kind, super.key});
 
   final LegalInformationKind kind;
 
+  String get _title => switch (kind) {
+    LegalInformationKind.privacy => 'Privacy policy',
+    LegalInformationKind.terms => 'Terms of use',
+    LegalInformationKind.support => 'Support',
+  };
+
+  Widget get _content => switch (kind) {
+    LegalInformationKind.privacy => const _PrivacyContent(),
+    LegalInformationKind.terms => const _TermsContent(),
+    LegalInformationKind.support => const _SupportContent(),
+  };
+
   @override
   Widget build(BuildContext context) {
-    final isTerms = kind == LegalInformationKind.terms;
     return Scaffold(
       backgroundColor: AidaColors.cream,
       appBar: AppBar(
@@ -20,16 +31,32 @@ class LegalInformationScreen extends StatelessWidget {
         foregroundColor: AidaColors.textPrimary,
         elevation: 0,
         title: Text(
-          isTerms ? 'Terms of use' : 'Support',
+          _title,
           style: AidaType.serif(size: 21, color: AidaColors.textPrimary),
         ),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 36),
-        children: isTerms ? const [_TermsContent()] : const [_SupportContent()],
+        children: [_content],
       ),
     );
   }
+}
+
+class _PrivacyContent extends StatelessWidget {
+  const _PrivacyContent();
+
+  @override
+  Widget build(BuildContext context) => const _InfoCard(
+    title: 'AIDA Café privacy policy',
+    children: [
+      'AIDA uses account profile and membership information to provide signed-in membership and ordering features. Marketing notifications are opt-in and are not enabled merely because an account is created.',
+      'Order records contain commercial and operational facts such as items, prices, totals, fulfilment state and café location. Trusted prices and order state come from the AIDA backend rather than client preview data.',
+      'When you delete your account from Settings, AIDA deletes the authentication identity, profile, membership, student-verification data and notification preferences associated with that account.',
+      'Historical transaction records may be retained only in anonymised form for legitimate transaction, audit and accounting purposes. Retained customer orders no longer contain the customer, member or Auth identifier.',
+      'AIDA does not treat notification preferences as consent to cross-app tracking and does not request protected device permissions unless a shipping feature requires them.',
+    ],
+  );
 }
 
 class _TermsContent extends StatelessWidget {

@@ -1,8 +1,9 @@
 # Phase 2 — Shift and Cash Authority Plan
 
 **Task:** `TASK-OPS-003`  
-**Status:** `PARTIAL` — implementation in progress  
+**Status:** `COMPLETE`  
 **Branch:** `codex/phase-2-shift-cash-authority`  
+**Closeout:** `docs/context/PHASE_2_SHIFT_CASH_CLOSEOUT_2026-09-12.md`  
 **Audit policy:** no Astra audit after Phase 2. Phases 1–3 will be audited together after Phase 3 is `COMPLETE`.
 
 ## Objective
@@ -15,7 +16,7 @@ branch
  -> terminal
  -> employee
  -> shift
- -> POS order / cash movement
+ -> POS order / cash ledger
 ```
 
 The browser must not invent shift identity, opening float, expected cash, closing totals or manager approval.
@@ -24,125 +25,59 @@ The browser must not invent shift identity, opening float, expected cash, closin
 
 Phase 1 established trustworthy branch, sales-point, terminal and employee scope. Phase 2 depends on that authority because a shift is meaningful only when the backend can prove which physical terminal, branch and employee own it. Inventory, reporting and payments remain downstream because they depend on trusted shift/sale attribution.
 
-## Bounded implementation plan
+## Implemented bounded scope
 
-### 1. Shift authority
+### Shift authority
 
-Create trusted server-owned shifts with:
+Trusted shifts persist UUID identity, terminal/sales-point/branch attribution, opening/current operator, `open | locked | closed` lifecycle, optimistic version, integer-sen opening float, timestamps and close/approval actors.
 
-- stable UUID;
-- terminal, sales point and branch attribution derived from the terminal credential;
-- opening employee;
-- current operator;
-- lifecycle status `open`, `locked`, `closed`;
-- opening float in integer sen;
-- opened/locked/resumed/closed timestamps;
-- optimistic version for state transitions;
-- close actor and optional approving manager.
+Constraints enforce one live shift per terminal and one live shift per operator. Locked/closed shifts cannot place sales.
 
-Constraints:
+### Cash ledger and reconciliation
 
-- one `open`/`locked` shift per terminal;
-- one `open`/`locked` shift per ordinary staff operator;
-- Admin/Owner may inspect all permitted operational shifts but do not bypass terminal consistency for POS placement;
-- locked or closed shifts cannot place sales.
+The append-only ledger supports `cash_in` and `cash_out` with trusted actor, reason, timestamp and integer-sen amount.
 
-### 2. Cash movement ledger
+Expected cash is derived server-side from opening float, trusted movements and trusted cash-paid POS sales. Employee submits actual cash only; backend derives variance. Non-zero variance close requires Admin/Owner authority.
 
-Create an append-only trusted ledger for non-sale drawer movements:
+### POS shift/payment attribution
 
-- `cash_in`;
-- `cash_out`;
-- reason text;
-- amount in integer sen;
-- shift/terminal/branch identity;
-- actor and timestamp.
+New POS placement requires an open shift matching terminal credential, terminal, sales point, branch and authenticated operator. `shift_id`, tender and payment state are persisted as trusted immutable attribution. Customer orders remain shift-free and unpaid.
 
-No browser-owned balance field will exist.
+Phase 2 tender classification is deliberately limited to `cash | unpaid`. External processor settlement and refunds are deferred.
 
-### 3. Expected cash and close reconciliation
+### BFF and Dashboard
 
-Expected cash will be derived server-side from:
+Same-origin caller-JWT BFF paths cover current/open/lock/resume/close shift, cash movement, reconciliation and Admin shift history. The terminal credential remains HttpOnly/server-readable only.
+
+Live POS requires trusted shift state. Expected cash is never browser authority. UI Preview remains explicitly non-authoritative.
+
+## Validation
+
+Detailed validation evidence is recorded in the closeout. Final documentation-only Phase 2 heads before governance refresh were green:
 
 ```text
-opening float
-+ trusted cash_in
-- trusted cash_out
-+ trusted cash-paid completed/valid POS order amounts
+Backend database audit #46   COMPLETE
+Customer release audit #138 COMPLETE
+Dashboard CI #59             COMPLETE
 ```
 
-Phase 2 will add only the minimum internal tender classification required to distinguish pay-at-counter cash from non-cash/unpaid semantics. It will not integrate a payment processor.
-
-Close flow:
-
-- employee submits actual counted cash in integer sen;
-- backend derives expected cash and variance;
-- zero variance may close under normal operator authority;
-- non-zero variance requires explicit Admin/Owner approval recorded server-side;
-- closed financial facts are immutable.
-
-### 4. POS order shift attribution
-
-New live POS placement must require a valid open shift matching:
-
-- terminal credential;
-- terminal;
-- sales point;
-- branch;
-- authenticated employee/operator.
-
-Persist immutable `shift_id` on new POS orders. Customer orders remain shift-free.
-
-### 5. BFF/API and Dashboard
-
-Add same-origin caller-JWT BFF paths for:
-
-- current shift;
-- open shift;
-- lock/resume;
-- record cash movement;
-- reconciliation preview;
-- close shift;
-- Admin shift history/inspection where required.
-
-Live `PosShellPage` must stop using preview shift state and require the trusted current shift. UI Preview stays explicitly non-authoritative.
-
-### 6. Validation
-
-Phase 2 database regression must prove at minimum:
-
-- no anonymous shift/cash authority;
-- no direct authenticated table DML;
-- staff cannot open/use a shift outside assigned branch;
-- a terminal cannot own two live shifts;
-- ordinary staff cannot own two live shifts;
-- terminal/employee mismatch blocks POS placement;
-- locked/closed shift blocks POS placement;
-- cash ledger is append-only;
-- expected cash is server-derived;
-- non-zero variance cannot close without Admin/Owner approval;
-- approved close persists immutable reconciliation facts;
-- customer ordering remains shift-free;
-- POS order shift attribution is immutable;
-- idempotent order placement remains stable.
-
-Dashboard CI and affected customer release audit must pass after integration.
+Database coverage includes no anonymous shift/cash authority, no direct authenticated mutation, branch/operator/terminal mismatch rejection, live-shift uniqueness, lock/close placement blocking, append-only cash movements, server-derived reconciliation, Admin/Owner variance approval, customer separation, immutable POS attribution and idempotency stability.
 
 ## Security model
 
-- customer app: no Phase 2 shift/cash access;
-- Dashboard browser: no reusable employee bearer token and no terminal secret readable by JavaScript;
+- customer app has no Phase 2 shift/cash authority;
+- Dashboard browser has no reusable employee bearer token and no readable terminal secret;
 - BFF forwards the caller JWT and server-held terminal credential;
 - service-role credentials remain prohibited from normal operational flows;
-- exposed public tables use RLS + FORCE RLS where appropriate;
-- private helper/ledger internals default-deny client roles;
-- privileged functions must validate `auth.uid()`, role and operational scope internally.
+- exposed tables use explicit grants and RLS/FORCE RLS as appropriate;
+- private helper internals default-deny client roles;
+- privileged functions validate `auth.uid()`, role and operational scope internally.
 
 ## App Store impact
 
-Phase 2 affects staff Dashboard/POS operations only. It introduces no customer iOS permission, tracking SDK, digital purchase, subscription or new customer personal-data collection. Physical café sales remain outside StoreKit/IAP. Phase 3 remains responsible for customer account deletion and privacy-release requirements.
+Phase 2 affects staff Dashboard/POS operations only. It introduces no customer iOS protected-data permission, tracking SDK, digital purchase, subscription or new customer personal-data collection. Physical café sales remain outside StoreKit/IAP. Phase 3 owns customer account deletion and privacy-release requirements.
 
-## Non-goals
+## Deferred / non-goals
 
 - external card/e-wallet/payment processor integration;
 - cash refunds/returns;
@@ -151,8 +86,8 @@ Phase 2 affects staff Dashboard/POS operations only. It introduces no customer i
 - printer/KDS/payment-device hardware integration;
 - employee Auth-user creation or password/PIN/badge lifecycle;
 - branch hours/closures/capacity;
-- delivery.
+- delivery and deployment-heavy work.
 
-## Completion gate
+## Completion state
 
-Phase 2 may be marked `COMPLETE` only after implementation, clean-database regressions, Dashboard/customer validation, advisor review, App Store impact review and synchronized documentation in both repositories. Then proceed directly to the documented Phase 3 plan; do not request Astra audit until Phase 3 is also `COMPLETE`.
+Phase 2 is `COMPLETE`, documented and frozen as an unmerged boundary. Its PRs remain draft/unmerged. Proceed to a dedicated Phase 3 plan and implementation; do not request Astra audit until Phase 3 is also `COMPLETE`.

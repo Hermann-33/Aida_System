@@ -1,352 +1,145 @@
 # Shared Backend Contract
 
-Updated: 2026-09-11
+Updated: 2026-09-12
 
 ## Authority
 
-Supabase Auth/Postgres/FORCE-RLS plus controlled RPC/BFF operations are authoritative. Canonical executable Supabase migrations live only in `Hermann-33/Aida_System/supabase/` unless a future accepted ADR changes ownership.
+Supabase Auth/Postgres/FORCE-RLS plus controlled RPC/BFF operations are authoritative. Canonical executable Supabase migrations live only in `Hermann-33/Aida_System/supabase/migrations/`.
 
-Neither frontend is authority for:
+Neither frontend is authority for authenticated identity, trusted role/disabled state, membership identity, employee branch scope, branch/sales-point/terminal identity, terminal credential validity, shift state, cash reconciliation, catalogue/pricing, order totals/status, tender/payment classification, privacy preferences or account-deletion/anonymization state.
 
-- authenticated identity or employee role/disabled state;
-- member IDs/codes;
-- employee branch scope;
-- branch, sales-point or terminal identity;
-- terminal credential validity;
-- catalogue IDs, availability, prices or modifier compatibility;
-- order prices/totals/numbers/status;
-- scheduling preparation authority;
-- payment settlement;
-- loyalty, inventory, promotions, shifts/cash or reporting truth.
+Dashboard privileged flows remain behind the same-origin BFF with HttpOnly employee and terminal credentials and caller-JWT forwarding. No service-role secret or browser-readable reusable employee bearer token/terminal credential is used. Preview fixtures never become backend authority.
 
-## Identity/member contract
+## Identity and authorization
 
-- Supabase Auth identity is trusted user identity.
-- `user_profiles.app_role` plus `disabled_at` are trusted employee/Admin authorization state.
+- Supabase Auth identity is trusted authentication identity.
+- `user_profiles.app_role` plus `disabled_at` is trusted application authorization state.
 - `members` is trusted customer membership state.
-- Public signup cannot self-assign employee/Admin role, member code, verification outcome or branch scope.
-- Employee identities remain distinct from customer/member records.
-- Customer reads remain owner-scoped.
-- Dashboard employee access uses the same-origin BFF and caller JWT.
+- `employee_branch_assignments` is trusted ordinary-staff operational scope.
+- signup cannot self-assign employee/Admin role, member code, verification outcome or branch scope.
+- employee identities remain distinct from customer/member records.
+- customer-editable Auth metadata is not authorization authority.
 
-## Employee operational-scope contract
+## Catalogue and commercial order contract
 
-Trusted operational branch scope is stored in `employee_branch_assignments`.
+Supabase owns catalogue IDs, publication/availability, modifier compatibility, integer-sen prices, authoritative quote totals and persisted commercial snapshots. Clients submit selection/fulfilment intent only.
 
-- ordinary `staff` may operate only assigned branches;
-- ordinary staff with no assignment fail closed;
-- `admin` and `owner` remain global operational roles for the current tranche;
-- role/disabled state and branch assignment are evaluated by the backend, never browser claims or preview fixtures.
+Persisted order history includes `orders`, `order_lines`, `order_line_addons`, `order_line_options` and `order_events`. `clientRequestId` supplies idempotency. Fulfilment status changes are optimistic-versioned and server-authorized.
 
-## Catalogue contract
+Customer order placement derives customer/member identity from `auth.uid()` plus trusted active membership. POS placement derives operational topology from the server-held terminal credential and caller employee scope.
 
-Server-owned resources include:
+## Phase 1 operational topology contract
 
-```text
-catalogue_categories
-catalogue_items
-catalogue_item_variants
-catalogue_item_addons
-catalogue_option_groups
-catalogue_option_values
-catalogue_item_option_values
-catalogue_revision
-catalogue_audit_events
-```
-
-Category/item/variant/add-on/option IDs are server UUIDs. Money and price deltas are integer sen.
-
-`catalogue_items.kind = product | addon`. Add-ons are reusable catalogue rows but are not standalone customer browse products. Compatibility is controlled by `catalogue_item_addons`.
-
-`catalogue_items.is_drink` marks products that consume reusable option groups. Current standard groups are:
+Trusted chain:
 
 ```text
-Temperature: Hot | Iced
-Sweetness: Regular | Less sweet | Least sweet
+branch -> sales point -> terminal -> employee branch scope -> POS attribution
 ```
 
-Every active required group on a drink must have at least one available option and exactly one available default.
+A sales point belongs to one branch and a terminal to one sales point. Manager-issued one-time enrolment activates a terminal. Credential resolution validates terminal/revocation, active topology, caller employee state and branch scope. Browser-supplied location IDs cannot replace terminal credential authority. Accepted branch/sales-point/terminal attribution is immutable.
 
-Customer/public reads use `get_catalogue()`. Admin/Owner writes use controlled catalogue mutation RPCs through the BFF caller-JWT boundary. `catalogue_revision` is invalidation only.
+## Phase 2 shift and cash contract
 
-## Branch contract
-
-Trusted branch resources:
+Trusted chain:
 
 ```text
-branches
-employee_branch_assignments
-orders.branch_id
+terminal + employee -> shift -> POS order / cash ledger
 ```
 
-Invariants:
+Contracts:
 
-- branch IDs are server-owned UUIDs;
-- branch codes are stable unique operational codes;
-- current compatibility model has exactly one active default branch;
-- every persisted order has non-null immutable `branch_id`;
-- ordinary staff order access and fulfilment transitions are branch-scoped;
-- current customer placement resolves the active default branch server-side;
-- explicit customer pickup-branch selection remains a coordinated Phase 4 contract change.
+- shift lifecycle `open | locked | closed` with optimistic versioning;
+- one live open/locked shift per terminal and per operator;
+- opening float and cash movement amounts are integer sen;
+- `cash_movements` is append-only;
+- expected cash = opening float + cash-in - cash-out + trusted cash-paid POS sales;
+- employee submits actual count; backend derives variance;
+- non-zero variance close requires Admin/Owner;
+- new POS placement requires the caller's matching open shift;
+- persisted `shift_id`, tender and payment state are protected from ordinary mutation;
+- Phase 2 tender classification is `cash | unpaid` only;
+- cash-paid cancellation remains blocked until trusted refund authority exists;
+- customer orders remain shift-free and unpaid.
 
-Public branch directory reads expose active branch information only. Admin/Owner mutation uses controlled RPCs.
+External processor capture, settlement and refunds are not implied by Phase 2.
 
-## Sales-point/terminal contract — Phase 1
+## Phase 3 customer privacy/account contract
 
-Trusted operational topology resources:
+Trusted resources:
 
 ```text
-sales_points
-terminals
-private.terminal_enrolment_codes
-private.terminal_credentials
-orders.sales_point_id
-orders.terminal_id
+public.customer_privacy_preferences
+public.orders.customer_deleted_at
+public.get_my_privacy_preferences()
+public.save_my_privacy_preferences(boolean, boolean)
+public.delete_own_account()
 ```
 
-A sales point belongs to exactly one branch. A terminal belongs to exactly one sales point. The backend validates these relationships.
+### Privacy preferences
 
-Live seed topology:
+`customer_privacy_preferences` is FORCE-RLS protected and direct authenticated table grants are revoked. Public RPCs expose only the caller's preference record. Marketing notifications default off; transactional notifications default on. Preference state does not itself request OS notification permission or deliver notifications.
 
-```text
-BR-MAIN — Main Café
-  SP-MAIN — Main Counter
-    POS-MAIN-01
-```
+### Whole-account deletion
 
-The seeded terminal remains `pending` until a manager explicitly enrols it.
+`delete_own_account()` accepts no target user ID. The public wrapper is `SECURITY INVOKER`. The private privileged helper is caller-bound to `auth.uid()`, requires a trusted customer profile, and cannot be used by staff/Admin to self-delete through the customer path.
 
-### Terminal enrolment
+Deletion remains available to a trusted customer profile even when disabled and does not depend on a healthy active member row.
 
-Manager/Admin operational flow:
+Before deleting the Auth user, the backend:
 
-```text
-trusted terminal row
- -> issue one-time enrolment code
- -> staff/manager enters code on workstation
- -> enrol_terminal(code)
- -> backend validates employee may operate terminal branch
- -> terminal becomes active
- -> one terminal credential is returned
- -> Dashboard BFF stores credential in HttpOnly cookie
-```
+1. identifies only the caller's customer orders;
+2. clears retained customer-authored `order_lines.note` and `order_events.reason`;
+3. performs the one permitted internal customer anonymization transition;
+4. nulls `customer_user_id`, `member_id` and customer `created_by_user_id`;
+5. sets `customer_deleted_at`;
+6. verifies retained order identity/free text no longer references the caller;
+7. deletes the caller from `auth.users`, cascading owned profile/member/student/preference/session state through existing FKs/ownership.
 
-Enrolment-code possession alone is not authorization. Caller identity/role/branch scope is revalidated by Supabase before the code can activate a terminal.
+No synthetic permanent deleted-customer Auth user is created.
 
-Codes are one-time and expiry-bound. Failed authorization must not consume the code.
+Retained anonymized transaction/audit facts may include order number, catalogue snapshots, quantities, prices/totals/currency, fulfilment/status timestamps, branch/sales-point/terminal/shift attribution and tender/payment facts. POS/staff audit identity is preserved.
 
-### Terminal credential
+Already-issued JWTs may remain cryptographically valid until expiry, so personalized RPCs continue requiring trusted current profile/member state. An anonymized retained order is no longer owned by the deleted subject.
 
-The terminal credential is not exposed to normal React state. It is stored by the Dashboard BFF in an HttpOnly cookie and forwarded server-side only to the terminal RPC/order boundary.
+## Scheduling and Realtime
 
-`resolve_terminal_credential(text)` validates:
+Scheduling policy, `prepareAt`, server time and schedule classification remain server-owned. Branch-specific opening hours/closures/capacity and explicit customer pickup branch are deferred.
 
-- credential hash exists and is not revoked;
-- terminal status is active and not revoked;
-- sales point is active;
-- branch is active;
-- topology relationships are intact;
-- caller employee is valid;
-- caller may operate the resolved branch.
+Customer Realtime is authorized invalidation followed by authoritative refetch. Dashboard employee clients continue through same-origin BFF polling/refetch because the employee bearer token is HttpOnly.
 
-Removing staff branch scope invalidates terminal resolution for that staff member immediately even when the terminal credential itself remains active.
+## Customer app privacy/App Store contract
 
-Revoking the terminal invalidates credential resolution and POS placement immediately.
+The customer app exposes in-app whole-account deletion, privacy preferences, Privacy Policy, Terms and Support. Public/guest-capable catalogue and legal/support surfaces do not require unnecessary authentication. Membership identity/QR, profile mutation, customer order placement/history, student verification, account preferences and account deletion remain authenticated-only.
 
-### Operational topology reads/writes
+Phase 3 adds no camera, photo-library, location, contacts, microphone, Bluetooth, calendar/reminder, ATT/tracking or notification authorization request and no tracking/advertising SDK. AIDA sells physical café goods, so StoreKit/IAP is not the payment path.
 
-`branches`, `sales_points` and `terminals` remain FORCE-RLS protected.
+## Security invariants through Phase 3
 
-`authenticated` has SELECT privilege on `sales_points` and `terminals` only so the `SECURITY INVOKER` Admin topology RPC can read them. Existing RLS policies restrict those rows to Admin/Owner. Anonymous SELECT is denied.
+- no authorization trusts customer-editable metadata or preview fixtures;
+- no direct client mutation of trusted topology/shift/cash/privacy tables where controlled RPC authority is required;
+- private definer helpers bind actor identity and expose minimal public wrappers;
+- customer self-deletion cannot target another user;
+- retained customer transactions lose stable customer/member/Auth identity;
+- retained customer-authored order free text is scrubbed on deletion;
+- staff/POS actor identity is not weakened by customer deletion;
+- no service-role/secret credential in Flutter/browser code;
+- employee JWT and terminal credential remain HttpOnly in Dashboard live flows.
 
-Browser roles retain no direct INSERT/UPDATE/DELETE authority on branches, sales points or terminals. Mutations use controlled RPCs through the BFF.
+## Validation and governance
 
-## Order/quote contract
+Phase 3 implementation head `10ca26a776994e59b76f8afbd7227e296270cd68` passed Backend database audit #90 and Customer release audit #182. Dashboard Phase 3 runtime is unchanged; pre-closeout Dashboard CI #66 passed. Full Phase 3 evidence is in `docs/context/PHASE_3_CUSTOMER_PRIVACY_ACCOUNT_CLOSEOUT_2026-09-12.md`.
 
-ADR-0010 and `ORDER_AND_SCHEDULING_CONTRACT.md` define detailed commercial/scheduling/fulfilment behavior.
+Phases 1–3 are `COMPLETE` but draft/unmerged. Implementation is stopped for `docs/context/PHASE_1_3_ASTRA_AUDIT_BOUNDARY_2026-09-12.md`, currently `PARTIAL` until Astra review is executed/accepted. Phase 4 is blocked.
 
-An order line may submit selection/intent only:
+## Deferred authority
 
-```text
-itemId
-variantId?
-addOnIds[]
-optionValueIds[]
-quantity
-note?
-```
-
-Placement additionally carries `clientRequestId`; fulfilment carries `fulfillmentType = asap | scheduled` and `requestedPickupAt` only when scheduled.
-
-Clients must not submit or trust their own labels, price deltas, unit prices, totals, customer/member identity, branch/sales-point/terminal authority, order number, `prepareAt`, `scheduleState`, fulfilment status or payment state.
-
-`quote_order(jsonb)` revalidates publication/availability, variants, compatible add-ons, drink-option ownership/availability, quantity/note bounds and scheduling policy.
-
-If a required drink group is omitted, the backend resolves its configured available default. Current pricing contract is `pricingVersion=2`:
-
-```text
-base product
-+ variant delta
-+ selected/default option deltas
-+ compatible add-ons
-= authoritative unit price
-```
-
-## Customer placement contract
-
-`place_customer_order(jsonb)`:
-
-- derives customer/member identity from the authenticated session;
-- resolves current active default branch server-side;
-- does not accept trusted sales-point/terminal authority;
-- persists `sales_point_id = null` and `terminal_id = null`;
-- remains idempotent through `clientRequestId`.
-
-## POS placement contract
-
-The previous credentialless signature is not executable by `authenticated`:
-
-```text
-place_pos_order(jsonb)        authenticated execute: false
-```
-
-The live POS contract is:
-
-```text
-place_pos_order(jsonb, text terminal_credential)
-```
-
-The terminal-bound function:
-
-- validates staff-or-above identity/disabled state;
-- resolves terminal/sales point/branch from the credential;
-- validates employee branch scope;
-- validates terminal/sales-point/branch active state;
-- quotes the order authoritatively;
-- persists immutable branch/sales-point/terminal attribution;
-- preserves `clientRequestId` idempotency within trusted placement authority.
-
-Browser-supplied location IDs cannot replace terminal credential authority.
-
-## Immutable order snapshots
-
-Persisted order resources include:
-
-```text
-orders
-order_lines
-order_line_addons
-order_line_options
-order_events
-```
-
-Historical commercial labels/prices/options remain immutable snapshots. Operational topology attribution on an accepted order is also immutable.
-
-Order snapshots expose trusted branch data and, when applicable, trusted sales-point/terminal data.
-
-## Scheduling contract
-
-Current policy:
-
-```text
-timezone: Asia/Kuala_Lumpur
-scheduleEnabled: true
-minimumLeadMinutes: 15
-preparationLeadMinutes: 15
-slotIntervalMinutes: 15
-maximumAdvanceDays: 7
-```
-
-For scheduled orders:
-
-```text
-prepareAt = requestedPickupAt - preparationLeadMinutes
-```
-
-Order snapshots expose server-owned `prepareAt`, `serverNow`, and `scheduleState = future | due | overdue | null`.
-
-Time classification never auto-mutates persisted fulfilment status.
-
-Branch-specific opening hours, closures and capacity are still not authoritative and must not be invented by clients.
-
-## Fulfilment contract
-
-Persisted states:
-
-```text
-confirmed
-scheduled
-preparing
-ready
-completed
-cancelled
-```
-
-Legal staff transitions:
-
-```text
-confirmed -> preparing | cancelled
-scheduled -> preparing | cancelled
-preparing -> ready | cancelled
-ready -> completed
-```
-
-`completed` and `cancelled` are terminal. Status mutation requires authorized staff scope and expected `statusVersion`; stale transitions fail.
-
-## Dashboard BFF contract
-
-Privileged Dashboard flows follow ADR-0008:
-
-- HttpOnly employee access/refresh cookies;
-- Secure cookies on HTTPS;
-- HttpOnly terminal credential cookie;
-- trusted role/disabled/branch validation;
-- caller JWT forwarded to Supabase;
-- terminal credential forwarded server-side only where required;
-- same-origin state-change protection;
-- no browser-readable employee bearer token;
-- no service-role credential in browser/Vite code.
-
-Admin Locations, Terminals and Employees consume trusted APIs in live mode. UI Preview may retain fixtures but remains explicitly non-authoritative.
-
-## Realtime contract
-
-Customer clients may use their Supabase session for authorized catalogue/order invalidation and then refetch authoritative snapshots.
-
-Dashboard React does not expose employee access tokens for direct Supabase Realtime. Employee operational flows use same-origin BFF polling/refetch.
-
-## Payment boundary
-
-No trusted payment processor or settlement authority exists yet. Current UI remains `Pay at counter` / unpaid semantics. Fulfilment completion is not proof of payment settlement.
-
-## Phase 1 validation boundary
-
-Full closeout evidence:
-
-`docs/context/PHASE_1_OPERATIONAL_TOPOLOGY_CLOSEOUT_2026-09-11.md`
-
-Current executable evidence:
-
-```text
-Backend database audit #22      PASS
-Customer release audit #114     PASS
-Dashboard CI #23                PASS
-```
-
-The clean database audit passed branch authority, operational topology, general order and scheduled-order integration regressions.
-
-## Deferred downstream authority
-
-Separate bounded tasks remain:
-
-- shifts/cash reconciliation;
-- employee Auth-user provisioning/role mutation/badge-PIN lifecycle;
-- branch hours/closures/capacity and explicit customer branch selection;
+- branch hours/closures/capacity and explicit pickup branch;
 - inventory/recipes/depletion;
 - loyalty/rewards/vouchers;
 - promotions/discounts;
-- tax/accounting/reporting;
-- real payment capture/refunds;
+- reporting/tax/accounting export;
+- external payment capture/refunds/processor settlement;
+- employee Auth-user/credential lifecycle;
 - printer/KDS/payment-device integrations;
-- delivery;
-- hosted production operations.
+- notification/marketing delivery provider;
+- delivery/deployment-heavy production infrastructure.

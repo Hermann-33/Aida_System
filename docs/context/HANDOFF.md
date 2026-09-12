@@ -4,128 +4,70 @@ Updated: 2026-09-12
 
 ## Current boundary
 
-`TASK-OPS-003 — Phase 2 shift and cash authority`
+Combined Phase 1–3 Astra audit.
 
-**Verdict:** `COMPLETE`  
-**State:** frozen, draft and unmerged. Astra audit is intentionally deferred until Phase 3 is also `COMPLETE`.
+**Verdict:** `PARTIAL` — Phase 1, Phase 2 and Phase 3 implementation are individually `COMPLETE`; Astra review is not yet executed/accepted.  
+**Implementation state:** STOPPED. Do not begin Phase 4.
 
-Detailed evidence:
-
-`docs/context/PHASE_2_SHIFT_CASH_CLOSEOUT_2026-09-12.md`
-
-Phase 2 branches:
+## Completed phases
 
 ```text
-Hermann-33/Aida_System
-  codex/phase-2-shift-cash-authority
-
-Hermann-33/Aida_System-Dashboard
-  codex/phase-2-shift-cash-authority
+Phase 1 / TASK-OPS-002 operational topology                  COMPLETE
+Phase 2 / TASK-OPS-003 shift and cash authority              COMPLETE
+Phase 3 / TASK-PRIVACY-001 privacy/account requirements      COMPLETE
+Combined Phase 1–3 Astra audit                               PARTIAL
 ```
 
-Phase 2 PRs:
+Evidence:
+
+- `docs/context/PHASE_1_OPERATIONAL_TOPOLOGY_CLOSEOUT_2026-09-11.md`
+- `docs/context/PHASE_2_SHIFT_CASH_CLOSEOUT_2026-09-12.md`
+- `docs/context/PHASE_3_CUSTOMER_PRIVACY_ACCOUNT_CLOSEOUT_2026-09-12.md`
+- `docs/context/PHASE_1_3_ASTRA_AUDIT_BOUNDARY_2026-09-12.md`
+
+## Phase 3 implementation handed off
+
+Whole-account deletion is production-enabled in the customer app. The backend deletes customer Auth/profile/member/student/preference identity, anonymizes retained customer transaction history, scrubs retained customer-authored order line/event free text, preserves commercial/operational records, and does not create a synthetic deleted-customer Auth identity.
+
+Privacy preferences are trusted backend state with marketing default-off. Legal/privacy/terms/support surfaces and guest/authenticated boundaries are explicit. The iOS permission audit records no new protected-data/tracking permission or SDK.
+
+Canonical Phase 3 migrations:
 
 ```text
-Customer/backend PR #21 — draft, unmerged
-Dashboard/POS PR #18 — draft, unmerged
+20260912014924 customer_privacy_account_requirements
+20260912015010 harden_customer_privacy_rpc_boundary
+20260912020434 allow_customer_deletion_without_member_dependency
+20260912020652 allow_disabled_customer_account_deletion
+20260912021143 scrub_customer_free_text_on_account_deletion
 ```
 
-## Trusted state handed off
-
-AIDA now has authoritative operational topology through shift/cash attribution:
+Implementation validation head `10ca26a776994e59b76f8afbd7227e296270cd68`:
 
 ```text
-branch
- -> sales point
- -> terminal
- -> employee branch scope
- -> shift
- -> POS order / cash ledger
+Backend database audit #90   COMPLETE
+Customer release audit #182 COMPLETE
 ```
 
-Backend authority covers:
+Dashboard Phase 3 runtime is unchanged; pre-closeout head `411056a40edfb1c23fa999504b904d822e151f5d` passed Dashboard CI #66. Documentation-only final heads are revalidated after synchronization.
 
-- trusted employee role/disabled state and branch assignments;
-- trusted sales points and terminals;
-- one-time manager-issued terminal enrolment with HttpOnly credential storage;
-- open/lock/resume/close shift lifecycle;
-- one live open/locked shift per terminal and per operator;
-- integer-sen opening float;
-- append-only non-sale cash movements;
-- server-derived expected cash and closing variance;
-- Admin/Owner authority for non-zero variance close;
-- immutable shift/tender/payment attribution on new POS orders;
-- cash/unpaid Phase 2 tender semantics;
-- customer orders remain shift-free and unpaid;
-- paid cash cancellation is blocked until a trusted refund flow exists.
+Supabase advisor state: no Phase 3-created security blocker; pre-existing leaked-password-protection WARN remains; performance output is INFO-level unused indexes only.
 
-Dashboard authority rules remain unchanged:
+## Frozen PRs
 
-- same-origin HttpOnly BFF;
-- caller JWT forwarded upstream;
-- terminal credential readable only by the server request path;
-- no browser-readable employee bearer token;
-- no service-role secret in normal privileged flows;
-- preview fixtures never act as backend authority.
-
-## Validation evidence
-
-Final documentation-only Phase 2 heads before the governance refresh:
+All remain draft/unmerged:
 
 ```text
-Aida_System
-  b9e9eaa98c338a020dacc0d3374f710e1182b6d7
-  Backend database audit #46   COMPLETE
-  Customer release audit #138 COMPLETE
-
-Aida_System-Dashboard
-  fe5aebdb22264e21646bfcf5ca49b1fd0d9bfe2d
-  Dashboard CI #59             COMPLETE
+Aida_System #20 / Dashboard #17 — Phase 1
+Aida_System #21 / Dashboard #18 — Phase 2
+Aida_System #22 / Dashboard #19 — Phase 3
 ```
 
-The clean backend replay includes:
+Their bodies have been reconciled to the current deferred-Astra governance. Do not merge them merely because implementation is complete.
 
-```text
-branch authority regression                 COMPLETE
-operational topology regression            COMPLETE
-order regression                           COMPLETE
-scheduled-order operations regression      COMPLETE
-shift and cash authority regression        COMPLETE
-```
+## Deferred / non-goals
 
-Canonical Phase 2 migrations:
-
-```text
-20260911235419 create_shift_cash_authority_schema
-20260911235626 implement_shift_cash_authority_functions
-20260911235651 harden_shift_cash_authority_permissions
-20260912000002 index_shift_cash_foreign_keys
-```
-
-The Phase 2 advisor review recorded no new security blocker. The remaining leaked-password-protection warning predates Phase 2; performance output contains only INFO-level unused-index observations after Phase 2 FK coverage was corrected.
-
-## App Store handoff
-
-Phase 2 affects staff Dashboard/POS operations only. It adds no customer iOS protected-data permission, tracking SDK, subscription, digital purchase or new customer personal-data field. Physical café sales remain outside StoreKit/IAP.
-
-Production whole-account deletion and explicit personal-data retention/deletion remain mandatory Phase 3 work before any App Store release candidate.
-
-## Deferred/non-goals
-
-Still deferred:
-
-- production customer account deletion/privacy retention;
-- customer consent/preferences and marketing notification controls;
-- branch hours/closures/capacity and explicit customer pickup branch;
-- inventory/recipes/depletion;
-- loyalty/rewards/vouchers;
-- promotions/discounts;
-- reporting/tax/accounting;
-- payment processor settlement and refunds;
-- employee credential lifecycle;
-- printer/KDS/payment-device hardware integrations;
-- delivery and deployment-heavy work.
+External payment capture/refunds/settlement, branch scheduling, inventory, loyalty, promotions, reporting/accounting export, employee credential lifecycle, hardware integrations, notification/marketing delivery and deployment-heavy production work remain deferred.
 
 ## Next action
 
-Create dedicated Phase 3 branches from the corrected Phase 2 heads and first commit a mirrored Phase 3 plan covering customer privacy and App Store account requirements. Do not merge Phase 1 or Phase 2. After Phase 3 becomes `COMPLETE`, stop implementation and prepare the combined Phase 1–3 Astra audit boundary. Do not begin Phase 4.
+Execute the combined Phase 1–3 Astra audit against the prepared boundary. Use only `COMPLETE`, `PARTIAL` or `FAIL` verdicts. Resolve or explicitly accept findings before Phase 4. No further implementation should start from this handoff.

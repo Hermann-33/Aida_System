@@ -63,6 +63,14 @@ Widget _app({
   child: MaterialApp(home: child),
 );
 
+Future<void> _openDeleteDialog(WidgetTester tester) async {
+  final delete = find.text('Delete');
+  await tester.scrollUntilVisible(delete, 300);
+  await tester.pumpAndSettle();
+  await tester.tap(delete);
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('privacy preferences default marketing off and persist opt-in', (
     tester,
@@ -113,10 +121,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final delete = find.text('Delete');
-    await tester.ensureVisible(delete);
-    await tester.tap(delete);
-    await tester.pumpAndSettle();
+    await _openDeleteDialog(tester);
 
     expect(find.text('Delete your account?'), findsOneWidget);
     expect(
@@ -146,10 +151,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final delete = find.text('Delete');
-    await tester.ensureVisible(delete);
-    await tester.tap(delete);
-    await tester.pumpAndSettle();
+    await _openDeleteDialog(tester);
     await tester.tap(find.text('Delete account'));
     await tester.pumpAndSettle();
 

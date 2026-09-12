@@ -1,5 +1,6 @@
 -- TASK-OPS-002 / Phase 1 operational topology regression.
--- Transactional: no synthetic users/branches/terminals/orders survive.
+-- Phase 2 compatibility: POS placement now also requires an open trusted shift.
+-- Transactional: no synthetic users/branches/terminals/shifts/orders survive.
 
 begin;
 
@@ -117,6 +118,7 @@ declare
   v_enrol jsonb;
   v_credential text;
   v_context jsonb;
+  v_shift jsonb;
   v_order jsonb;
   v_order_id uuid;
   v_retry jsonb;
@@ -264,6 +266,14 @@ begin
   );
   select public.resolve_terminal_credential(v_credential) into v_context;
 
+  -- Phase 2 requires a trusted open shift before any POS order can be placed.
+  select public.open_shift(v_credential,0) into v_shift;
+  if v_shift->>'status' <> 'open'
+     or v_shift->>'terminalId' <> v_terminal_id::text
+     or v_shift->>'operatorUserId' <> v_staff_id::text then
+    raise exception 'topology regression could not establish required open shift: %',v_shift;
+  end if;
+
   select id into strict v_item_id
   from public.catalogue_items
   where kind='product'
@@ -296,6 +306,7 @@ begin
      or v_order->>'branchId' <> v_branch_id::text
      or v_order->>'salesPointId' <> v_sales_point_id::text
      or v_order->>'terminalId' <> v_terminal_id::text
+     or v_order->>'shiftId' <> v_shift->>'id'
      or v_order#>>'{salesPoint,code}' <> 'SP-OPS-TEST'
      or v_order#>>'{terminal,code}' <> 'POS-OPS-TEST-01' then
     raise exception 'POS order lacks trusted operational attribution: %',v_order;
@@ -327,7 +338,7 @@ begin
     null;
   end;
 
-  -- Customer flow remains terminal-free.
+  -- Customer flow remains terminal/shift-free.
   perform set_config(
     'request.jwt.claims',
     jsonb_build_object('sub',v_customer_id,'role','authenticated')::text,
@@ -348,8 +359,9 @@ begin
      or v_customer_order->>'salesPoint' is not null
      or v_customer_order->>'terminal' is not null
      or v_customer_order->>'salesPointId' is not null
-     or v_customer_order->>'terminalId' is not null then
-    raise exception 'customer order unexpectedly received terminal authority';
+     or v_customer_order->>'terminalId' is not null
+     or v_customer_order->>'shiftId' is not null then
+    raise exception 'customer order unexpectedly received operational authority';
   end if;
 
   -- Revocation invalidates the credential immediately.

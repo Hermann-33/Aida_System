@@ -153,3 +153,29 @@ Customer Supabase sign-up/sign-in/session/logout and trusted profile/member read
 ## Foundation/governance tasks
 
 Earlier workflow/database tasks established the dual-repository/single-Supabase topology, canonical migration ownership in the customer repository, mirrored governance/documentation requirements, identity/member schema with forced RLS, accepted ADRs and the full-stack completion discipline used by this closeout.
+
+
+## 2026-09-10 — TASK-OPS-001 branch/location authority
+
+**Verdict:** PARTIAL.
+
+Live Supabase migrations `20260910014434 create_branch_location_authority` and `20260910014457 index_employee_branch_assignment_actor` established trusted branch identity and employee operational scope.
+
+Live state after deployment:
+
+```text
+branches                  1
+active default branches   1
+default code              BR-MAIN
+orders without branch     0 / 25
+employee assignments      3
+staff without assignment  0
+```
+
+The migration added `branches`, `employee_branch_assignments`, immutable non-null `orders.branch_id`, branch-scoped ordinary-staff order RLS/RPC authorization, default-branch backfill/compatibility, Admin/Owner branch/assignment RPCs and a role-change trigger that seeds new staff to the default branch when no assignment exists.
+
+The first post-deployment performance-advisor pass found one task-created unindexed FK on `employee_branch_assignments.assigned_by`; the second migration fixed it. Security advisor state remains one pre-existing leaked-password-protection WARN only.
+
+Dashboard task-branch work replaced hardcoded empty employee branch claims with caller-JWT-backed assignment reads and added same-origin BFF/API routes for public branches, Admin branches, branch save, Admin employee directory and employee-branch assignment mutation. Ordinary staff with no trusted assignment fail closed.
+
+Canonical SQL regression `supabase/tests/branch_authority_integration.sql` and Dashboard BFF unit coverage are committed. The connected SQL inspection role is read-only, so the transactional SQL regression was not executed in this session. Dashboard lint/typecheck/Vitest/build also remain to run before COMPLETE.

@@ -1,30 +1,74 @@
 # Supabase Status
 
-**Status date:** 2026-08-23
-**Project:** Aida System
-**Ref:** `eswovqxqzfevcdwwcmuh`
+**Status date:** 2026-09-11  
+**Project:** Aida System  
+**Ref:** `eswovqxqzfevcdwwcmuh`  
 **Region:** `ap-southeast-1`
 
-## Current live snapshot
+## Current role
 
-Supabase remains the shared trusted backend for the Flutter customer app and React Dashboard/Admin/POS.
+Supabase is the shared trusted backend for the Flutter customer app and the React Dashboard/Admin/POS.
 
-Current catalogue observation:
+Canonical executable migration files live only in `Hermann-33/Aida_System/supabase/migrations/` unless an accepted ADR changes ownership.
+
+## Trusted domains currently live
+
+Supabase authority currently covers:
+
+- Supabase Auth identity;
+- `user_profiles` employee role/disabled state;
+- `members` customer membership identity;
+- shared catalogue, variants, option groups/values and compatible add-ons;
+- authoritative quote/order pricing and immutable commercial snapshots;
+- global ordering/scheduling policy and immutable scheduled preparation timestamps;
+- branch identity and employee branch assignments;
+- sales points and terminals;
+- one-time terminal enrolment and terminal credentials;
+- terminal-bound POS placement and immutable branch/sales-point/terminal order attribution;
+- versioned fulfilment transitions and order events.
+
+## Phase 1 topology resources
 
 ```text
-catalogue revision         130
-drink products              11
-non-drink products           4
-add-ons                      4
-invalid required groups      0
-Iced Drinks with Hot on      0
+public.branches
+public.employee_branch_assignments
+public.sales_points
+public.terminals
+private.terminal_enrolment_codes
+private.terminal_credentials
+public.orders.branch_id
+public.orders.sales_point_id
+public.orders.terminal_id
 ```
 
-These counts are operational observations, not schema invariants.
+Live seed topology:
 
-## Applied migration tail
+```text
+BR-MAIN — Main Café
+  SP-MAIN — Main Counter
+    POS-MAIN-01 [pending]
+```
 
-Current live migration history includes:
+The seeded terminal is intentionally pending until a manager enrols/activates it.
+
+## Current live observations
+
+```text
+branches                      1
+active branches               1
+default branches              1
+sales points                  1
+terminals                     1
+active seeded terminals       0
+orders total                 25
+orders without branch         0
+attributed historical POS     0
+customer orders with terminal 0
+```
+
+Historical orders were backfilled only with trusted branch identity. Sales-point/terminal identity is not fabricated retroactively.
+
+## Relevant migration tail
 
 ```text
 20260812152607 create_shared_catalogue
@@ -38,85 +82,87 @@ Current live migration history includes:
 20260822135602 integrate_drink_customizations_with_orders
 20260822141814 harden_drink_customization_indexes_and_rls
 20260822143542 grant_public_drink_customization_reads
+20260910014434 create_branch_location_authority
+20260910014457 index_employee_branch_assignment_actor
+20260910023510 create_operational_sales_points_and_terminals
+20260910023552 harden_operational_topology_rls_and_indexes
+20260910040814 revoke_direct_branch_mutation_grants
+20260910041057 enforce_terminal_branch_scope_on_resolution
+20260910042619 differentiate_terminal_resolution_failures
+20260910044613 grant_branch_rpc_private_impl_execution
+20260910050152 grant_admin_operational_topology_reads
 ```
 
-Canonical executable migration files live only under the customer repository `supabase/migrations/` directory unless an accepted ADR changes ownership.
+The final two Phase 1 closeout migrations repair permission gaps discovered during clean-database replay while preserving the intended authorization model.
 
-## Identity / employee boundary
+## Identity and branch authorization
 
-Trusted identity remains Supabase Auth plus:
+Trusted employee authorization is server-owned through `user_profiles.app_role` plus `disabled_at`.
 
-- `user_profiles.app_role` / `disabled_at` for employee/Admin authorization;
-- `members` for customer membership identity.
+Operational branch scope is server-owned through `employee_branch_assignments`:
 
-Public signup cannot self-assign privileged roles/member codes. Dashboard privileged browser flows continue through the same-origin HttpOnly employee BFF using the authenticated caller JWT; no service-role/browser bearer-token architecture is introduced by menu customization.
+- ordinary staff may operate only assigned branches;
+- staff with no assignment fail closed;
+- Admin/Owner remain global operational roles for the current tranche;
+- customer ownership rules remain separate and unchanged.
 
-## Catalogue authority
+Public signup cannot self-assign privileged roles, branch scope or member codes.
 
-Core catalogue resources now include:
+## Operational topology authorization
 
-- `catalogue_categories`;
-- `catalogue_items` including `is_drink`;
-- `catalogue_item_variants`;
-- `catalogue_item_addons`;
-- `catalogue_option_groups`;
-- `catalogue_option_values`;
-- `catalogue_item_option_values`;
-- `catalogue_revision`;
-- `catalogue_audit_events`.
+`branches`, `sales_points` and `terminals` are authoritative server entities. IDs are server-owned UUIDs and stable operational codes remain backend data.
 
-Supabase remains authoritative for item/category publication, availability, UUIDs, integer-sen prices, variant ownership, compatible add-ons and drink-option configuration.
+Admin/Owner management uses controlled RPCs through the Dashboard BFF. Direct mutation grants are denied.
 
-Current standard drink groups:
+`public.sales_points` and `public.terminals` grant SELECT to `authenticated` only so `SECURITY INVOKER` Admin topology RPCs can read them. FORCE-RLS policies still expose rows only to Admin/Owner. Anonymous SELECT remains denied.
+
+One-time terminal enrolment codes are private server state. Successful enrolment issues a terminal credential stored server-side as a hash and returned once to the BFF for HttpOnly cookie storage.
+
+Terminal resolution validates:
+
+- credential validity;
+- terminal status/revocation;
+- active sales point and branch relationship;
+- caller employee status;
+- caller branch scope.
+
+Revocation blocks resolution and placement immediately.
+
+## POS placement contract
+
+The legacy credentialless signature exists only for compatibility history and is not executable by `authenticated`:
 
 ```text
-Temperature
-- Hot
-- Iced
-
-Sweetness
-- Regular
-- Less sweet
-- Least sweet
+place_pos_order(jsonb)              authenticated execute: false
+place_pos_order(jsonb,text)         authenticated execute: true
 ```
 
-Per-item option configuration can override the customer label, price delta, availability, default and sort order. Every live required group currently has at least one available option and exactly one available default.
+The terminal-bound function resolves trusted topology from the terminal credential. Browser/client payloads do not become authority for `branch_id`, `sales_point_id` or `terminal_id`.
 
-The existing `Iced Drinks` products currently expose Iced as available/default and Hot as unavailable.
+Customer placement remains terminal-free and resolves the active default branch server-side for current compatibility.
 
-Anonymous/public catalogue reads have the required table grants plus RLS for option catalogue data. Admin/Owner mutation remains behind `save_catalogue_item(jsonb)` and the trusted role boundary.
+## Catalogue/order authority
 
-## Order / modifier authority
-
-Current order resources include:
-
-- `order_schedule_settings`;
-- `orders`;
-- `order_lines` including `option_total_sen`;
-- `order_line_addons`;
-- `order_line_options`;
-- `order_events`.
-
-`order_line_options` is an immutable historical snapshot surface for selected option group/value IDs, group/value labels and price deltas. Ordinary authenticated users have no direct table read grant; authorized order snapshots expose permitted data through the trusted order functions.
+Catalogue authority remains server-owned across products, variants, option groups/values, compatible add-ons, availability and integer-sen prices.
 
 Order selection payloads may include:
 
 ```text
 itemId
-variantId
-addOnIds[]
+variantId?
 optionValueIds[]
+addOnIds[]
 quantity
-note
+note?
 ```
 
-`quote_order(jsonb)` remains authoritative for validation and pricing. The deployed implementation returns `pricingVersion=2` and computes authoritative unit price from base + variant + options + compatible add-ons.
+`quote_order(jsonb)` calculates authoritative `pricingVersion=2` totals. Required option groups omitted by older clients resolve through configured available defaults.
 
-When an older client omits a required option group, the live function definition resolves that group's configured available default. This provides rollout compatibility without moving authority into the client.
+Immutable commercial history remains stored in `orders`, `order_lines`, `order_line_addons`, `order_line_options` and `order_events`.
 
-## Scheduling policy
+## Scheduling
 
-Live policy verified 2026-08-23:
+Current global policy remains:
 
 ```text
 timezone                 Asia/Kuala_Lumpur
@@ -127,69 +173,58 @@ slot_interval_minutes    15
 maximum_advance_days     7
 ```
 
-Scheduled operational classification remains server-owned through immutable `prepare_at`, `serverNow` and `scheduleState`; no menu-customization change altered the accepted fulfilment-state machine.
+Scheduled orders snapshot immutable `prepare_at`. Branch-specific hours, closures and capacity remain Phase 4.
 
 ## Realtime
 
-`supabase_realtime` continues to publish the intended mutable signals:
+`supabase_realtime` publishes the intended mutable invalidation signals:
 
-- `catalogue_revision` for catalogue invalidation/refetch;
-- `orders` for authorized customer order invalidation/refetch.
+- `catalogue_revision` for catalogue refetch;
+- `orders` for authorized customer order refetch.
 
-Dashboard employee clients still use same-origin BFF polling/refetch rather than exposing the HttpOnly employee JWT to React.
+Dashboard employee clients continue to poll/refetch same-origin BFF endpoints because the employee bearer token is HttpOnly and not exposed to React.
 
-## TASK-MENU-CUSTOMIZATION-001 verification
+## Executable database evidence
 
-Live checks on 2026-08-23 proved:
+Backend database audit run #22 rebuilt a clean local Supabase environment from the canonical migration ledger and passed:
 
-- 11 drink products and 4 add-ons are present;
-- no required drink group lacks an available default;
-- no current `Iced Drinks` product has Hot enabled;
-- anonymous can execute `get_catalogue()` and `quote_order(jsonb)`;
-- authenticated can execute `quote_order(jsonb)`;
-- anonymous/authenticated option-catalogue read grants are present;
-- ordinary authenticated users have no direct `order_line_options` read grant.
+```text
+branch_authority_integration.sql              PASS
+operational_topology_integration.sql         PASS
+order_integration.sql                        PASS
+scheduled_order_operations_integration.sql   PASS
+```
 
-The inspection connector itself uses a read-only database role and cannot impersonate `anon`, so final closeout did not create a synthetic production order merely to exercise quote/place. The deployed function definitions and executable client suites were inspected instead.
-
-Detailed evidence: `docs/context/MENU_CUSTOMIZATION_2026-08-23.md`.
+This closes the previous writable-database validation gap.
 
 ## Advisor state
 
-Security advisor currently reports one pre-existing WARN only:
+Security advisor at Phase 1 closeout reports one pre-existing WARN only:
 
-- `auth_leaked_password_protection` — Leaked Password Protection Disabled.
+```text
+auth_leaked_password_protection — Leaked Password Protection Disabled
+```
 
-Remediation: https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection
+No Phase 1-created security WARN/ERROR remains.
 
-No new security WARN/ERROR is attributed to TASK-MENU-CUSTOMIZATION-001.
+Performance advisor findings are INFO-only unused indexes on the current small dataset. The earlier missing FK-supporting index on `employee_branch_assignments.assigned_by` was fixed by migration `20260910014457`.
 
-Performance advisor findings are INFO-only unused indexes, including recent FK-supporting customization indexes on the small current dataset. Do not remove those indexes solely to clear an unused-index INFO result.
+## Preserved non-live drafts
 
-## Explicitly deferred backend authority
+Account-deletion/referral prototypes under `supabase/drafts/` remain non-live and outside canonical migrations. They must not be treated as deployed backend authority.
 
-Still not implemented as trusted live domains:
+## Still deferred backend authority
 
-- branch-specific opening hours/closures/capacity;
-- branch-scoped staff/order visibility;
-- terminal/sales-point authority;
 - shifts/cash reconciliation;
-- payment/refunds;
-- loyalty earning/redemption;
-- inventory depletion;
+- employee Auth-user provisioning, role mutation and badge/PIN lifecycle;
+- branch opening hours/closures/capacity and explicit customer branch selection;
+- inventory/recipes/depletion;
+- loyalty/rewards/vouchers;
 - promotions/discounts;
 - tax/accounting/reporting;
+- real payment capture/refunds/processor settlement;
+- printer/KDS/payment-device integrations;
 - delivery;
 - hosted production operations.
 
-## 2026-09-09 preserved backend drafts
-
-TASK-UI-REDESIGN-004 preserves useful account-deletion and referral/loyalty prototypes under `supabase/drafts/`.
-
-These files are **not live Supabase state** and are deliberately outside `supabase/migrations/`:
-
-- `supabase/drafts/20260826120000_add_customer_account_deletion.sql`;
-- `supabase/drafts/20260828120000_add_referral_program.sql`;
-- `supabase/drafts/tests/account_deletion_integration.sql`.
-
-They must not be listed as applied migrations. Promotion requires a dedicated bounded backend task, a new canonical migration timestamp, replay/regression validation, RLS/security review and advisor checks.
+Phase 1 evidence: `docs/context/PHASE_1_OPERATIONAL_TOPOLOGY_CLOSEOUT_2026-09-11.md`.

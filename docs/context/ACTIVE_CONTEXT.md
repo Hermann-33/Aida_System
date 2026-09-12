@@ -1,179 +1,146 @@
 # Active Context
 
-**As of:** 2026-09-10
-**Current task:** `TASK-UI-REDESIGN-004 — audited customer UI refresh and safe preservation of future privacy/referral work`
-**Current verdict:** READY TO MERGE — audited customer redesign is production-safe, demo-only tooling is removed, future account-deletion/referral work is preserved but default-off/non-deployed, and the full customer release audit passes including release APK build.
+**As of:** 2026-09-12  
+**Current boundary:** Phase 2 — shift and cash authority  
+**Current verdict:** `COMPLETE`  
+**Next dependency:** Phase 3 — customer privacy and App Store account requirements  
+**Audit state:** Phases 1 and 2 are frozen, draft, unmerged boundaries. Astra audit remains intentionally deferred until Phase 3 is `COMPLETE`.
 
-Detailed current evidence:
+## Product topology
 
-- `docs/frontend/UI_REDESIGN_AUDIT_2026-09-09.md`
-- PR #19 / `codex/task-ui-redesign-004-audit-integration`
-- customer release audit run #87 PASS on code head `7388c1bd40b7da4c0ce56041b8e0e02ece3847db`
+AIDA Café is one product across:
 
-Previous menu-customization closeout remains COMPLETE and is documented in:
+- Flutter customer app — `Hermann-33/Aida_System`;
+- React Dashboard/Admin/POS — `Hermann-33/Aida_System-Dashboard`;
+- shared Supabase project `eswovqxqzfevcdwwcmuh`.
 
-- `docs/context/MENU_CUSTOMIZATION_2026-08-23.md`
+Canonical executable Supabase migrations live only in `Hermann-33/Aida_System/supabase/migrations/`.
 
-Previous scheduled-order operations work remains COMPLETE and is documented in:
+## Trusted authority through Phase 2
 
-- `docs/context/SCHEDULED_ORDER_OPERATIONS_2026-08-20.md`
-
-## TASK-UI-REDESIGN-004 current integration
-
-The final integration accepts the reviewed mobile presentation refresh and excludes all demo-only order/status/test tooling. Production order status remains persisted Supabase state only.
-
-Useful future work is preserved without becoming live authority:
-
-- account-deletion/referral SQL prototypes live only under `supabase/drafts/`;
-- `AIDA_ENABLE_ACCOUNT_DELETION_DRAFT` defaults false;
-- `AIDA_ENABLE_REFERRAL_DRAFT` defaults false;
-- no new canonical Supabase migration is introduced;
-- referral sharing is pinned to `share_plus 11.1.0` to remain compatible with the current Android toolchain until a dedicated Android modernization task.
-
-The reviewed UI remains within AIDA's existing cream/coffee/espresso/rose theme and accepted typography/control language.
-
-## Current product reality
-
-AIDA Café is one product across the Flutter customer app, React Dashboard/Admin/POS and shared Supabase project `eswovqxqzfevcdwwcmuh`.
-
-The implemented trusted tranche now includes:
-
-- Supabase Auth/member provisioning;
-- protected same-origin employee/Admin sessions;
-- shared catalogue and revision invalidation;
-- catalogue-driven product variants, per-drink option groups and compatible add-ons;
-- authoritative quote/order pricing and immutable line snapshots;
-- Now/scheduled pickup and server-owned scheduled preparation classification;
-- customer history/status plus owner-scoped Realtime invalidation;
-- Dashboard POS ordering, operational queue and legal versioned status transitions;
-- the verified AIDA customer redesign and matching Dashboard theme integration.
-
-Frontends remain non-authoritative for identity, roles, catalogue commercial truth, modifier validity, pricing, order state, payment, loyalty, inventory or reporting.
-
-## Menu customization — live contract
-
-Standard drink groups are currently:
+The backend authority chain is now:
 
 ```text
-Temperature: Hot | Iced
-Sweetness: Regular | Less sweet | Least sweet
+branch
+ -> sales point
+ -> terminal
+ -> employee branch scope
+ -> shift
+ -> POS order / cash ledger
 ```
 
-The groups are reusable server catalogue definitions. Per drink, Admin/Owner can configure customer label, price delta, availability and exactly one available default.
+Supabase/server owns trusted identity, role, disabled state, branch assignment, terminal identity, shift state, tender/payment classification, commercial pricing/order state and reconciliation facts.
 
-Compatible add-ons remain catalogue items of kind `addon`, linked to individual products. Customer browsing hides add-on rows/categories as standalone products; the same add-on can be selected independently on one cart line and omitted from another.
+Dashboard privileged operations remain behind the same-origin BFF:
 
-Order intents now support:
+- browser receives HttpOnly employee session cookies;
+- terminal credential stays HttpOnly and server-readable only;
+- BFF forwards the caller JWT to Supabase;
+- no service-role secret is used for ordinary operational flows;
+- no browser-readable employee bearer token is introduced.
+
+Explicit UI Preview may continue to use fixtures, but preview identifiers and balances are never backend authority.
+
+## Phase 2 implemented boundary
+
+Trusted resources added or extended:
 
 ```text
-itemId
-variantId
-optionValueIds[]
-addOnIds[]
-quantity
-note
+public.shifts
+public.cash_movements
+public.orders.shift_id
+public.orders.tender_type
+public.orders.payment_state
+public.orders.paid_at
 ```
 
-Supabase revalidates all selected IDs and calculates authoritative price. `pricingVersion=2` includes option deltas. `order_line_options` stores immutable group/value/label/price snapshots.
+Trusted behavior:
 
-Older clients that omit option IDs are handled by the live quote function through each group's configured available default. Clients still must not submit trusted labels/prices/totals.
+- open, lock, resume and close shift lifecycle;
+- one live open/locked shift per terminal and per operator;
+- integer-sen opening float;
+- append-only `cash_in` / `cash_out` ledger;
+- server-derived expected cash;
+- actual count + server-derived variance at close;
+- non-zero variance requires Admin/Owner authority;
+- new live POS placement requires an open shift matching terminal, branch, sales point and authenticated operator;
+- persisted shift/tender/payment attribution is protected from ordinary mutation;
+- Phase 2 tender semantics are limited to `cash` and `unpaid`;
+- customer orders remain shift-free and unpaid;
+- paid cash cancellation is blocked until trusted refund authority exists.
 
-## Customer behavior
-
-Customer-facing item configuration now presents Size, Temperature, Sweetness and compatible Customize/add-on controls from the catalogue. Unavailable options remain visible but disabled with explicit semantics; selected state is not color-only.
-
-`Add to cart` creates the configured line and immediately returns to Menu. Distinct Temperature/Sweetness/add-on combinations remain distinct cart configurations.
-
-Checkout terminology is `Now | Schedule`; only the customer-facing label changed. The wire/backend value remains `asap` for compatibility. The accepted tactile scheduling wheel still renders only policy-derived valid pickup slots.
-
-## Dashboard / POS behavior
-
-Admin Menu management exposes drink status plus per-option label, price delta, availability and default controls, along with compatible add-on checkboxes. Invalid required groups are rejected before save and by the backend.
-
-POS consumes the same catalogue contract:
-
-- variants: required single-choice when present;
-- Temperature/Sweetness: required single-choice;
-- add-ons: optional multi-select;
-- unavailable options: visible/disabled and not selectable.
-
-Order placement sends IDs/quantity/note/fulfilment intent only. Same-origin HttpOnly employee-session architecture and Admin/Owner authorization remain unchanged.
-
-## Live evidence
-
-Checked on 2026-08-23:
+Live Dashboard/POS Phase 2 paths:
 
 ```text
-catalogue revision         130
-drink products              11
-non-drink products           4
-add-ons                      4
-invalid required groups      0
-Iced Drinks with Hot on      0
+GET  /api/v1/shifts/current
+POST /api/v1/shifts/open
+POST /api/v1/shifts/lock
+POST /api/v1/shifts/resume
+POST /api/v1/shifts/cash-movement
+GET  /api/v1/shifts/reconciliation
+POST /api/v1/shifts/close
+GET  /api/v1/admin/shifts
 ```
 
-Live migrations:
+## Phase 2 validation evidence
 
-- `20260822135421_add_drink_customization_catalogue`
-- `20260822135602_integrate_drink_customizations_with_orders`
-- `20260822141814_harden_drink_customization_indexes_and_rls`
-- `20260822143542_grant_public_drink_customization_reads`
+Documentation-only final heads before this context refresh:
 
-Privilege checks confirm public catalogue/quote execution and intended option-table reads while ordinary authenticated users retain no direct `order_line_options` table read.
+```text
+Aida_System
+  b9e9eaa98c338a020dacc0d3374f710e1182b6d7
+  Backend database audit #46   COMPLETE
+  Customer release audit #138 COMPLETE
 
-Security advisor: one pre-existing WARN only — `auth_leaked_password_protection` / Leaked Password Protection Disabled. Performance findings are INFO-only unused indexes.
+Aida_System-Dashboard
+  fe5aebdb22264e21646bfcf5ca49b1fd0d9bfe2d
+  Dashboard CI #59             COMPLETE
+```
 
-## Executable client evidence
+Phase 2 closeout evidence:
 
-Customer final Codex validation commit:
+`docs/context/PHASE_2_SHIFT_CASH_CLOSEOUT_2026-09-12.md`
 
-`404662aec382364c8e70fcee8d66b38d4b303f0a`
+Phase 2 PRs remain draft/unmerged:
 
-- Flutter 3.44.7 / Dart 3.12.2 / JDK 21.0.12;
-- analyze PASS;
-- 55/55 tests PASS;
-- format and `git diff --check` PASS;
-- exact-size UI/golden QA PASS at 390x844 and 430x932;
-- secret scan PASS;
-- no physical Android device was connected for this final validation pass.
+```text
+Aida_System PR #21
+Aida_System-Dashboard PR #18
+```
 
-Dashboard final Codex validation commit:
+Canonical Phase 2 migrations:
 
-`af0fcd2babfa02073f882ec63ddbec102e591672`
+```text
+20260911235419 create_shift_cash_authority_schema
+20260911235626 implement_shift_cash_authority_functions
+20260911235651 harden_shift_cash_authority_permissions
+20260912000002 index_shift_cash_foreign_keys
+```
 
-- `npm ci` PASS, 0 vulnerabilities;
-- lint PASS with two pre-existing Fast Refresh warnings;
-- typecheck PASS;
-- Vitest 129/129 PASS across 29 files;
-- production build PASS with existing chunk-size advisory;
-- Playwright 10/10 PASS;
-- desktop visual QA PASS at 1366x768 and 1440x900;
-- no task-related console errors/warnings.
+The recorded closeout advisor review found no Phase 2-created security blocker. The only security warning was the pre-existing leaked-password-protection setting; performance findings were INFO-level unused-index observations after Phase 2 FK indexing was fixed.
 
-Both UI reviews PASS against the existing AIDA theme/design systems; no Luckin branding/palette or second design system was introduced.
+## Deferred after Phase 2
 
-## Branch state / release boundary
+Still outside the trusted boundary:
 
-Matching task branches:
-
-`codex/task-menu-customization-001-modifier-groups`
-
-Before documentation closeout:
-
-- customer branch: 37 commits ahead of `master`, 0 behind;
-- Dashboard branch: 12 commits ahead of `main`, 0 behind.
-
-No PR or merge is part of this closeout. Merge, APK build/install and hosted release remain separate explicit actions.
-
-## Still deferred
-
-- branch-specific catalogue/scheduling/capacity and branch-scoped queues;
-- terminal/sales-point authority;
-- shifts/cash reconciliation;
-- payment/refunds;
-- loyalty;
-- inventory;
-- promotions/discounts;
+- production customer account deletion and privacy retention rules;
+- customer consent/preferences and marketing notification controls;
+- branch hours/closures/capacity and explicit customer pickup branch;
+- inventory/recipes/depletion;
+- loyalty/rewards/vouchers;
+- promotions/discount authority;
 - tax/accounting/reporting;
-- delivery;
-- hosted production deployment.
+- external payment capture/refunds/processor settlement;
+- employee Auth-user provisioning and credential lifecycle;
+- printer/KDS/payment-device hardware integrations;
+- delivery and hosted deployment-heavy work.
+
+## App Store state
+
+Phase 2 changed staff Dashboard/POS behavior only. It added no customer iOS protected-data permission, tracking SDK, digital purchase, subscription or new customer personal-data field. Café food/drink remains a physical-goods transaction outside StoreKit/IAP.
+
+The blocking App Store requirement is Phase 3: production whole-account deletion plus explicit personal-data retention/deletion and customer privacy/consent surfaces.
+
+## Next boundary
+
+Before Phase 3 implementation, commit a bounded Phase 3 plan to both repositories on dedicated Phase 3 branches derived from the frozen Phase 2 heads. After Phase 3 becomes `COMPLETE`, stop implementation and prepare the combined Phase 1–3 Astra audit boundary. Do not begin Phase 4.

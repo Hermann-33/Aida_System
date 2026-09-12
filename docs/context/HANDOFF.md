@@ -1,185 +1,131 @@
 # Current Handoff
 
-Updated: 2026-09-10
+Updated: 2026-09-12
 
-## Task
+## Current boundary
 
-`TASK-UI-REDESIGN-004 — audited customer UI refresh and safe future-work preservation`
+`TASK-OPS-003 — Phase 2 shift and cash authority`
 
-**Verdict:** READY TO MERGE.
+**Verdict:** `COMPLETE`  
+**State:** frozen, draft and unmerged. Astra audit is intentionally deferred until Phase 3 is also `COMPLETE`.
 
-Detailed implementation/validation evidence:
+Detailed evidence:
 
-`docs/context/MENU_CUSTOMIZATION_2026-08-23.md`
+`docs/context/PHASE_2_SHIFT_CASH_CLOSEOUT_2026-09-12.md`
 
-Matching task branches:
-
-`codex/task-menu-customization-001-modifier-groups`
-
-No PR or merge was created by this closeout.
-
-## What changed
-
-### Customer
-
-- drink detail is catalogue-driven for Size, Temperature, Sweetness and compatible add-ons;
-- selected option/add-on state belongs to the individual cart line;
-- add-on catalogue rows/categories are hidden from normal customer browsing;
-- local cart estimates include variant + option + add-on deltas while server quote remains final authority;
-- order intents include `optionValueIds` but no trusted prices/totals;
-- unavailable options remain visible/disabled with explicit text/semantics;
-- `Add to cart` immediately returns to Menu;
-- checkout presentation says `Now`, while the backend wire value remains `asap`;
-- accepted policy-derived Schedule wheel remains intact.
-
-### Dashboard / POS
-
-- Admin can mark a product as a drink;
-- each drink option exposes editable customer label, price delta, availability and default;
-- every required group must have at least one available option and exactly one available default;
-- compatible add-ons remain per-product checkboxes;
-- POS maps variants + required Temperature/Sweetness + optional add-ons into per-line modifier state;
-- POS order payload includes `optionValueIds` only as selection IDs;
-- preview remains read-only; staff remains excluded from Admin.
-
-### Backend
-
-Live migrations:
+Phase 2 branches:
 
 ```text
-20260822135421 add_drink_customization_catalogue
-20260822135602 integrate_drink_customizations_with_orders
-20260822141814 harden_drink_customization_indexes_and_rls
-20260822143542 grant_public_drink_customization_reads
+Hermann-33/Aida_System
+  codex/phase-2-shift-cash-authority
+
+Hermann-33/Aida_System-Dashboard
+  codex/phase-2-shift-cash-authority
 ```
 
-Trusted additions:
-
-- `catalogue_items.is_drink`;
-- `catalogue_option_groups`;
-- `catalogue_option_values`;
-- `catalogue_item_option_values`;
-- `order_lines.option_total_sen`;
-- `order_line_options` immutable selected-option snapshots;
-- `pricingVersion=2` quote calculation includes option deltas.
-
-The live quote definition supplies the configured available default for a required group when an older client omits an `optionValueId`, preserving rollout compatibility.
-
-## Live closeout checks
-
-Checked on 2026-08-23:
+Phase 2 PRs:
 
 ```text
-catalogue revision         130
-drink products              11
-non-drink products           4
-add-ons                      4
-invalid required groups      0
-Iced Drinks with Hot on      0
+Customer/backend PR #21 — draft, unmerged
+Dashboard/POS PR #18 — draft, unmerged
 ```
 
-Public/authenticated function/table grants align with the intended RLS boundary. Ordinary authenticated users have no direct read grant on immutable `order_line_options`.
+## Trusted state handed off
 
-Supabase security advisor has one pre-existing WARN only: Leaked Password Protection Disabled. Performance findings are INFO-only unused indexes.
+AIDA now has authoritative operational topology through shift/cash attribution:
 
-## Executable validation
+```text
+branch
+ -> sales point
+ -> terminal
+ -> employee branch scope
+ -> shift
+ -> POS order / cash ledger
+```
 
-### Customer
+Backend authority covers:
 
-Final validation commit:
+- trusted employee role/disabled state and branch assignments;
+- trusted sales points and terminals;
+- one-time manager-issued terminal enrolment with HttpOnly credential storage;
+- open/lock/resume/close shift lifecycle;
+- one live open/locked shift per terminal and per operator;
+- integer-sen opening float;
+- append-only non-sale cash movements;
+- server-derived expected cash and closing variance;
+- Admin/Owner authority for non-zero variance close;
+- immutable shift/tender/payment attribution on new POS orders;
+- cash/unpaid Phase 2 tender semantics;
+- customer orders remain shift-free and unpaid;
+- paid cash cancellation is blocked until a trusted refund flow exists.
 
-`404662aec382364c8e70fcee8d66b38d4b303f0a`
+Dashboard authority rules remain unchanged:
 
-Results:
+- same-origin HttpOnly BFF;
+- caller JWT forwarded upstream;
+- terminal credential readable only by the server request path;
+- no browser-readable employee bearer token;
+- no service-role secret in normal privileged flows;
+- preview fixtures never act as backend authority.
 
-- Flutter 3.44.7 / Dart 3.12.2 / JDK 21.0.12;
-- `flutter pub get` PASS;
-- format PASS;
-- analyze PASS;
-- Flutter tests 55 passed / 0 failed / 0 skipped;
-- `git diff --check` PASS;
-- secret scan PASS;
-- UI/golden review PASS at 390x844 and 430x932;
-- no physical Android device was connected for this final pass.
+## Validation evidence
 
-### Dashboard
+Final documentation-only Phase 2 heads before the governance refresh:
 
-Final validation commit:
+```text
+Aida_System
+  b9e9eaa98c338a020dacc0d3374f710e1182b6d7
+  Backend database audit #46   COMPLETE
+  Customer release audit #138 COMPLETE
 
-`af0fcd2babfa02073f882ec63ddbec102e591672`
+Aida_System-Dashboard
+  fe5aebdb22264e21646bfcf5ca49b1fd0d9bfe2d
+  Dashboard CI #59             COMPLETE
+```
 
-Results:
+The clean backend replay includes:
 
-- Node v24.11.1 / npm 11.6.2;
-- `npm ci` PASS, 0 vulnerabilities;
-- lint PASS with two established Fast Refresh warnings;
-- typecheck PASS;
-- Vitest 29 files / 129 tests PASS;
-- build PASS with existing large-chunk advisory only;
-- Playwright 10/10 PASS;
-- `git diff --check` PASS;
-- visual QA PASS at 1366x768 and 1440x900;
-- no task-related browser console errors/warnings.
+```text
+branch authority regression                 COMPLETE
+operational topology regression            COMPLETE
+order regression                           COMPLETE
+scheduled-order operations regression      COMPLETE
+shift and cash authority regression        COMPLETE
+```
 
-## UI consistency
+Canonical Phase 2 migrations:
 
-Customer customization keeps the accepted AIDA rose/cream/espresso palette, Playfair + Plus Jakarta Sans, tactile/neumorphic controls, existing hero/sheet hierarchy, selected check indicators and explicit disabled text.
+```text
+20260911235419 create_shift_cash_authority_schema
+20260911235626 implement_shift_cash_authority_functions
+20260911235651 harden_shift_cash_authority_permissions
+20260912000002 index_shift_cash_foreign_keys
+```
 
-Dashboard uses the existing design tokens, Admin cards/form classes, labelled native radios/checkboxes, focus-visible/reduced-motion behavior and existing POS modifier density. No Luckin styling or second theme was introduced.
+The Phase 2 advisor review recorded no new security blocker. The remaining leaked-password-protection warning predates Phase 2; performance output contains only INFO-level unused-index observations after Phase 2 FK coverage was corrected.
 
-## Security/trust result
+## App Store handoff
 
-Preserved:
+Phase 2 affects staff Dashboard/POS operations only. It adds no customer iOS protected-data permission, tracking SDK, subscription, digital purchase or new customer personal-data field. Physical café sales remain outside StoreKit/IAP.
 
-- Supabase commercial authority;
-- RLS/FORCE-RLS boundaries;
-- Admin/Owner catalogue mutation;
-- caller-JWT same-origin HttpOnly employee BFF;
-- no browser employee token persistence;
-- no service-role credential in clients;
-- no fabricated branch/terminal/shift authority;
-- Pay-at-counter remains unpaid presentation, not payment settlement.
+Production whole-account deletion and explicit personal-data retention/deletion remain mandatory Phase 3 work before any App Store release candidate.
+
+## Deferred/non-goals
+
+Still deferred:
+
+- production customer account deletion/privacy retention;
+- customer consent/preferences and marketing notification controls;
+- branch hours/closures/capacity and explicit customer pickup branch;
+- inventory/recipes/depletion;
+- loyalty/rewards/vouchers;
+- promotions/discounts;
+- reporting/tax/accounting;
+- payment processor settlement and refunds;
+- employee credential lifecycle;
+- printer/KDS/payment-device hardware integrations;
+- delivery and deployment-heavy work.
 
 ## Next action
 
-This task is ready for repository merge/release handling, but those are separate explicit actions. If merging, merge both matching task branches so the two frontends remain contract-compatible with the already-live backend.
-
-After a customer merge, build a fresh APK from the merged customer default branch before distribution. The final Codex validation did not use a connected physical Android device.
-
-## Deferred domains
-
-Branch authority/capacity, terminal/sales-point lifecycle, shifts/cash reconciliation, payment/refunds, loyalty, inventory, promotions/discounts, tax/accounting/reporting, delivery and hosted production operations remain separate tasks.
-
-## 2026-09-10 — TASK-UI-REDESIGN-004 final handoff
-
-PR #19 carries the audited integration from `codex/task-ui-redesign-004-audit-integration`.
-
-Final accepted scope:
-
-- reviewed customer UI/branding refresh is active;
-- all demo-only order/status/test tooling is removed;
-- account-deletion/referral SQL prototypes are preserved under `supabase/drafts/`, not canonical migrations;
-- related account-deletion/referral client surfaces are compile-time gated off by default;
-- useful iOS migration observations are documented, while stale generated Xcode/CocoaPods state is excluded;
-- production order status remains Supabase-authoritative;
-- generated golden failure artifacts are excluded.
-
-Release compatibility correction:
-
-- `share_plus 13.3.0` caused the release APK build to fail because that package generation requires Kotlin 2.2-era Android artifacts;
-- the dormant referral-sharing prototype is pinned to `share_plus 11.1.0` instead of forcing an unrelated Android toolchain migration in this UI task;
-- lockfile dependencies are reconciled accordingly.
-
-Executable validation:
-
-- workflow: Customer release audit run #87;
-- code head: `7388c1bd40b7da4c0ce56041b8e0e02ece3847db`;
-- dependency resolution PASS;
-- Flutter analyze PASS;
-- non-golden regression PASS;
-- golden regression PASS;
-- release APK build PASS;
-- release APK upload PASS.
-
-The subsequent branch changes are documentation-only closeout. PR #19 must be squash-merged so the original mixed source-branch ancestry does not enter `master`.
-
+Create dedicated Phase 3 branches from the corrected Phase 2 heads and first commit a mirrored Phase 3 plan covering customer privacy and App Store account requirements. Do not merge Phase 1 or Phase 2. After Phase 3 becomes `COMPLETE`, stop implementation and prepare the combined Phase 1–3 Astra audit boundary. Do not begin Phase 4.

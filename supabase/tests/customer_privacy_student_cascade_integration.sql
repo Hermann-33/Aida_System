@@ -18,13 +18,17 @@ select id, 'PHASE3-CAMPUS-DELETE-001'
 from public.members
 where user_id = '52000000-0000-0000-0000-000000000001';
 
-if not exists (
-  select 1
-  from public.student_verifications
-  where campus_id = 'PHASE3-CAMPUS-DELETE-001'
-) then
-  raise exception 'student verification fixture was not created';
-end if;
+do $$
+begin
+  if not exists (
+    select 1
+    from public.student_verifications
+    where campus_id = 'PHASE3-CAMPUS-DELETE-001'
+  ) then
+    raise exception 'student verification fixture was not created';
+  end if;
+end;
+$$;
 
 set local role authenticated;
 

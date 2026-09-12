@@ -3,6 +3,7 @@ import 'package:aida_customer/core/error/failures.dart';
 import 'package:aida_customer/core/error/result.dart';
 import 'package:aida_customer/data/repository/mock_member_repository.dart';
 import 'package:aida_customer/domain/model/privacy_preferences.dart';
+import 'package:aida_customer/features/auth/unauthenticated_screen.dart';
 import 'package:aida_customer/features/profile/legal_information_screen.dart';
 import 'package:aida_customer/features/profile/privacy_settings_screen.dart';
 import 'package:aida_customer/features/profile/settings_screen.dart';
@@ -154,6 +155,25 @@ void main() {
 
     expect(members.deleteCalls, 1);
     expect(find.text('Deletion failed'), findsOneWidget);
+  });
+
+  testWidgets('signed-out boundary exposes privacy terms and support', (
+    tester,
+  ) async {
+    final members = _Phase3MemberRepository();
+    await tester.pumpWidget(
+      _app(child: const UnauthenticatedScreen(), members: members),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Privacy'), findsOneWidget);
+    expect(find.text('Terms'), findsOneWidget);
+    expect(find.text('Support'), findsOneWidget);
+
+    await tester.tap(find.text('Privacy'));
+    await tester.pumpAndSettle();
+    expect(find.text('Privacy policy'), findsOneWidget);
+    expect(find.textContaining('notification preferences'), findsOneWidget);
   });
 
   testWidgets('terms and support surfaces contain real customer guidance', (

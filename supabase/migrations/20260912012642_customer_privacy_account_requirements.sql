@@ -21,7 +21,11 @@ alter table public.orders
 
 alter table public.orders
   add constraint orders_customer_owner_check check (
-    (source = 'pos' and customer_deleted_at is null)
+    (
+      source = 'pos'
+      and created_by_user_id is not null
+      and customer_deleted_at is null
+    )
     or
     (
       source = 'customer'
@@ -29,7 +33,7 @@ alter table public.orders
         (
           customer_user_id is not null
           and member_id is not null
-          and created_by_user_id is not null
+          and created_by_user_id = customer_user_id
           and customer_deleted_at is null
         )
         or
@@ -107,7 +111,7 @@ declare
     and old.source = 'customer'
     and old.customer_user_id is not null
     and old.member_id is not null
-    and old.created_by_user_id is not null
+    and old.created_by_user_id = old.customer_user_id
     and old.customer_deleted_at is null
     and new.customer_user_id is null
     and new.member_id is null
@@ -258,6 +262,56 @@ begin
 end;
 $$;
 
+-- A deleted user's already-issued JWT can remain cryptographically valid until
+-- expiry. Require the trusted customer profile/member state here so such a JWT
+-- cannot keep using personalized order-history access after whole-account
+-- deletion has removed that server-side identity state.
+create or replace function public.get_my_orders(p_limit integer default 20)
+returns jsonb
+language plpgsql
+stable
+security invoker
+set search_path = public, pg_temp
+as $$
+declare
+  v_user_id uuid := (select auth.uid());
+  v_limit integer := greatest(1, least(coalesce(p_limit, 20), 100));
+  v_result jsonb;
+begin
+  if v_user_id is null then
+    raise exception 'authentication required' using errcode = '42501';
+  end if;
+
+  if not exists (
+    select 1
+    from public.user_profiles p
+    join public.members m on m.user_id = p.user_id and m.active
+    where p.user_id = v_user_id
+      and p.app_role = 'customer'
+      and p.disabled_at is null
+  ) then
+    raise exception 'active customer membership required'
+      using errcode = '42501', detail = 'CUSTOMER_PROFILE_REQUIRED';
+  end if;
+
+  select coalesce(
+    jsonb_agg(private.order_snapshot(x.id) order by x.created_at desc),
+    '[]'::jsonb
+  )
+  into v_result
+  from (
+    select o.id, o.created_at
+    from public.orders o
+    where o.customer_user_id = v_user_id
+      and o.customer_deleted_at is null
+    order by o.created_at desc
+    limit v_limit
+  ) x;
+
+  return v_result;
+end;
+$$;
+
 -- No target user id is accepted. The caller can delete only the authenticated
 -- customer identity represented by auth.uid(). Historical customer orders are
 -- anonymized first, then the Auth row is deleted so profile/member/student and
@@ -371,7 +425,7 @@ begin
         (
           o.customer_user_id is not null
           and o.member_id is not null
-          and o.created_by_user_id is not null
+          and o.created_by_user_id = o.customer_user_id
           and o.customer_deleted_at is null
         )
         or

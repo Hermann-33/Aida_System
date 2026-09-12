@@ -15,6 +15,7 @@ import '../domain/model/menu_category.dart';
 import '../domain/model/menu_item.dart';
 import '../domain/model/offer.dart';
 import '../domain/model/order.dart';
+import '../domain/model/privacy_preferences.dart';
 import '../domain/model/promo.dart';
 import '../domain/model/reward.dart';
 import '../domain/model/voucher.dart';
@@ -53,24 +54,24 @@ class AuthState extends Notifier<bool> {
     return repository.hasActiveSession;
   }
 
-  void _applySessionState(bool signedIn) {
-    state = signedIn;
+  void _invalidateCustomerIdentityState() {
     ref.read(memberEditsProvider.notifier).clear();
     ref.invalidate(memberProvider);
+    ref.invalidate(privacyPreferencesProvider);
     ref.invalidate(orderUpdatesProvider);
     ref.invalidate(orderHistoryProvider);
+  }
+
+  void _applySessionState(bool signedIn) {
+    state = signedIn;
+    _invalidateCustomerIdentityState();
   }
 
   void logIn() {
     final repository = ref.read(memberRepositoryProvider);
     state =
         repository is SupabaseMemberRepository && repository.hasActiveSession;
-    if (state) {
-      ref.read(memberEditsProvider.notifier).clear();
-      ref.invalidate(memberProvider);
-      ref.invalidate(orderUpdatesProvider);
-      ref.invalidate(orderHistoryProvider);
-    }
+    if (state) _invalidateCustomerIdentityState();
   }
 
   Future<Result<void>> deleteAccount() async {
@@ -78,10 +79,7 @@ class AuthState extends Notifier<bool> {
     final result = await repository.deleteAccount();
     if (result is Ok<void>) {
       state = false;
-      ref.read(memberEditsProvider.notifier).clear();
-      ref.invalidate(memberProvider);
-      ref.invalidate(orderUpdatesProvider);
-      ref.invalidate(orderHistoryProvider);
+      _invalidateCustomerIdentityState();
     }
     return result;
   }
@@ -89,10 +87,7 @@ class AuthState extends Notifier<bool> {
   void logOut() {
     final repository = ref.read(memberRepositoryProvider);
     state = false;
-    ref.read(memberEditsProvider.notifier).clear();
-    ref.invalidate(memberProvider);
-    ref.invalidate(orderUpdatesProvider);
-    ref.invalidate(orderHistoryProvider);
+    _invalidateCustomerIdentityState();
     if (repository is SupabaseMemberRepository) {
       unawaited(repository.logOut());
     }
@@ -147,6 +142,11 @@ Future<T> _unwrap<T>(Future<Result<T>> future) async {
 
 final memberProvider = FutureProvider<Member>(
   (ref) => _unwrap(ref.watch(memberRepositoryProvider).getMember()),
+);
+
+final privacyPreferencesProvider = FutureProvider<PrivacyPreferences>(
+  (ref) =>
+      _unwrap(ref.watch(memberRepositoryProvider).getPrivacyPreferences()),
 );
 
 class MemberEdits extends Notifier<Member?> {

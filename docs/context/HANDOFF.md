@@ -1,185 +1,73 @@
 # Current Handoff
 
-Updated: 2026-09-10
+Updated: 2026-09-12
 
-## Task
+## Current boundary
 
-`TASK-UI-REDESIGN-004 — audited customer UI refresh and safe future-work preservation`
+Combined Phase 1–3 Astra audit.
 
-**Verdict:** READY TO MERGE.
+**Verdict:** `PARTIAL` — Phase 1, Phase 2 and Phase 3 implementation are individually `COMPLETE`; Astra review is not yet executed/accepted.  
+**Implementation state:** STOPPED. Do not begin Phase 4.
 
-Detailed implementation/validation evidence:
-
-`docs/context/MENU_CUSTOMIZATION_2026-08-23.md`
-
-Matching task branches:
-
-`codex/task-menu-customization-001-modifier-groups`
-
-No PR or merge was created by this closeout.
-
-## What changed
-
-### Customer
-
-- drink detail is catalogue-driven for Size, Temperature, Sweetness and compatible add-ons;
-- selected option/add-on state belongs to the individual cart line;
-- add-on catalogue rows/categories are hidden from normal customer browsing;
-- local cart estimates include variant + option + add-on deltas while server quote remains final authority;
-- order intents include `optionValueIds` but no trusted prices/totals;
-- unavailable options remain visible/disabled with explicit text/semantics;
-- `Add to cart` immediately returns to Menu;
-- checkout presentation says `Now`, while the backend wire value remains `asap`;
-- accepted policy-derived Schedule wheel remains intact.
-
-### Dashboard / POS
-
-- Admin can mark a product as a drink;
-- each drink option exposes editable customer label, price delta, availability and default;
-- every required group must have at least one available option and exactly one available default;
-- compatible add-ons remain per-product checkboxes;
-- POS maps variants + required Temperature/Sweetness + optional add-ons into per-line modifier state;
-- POS order payload includes `optionValueIds` only as selection IDs;
-- preview remains read-only; staff remains excluded from Admin.
-
-### Backend
-
-Live migrations:
+## Completed phases
 
 ```text
-20260822135421 add_drink_customization_catalogue
-20260822135602 integrate_drink_customizations_with_orders
-20260822141814 harden_drink_customization_indexes_and_rls
-20260822143542 grant_public_drink_customization_reads
+Phase 1 / TASK-OPS-002 operational topology                  COMPLETE
+Phase 2 / TASK-OPS-003 shift and cash authority              COMPLETE
+Phase 3 / TASK-PRIVACY-001 privacy/account requirements      COMPLETE
+Combined Phase 1–3 Astra audit                               PARTIAL
 ```
 
-Trusted additions:
+Evidence:
 
-- `catalogue_items.is_drink`;
-- `catalogue_option_groups`;
-- `catalogue_option_values`;
-- `catalogue_item_option_values`;
-- `order_lines.option_total_sen`;
-- `order_line_options` immutable selected-option snapshots;
-- `pricingVersion=2` quote calculation includes option deltas.
+- `docs/context/PHASE_1_OPERATIONAL_TOPOLOGY_CLOSEOUT_2026-09-11.md`
+- `docs/context/PHASE_2_SHIFT_CASH_CLOSEOUT_2026-09-12.md`
+- `docs/context/PHASE_3_CUSTOMER_PRIVACY_ACCOUNT_CLOSEOUT_2026-09-12.md`
+- `docs/context/PHASE_1_3_ASTRA_AUDIT_BOUNDARY_2026-09-12.md`
 
-The live quote definition supplies the configured available default for a required group when an older client omits an `optionValueId`, preserving rollout compatibility.
+## Phase 3 implementation handed off
 
-## Live closeout checks
+Whole-account deletion is production-enabled in the customer app. The backend deletes customer Auth/profile/member/student/preference identity, anonymizes retained customer transaction history, scrubs retained customer-authored order line/event free text, preserves commercial/operational records, and does not create a synthetic deleted-customer Auth identity.
 
-Checked on 2026-08-23:
+Privacy preferences are trusted backend state with marketing default-off. Legal/privacy/terms/support surfaces and guest/authenticated boundaries are explicit. The iOS permission audit records no new protected-data/tracking permission or SDK.
+
+Canonical Phase 3 migrations:
 
 ```text
-catalogue revision         130
-drink products              11
-non-drink products           4
-add-ons                      4
-invalid required groups      0
-Iced Drinks with Hot on      0
+20260912014924 customer_privacy_account_requirements
+20260912015010 harden_customer_privacy_rpc_boundary
+20260912020434 allow_customer_deletion_without_member_dependency
+20260912020652 allow_disabled_customer_account_deletion
+20260912021143 scrub_customer_free_text_on_account_deletion
 ```
 
-Public/authenticated function/table grants align with the intended RLS boundary. Ordinary authenticated users have no direct read grant on immutable `order_line_options`.
+Implementation validation head `10ca26a776994e59b76f8afbd7227e296270cd68`:
 
-Supabase security advisor has one pre-existing WARN only: Leaked Password Protection Disabled. Performance findings are INFO-only unused indexes.
+```text
+Backend database audit #90   COMPLETE
+Customer release audit #182 COMPLETE
+```
 
-## Executable validation
+Dashboard Phase 3 runtime is unchanged; pre-closeout head `411056a40edfb1c23fa999504b904d822e151f5d` passed Dashboard CI #66. Documentation-only final heads are revalidated after synchronization.
 
-### Customer
+Supabase advisor state: no Phase 3-created security blocker; pre-existing leaked-password-protection WARN remains; performance output is INFO-level unused indexes only.
 
-Final validation commit:
+## Frozen PRs
 
-`404662aec382364c8e70fcee8d66b38d4b303f0a`
+All remain draft/unmerged:
 
-Results:
+```text
+Aida_System #20 / Dashboard #17 — Phase 1
+Aida_System #21 / Dashboard #18 — Phase 2
+Aida_System #22 / Dashboard #19 — Phase 3
+```
 
-- Flutter 3.44.7 / Dart 3.12.2 / JDK 21.0.12;
-- `flutter pub get` PASS;
-- format PASS;
-- analyze PASS;
-- Flutter tests 55 passed / 0 failed / 0 skipped;
-- `git diff --check` PASS;
-- secret scan PASS;
-- UI/golden review PASS at 390x844 and 430x932;
-- no physical Android device was connected for this final pass.
+Their bodies have been reconciled to the current deferred-Astra governance. Do not merge them merely because implementation is complete.
 
-### Dashboard
+## Deferred / non-goals
 
-Final validation commit:
-
-`af0fcd2babfa02073f882ec63ddbec102e591672`
-
-Results:
-
-- Node v24.11.1 / npm 11.6.2;
-- `npm ci` PASS, 0 vulnerabilities;
-- lint PASS with two established Fast Refresh warnings;
-- typecheck PASS;
-- Vitest 29 files / 129 tests PASS;
-- build PASS with existing large-chunk advisory only;
-- Playwright 10/10 PASS;
-- `git diff --check` PASS;
-- visual QA PASS at 1366x768 and 1440x900;
-- no task-related browser console errors/warnings.
-
-## UI consistency
-
-Customer customization keeps the accepted AIDA rose/cream/espresso palette, Playfair + Plus Jakarta Sans, tactile/neumorphic controls, existing hero/sheet hierarchy, selected check indicators and explicit disabled text.
-
-Dashboard uses the existing design tokens, Admin cards/form classes, labelled native radios/checkboxes, focus-visible/reduced-motion behavior and existing POS modifier density. No Luckin styling or second theme was introduced.
-
-## Security/trust result
-
-Preserved:
-
-- Supabase commercial authority;
-- RLS/FORCE-RLS boundaries;
-- Admin/Owner catalogue mutation;
-- caller-JWT same-origin HttpOnly employee BFF;
-- no browser employee token persistence;
-- no service-role credential in clients;
-- no fabricated branch/terminal/shift authority;
-- Pay-at-counter remains unpaid presentation, not payment settlement.
+External payment capture/refunds/settlement, branch scheduling, inventory, loyalty, promotions, reporting/accounting export, employee credential lifecycle, hardware integrations, notification/marketing delivery and deployment-heavy production work remain deferred.
 
 ## Next action
 
-This task is ready for repository merge/release handling, but those are separate explicit actions. If merging, merge both matching task branches so the two frontends remain contract-compatible with the already-live backend.
-
-After a customer merge, build a fresh APK from the merged customer default branch before distribution. The final Codex validation did not use a connected physical Android device.
-
-## Deferred domains
-
-Branch authority/capacity, terminal/sales-point lifecycle, shifts/cash reconciliation, payment/refunds, loyalty, inventory, promotions/discounts, tax/accounting/reporting, delivery and hosted production operations remain separate tasks.
-
-## 2026-09-10 — TASK-UI-REDESIGN-004 final handoff
-
-PR #19 carries the audited integration from `codex/task-ui-redesign-004-audit-integration`.
-
-Final accepted scope:
-
-- reviewed customer UI/branding refresh is active;
-- all demo-only order/status/test tooling is removed;
-- account-deletion/referral SQL prototypes are preserved under `supabase/drafts/`, not canonical migrations;
-- related account-deletion/referral client surfaces are compile-time gated off by default;
-- useful iOS migration observations are documented, while stale generated Xcode/CocoaPods state is excluded;
-- production order status remains Supabase-authoritative;
-- generated golden failure artifacts are excluded.
-
-Release compatibility correction:
-
-- `share_plus 13.3.0` caused the release APK build to fail because that package generation requires Kotlin 2.2-era Android artifacts;
-- the dormant referral-sharing prototype is pinned to `share_plus 11.1.0` instead of forcing an unrelated Android toolchain migration in this UI task;
-- lockfile dependencies are reconciled accordingly.
-
-Executable validation:
-
-- workflow: Customer release audit run #87;
-- code head: `7388c1bd40b7da4c0ce56041b8e0e02ece3847db`;
-- dependency resolution PASS;
-- Flutter analyze PASS;
-- non-golden regression PASS;
-- golden regression PASS;
-- release APK build PASS;
-- release APK upload PASS.
-
-The subsequent branch changes are documentation-only closeout. PR #19 must be squash-merged so the original mixed source-branch ancestry does not enter `master`.
-
+Execute the combined Phase 1–3 Astra audit against the prepared boundary. Use only `COMPLETE`, `PARTIAL` or `FAIL` verdicts. Resolve or explicitly accept findings before Phase 4. No further implementation should start from this handoff.

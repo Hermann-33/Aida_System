@@ -2,18 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/providers.dart';
-import '../../core/config/feature_flags.dart';
 import '../../core/error/result.dart';
 import '../../core/theme/aida_colors.dart';
 import '../../core/theme/aida_type.dart';
 import '../../core/widgets/aida_popup.dart';
 import '../history/order_history_screen.dart';
 import 'edit_profile_screen.dart';
+import 'legal_information_screen.dart';
+import 'privacy_settings_screen.dart';
 
-/// The reference's literal palette (lavender / tan / dusty-mauve / sage /
-/// mustard) — the user asked for these exact colors, not an Aida-tinted
-/// translation, so these are flat hex values rather than derived from
-/// AidaColors.
 const _lavender = Color(0xFFD9D3E6);
 const _tan = Color(0xFFEBE1C6);
 const _mauve = Color(0xFFDCC7C4);
@@ -22,15 +19,6 @@ const _sageDark = Color(0xFFC3D3B6);
 const _mustard = Color(0xFFEACE68);
 const _darkIcon = Color(0xFF3A3530);
 
-/// Account preferences and loyalty/order summary. Everything Profile's old
-/// separate "My stats" tile would have shown now lives here too, since it
-/// never had a page of its own.
-///
-/// Matches the reference's actual structure this time: a masonry grid (a
-/// row of equal squares, then a big tile beside two stacked smaller ones)
-/// in its literal pastel palette, flat icons with no badge circle, and the
-/// amount/subtitle line sitting above the bold label at the tile's bottom
-/// — not a re-tinted version of the settings-list pattern.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
@@ -71,8 +59,7 @@ class SettingsScreen extends ConsumerWidget {
               style: AidaType.serif(size: 20, color: AidaColors.textPrimary),
             ),
             content: Text(
-              'This permanently removes your customer account. Historical '
-              'commercial records may be retained in anonymised form.',
+              'This permanently deletes your sign-in identity, profile, membership, student-verification data and notification preferences. Historical café transaction records may be retained only in anonymised form for legitimate audit and accounting purposes.',
               style: AidaType.sans(size: 13.5, color: AidaColors.textMuted),
             ),
             actions: [
@@ -86,7 +73,7 @@ class SettingsScreen extends ConsumerWidget {
                   backgroundColor: AidaColors.error,
                   foregroundColor: AidaColors.cream,
                 ),
-                child: const Text('Delete'),
+                child: const Text('Delete account'),
               ),
             ],
           ),
@@ -143,9 +130,6 @@ class SettingsScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 40),
         children: [
-          // The page's own headline stat, same spirit as the reference's
-          // big total up top — plain white, not pastel-tinted, since
-          // everything below reads relative to it.
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(20),
@@ -164,30 +148,27 @@ class SettingsScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 points.when(
-                  data:
-                      (p) => Text(
-                        '${p.balance}',
-                        style: AidaType.serif(
-                          size: 44,
-                          color: AidaColors.textPrimary,
-                        ),
-                      ),
-                  loading:
-                      () => Text(
-                        '···',
-                        style: AidaType.serif(
-                          size: 44,
-                          color: AidaColors.textPrimary,
-                        ),
-                      ),
-                  error:
-                      (_, __) => Text(
-                        '—',
-                        style: AidaType.serif(
-                          size: 44,
-                          color: AidaColors.textPrimary,
-                        ),
-                      ),
+                  data: (p) => Text(
+                    '${p.balance}',
+                    style: AidaType.serif(
+                      size: 44,
+                      color: AidaColors.textPrimary,
+                    ),
+                  ),
+                  loading: () => Text(
+                    '···',
+                    style: AidaType.serif(
+                      size: 44,
+                      color: AidaColors.textPrimary,
+                    ),
+                  ),
+                  error: (_, __) => Text(
+                    '—',
+                    style: AidaType.serif(
+                      size: 44,
+                      color: AidaColors.textPrimary,
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Padding(
@@ -205,7 +186,6 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 14),
-          // Row of 3 equal small squares — the reference's top row.
           Row(
             children: [
               Expanded(
@@ -226,12 +206,11 @@ class SettingsScreen extends ConsumerWidget {
                   subtitle: ordersSubtitle,
                   color: _tan,
                   height: 128,
-                  onTap:
-                      () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const OrderHistoryScreen(),
-                        ),
-                      ),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const OrderHistoryScreen(),
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
@@ -242,21 +221,18 @@ class SettingsScreen extends ConsumerWidget {
                   subtitle: 'Edit',
                   color: _mauve,
                   height: 128,
-                  onTap:
-                      member == null
-                          ? () => _toast(context, 'Loading your profile…')
-                          : () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => EditProfileScreen(member: member),
-                            ),
+                  onTap: member == null
+                      ? () => _toast(context, 'Loading your profile…')
+                      : () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => EditProfileScreen(member: member),
                           ),
+                        ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 10),
-          // Masonry pair — one tall tile beside two stacked smaller ones,
-          // the reference's McDonald's / (Five Guys + Taco Bell) cluster.
           SizedBox(
             height: 268,
             child: Row(
@@ -284,20 +260,23 @@ class SettingsScreen extends ConsumerWidget {
                           subtitle: 'This session',
                           color: _sageDark,
                           height: double.infinity,
-                          onTap:
-                              () =>
-                                  ref.read(authStateProvider.notifier).logOut(),
+                          onTap: () =>
+                              ref.read(authStateProvider.notifier).logOut(),
                         ),
                       ),
                       const SizedBox(height: 10),
                       Expanded(
                         child: _PastelTile(
-                          icon: Icons.description_outlined,
+                          icon: Icons.privacy_tip_outlined,
                           label: 'Privacy',
-                          subtitle: 'Coming soon',
+                          subtitle: 'Preferences',
                           color: _lavender,
                           height: double.infinity,
-                          onTap: null,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const PrivacySettingsScreen(),
+                            ),
+                          ),
                         ),
                       ),
                     ],
@@ -307,46 +286,56 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 10),
-          if (AidaFeatureFlags.accountDeletionDraft)
-            Row(
-              children: [
-                Expanded(
-                  child: _PastelTile(
-                    icon: Icons.gavel_rounded,
-                    label: 'Terms',
-                    subtitle: 'Coming soon',
-                    color: _tan,
-                    height: 128,
-                    onTap: null,
+          Row(
+            children: [
+              Expanded(
+                child: _PastelTile(
+                  icon: Icons.gavel_rounded,
+                  label: 'Terms',
+                  subtitle: 'Read',
+                  color: _tan,
+                  height: 128,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const LegalInformationScreen(
+                        kind: LegalInformationKind.terms,
+                      ),
+                    ),
                   ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _PastelTile(
-                    icon: Icons.delete_forever_rounded,
-                    label: 'Delete',
-                    subtitle: 'Account',
-                    color: AidaColors.error.withValues(alpha: 0.85),
-                    height: 128,
-                    iconColor: AidaColors.cream,
-                    textColor: AidaColors.cream,
-                    onTap: () => _confirmDeleteAccount(context, ref),
-                  ),
-                ),
-              ],
-            )
-          else
-            SizedBox(
-              width: double.infinity,
-              child: _PastelTile(
-                icon: Icons.gavel_rounded,
-                label: 'Terms',
-                subtitle: 'Coming soon',
-                color: _tan,
-                height: 112,
-                onTap: null,
               ),
-            ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _PastelTile(
+                  icon: Icons.support_agent_rounded,
+                  label: 'Support',
+                  subtitle: 'Contact',
+                  color: _sageLight,
+                  height: 128,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const LegalInformationScreen(
+                        kind: LegalInformationKind.support,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _PastelTile(
+                  icon: Icons.delete_forever_rounded,
+                  label: 'Delete',
+                  subtitle: 'Account',
+                  color: AidaColors.error.withValues(alpha: 0.85),
+                  height: 128,
+                  iconColor: AidaColors.cream,
+                  textColor: AidaColors.cream,
+                  onTap: () => _confirmDeleteAccount(context, ref),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 20),
           Center(
             child: Text(
@@ -360,10 +349,6 @@ class SettingsScreen extends ConsumerWidget {
   }
 }
 
-/// One card: a flat icon (no badge circle — the reference's icons sit
-/// directly on the card color), then the small subtitle line above the
-/// bold label at the very bottom, both anchored low the same way the
-/// reference's amount-then-brand-name pairing is.
 class _PastelTile extends StatelessWidget {
   const _PastelTile({
     required this.icon,

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -72,6 +73,7 @@ class _AidaPopupWidgetState extends State<_AidaPopupWidget>
   late final Animation<double> _fadeAnimation;
   late final Animation<Offset> _slideAnimation;
 
+  Timer? _dismissTimer;
   bool _closing = false;
 
   @override
@@ -105,20 +107,27 @@ class _AidaPopupWidgetState extends State<_AidaPopupWidget>
 
   Future<void> _start() async {
     await _entryController.forward();
+    if (!mounted) return;
     _progressController.forward();
-    await Future<void>.delayed(widget.duration);
-    if (mounted) _dismiss();
+    _dismissTimer = Timer(widget.duration, () {
+      if (mounted) {
+        _dismiss();
+      }
+    });
   }
 
   Future<void> _dismiss() async {
     if (_closing) return;
     _closing = true;
+    _dismissTimer?.cancel();
+    _dismissTimer = null;
     await _entryController.reverse();
     if (mounted) widget.onDismiss();
   }
 
   @override
   void dispose() {
+    _dismissTimer?.cancel();
     _entryController.dispose();
     _progressController.dispose();
     super.dispose();

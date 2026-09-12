@@ -1,185 +1,131 @@
 # Current Handoff
 
-Updated: 2026-09-11
+Updated: 2026-09-12
 
-## Current task
+## Current boundary
 
-`TASK-OPS-002 — Phase 1 operational topology`
+`TASK-OPS-003 — Phase 2 shift and cash authority`
 
 **Verdict:** `COMPLETE`  
-**State:** frozen for Astra audit. Do not merge the Phase 1 PRs and do not begin Phase 2 until Astra findings are resolved or explicitly accepted.
+**State:** frozen, draft and unmerged. Astra audit is intentionally deferred until Phase 3 is also `COMPLETE`.
 
 Detailed evidence:
 
-`docs/context/PHASE_1_OPERATIONAL_TOPOLOGY_CLOSEOUT_2026-09-11.md`
+`docs/context/PHASE_2_SHIFT_CASH_CLOSEOUT_2026-09-12.md`
 
-Matching Phase 1 branches:
+Phase 2 branches:
 
 ```text
 Hermann-33/Aida_System
-  codex/phase-1-operational-topology
+  codex/phase-2-shift-cash-authority
 
 Hermann-33/Aida_System-Dashboard
-  codex/phase-1-operational-topology
+  codex/phase-2-shift-cash-authority
 ```
 
-Matching audit PRs:
+Phase 2 PRs:
 
 ```text
-Customer/backend PR #20
-Dashboard/POS PR #17
+Customer/backend PR #21 — draft, unmerged
+Dashboard/POS PR #18 — draft, unmerged
 ```
 
 ## Trusted state handed off
 
-AIDA now has authoritative operational topology through POS placement:
+AIDA now has authoritative operational topology through shift/cash attribution:
 
 ```text
 branch
  -> sales point
  -> terminal
  -> employee branch scope
- -> POS order
+ -> shift
+ -> POS order / cash ledger
 ```
 
-Live seed topology:
+Backend authority covers:
 
-```text
-BR-MAIN — Main Café
-  SP-MAIN — Main Counter
-    POS-MAIN-01
-```
-
-The seeded terminal remains `pending` until explicitly enrolled/activated by a manager.
-
-Backend authority now covers:
-
-- trusted branches and employee branch assignments;
+- trusted employee role/disabled state and branch assignments;
 - trusted sales points and terminals;
-- one-time manager-issued terminal enrolment codes;
-- HttpOnly terminal credential storage through the Dashboard BFF;
-- terminal status and immediate revocation;
-- staff branch-scope enforcement during terminal resolution and order operations;
-- terminal-bound live POS placement;
-- immutable `branch_id`, `sales_point_id` and `terminal_id` attribution on POS orders;
-- customer orders remaining terminal-free.
+- one-time manager-issued terminal enrolment with HttpOnly credential storage;
+- open/lock/resume/close shift lifecycle;
+- one live open/locked shift per terminal and per operator;
+- integer-sen opening float;
+- append-only non-sale cash movements;
+- server-derived expected cash and closing variance;
+- Admin/Owner authority for non-zero variance close;
+- immutable shift/tender/payment attribution on new POS orders;
+- cash/unpaid Phase 2 tender semantics;
+- customer orders remain shift-free and unpaid;
+- paid cash cancellation is blocked until a trusted refund flow exists.
 
-Admin/Owner remain global operational roles for this tranche. Ordinary staff may operate only assigned branches.
+Dashboard authority rules remain unchanged:
+
+- same-origin HttpOnly BFF;
+- caller JWT forwarded upstream;
+- terminal credential readable only by the server request path;
+- no browser-readable employee bearer token;
+- no service-role secret in normal privileged flows;
+- preview fixtures never act as backend authority.
 
 ## Validation evidence
 
-Customer/backend code head before documentation-only closeout:
-
-`d355cedb45995615a9946fb2844d55a1e6cde28d`
-
-Backend database audit run #22 — PASS on clean local Supabase replay:
+Final documentation-only Phase 2 heads before the governance refresh:
 
 ```text
-branch authority regression              PASS
-operational topology regression         PASS
-order regression                         PASS
-scheduled-order operations regression    PASS
+Aida_System
+  b9e9eaa98c338a020dacc0d3374f710e1182b6d7
+  Backend database audit #46   COMPLETE
+  Customer release audit #138 COMPLETE
+
+Aida_System-Dashboard
+  fe5aebdb22264e21646bfcf5ca49b1fd0d9bfe2d
+  Dashboard CI #59             COMPLETE
 ```
 
-Customer release audit run #114:
+The clean backend replay includes:
 
 ```text
-dependency resolution          PASS
-Flutter static analysis        PASS
-non-golden regressions         PASS
-golden regressions             PASS
-release APK build              PASS
-release APK artifact upload    PASS
+branch authority regression                 COMPLETE
+operational topology regression            COMPLETE
+order regression                           COMPLETE
+scheduled-order operations regression      COMPLETE
+shift and cash authority regression        COMPLETE
 ```
 
-Dashboard code head before documentation-only closeout:
-
-`50c559f4ed5a5f0ddd373a4bf450a38c7e9716ba`
-
-Dashboard CI run #23:
+Canonical Phase 2 migrations:
 
 ```text
-npm ci                 PASS
-lint                   PASS
-typecheck              PASS
-Vitest files      31 / 31 PASS
-Vitest tests     150 / 150 PASS
-production build        PASS
+20260911235419 create_shift_cash_authority_schema
+20260911235626 implement_shift_cash_authority_functions
+20260911235651 harden_shift_cash_authority_permissions
+20260912000002 index_shift_cash_foreign_keys
 ```
 
-## Canonical live migrations
+The Phase 2 advisor review recorded no new security blocker. The remaining leaked-password-protection warning predates Phase 2; performance output contains only INFO-level unused-index observations after Phase 2 FK coverage was corrected.
 
-```text
-20260910014434 create_branch_location_authority
-20260910014457 index_employee_branch_assignment_actor
-20260910023510 create_operational_sales_points_and_terminals
-20260910023552 harden_operational_topology_rls_and_indexes
-20260910040814 revoke_direct_branch_mutation_grants
-20260910041057 enforce_terminal_branch_scope_on_resolution
-20260910042619 differentiate_terminal_resolution_failures
-20260910044613 grant_branch_rpc_private_impl_execution
-20260910050152 grant_admin_operational_topology_reads
-```
+## App Store handoff
 
-The final permission fixes preserve the intended boundary: authenticated table SELECT on operational topology is still constrained by FORCE-RLS Admin/Owner policies; anonymous reads and direct DML remain denied.
+Phase 2 affects staff Dashboard/POS operations only. It adds no customer iOS protected-data permission, tracking SDK, subscription, digital purchase or new customer personal-data field. Physical café sales remain outside StoreKit/IAP.
 
-## Live closeout verification
+Production whole-account deletion and explicit personal-data retention/deletion remain mandatory Phase 3 work before any App Store release candidate.
 
-```text
-branches                      1
-active/default branches       1
-sales points                  1
-terminals                     1
-active seeded terminals       0
-orders total                 25
-orders without branch         0
-customer orders with terminal 0
-```
+## Deferred/non-goals
 
-Supabase security advisor: one pre-existing leaked-password-protection WARN only. Performance advisor findings are INFO-only unused-index observations. No Phase 1-created security blocker remains.
+Still deferred:
 
-## Dashboard handoff
-
-Live mode now uses trusted APIs for:
-
-- branch/sales-point management;
-- terminal listing/creation/enrolment-code issuance/revocation;
-- employee branch assignment;
-- terminal enrolment/status/credential clearing;
-- terminal-bound POS placement.
-
-Explicit UI Preview remains fixture-backed by design and must never become backend authority.
-
-Employee Auth-user creation, role mutation, disable/reactivation workflow and badge/PIN credential lifecycle are not part of Phase 1.
-
-## Customer handoff
-
-No Phase 1 customer request-contract change was required. Customer placement continues to resolve the current default branch server-side and never carries terminal authority.
-
-Explicit pickup-branch selection plus branch hours/closures/capacity remain Phase 4.
-
-## App Store review impact
-
-Phase 1 added no customer login change, no payment processor, no iOS permission, no notification change and no third-party customer SDK. It introduces operational branch/sales-point/terminal attribution only.
-
-No new App Store blocker was introduced. The previously identified production account-deletion requirement remains a later mandatory pre-release phase.
-
-## Next action
-
-Astra audits PR #20 and PR #17 as one Phase 1 boundary. Resolve or explicitly accept every Astra finding before starting Phase 2.
-
-After Astra acceptance, the next bounded implementation phase is **Phase 2 — shift and cash authority**.
-
-Still deferred after Phase 1:
-
-- shifts/cash reconciliation;
-- employee lifecycle/credentials beyond current role/branch-read contract;
-- branch opening hours/closures/capacity and explicit customer branch selection;
+- production customer account deletion/privacy retention;
+- customer consent/preferences and marketing notification controls;
+- branch hours/closures/capacity and explicit customer pickup branch;
 - inventory/recipes/depletion;
 - loyalty/rewards/vouchers;
 - promotions/discounts;
-- tax/accounting/reporting;
-- payment capture/refunds/external integrations;
-- printer/KDS/payment-device integrations;
-- delivery;
-- hosted production/release operations.
+- reporting/tax/accounting;
+- payment processor settlement and refunds;
+- employee credential lifecycle;
+- printer/KDS/payment-device hardware integrations;
+- delivery and deployment-heavy work.
+
+## Next action
+
+Create dedicated Phase 3 branches from the corrected Phase 2 heads and first commit a mirrored Phase 3 plan covering customer privacy and App Store account requirements. Do not merge Phase 1 or Phase 2. After Phase 3 becomes `COMPLETE`, stop implementation and prepare the combined Phase 1–3 Astra audit boundary. Do not begin Phase 4.

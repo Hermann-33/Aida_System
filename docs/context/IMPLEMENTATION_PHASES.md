@@ -1,23 +1,24 @@
 # AIDA Backend Completion Phases
 
-**Status:** Active — Phase 2 in progress  
+**Status:** Active — Phases 1 and 2 `COMPLETE`; Phase 3 next  
 **Started:** 2026-09-10  
-**Audit policy:** Astra audit is deferred until Phases 1, 2 and 3 are all complete; the three completed phase boundaries will then be audited together before Phase 4 begins.
+**Updated:** 2026-09-12  
+**Audit policy:** Astra audit is deferred until Phases 1, 2 and 3 are all `COMPLETE`; the three frozen phase boundaries will then be audited together before Phase 4 begins.
 
 ## Phase rule
 
-A phase is complete only when:
+A phase is `COMPLETE` only when:
 
 1. all bounded task IDs inside the phase are implemented;
-2. canonical Supabase migrations are recorded in `Hermann-33/Aida_System/supabase/migrations/`;
+2. canonical Supabase migrations are recorded only in `Hermann-33/Aida_System/supabase/migrations/`;
 3. database allow/deny regressions exist and pass in a writable test environment;
 4. Dashboard/customer tests affected by the phase pass;
 5. Supabase security/performance advisors are reviewed and task-created findings are fixed;
 6. shared contracts/context are synchronized across both repositories;
-7. the phase plan, implementation status, validation evidence, non-goals and handoff are documented in both repositories;
+7. phase scope, architecture/contracts/schema/security changes, implementation status, exact validation evidence, deferred/non-goals and handoff are documented in both repositories;
 8. Apple App Review impact is explicitly reviewed.
 
-Phases 1–3 may proceed sequentially without an intermediate Astra audit. After Phase 3 is `COMPLETE`, stop implementation and prepare one combined Phase 1–3 Astra audit boundary. Do not begin Phase 4 until Astra findings from that combined audit are resolved or explicitly accepted.
+Phases 1–3 proceed sequentially without intermediate Astra review. After Phase 3 is `COMPLETE`, implementation stops and one combined Phase 1–3 Astra audit boundary is prepared. Phase 4 must not begin before that audit boundary is resolved or explicitly accepted.
 
 ## Phase 1 — Operational topology
 
@@ -25,7 +26,7 @@ Phases 1–3 may proceed sequentially without an intermediate Astra audit. After
 **Status:** `COMPLETE`  
 **Evidence:** `docs/context/PHASE_1_OPERATIONAL_TOPOLOGY_CLOSEOUT_2026-09-11.md`
 
-Goal:
+Trusted chain:
 
 ```text
 branch
@@ -35,37 +36,16 @@ branch
  -> POS order attribution
 ```
 
-Implemented:
-
-- trusted branches and employee branch assignments;
-- trusted sales points under branches;
-- trusted terminals under sales points;
-- one-time manager-issued terminal enrolment;
-- terminal credential stored only in an HttpOnly Dashboard/POS cookie;
-- terminal status and immediate revocation;
-- live terminal activation/status/clear-credential flow;
-- immutable POS branch/sales-point/terminal attribution;
-- branch-scoped staff order access;
-- Admin Locations, Terminals and Employees live data paths backed by trusted APIs;
-- customer ordering preserved without terminal authority;
-- clean-database migration replay and all four SQL regression suites passing;
-- Dashboard CI and customer release audit passing;
-- Supabase advisor review completed with no Phase 1-created blocker;
-- App Store impact reviewed with no new blocker.
-
-Audit question result:
-
-> Yes. Every new live POS sale requires a valid active enrolled terminal credential. The backend resolves the terminal's sales point and branch and validates the employee's operational branch scope; browser-supplied topology identifiers are not trusted placement authority.
-
-Phase 1 non-goals remain deferred: shifts/cash, inventory, loyalty, branch hours/capacity, employee Auth-user provisioning, payment devices/processor settlement, printer/KDS health, reporting and external payments.
+Phase 1 established trusted branch assignment, sales-point/terminal authority, manager-issued terminal enrolment, HttpOnly terminal credentials, revocation, branch-scoped staff order access and immutable POS topology attribution. It remains frozen and unmerged.
 
 ## Phase 2 — Shift and cash authority
 
 **Task:** `TASK-OPS-003`  
-**Status:** `PARTIAL` — implementation in progress.  
-**Plan:** `docs/context/PHASE_2_SHIFT_CASH_PLAN.md`
+**Status:** `COMPLETE`  
+**Plan:** `docs/context/PHASE_2_SHIFT_CASH_PLAN.md`  
+**Evidence:** `docs/context/PHASE_2_SHIFT_CASH_CLOSEOUT_2026-09-12.md`
 
-Goal:
+Trusted chain:
 
 ```text
 branch
@@ -76,137 +56,70 @@ branch
  -> POS order / cash ledger
 ```
 
-Bounded scope:
+Implemented boundary:
 
 - trusted shift lifecycle: open, lock, resume and close;
-- one live open/locked shift per terminal;
-- one live open/locked shift per ordinary staff operator;
-- opening float in integer sen;
-- append-only cash movement ledger for non-sale drawer movements;
-- expected cash derived from trusted opening float + trusted cash movements + trusted cash-paid POS orders;
-- actual cash count and closing variance;
-- explicit manager/Admin approval when closing variance is non-zero;
-- immutable shift attribution on newly placed POS orders;
-- terminal credential + employee + shift consistency checked server-side;
-- live POS blocked from sale placement when no valid open shift exists;
-- current-shift and shift-history BFF/API paths;
-- live POS shift UI replacing preview-only shift state where Phase 2 authority exists.
+- one live open/locked shift per terminal and per operator;
+- integer-sen opening float;
+- append-only `cash_in` / `cash_out` ledger;
+- server-derived expected cash and closing variance;
+- Admin/Owner authority required for non-zero variance close;
+- immutable shift/tender/payment attribution on new POS orders;
+- terminal + employee + shift consistency enforced server-side;
+- live POS blocked without a valid open shift;
+- same-origin caller-JWT shift BFF with HttpOnly terminal credential;
+- live Dashboard shift/cash controls and explicit cash/unpaid tender semantics;
+- customer ordering remains shift-free and unpaid;
+- cash-paid cancellation remains blocked until trusted refund authority exists.
 
-Phase 2 non-goals:
+Final documentation-only Phase 2 heads and checks:
 
-- payment processor/card settlement;
-- cash refunds or return workflows;
-- tax/accounting exports;
-- inventory depletion;
-- employee Auth-user provisioning, badge/PIN credential lifecycle or role mutation;
-- multi-drawer hardware integration;
-- branch hours/capacity;
-- printer/KDS/payment-device health.
+```text
+Hermann-33/Aida_System
+  b9e9eaa98c338a020dacc0d3374f710e1182b6d7
+  Backend database audit #46   COMPLETE
+  Customer release audit #138 COMPLETE
 
-Phase 2 completion requires clean-database regressions, Dashboard CI, affected customer audit, Supabase advisor review, synchronized docs and an App Store impact review. Astra audit remains deferred until Phase 3 is also complete.
+Hermann-33/Aida_System-Dashboard
+  fe5aebdb22264e21646bfcf5ca49b1fd0d9bfe2d
+  Dashboard CI #59             COMPLETE
+```
+
+Phase 2 PRs remain draft and unmerged:
+
+```text
+Aida_System PR #21
+Aida_System-Dashboard PR #18
+```
+
+Phase 2 non-goals remain deferred: external card/e-wallet processor settlement, refunds/returns, tax/accounting export, inventory depletion, employee credential lifecycle, physical drawer/printer/KDS/payment-device integration, branch hours/capacity and delivery.
 
 ## Phase 3 — Customer privacy and App Store account requirements
 
-**Status:** not started.  
-**Plan:** must be documented in both repositories before Phase 3 implementation begins.
+**Status:** `PARTIAL` only after its bounded plan is committed; implementation must not begin before that plan exists in both repositories.
 
-Goal:
+Required boundary:
 
-- production account deletion, replacing the dormant draft;
-- retention/deletion rules for personal versus legally retained transaction data;
-- accessible privacy policy, terms/support contact surfaces;
-- customer consent/preferences and notification marketing opt-in/out;
+- production account deletion replacing the dormant draft;
+- explicit retention/deletion rules for personal data versus legally retained transaction records;
+- accessible privacy policy, terms and support/contact surfaces;
+- customer consent/preferences with explicit marketing-notification opt-in/out;
 - explicit guest/public versus authenticated feature boundary;
-- no unnecessary iOS protected-data permissions.
+- no unnecessary iOS protected-data permissions;
+- regression evidence for authorization, deletion, retention and customer release behavior;
+- synchronized App Store impact documentation.
 
-This phase is mandatory before any App Store release candidate. After Phase 3 is `COMPLETE`, stop and prepare the combined Phase 1–3 Astra audit.
+This phase is mandatory before any App Store release candidate. After Phase 3 reaches `COMPLETE`, stop implementation and prepare the combined Phase 1–3 Astra audit boundary.
 
-## Phase 4 — Branch scheduling and pickup authority
+## Later phases
 
-Goal:
-
-- branch opening hours;
-- closures/holidays;
-- schedule capacity;
-- explicit customer pickup branch;
-- explicit POS branch context where required;
-- server validation of branch/time availability.
-
-## Phase 5 — Inventory and recipes
-
-Goal:
-
-- inventory items/units;
-- recipe/BOM definitions;
-- stock movement ledger;
-- receiving, adjustment and transfer;
-- order depletion;
-- branch/inventory-pool attribution;
-- low-stock projections.
-
-## Phase 6 — Loyalty, rewards and vouchers
-
-Goal:
-
-- append-only loyalty ledger;
-- points/stamps earning;
-- redemption;
-- reward/voucher issuance and expiry;
-- idempotent transaction linkage;
-- member eligibility.
-
-No mock balances may remain in trusted customer surfaces.
-
-## Phase 7 — Promotions and discounts
-
-Goal:
-
-- promotion definitions;
-- eligibility;
-- stacking/exclusion rules;
-- student/member rules;
-- authoritative discount calculation and immutable order snapshots.
-
-## Phase 8 — Reporting, accounting and audit
-
-Goal:
-
-- trusted sales and operational projections;
-- branch/terminal/staff/shift breakdowns;
-- tax-ready transaction records;
-- export;
-- append-only privileged audit events;
-- reconciliation inputs.
-
-## Phase 9 — Payments, refunds and external integrations
-
-Goal:
-
-- physical-goods payment processor integration;
-- Apple Pay where selected;
-- card/e-wallet settlement authority;
-- refunds/partial refunds;
-- processor idempotency/webhooks;
-- accounting integrations;
-- printer/KDS/payment-device integrations as required.
-
-Digital In-App Purchase is not used for café food/drink purchases.
-
-## Phase 10 — App Store release gate
-
-Goal:
-
-- iOS release build and current shipping iOS compatibility;
-- privacy manifest / App Privacy answers verified against actual SDK behavior;
-- account-deletion flow physically verified;
-- all required purpose strings reviewed;
-- no hidden/dormant production functionality;
-- complete support/privacy URLs;
-- App Review demo account or approved full-featured review path;
-- backend live throughout review;
-- review notes document non-obvious QR/member/order behavior;
-- screenshots/metadata accurately reflect the submitted build;
-- final on-device stability/accessibility review.
+Phase 4: branch scheduling and pickup authority.  
+Phase 5: inventory and recipes.  
+Phase 6: loyalty, rewards and vouchers.  
+Phase 7: promotions and discounts.  
+Phase 8: reporting, accounting and audit.  
+Phase 9: payments, refunds and external integrations.  
+Phase 10: App Store release gate.
 
 ## Dependency rule
 
@@ -216,8 +129,8 @@ Do not skip forward when a later domain depends on an incomplete earlier authori
 branch
  -> sales point / terminal
  -> shift / cash
- -> inventory / sales attribution
- -> loyalty / promotions
- -> reporting
- -> payments / refunds
+ -> customer privacy/account requirements
+ -> combined Phase 1–3 Astra audit
+ -> branch scheduling / inventory / loyalty / reporting
+ -> payments / refunds / external integrations
 ```

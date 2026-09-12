@@ -1,6 +1,6 @@
 # AIDA Café Architecture
 
-Updated: 2026-09-11
+Updated: 2026-09-12
 
 ## System topology
 
@@ -8,108 +8,40 @@ Updated: 2026-09-11
 flowchart LR
   C[Customer Flutter app] -->|Supabase Auth + customer RPCs| S[Shared Supabase]
   D[Dashboard React browser] -->|same-origin HttpOnly employee + terminal cookies| B[Dashboard BFF]
-  B -->|caller JWT + server-held terminal credential where required| S
+  B -->|caller JWT + server-held terminal credential when required| S
   S --> A[Supabase Auth]
   S --> P[(Postgres + FORCE RLS)]
-  S --> CR[catalogue_revision]
-  S --> OR[orders Realtime]
-  CR -->|invalidate + refetch catalogue| C
-  OR -->|owner-scoped invalidation + refetch| C
-  D -->|poll/refetch operational data; no browser staff bearer token| B
+  S --> OR[orders Realtime invalidation]
+  D -->|poll/refetch privileged operational data| B
 ```
 
-## Repository/runtime ownership
+## Ownership
 
-- Customer/backend repository: `Hermann-33/Aida_System`, default branch `master`.
-- Dashboard/Admin/POS repository: `Hermann-33/Aida_System-Dashboard`, default branch `main`.
+- Customer/backend repository: `Hermann-33/Aida_System`, default `master`.
+- Dashboard/Admin/POS repository: `Hermann-33/Aida_System-Dashboard`, default `main`.
 - Shared backend: Supabase project `Aida System`, ref `eswovqxqzfevcdwwcmuh`.
-- Canonical executable Supabase migrations live only in `Hermann-33/Aida_System/supabase/migrations/` unless a future accepted ADR changes ownership.
-- Shared governance documents are mirrored across both repositories per ADR-0007.
-
-## Accepted architecture decisions
-
-Current architecture is governed by the accepted ADR set, including:
-
-- ADR-0006 — dual repositories over one shared backend;
-- ADR-0007 — mirrored project documentation;
-- ADR-0008 — Dashboard same-origin BFF;
-- ADR-0009 — shared catalogue and revision signal;
-- ADR-0010 — authoritative ordering and scheduled fulfilment;
-- ADR-0011 — branch authority and operational scope;
-- ADR-0012 — sales-point and terminal authority.
+- Canonical executable Supabase migrations live only in `Hermann-33/Aida_System/supabase/migrations/`.
+- Mirrored project governance docs must remain synchronized across both repositories.
 
 ## Identity and session authority
 
-Supabase Auth owns authentication. Trusted role and disabled-state authority lives in `user_profiles`; customer membership identity/code lives in `members`.
+Supabase Auth owns authentication. `user_profiles` owns trusted application role/disabled state; `members` owns customer membership identity.
 
-Dashboard employee sessions remain behind the same-origin BFF:
+Dashboard privileged flows remain behind the same-origin BFF:
 
-- browser receives HttpOnly access/refresh cookies;
-- BFF validates identity, role and disabled state;
-- BFF forwards the caller JWT to Supabase;
-- no service-role credential is used for normal employee flows;
-- no employee bearer token is persisted or exposed to browser JavaScript.
+- employee access/refresh state is held in HttpOnly cookies;
+- terminal credential is held in an HttpOnly cookie and never returned to browser JavaScript;
+- the BFF forwards the caller JWT to Supabase;
+- no service-role secret is used for ordinary staff/Admin operations;
+- no reusable employee bearer token is stored in browser-readable state.
 
-Trusted employee operational scope comes from `employee_branch_assignments`. Ordinary staff with no assignment fail closed. Admin/Owner remain global operational roles for the current tranche.
+Customer Flutter uses only publishable/public Supabase configuration and customer-scoped authorization boundaries.
 
-Customer Flutter uses only public/publishable Supabase configuration plus customer-scoped RLS/RPC boundaries.
+## Catalogue and order authority
 
-## Catalogue authority
+Supabase is authoritative for catalogue availability, modifiers, prices and order totals. Clients submit selection/fulfilment intent only.
 
-Supabase Postgres is authoritative for catalogue data:
-
-```text
-catalogue_categories
-catalogue_items
-catalogue_item_variants
-catalogue_item_addons
-catalogue_option_groups
-catalogue_option_values
-catalogue_item_option_values
-catalogue_revision
-catalogue_audit_events
-```
-
-`catalogue_items.kind` separates products from reusable add-ons. `catalogue_items.is_drink` marks products that consume option groups.
-
-Current standard drink groups are:
-
-```text
-Temperature: Hot | Iced
-Sweetness: Regular | Less sweet | Least sweet
-```
-
-Required groups must retain at least one available value and exactly one available default. Compatible add-ons are normalized product-to-addon links.
-
-Customer reads use `get_catalogue()`. Admin catalogue mutations use same-origin BFF/RPC calls with the employee caller JWT. `catalogue_revision` is invalidation only, never the catalogue itself.
-
-## Authoritative quote/order boundary
-
-Clients submit only selection and fulfilment intent:
-
-```text
-itemId
-variantId?
-optionValueIds[]
-addOnIds[]
-quantity
-note?
-fulfillmentType
-requestedPickupAt?
-clientRequestId
-```
-
-Clients are not authority for labels, commercial prices, totals, customer/member identity, order numbers, status, payment state or operational topology.
-
-`quote_order(jsonb)` validates product availability, variants, required/default options and compatible add-ons, then calculates authoritative `pricingVersion=2` totals:
-
-```text
-base + variant + selected/default options + compatible add-ons
-```
-
-`place_customer_order` and terminal-bound `place_pos_order(jsonb,text)` persist server-owned snapshots. Placement remains idempotent through `clientRequestId`.
-
-Commercial history is immutable through:
+Commercial order history is persisted through immutable snapshots in:
 
 ```text
 orders
@@ -119,116 +51,150 @@ order_line_options
 order_events
 ```
 
-## Operational topology authority — Phase 1 complete
+`clientRequestId` provides placement idempotency. Customer orders remain scoped to the authenticated customer/member relationship. Staff fulfilment transitions are branch-scoped and optimistic-versioned.
 
-Phase 1 establishes this trusted chain:
+## Phase 1 operational topology — COMPLETE
+
+Trusted chain:
 
 ```text
 branches
-  -> sales_points
-      -> terminals
-          -> terminal credential
+ -> sales_points
+ -> terminals
+ -> terminal credential
 
 employee_branch_assignments
-  -> staff operational scope
+ -> staff operational scope
 
 terminal credential + employee branch scope
-  -> trusted POS branch/sales-point/terminal attribution
+ -> immutable POS branch/sales-point/terminal attribution
 ```
 
-Live seed topology:
+The browser does not choose trusted operational IDs for placement. Manager-issued one-time enrolment activates a terminal; revocation invalidates authority immediately.
+
+## Phase 2 shift and cash authority — COMPLETE
+
+Phase 2 extends the chain:
 
 ```text
-BR-MAIN — Main Café
-  SP-MAIN — Main Counter
-    POS-MAIN-01
+branch
+ -> sales point
+ -> terminal
+ -> employee
+ -> shift
+ -> POS order / cash ledger
 ```
 
-The seeded terminal intentionally remains `pending` until manager enrolment.
-
-Every order has immutable `branch_id`. New POS orders additionally persist immutable `sales_point_id` and `terminal_id` resolved server-side from the terminal credential. Customer orders remain terminal-free.
-
-The browser never chooses trusted operational IDs for placement. A one-time manager-issued enrolment code activates a terminal; the Dashboard BFF stores the resulting credential in an HttpOnly cookie. Revocation invalidates terminal authority immediately.
-
-Authenticated table SELECT on `sales_points` and `terminals` is constrained by FORCE-RLS Admin/Owner policies. Anonymous reads and direct client DML remain denied.
-
-The credentialless `place_pos_order(jsonb)` signature is not executable by `authenticated`; the terminal-bound signature is the live POS contract.
-
-## Dashboard live operational flow
+Trusted resources:
 
 ```text
-Admin/Owner
+public.shifts
+public.cash_movements
+public.orders.shift_id
+public.orders.tender_type
+public.orders.payment_state
+public.orders.paid_at
+```
+
+Shift contracts:
+
+- lifecycle: `open | locked | closed`;
+- one live open/locked shift per terminal;
+- one live open/locked shift per operator;
+- terminal/branch/sales-point attribution comes from the enrolled terminal authority;
+- operator identity comes from `auth.uid()` and trusted role/scope state;
+- opening float is integer sen;
+- state changes use optimistic `status_version`;
+- closed reconciliation facts are persisted server-side.
+
+Cash contracts:
+
+- ledger is append-only;
+- movement types: `cash_in | cash_out`;
+- amount is integer sen;
+- actor/reason/timestamp are trusted persisted facts;
+- expected cash is derived from opening float + movements + trusted cash-paid POS sales;
+- employee submits actual count only;
+- backend derives variance;
+- non-zero variance close requires Admin/Owner authority.
+
+POS contracts after Phase 2:
+
+- new POS placement requires a valid `open` shift;
+- shift, terminal, sales point, branch and operator must match server-side;
+- persisted `shift_id`, tender and payment state are protected from ordinary mutation;
+- Phase 2 tender classification is deliberately limited to `cash | unpaid`;
+- `cash` persists paid state and server `paid_at`;
+- customer orders remain shift-free/unpaid;
+- cash-paid cancellation is blocked until trusted refund authority exists.
+
+## Dashboard Phase 2 flow
+
+```text
+Employee session + terminal HttpOnly credential
  -> same-origin BFF
- -> branch / sales-point / terminal management RPCs
- -> Supabase
-
-Manager enrols workstation
- -> one-time enrolment code
- -> BFF enrol endpoint
- -> HttpOnly terminal credential cookie
-
-Staff POS
- -> employee session + terminal credential
- -> BFF
- -> place_pos_order(payload, terminalCredential)
- -> Supabase validates employee branch scope + active terminal
- -> order snapshots trusted branch/sales-point/terminal IDs
+ -> caller JWT + terminal credential
+ -> shift RPC
+ -> Supabase validates role/scope/topology/operator
+ -> trusted shift snapshot
 ```
 
-Admin Locations, Terminals and Employees use trusted APIs in live mode. Explicit UI Preview remains fixture-backed and non-authoritative.
-
-## Scheduling and fulfilment
-
-Current global scheduling policy remains:
+Live endpoints:
 
 ```text
-Asia/Kuala_Lumpur
-15-minute minimum lead
-15-minute preparation lead
-15-minute slot interval
-7-day horizon
+GET  /api/v1/shifts/current
+POST /api/v1/shifts/open
+POST /api/v1/shifts/lock
+POST /api/v1/shifts/resume
+POST /api/v1/shifts/cash-movement
+GET  /api/v1/shifts/reconciliation
+POST /api/v1/shifts/close
+GET  /api/v1/admin/shifts
 ```
 
-Scheduled orders snapshot immutable `prepareAt`. Backend snapshots derive `scheduleState = future | due | overdue | null`. Reaching `prepareAt` never auto-transitions fulfilment status; staff action remains authoritative.
+Live POS blocks sale placement when there is no open trusted shift. Expected cash is never browser authority. UI Preview remains fixture-backed and explicitly non-authoritative.
 
-Legal staff transitions remain versioned and server-validated.
+## Scheduling and Realtime boundaries
 
-Branch-specific hours, closures, capacity and explicit customer pickup-branch selection remain Phase 4.
+Scheduled-order preparation remains server-owned and versioned. Branch-specific hours, closures, capacity and explicit customer pickup branch remain Phase 4.
 
-## Realtime boundary
+Customer Realtime is used as authorized invalidation followed by refetch. Dashboard does not expose its employee JWT for direct Realtime; privileged data continues through the same-origin BFF.
 
-`supabase_realtime` publishes current invalidation signals for catalogue revision and authorized order headers.
+## Security invariants
 
-Customer clients may use their Supabase session to receive authorized invalidation and refetch. Dashboard React does not expose its HttpOnly employee token for direct Realtime and instead polls/refetches same-origin BFF endpoints.
+- no authorization decision trusts customer-editable `user_metadata`;
+- public/exposed data access remains under explicit grants plus RLS where applicable;
+- privileged functions validate `auth.uid()`, trusted role and operational scope;
+- private helper functions are not general browser APIs;
+- customer QR/member possession is not authentication;
+- preview fixtures never become backend authority;
+- service-role/secret credentials remain absent from customer and Dashboard browser code.
 
 ## Validation boundary
 
-Phase 1 closeout evidence is recorded in:
+Phase 2 detailed evidence:
 
-`docs/context/PHASE_1_OPERATIONAL_TOPOLOGY_CLOSEOUT_2026-09-11.md`
+`docs/context/PHASE_2_SHIFT_CASH_CLOSEOUT_2026-09-12.md`
 
-Current executable evidence:
+Final pre-refresh validation evidence:
 
 ```text
-Backend database audit #22      PASS
-Customer release audit #114     PASS
-Dashboard CI #23                PASS
+Backend database audit #46   COMPLETE
+Customer release audit #138 COMPLETE
+Dashboard CI #59             COMPLETE
 ```
 
-The clean database audit replays the full canonical migration ledger and passes branch authority, operational topology, general order and scheduled-order regression suites.
+## Deferred authority domains
 
-## Still separate authority domains
-
-Not yet authoritative:
-
-- shifts/cash reconciliation;
-- employee Auth-user provisioning, role mutation and badge/PIN lifecycle;
-- branch opening hours/closures/capacity and explicit pickup branch;
-- inventory/recipes/depletion;
+- Phase 3 customer account deletion/privacy/consent;
+- branch hours/closures/capacity and explicit pickup branch;
+- inventory/recipes/stock depletion;
 - loyalty/rewards/vouchers;
 - promotions/discounts;
-- tax/accounting/reporting;
-- real payment capture/refunds/processor settlement;
+- reporting/tax/accounting;
+- external processor settlement and refunds;
+- employee credential lifecycle;
 - printer/KDS/payment-device integrations;
-- delivery;
-- hosted production/release operations.
+- delivery and deployment-heavy operations.
+
+After Phase 3 becomes `COMPLETE`, implementation stops for the combined Phase 1–3 Astra audit. Phase 4 does not begin before that boundary is resolved or explicitly accepted.

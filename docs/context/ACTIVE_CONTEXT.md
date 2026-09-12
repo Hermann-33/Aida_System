@@ -1,146 +1,93 @@
 # Active Context
 
 **As of:** 2026-09-12  
-**Current boundary:** Phase 2 — shift and cash authority  
-**Current verdict:** `COMPLETE`  
-**Next dependency:** Phase 3 — customer privacy and App Store account requirements  
-**Audit state:** Phases 1 and 2 are frozen, draft, unmerged boundaries. Astra audit remains intentionally deferred until Phase 3 is `COMPLETE`.
+**Current boundary:** Combined Phase 1–3 Astra audit  
+**Current verdict:** `PARTIAL` — Phases 1, 2 and 3 are `COMPLETE`; combined Astra review is not yet executed/accepted.  
+**Implementation state:** STOPPED before Phase 4.
 
 ## Product topology
 
 AIDA Café is one product across:
 
-- Flutter customer app — `Hermann-33/Aida_System`;
-- React Dashboard/Admin/POS — `Hermann-33/Aida_System-Dashboard`;
-- shared Supabase project `eswovqxqzfevcdwwcmuh`.
+- customer/backend: `Hermann-33/Aida_System`;
+- Dashboard/Admin/POS: `Hermann-33/Aida_System-Dashboard`;
+- shared Supabase project: `eswovqxqzfevcdwwcmuh`.
 
 Canonical executable Supabase migrations live only in `Hermann-33/Aida_System/supabase/migrations/`.
 
-## Trusted authority through Phase 2
-
-The backend authority chain is now:
+## Completed authority through Phase 3
 
 ```text
-branch
- -> sales point
- -> terminal
- -> employee branch scope
- -> shift
- -> POS order / cash ledger
+Phase 1 COMPLETE
+branch -> sales point -> terminal -> employee branch scope -> POS attribution
+
+Phase 2 COMPLETE
+terminal + employee -> shift -> POS order / cash ledger
+
+Phase 3 COMPLETE
+customer identity -> privacy preferences / customer orders
+                  -> whole-account deletion
+                  -> anonymized retained transaction history
 ```
 
-Supabase/server owns trusted identity, role, disabled state, branch assignment, terminal identity, shift state, tender/payment classification, commercial pricing/order state and reconciliation facts.
+Supabase/server owns trusted identity, role/disabled state, membership, branch/terminal/shift/payment/commercial state, privacy preferences and account-deletion/anonymization. Dashboard privileged flows stay behind the same-origin HttpOnly BFF with caller-JWT forwarding. No service-role secret or browser-readable employee bearer token/terminal credential is introduced. Preview fixtures are never backend authority.
 
-Dashboard privileged operations remain behind the same-origin BFF:
+## Phase 3 closeout
 
-- browser receives HttpOnly employee session cookies;
-- terminal credential stays HttpOnly and server-readable only;
-- BFF forwards the caller JWT to Supabase;
-- no service-role secret is used for ordinary operational flows;
-- no browser-readable employee bearer token is introduced.
+`TASK-PRIVACY-001` is `COMPLETE`.
 
-Explicit UI Preview may continue to use fixtures, but preview identifiers and balances are never backend authority.
+Key properties:
 
-## Phase 2 implemented boundary
+- in-app whole-account deletion is production-enabled and accepts no target user ID;
+- customer profile/member/student/preference identity is deleted;
+- retained customer orders lose customer/member/Auth identifiers;
+- retained customer-authored line/event free text is scrubbed;
+- commercial/operational transaction facts remain retained;
+- POS/staff audit identity remains intact;
+- privacy preferences are owner-bound, FORCE-RLS protected, marketing default-off;
+- stale deleted-customer JWTs cannot regain personalized order/privacy authority;
+- legal/privacy/terms/support surfaces and guest/auth boundaries are explicit;
+- Phase 3 adds no unnecessary iOS protected-data/tracking permission or external payment integration.
 
-Trusted resources added or extended:
+Detailed evidence: `docs/context/PHASE_3_CUSTOMER_PRIVACY_ACCOUNT_CLOSEOUT_2026-09-12.md`.
+
+Implementation validation head `10ca26a776994e59b76f8afbd7227e296270cd68`:
 
 ```text
-public.shifts
-public.cash_movements
-public.orders.shift_id
-public.orders.tender_type
-public.orders.payment_state
-public.orders.paid_at
+Backend database audit #90   COMPLETE
+Customer release audit #182 COMPLETE
 ```
 
-Trusted behavior:
+Dashboard Phase 3 runtime is unchanged; pre-closeout head `411056a40edfb1c23fa999504b904d822e151f5d` passed Dashboard CI #66. Final documentation-only heads are revalidated on their PRs.
 
-- open, lock, resume and close shift lifecycle;
-- one live open/locked shift per terminal and per operator;
-- integer-sen opening float;
-- append-only `cash_in` / `cash_out` ledger;
-- server-derived expected cash;
-- actual count + server-derived variance at close;
-- non-zero variance requires Admin/Owner authority;
-- new live POS placement requires an open shift matching terminal, branch, sales point and authenticated operator;
-- persisted shift/tender/payment attribution is protected from ordinary mutation;
-- Phase 2 tender semantics are limited to `cash` and `unpaid`;
-- customer orders remain shift-free and unpaid;
-- paid cash cancellation is blocked until trusted refund authority exists.
+## Current Supabase state
 
-Live Dashboard/POS Phase 2 paths:
+Phase 3 live migrations include:
 
 ```text
-GET  /api/v1/shifts/current
-POST /api/v1/shifts/open
-POST /api/v1/shifts/lock
-POST /api/v1/shifts/resume
-POST /api/v1/shifts/cash-movement
-GET  /api/v1/shifts/reconciliation
-POST /api/v1/shifts/close
-GET  /api/v1/admin/shifts
+20260912014924 customer_privacy_account_requirements
+20260912015010 harden_customer_privacy_rpc_boundary
+20260912020434 allow_customer_deletion_without_member_dependency
+20260912020652 allow_disabled_customer_account_deletion
+20260912021143 scrub_customer_free_text_on_account_deletion
 ```
 
-## Phase 2 validation evidence
+Security advisor: no Phase 3-created blocker. The pre-existing leaked-password-protection warning remains. Performance advisor: INFO-level unused-index observations only.
 
-Documentation-only final heads before this context refresh:
+## Current PR boundaries
+
+All remain draft and unmerged:
 
 ```text
-Aida_System
-  b9e9eaa98c338a020dacc0d3374f710e1182b6d7
-  Backend database audit #46   COMPLETE
-  Customer release audit #138 COMPLETE
-
-Aida_System-Dashboard
-  fe5aebdb22264e21646bfcf5ca49b1fd0d9bfe2d
-  Dashboard CI #59             COMPLETE
+Phase 1: Aida_System #20 / Dashboard #17
+Phase 2: Aida_System #21 / Dashboard #18
+Phase 3: Aida_System #22 / Dashboard #19
 ```
 
-Phase 2 closeout evidence:
-
-`docs/context/PHASE_2_SHIFT_CASH_CLOSEOUT_2026-09-12.md`
-
-Phase 2 PRs remain draft/unmerged:
-
-```text
-Aida_System PR #21
-Aida_System-Dashboard PR #18
-```
-
-Canonical Phase 2 migrations:
-
-```text
-20260911235419 create_shift_cash_authority_schema
-20260911235626 implement_shift_cash_authority_functions
-20260911235651 harden_shift_cash_authority_permissions
-20260912000002 index_shift_cash_foreign_keys
-```
-
-The recorded closeout advisor review found no Phase 2-created security blocker. The only security warning was the pre-existing leaked-password-protection setting; performance findings were INFO-level unused-index observations after Phase 2 FK indexing was fixed.
-
-## Deferred after Phase 2
-
-Still outside the trusted boundary:
-
-- production customer account deletion and privacy retention rules;
-- customer consent/preferences and marketing notification controls;
-- branch hours/closures/capacity and explicit customer pickup branch;
-- inventory/recipes/depletion;
-- loyalty/rewards/vouchers;
-- promotions/discount authority;
-- tax/accounting/reporting;
-- external payment capture/refunds/processor settlement;
-- employee Auth-user provisioning and credential lifecycle;
-- printer/KDS/payment-device hardware integrations;
-- delivery and hosted deployment-heavy work.
-
-## App Store state
-
-Phase 2 changed staff Dashboard/POS behavior only. It added no customer iOS protected-data permission, tracking SDK, digital purchase, subscription or new customer personal-data field. Café food/drink remains a physical-goods transaction outside StoreKit/IAP.
-
-The blocking App Store requirement is Phase 3: production whole-account deletion plus explicit personal-data retention/deletion and customer privacy/consent surfaces.
+Do not merge merely because implementation is complete.
 
 ## Next boundary
 
-Before Phase 3 implementation, commit a bounded Phase 3 plan to both repositories on dedicated Phase 3 branches derived from the frozen Phase 2 heads. After Phase 3 becomes `COMPLETE`, stop implementation and prepare the combined Phase 1–3 Astra audit boundary. Do not begin Phase 4.
+`docs/context/PHASE_1_3_ASTRA_AUDIT_BOUNDARY_2026-09-12.md`
+
+Boundary verdict is `PARTIAL` until Astra review is executed/accepted. Phase 4 must not begin before that boundary is resolved or explicitly accepted.

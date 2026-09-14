@@ -111,7 +111,7 @@ begin
     'branchId',v_branch_id,
     'asapEnabled',true,
     'scheduleEnabled',true,
-    'minimumLeadMinutes',0,
+    'minimumLeadMinutes',10,
     'preparationLeadMinutes',10,
     'slotIntervalMinutes',15,
     'maximumAdvanceDays',7,

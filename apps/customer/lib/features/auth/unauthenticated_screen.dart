@@ -1,22 +1,30 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/aida_colors.dart';
+import '../menu/guest_catalogue_screen.dart';
 import '../profile/legal_information_screen.dart';
 import 'login_screen.dart';
 
 /// Unauthenticated customer boundary.
 ///
-/// Account-only features remain behind AuthGate, while privacy, terms and
-/// support information stays reachable without creating or signing into an
-/// account. No anonymous Supabase identity is created for this surface.
+/// The published catalogue plus privacy, terms and support stay reachable
+/// without creating or signing into an account. Ordering, cart, membership,
+/// loyalty and customer history remain behind AuthGate. No anonymous Supabase
+/// Auth identity is created for this surface.
 class UnauthenticatedScreen extends StatelessWidget {
   const UnauthenticatedScreen({super.key});
 
-  void _open(BuildContext context, LegalInformationKind kind) {
+  void _openLegal(BuildContext context, LegalInformationKind kind) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => LegalInformationScreen(kind: kind),
       ),
+    );
+  }
+
+  void _openGuestMenu(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const GuestCatalogueScreen()),
     );
   }
 
@@ -36,18 +44,25 @@ class UnauthenticatedScreen extends StatelessWidget {
               spacing: 4,
               children: [
                 TextButton(
-                  onPressed: () => _open(
+                  onPressed: () => _openGuestMenu(context),
+                  child: const Text('Browse menu'),
+                ),
+                TextButton(
+                  onPressed: () => _openLegal(
                     context,
                     LegalInformationKind.privacy,
                   ),
                   child: const Text('Privacy'),
                 ),
                 TextButton(
-                  onPressed: () => _open(context, LegalInformationKind.terms),
+                  onPressed: () => _openLegal(
+                    context,
+                    LegalInformationKind.terms,
+                  ),
                   child: const Text('Terms'),
                 ),
                 TextButton(
-                  onPressed: () => _open(
+                  onPressed: () => _openLegal(
                     context,
                     LegalInformationKind.support,
                   ),

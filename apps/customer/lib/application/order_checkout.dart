@@ -19,19 +19,29 @@ class OrderCheckoutSession {
 
   String? get pendingClientRequestId => _pendingClientRequestId;
 
-  Future<Result<OrderQuote>> quote(OrderRequest request) =>
-      _repository.quoteOrder(request);
+  Future<Result<OrderQuote>> quote(
+    OrderRequest request, {
+    String? branchId,
+  }) => branchId == null
+      ? _repository.quoteOrder(request)
+      : _repository.quoteOrderAtBranch(branchId, request);
 
-  Future<Result<OrderSnapshot>> place(OrderRequest request) async {
+  Future<Result<OrderSnapshot>> place(
+    OrderRequest request, {
+    String? branchId,
+  }) async {
     final requestId = _pendingClientRequestId ??= _createId();
-    final result = await _repository.placeCustomerOrder(
-      request.copyWith(clientRequestId: requestId),
-    );
+    final requestWithId = request.copyWith(clientRequestId: requestId);
+    final result = branchId == null
+        ? await _repository.placeCustomerOrder(requestWithId)
+        : await _repository.placeCustomerOrderAtBranch(branchId, requestWithId);
     if (result is Ok<OrderSnapshot>) _pendingClientRequestId = null;
     return result;
   }
 }
 
+/// Legacy policy-slot derivation retained for old callers and deterministic
+/// unit tests. Live customer checkout uses server-returned branch slots instead.
 List<DateTime> derivePickupSlots(
   OrderingPolicy policy, {
   int maximumSlots = 48,

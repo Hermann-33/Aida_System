@@ -21,8 +21,9 @@ begin
      or has_table_privilege('authenticated','public.loyalty_point_ledger','insert')
      or has_table_privilege('authenticated','public.loyalty_stamp_ledger','insert')
      or has_table_privilege('authenticated','public.member_vouchers','insert')
+     or has_table_privilege('authenticated','public.reward_catalogue','select')
      or has_table_privilege('authenticated','public.reward_catalogue','update') then
-    raise exception 'authenticated role has direct loyalty/reward write authority';
+    raise exception 'authenticated role has direct loyalty/reward table authority';
   end if;
 
   if has_function_privilege('anon','public.get_my_loyalty_wallet()','execute')
@@ -116,8 +117,8 @@ set local role authenticated;
 do $$
 declare
   v_customer uuid := '66000000-0000-0000-0000-000000000001';
-  v_member uuid;
   v_reward uuid;
+  v_rm5_reward uuid;
   v_wallet jsonb;
   v_redeemed jsonb;
   v_voucher_id uuid;
@@ -130,8 +131,6 @@ declare
   v_retry jsonb;
 begin
   perform set_config('request.jwt.claims',jsonb_build_object('sub',v_customer,'role','authenticated')::text,true);
-  select id into strict v_member from public.members where user_id=v_customer;
-  select id into strict v_reward from public.reward_catalogue where code='P6_TEST_RM1';
   select id into strict v_branch from public.branches where is_default and is_active limit 1;
   select id into strict v_item from public.catalogue_items where sku='CF-LAT';
   select id into strict v_variant from public.catalogue_item_variants where item_id=v_item and code='medium';
@@ -141,20 +140,26 @@ begin
     raise exception 'wallet balances do not match completed-order earning: %',v_wallet;
   end if;
 
+  select (reward->>'id')::uuid into strict v_reward
+  from jsonb_array_elements(v_wallet->'rewards') reward
+  where reward->>'code'='P6_TEST_RM1';
+  select (reward->>'id')::uuid into strict v_rm5_reward
+  from jsonb_array_elements(v_wallet->'rewards') reward
+  where reward->>'code'='POINTS_RM5';
+
   select public.redeem_my_reward(v_reward) into v_redeemed;
   if (v_redeemed->>'pointsBalance')::bigint <> 5 then raise exception 'reward redemption did not debit points atomically'; end if;
   v_voucher_id := nullif(v_redeemed->>'issuedVoucherId','')::uuid;
   if v_voucher_id is null then raise exception 'reward redemption did not issue voucher'; end if;
-  if (select count(*) from public.member_vouchers where member_id=v_member and reward_id=v_reward and status='active') <> 1 then
-    raise exception 'active redeemed voucher missing';
-  end if;
-  if (select count(*) from public.loyalty_point_ledger where member_id=v_member and event_kind='earn') <> 1
-     or (select count(*) from public.loyalty_point_ledger where member_id=v_member and event_kind='redeem') <> 1 then
-    raise exception 'points ledger does not contain exactly one earn and one redemption';
+  if not exists (
+    select 1 from jsonb_array_elements(v_redeemed->'vouchers') voucher
+    where voucher->>'id'=v_voucher_id::text and voucher->>'status'='active'
+  ) then
+    raise exception 'active redeemed voucher missing from trusted wallet snapshot';
   end if;
 
   begin
-    perform public.redeem_my_reward((select id from public.reward_catalogue where code='POINTS_RM5'));
+    perform public.redeem_my_reward(v_rm5_reward);
     raise exception 'insufficient-points redemption unexpectedly succeeded';
   exception when invalid_parameter_value then
     if sqlerrm <> 'insufficient loyalty points' then raise; end if;
@@ -182,18 +187,17 @@ begin
      or v_order->'voucher' is null then
     raise exception 'accepted order did not preserve voucher commercial snapshot: %',v_order;
   end if;
-  if (select status from public.member_vouchers where id=v_voucher_id) <> 'used' then
-    raise exception 'accepted voucher was not consumed';
-  end if;
-  if (select count(*) from public.voucher_order_applications where order_id=(v_order->>'id')::uuid and discount_sen=100) <> 1 then
-    raise exception 'accepted order voucher application snapshot missing';
+
+  select public.get_my_loyalty_wallet() into v_wallet;
+  if not exists (
+    select 1 from jsonb_array_elements(v_wallet->'vouchers') voucher
+    where voucher->>'id'=v_voucher_id::text and voucher->>'status'='used'
+  ) then
+    raise exception 'accepted voucher was not consumed in trusted wallet state';
   end if;
 
   select public.place_customer_order(v_payload) into v_retry;
   if v_retry->>'id' is distinct from v_order->>'id' then raise exception 'idempotent voucher retry created a different order'; end if;
-  if (select count(*) from public.voucher_order_applications where order_id=(v_order->>'id')::uuid) <> 1 then
-    raise exception 'idempotent retry duplicated voucher consumption';
-  end if;
 
   begin
     perform public.place_customer_order(v_payload || jsonb_build_object('clientRequestId','66100000-0000-0000-0000-000000000003'));
@@ -204,6 +208,31 @@ begin
 end;
 $$;
 reset role;
+
+-- Database-owner assertions prove the append-only ledger and voucher
+-- commercial snapshots without granting those tables to the customer role.
+do $$
+declare
+  v_member uuid;
+  v_reward uuid;
+  v_order_id uuid;
+begin
+  select id into strict v_member from public.members where user_id='66000000-0000-0000-0000-000000000001';
+  select id into strict v_reward from public.reward_catalogue where code='P6_TEST_RM1';
+  select id into strict v_order_id from public.orders where client_request_id='66100000-0000-0000-0000-000000000002';
+
+  if (select count(*) from public.member_vouchers where member_id=v_member and reward_id=v_reward and status='used') <> 1 then
+    raise exception 'used redeemed voucher state is missing';
+  end if;
+  if (select count(*) from public.loyalty_point_ledger where member_id=v_member and event_kind='earn') <> 1
+     or (select count(*) from public.loyalty_point_ledger where member_id=v_member and event_kind='redeem') <> 1 then
+    raise exception 'points ledger does not contain exactly one earn and one redemption';
+  end if;
+  if (select count(*) from public.voucher_order_applications where order_id=v_order_id and discount_sen=100) <> 1 then
+    raise exception 'accepted order voucher application snapshot missing or duplicated';
+  end if;
+end;
+$$;
 
 -- Privacy deletion must remove customer-owned loyalty state while allowing
 -- non-identifying order/voucher commercial snapshots to survive detached.

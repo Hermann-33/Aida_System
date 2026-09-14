@@ -34,13 +34,14 @@ begin
     raise exception 'authenticated customer loyalty RPC grants are missing';
   end if;
   if has_function_privilege('authenticated','private.issue_member_voucher(uuid,uuid,text,bigint,uuid)','execute')
-     or has_function_privilege('authenticated','private.ensure_loyalty_account(uuid)','execute') then
+     or has_function_privilege('authenticated','private.ensure_loyalty_account(uuid)','execute')
+     or has_function_privilege('authenticated','private.consume_voucher_for_order(uuid,uuid,uuid,uuid)','execute') then
     raise exception 'authenticated role can execute unchecked private loyalty helpers';
   end if;
   if exists (
     select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-    where n.nspname='public' and p.proname in ('get_my_loyalty_wallet','redeem_my_reward') and p.prosecdef
-  ) then raise exception 'public customer loyalty RPC unexpectedly uses SECURITY DEFINER'; end if;
+    where n.nspname='public' and p.proname in ('get_my_loyalty_wallet','redeem_my_reward','quote_order','place_customer_order') and p.prosecdef
+  ) then raise exception 'public Phase 6 RPC unexpectedly uses SECURITY DEFINER'; end if;
 end;
 $$;
 
@@ -75,6 +76,7 @@ begin
     'items',jsonb_build_array(jsonb_build_object('itemId',v_item,'variantId',v_variant,'addOnIds','[]'::jsonb,'quantity',1))
   )) into v_order;
   if nullif(v_order->>'id','') is null then raise exception 'customer order did not return id'; end if;
+  if (v_order->>'discountSen')::bigint <> 0 then raise exception 'order without voucher unexpectedly has a discount'; end if;
 end;
 $$;
 reset role;
@@ -118,10 +120,21 @@ declare
   v_reward uuid;
   v_wallet jsonb;
   v_redeemed jsonb;
+  v_voucher_id uuid;
+  v_branch uuid;
+  v_item uuid;
+  v_variant uuid;
+  v_payload jsonb;
+  v_quote jsonb;
+  v_order jsonb;
+  v_retry jsonb;
 begin
   perform set_config('request.jwt.claims',jsonb_build_object('sub',v_customer,'role','authenticated')::text,true);
   select id into strict v_member from public.members where user_id=v_customer;
   select id into strict v_reward from public.reward_catalogue where code='P6_TEST_RM1';
+  select id into strict v_branch from public.branches where is_default and is_active limit 1;
+  select id into strict v_item from public.catalogue_items where sku='CF-LAT';
+  select id into strict v_variant from public.catalogue_item_variants where item_id=v_item and code='medium';
 
   select public.get_my_loyalty_wallet() into v_wallet;
   if (v_wallet->>'pointsBalance')::bigint <> 10 or (v_wallet->>'stampBalance')::integer <> 1 then
@@ -130,7 +143,8 @@ begin
 
   select public.redeem_my_reward(v_reward) into v_redeemed;
   if (v_redeemed->>'pointsBalance')::bigint <> 5 then raise exception 'reward redemption did not debit points atomically'; end if;
-  if nullif(v_redeemed->>'issuedVoucherId','') is null then raise exception 'reward redemption did not issue voucher'; end if;
+  v_voucher_id := nullif(v_redeemed->>'issuedVoucherId','')::uuid;
+  if v_voucher_id is null then raise exception 'reward redemption did not issue voucher'; end if;
   if (select count(*) from public.member_vouchers where member_id=v_member and reward_id=v_reward and status='active') <> 1 then
     raise exception 'active redeemed voucher missing';
   end if;
@@ -145,12 +159,54 @@ begin
   exception when invalid_parameter_value then
     if sqlerrm <> 'insufficient loyalty points' then raise; end if;
   end;
+
+  v_payload := jsonb_build_object(
+    'clientRequestId','66100000-0000-0000-0000-000000000002',
+    'branchId',v_branch,
+    'fulfillmentType','asap',
+    'voucherId',v_voucher_id,
+    'items',jsonb_build_array(jsonb_build_object('itemId',v_item,'variantId',v_variant,'addOnIds','[]'::jsonb,'quantity',1))
+  );
+
+  select public.quote_order(v_payload) into v_quote;
+  if (v_quote->>'subtotalSen')::bigint <> 1050
+     or (v_quote->>'discountSen')::bigint <> 100
+     or (v_quote->>'totalSen')::bigint <> 950 then
+    raise exception 'trusted voucher quote is incorrect: %',v_quote;
+  end if;
+
+  select public.place_customer_order(v_payload) into v_order;
+  if (v_order->>'subtotalSen')::bigint <> 1050
+     or (v_order->>'discountSen')::bigint <> 100
+     or (v_order->>'totalSen')::bigint <> 950
+     or v_order->'voucher' is null then
+    raise exception 'accepted order did not preserve voucher commercial snapshot: %',v_order;
+  end if;
+  if (select status from public.member_vouchers where id=v_voucher_id) <> 'used' then
+    raise exception 'accepted voucher was not consumed';
+  end if;
+  if (select count(*) from public.voucher_order_applications where order_id=(v_order->>'id')::uuid and discount_sen=100) <> 1 then
+    raise exception 'accepted order voucher application snapshot missing';
+  end if;
+
+  select public.place_customer_order(v_payload) into v_retry;
+  if v_retry->>'id' is distinct from v_order->>'id' then raise exception 'idempotent voucher retry created a different order'; end if;
+  if (select count(*) from public.voucher_order_applications where order_id=(v_order->>'id')::uuid) <> 1 then
+    raise exception 'idempotent retry duplicated voucher consumption';
+  end if;
+
+  begin
+    perform public.place_customer_order(v_payload || jsonb_build_object('clientRequestId','66100000-0000-0000-0000-000000000003'));
+    raise exception 'reused voucher unexpectedly created another order';
+  exception when invalid_parameter_value then
+    if sqlerrm not in ('voucher is not active','voucher is no longer available') then raise; end if;
+  end;
 end;
 $$;
 reset role;
 
--- Privacy deletion must remove customer-owned loyalty state while allowing the
--- non-identifying order award snapshot to survive with member_id detached.
+-- Privacy deletion must remove customer-owned loyalty state while allowing
+-- non-identifying order/voucher commercial snapshots to survive detached.
 set local role authenticated;
 do $$
 declare v_customer uuid := '66000000-0000-0000-0000-000000000001'; v_result jsonb;
@@ -162,9 +218,10 @@ $$;
 reset role;
 
 do $$
-declare v_order_id uuid;
+declare v_order_id uuid; v_voucher_order_id uuid;
 begin
   select id into strict v_order_id from public.orders where client_request_id='66100000-0000-0000-0000-000000000001';
+  select id into strict v_voucher_order_id from public.orders where client_request_id='66100000-0000-0000-0000-000000000002';
   if exists(select 1 from public.member_loyalty_accounts) then raise exception 'customer loyalty account survived account deletion'; end if;
   if exists(select 1 from public.member_vouchers) then raise exception 'customer vouchers survived account deletion'; end if;
   if exists(select 1 from public.loyalty_point_ledger) or exists(select 1 from public.loyalty_stamp_ledger) then
@@ -172,6 +229,9 @@ begin
   end if;
   if not exists(select 1 from public.loyalty_order_awards where order_id=v_order_id and member_id is null) then
     raise exception 'retained loyalty award snapshot did not anonymize member identity';
+  end if;
+  if not exists(select 1 from public.voucher_order_applications where order_id=v_voucher_order_id and member_voucher_id is null and discount_sen=100) then
+    raise exception 'retained voucher application snapshot did not detach customer voucher identity';
   end if;
 end;
 $$;

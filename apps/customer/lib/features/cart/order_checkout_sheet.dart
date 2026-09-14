@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../../application/order_checkout.dart';
+import '../../application/providers.dart';
 import '../../core/error/result.dart';
 import '../../core/theme/aida_colors.dart';
 import '../../core/theme/aida_type.dart';
 import '../../domain/model/branch_pickup.dart';
 import '../../domain/model/order.dart';
+import '../../domain/model/voucher.dart';
 import '../../domain/repository/order_repository.dart';
 
-class OrderCheckoutSheet extends StatefulWidget {
+class OrderCheckoutSheet extends ConsumerStatefulWidget {
   const OrderCheckoutSheet({
     super.key,
     required this.repository,
@@ -24,10 +27,10 @@ class OrderCheckoutSheet extends StatefulWidget {
   final ValueChanged<OrderSnapshot> onPlaced;
 
   @override
-  State<OrderCheckoutSheet> createState() => _OrderCheckoutSheetState();
+  ConsumerState<OrderCheckoutSheet> createState() => _OrderCheckoutSheetState();
 }
 
-class _OrderCheckoutSheetState extends State<OrderCheckoutSheet> {
+class _OrderCheckoutSheetState extends ConsumerState<OrderCheckoutSheet> {
   static const _maximumVisibleSlots = 96;
 
   late final OrderCheckoutSession _session;
@@ -37,6 +40,7 @@ class _OrderCheckoutSheetState extends State<OrderCheckoutSheet> {
   OrderQuote? _quote;
   FulfillmentType _fulfillment = FulfillmentType.asap;
   DateTime? _pickupAt;
+  String? _voucherId;
   bool _busy = true;
   String? _error;
 
@@ -52,6 +56,7 @@ class _OrderCheckoutSheetState extends State<OrderCheckoutSheet> {
     fulfillmentType: _fulfillment,
     requestedPickupAt: _pickupAt,
     items: widget.items,
+    voucherId: _voucherId,
   );
 
   Future<void> _load() async {
@@ -113,8 +118,8 @@ class _OrderCheckoutSheetState extends State<OrderCheckoutSheet> {
     final fulfillment = canUseAsap
         ? FulfillmentType.asap
         : slots.isNotEmpty
-        ? FulfillmentType.scheduled
-        : FulfillmentType.asap;
+            ? FulfillmentType.scheduled
+            : FulfillmentType.asap;
 
     setState(() {
       _branch = branch;
@@ -180,9 +185,7 @@ class _OrderCheckoutSheetState extends State<OrderCheckoutSheet> {
   }
 
   Future<void> _selectFulfillment(FulfillmentType value) async {
-    if (_busy ||
-        _session.pendingClientRequestId != null ||
-        value == _fulfillment) {
+    if (_busy || _session.pendingClientRequestId != null || value == _fulfillment) {
       return;
     }
     setState(() {
@@ -202,6 +205,14 @@ class _OrderCheckoutSheetState extends State<OrderCheckoutSheet> {
     await _refreshQuote();
   }
 
+  Future<void> _selectVoucher(String? voucherId) async {
+    if (_busy || _session.pendingClientRequestId != null || voucherId == _voucherId) {
+      return;
+    }
+    setState(() => _voucherId = voucherId);
+    await _refreshQuote();
+  }
+
   Future<void> _place() async {
     final branch = _branch;
     if (_quote == null || _busy || branch == null) return;
@@ -210,6 +221,9 @@ class _OrderCheckoutSheetState extends State<OrderCheckoutSheet> {
     if (!mounted) return;
     switch (result) {
       case Ok(value: final order):
+        ref.invalidate(vouchersProvider);
+        ref.invalidate(pointsProvider);
+        ref.invalidate(stampCardProvider);
         widget.onPlaced(order);
       case Err(failure: final failure):
         setState(() {
@@ -225,6 +239,7 @@ class _OrderCheckoutSheetState extends State<OrderCheckoutSheet> {
     final slotTimes = _slots.map((slot) => slot.pickupAt).toList(growable: false);
     final canSchedule = branch?.policy.scheduleEnabled == true && slotTimes.isNotEmpty;
     final canAsap = branch?.policy.asapEnabled == true;
+    final vouchers = ref.watch(vouchersProvider);
 
     return SafeArea(
       top: false,
@@ -259,7 +274,7 @@ class _OrderCheckoutSheetState extends State<OrderCheckoutSheet> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Choose a café and an available pickup time.',
+                'Choose a café, pickup time and optional issued voucher.',
                 style: AidaType.sans(size: 13, color: AidaColors.textMuted),
               ),
               const SizedBox(height: 18),
@@ -338,6 +353,13 @@ class _OrderCheckoutSheetState extends State<OrderCheckoutSheet> {
                       ),
               ),
               const SizedBox(height: 14),
+              _VoucherSelector(
+                vouchers: vouchers,
+                selectedVoucherId: _voucherId,
+                enabled: !_busy && _session.pendingClientRequestId == null,
+                onChanged: _selectVoucher,
+              ),
+              const SizedBox(height: 14),
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -377,6 +399,16 @@ class _OrderCheckoutSheetState extends State<OrderCheckoutSheet> {
                   ),
                 ],
               ),
+              if (_quote != null && _quote!.subtotal.sen > _quote!.total.sen) ...[
+                const SizedBox(height: 4),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    'Voucher discount: ${Money.fromSen(_quote!.subtotal.sen - _quote!.total.sen).formatted}',
+                    style: AidaType.sans(size: 12, color: AidaColors.coffee),
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
@@ -418,6 +450,53 @@ class _OrderCheckoutSheetState extends State<OrderCheckoutSheet> {
       ),
     );
   }
+}
+
+class _VoucherSelector extends StatelessWidget {
+  const _VoucherSelector({
+    required this.vouchers,
+    required this.selectedVoucherId,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final AsyncValue<List<Voucher>> vouchers;
+  final String? selectedVoucherId;
+  final bool enabled;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context) => vouchers.when(
+    loading: () => const LinearProgressIndicator(color: AidaColors.coffee),
+    error: (_, __) => Text(
+      'Vouchers are unavailable. You can still place the order without one.',
+      style: AidaType.sans(size: 12, color: AidaColors.textMuted),
+    ),
+    data: (items) {
+      final active = items.where((voucher) => !voucher.isExpired).toList(growable: false);
+      if (active.isEmpty) {
+        return Text(
+          'No active vouchers available.',
+          style: AidaType.sans(size: 12, color: AidaColors.textMuted),
+        );
+      }
+      return DropdownButtonFormField<String>(
+        key: ValueKey('voucher-$selectedVoucherId-${active.length}'),
+        initialValue: selectedVoucherId ?? '',
+        decoration: const InputDecoration(labelText: 'Voucher'),
+        items: [
+          const DropdownMenuItem<String>(value: '', child: Text('No voucher')),
+          ...active.map(
+            (voucher) => DropdownMenuItem<String>(
+              value: voucher.id,
+              child: Text(voucher.title),
+            ),
+          ),
+        ],
+        onChanged: enabled ? (value) => onChanged(value?.isEmpty == true ? null : value) : null,
+      );
+    },
+  );
 }
 
 class _ChoiceChip extends StatelessWidget {

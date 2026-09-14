@@ -1,9 +1,9 @@
 # Active Context
 
-**As of:** 2026-09-12  
-**Current boundary:** Combined Phase 1–3 Astra audit  
-**Current verdict:** `PARTIAL` — Phases 1, 2 and 3 are `COMPLETE`; combined Astra review is not yet executed/accepted.  
-**Implementation state:** STOPPED before Phase 4.
+**As of:** 2026-09-15  
+**Current boundary:** Phase 5 — Inventory and Recipes  
+**Current verdict:** Phase 4 `COMPLETE`; Phases 1–4 individually `COMPLETE`.  
+**Implementation state:** Phase 5 may start on a dedicated branch from the frozen Phase 4 head.
 
 ## Product topology
 
@@ -15,7 +15,7 @@ AIDA Café is one product across:
 
 Canonical executable Supabase migrations live only in `Hermann-33/Aida_System/supabase/migrations/`.
 
-## Completed authority through Phase 3
+## Completed authority through Phase 4
 
 ```text
 Phase 1 COMPLETE
@@ -25,69 +25,54 @@ Phase 2 COMPLETE
 terminal + employee -> shift -> POS order / cash ledger
 
 Phase 3 COMPLETE
-customer identity -> privacy preferences / customer orders
-                  -> whole-account deletion
+customer identity -> privacy preferences / whole-account deletion
                   -> anonymized retained transaction history
+
+Phase 4 COMPLETE
+active branch -> service calendar -> pickup policy -> slot capacity
+              -> authoritative quote/order acceptance
 ```
 
-Supabase/server owns trusted identity, role/disabled state, membership, branch/terminal/shift/payment/commercial state, privacy preferences and account-deletion/anonymization. Dashboard privileged flows stay behind the same-origin HttpOnly BFF with caller-JWT forwarding. No service-role secret or browser-readable employee bearer token/terminal credential is introduced. Preview fixtures are never backend authority.
+Supabase/server owns trusted identity, role/disabled state, membership, topology, shift/cash/payment/commercial state, privacy/account-deletion state, branch-local scheduling policy and slot-capacity enforcement. Dashboard privileged flows stay behind the same-origin HttpOnly BFF with caller-JWT forwarding. No service-role secret or browser-readable employee bearer token/terminal credential is introduced. Preview fixtures are never backend authority.
 
-## Phase 3 closeout
+## Phase 4 final evidence
 
-`TASK-PRIVACY-001` is `COMPLETE`.
-
-Key properties:
-
-- in-app whole-account deletion is production-enabled and accepts no target user ID;
-- customer profile/member/student/preference identity is deleted;
-- retained customer orders lose customer/member/Auth identifiers;
-- retained customer-authored line/event free text is scrubbed;
-- commercial/operational transaction facts remain retained;
-- POS/staff audit identity remains intact;
-- privacy preferences are owner-bound, FORCE-RLS protected, marketing default-off;
-- stale deleted-customer JWTs cannot regain personalized order/privacy authority;
-- legal/privacy/terms/support surfaces and guest/auth boundaries are explicit;
-- Phase 3 adds no unnecessary iOS protected-data/tracking permission or external payment integration.
-
-Detailed evidence: `docs/context/PHASE_3_CUSTOMER_PRIVACY_ACCOUNT_CLOSEOUT_2026-09-12.md`.
-
-Implementation validation head `10ca26a776994e59b76f8afbd7227e296270cd68`:
+Implementation heads before documentation closeout:
 
 ```text
-Backend database audit #90   COMPLETE
-Customer release audit #182 COMPLETE
+Aida_System             f5e204c0cb882a1b0b4ca25b32086c47f5eef796
+Aida_System-Dashboard   de7e9da36db8a9d426e8d545d89229cc53ce733f
 ```
 
-Dashboard Phase 3 runtime is unchanged; pre-closeout head `411056a40edfb1c23fa999504b904d822e151f5d` passed Dashboard CI #66. Final documentation-only heads are revalidated on their PRs.
-
-## Current Supabase state
-
-Phase 3 live migrations include:
+Validation:
 
 ```text
-20260912014924 customer_privacy_account_requirements
-20260912015010 harden_customer_privacy_rpc_boundary
-20260912020434 allow_customer_deletion_without_member_dependency
-20260912020652 allow_disabled_customer_account_deletion
-20260912021143 scrub_customer_free_text_on_account_deletion
+Backend database audit #122   COMPLETE
+Customer release audit #213   COMPLETE
+Dashboard CI #84              COMPLETE
+Supabase security advisor     COMPLETE for Phase 4
+Supabase performance advisor  COMPLETE for Phase 4
 ```
 
-Security advisor: no Phase 3-created blocker. The pre-existing leaked-password-protection warning remains. Performance advisor: INFO-level unused-index observations only.
+Security advisor has one pre-existing Auth warning only: leaked-password protection is disabled. Performance findings are INFO-level unused indexes only.
+
+Detailed evidence: `docs/context/PHASE_4_BRANCH_SCHEDULING_PICKUP_CLOSEOUT_2026-09-15.md`.
+
+## Independent Phase 1–3 audit
+
+The owner-directed Codex audit of Phases 1–3 may run in parallel with later implementation under `docs/decisions/ADR-0013-parallel-audit-and-phase-4-7-implementation.md`. A valid blocking audit finding reopens the affected earlier phase. Phase 1–3 PRs remain draft/unmerged unless explicitly authorized otherwise.
 
 ## Current PR boundaries
-
-All remain draft and unmerged:
 
 ```text
 Phase 1: Aida_System #20 / Dashboard #17
 Phase 2: Aida_System #21 / Dashboard #18
 Phase 3: Aida_System #22 / Dashboard #19
+Phase 4: Aida_System #23 / Dashboard #20
 ```
 
 Do not merge merely because implementation is complete.
 
 ## Next boundary
 
-`docs/context/PHASE_1_3_ASTRA_AUDIT_BOUNDARY_2026-09-12.md`
-
-Boundary verdict is `PARTIAL` until Astra review is executed/accepted. Phase 4 must not begin before that boundary is resolved or explicitly accepted.
+Phase 5 must document its plan before implementation. Its dependency is the Phase 4 branch and scheduling authority now marked `COMPLETE`. Phase 5 owns inventory and recipes; loyalty/rewards/vouchers remain Phase 6 and promotions/discounts remain Phase 7.

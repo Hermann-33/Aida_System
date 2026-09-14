@@ -19,19 +19,29 @@ class OrderCheckoutSession {
 
   String? get pendingClientRequestId => _pendingClientRequestId;
 
-  Future<Result<OrderQuote>> quote(OrderRequest request) =>
-      _repository.quoteOrder(request);
+  Future<Result<OrderQuote>> quote(
+    OrderRequest request, {
+    String? branchId,
+  }) => branchId == null
+      ? _repository.quoteOrder(request)
+      : _repository.quoteOrderAtBranch(branchId, request);
 
-  Future<Result<OrderSnapshot>> place(OrderRequest request) async {
+  Future<Result<OrderSnapshot>> place(
+    OrderRequest request, {
+    String? branchId,
+  }) async {
     final requestId = _pendingClientRequestId ??= _createId();
-    final result = await _repository.placeCustomerOrder(
-      request.copyWith(clientRequestId: requestId),
-    );
+    final requestWithId = request.copyWith(clientRequestId: requestId);
+    final result = branchId == null
+        ? await _repository.placeCustomerOrder(requestWithId)
+        : await _repository.placeCustomerOrderAtBranch(branchId, requestWithId);
     if (result is Ok<OrderSnapshot>) _pendingClientRequestId = null;
     return result;
   }
 }
 
+/// Legacy policy-slot derivation retained for old callers and deterministic
+/// unit tests. Live customer checkout uses server-returned branch slots instead.
 List<DateTime> derivePickupSlots(
   OrderingPolicy policy, {
   int maximumSlots = 48,
@@ -59,7 +69,14 @@ List<DateTime> derivePickupSlots(
   );
   final slots = <DateTime>[];
   while (!slot.toUtc().isAfter(horizon) && slots.length < maximumSlots) {
-    slots.add(slot.toUtc());
+    // TZDateTime overrides toUtc() and retains its runtime subtype. This legacy
+    // helper promises ordinary UTC DateTime values, so normalize by epoch.
+    slots.add(
+      DateTime.fromMillisecondsSinceEpoch(
+        slot.millisecondsSinceEpoch,
+        isUtc: true,
+      ),
+    );
     slot = slot.add(Duration(minutes: interval));
   }
   return List.unmodifiable(slots);

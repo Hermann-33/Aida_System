@@ -1,195 +1,173 @@
 # Supabase Status
 
-**Status date:** 2026-08-23
-**Project:** Aida System
-**Ref:** `eswovqxqzfevcdwwcmuh`
-**Region:** `ap-southeast-1`
+**Status date:** 2026-09-12  
+**Project:** Aida System  
+**Ref:** `eswovqxqzfevcdwwcmuh`  
+**Region:** `ap-southeast-1`  
+**Implementation verdict:** Phases 1–3 `COMPLETE`; combined Astra audit `PARTIAL`.
 
-## Current live snapshot
+## Current role
 
-Supabase remains the shared trusted backend for the Flutter customer app and React Dashboard/Admin/POS.
+Supabase is the shared trusted backend for the Flutter customer app and React Dashboard/Admin/POS. Canonical executable migration files live only in `Hermann-33/Aida_System/supabase/migrations/`.
 
-Current catalogue observation:
+Trusted authority now covers:
 
-```text
-catalogue revision         130
-drink products              11
-non-drink products           4
-add-ons                      4
-invalid required groups      0
-Iced Drinks with Hot on      0
-```
+- Supabase Auth identity;
+- `user_profiles` trusted role/disabled state;
+- `members` customer membership identity;
+- catalogue/options/add-ons/prices;
+- authoritative quote/order commercial snapshots and scheduling;
+- branch identity and employee branch assignments;
+- sales points, terminals, enrolment/revocation and terminal credentials;
+- terminal-bound POS attribution;
+- shift lifecycle and append-only cash movements;
+- server-derived expected cash and closing variance;
+- POS shift/tender/payment classification;
+- customer privacy preferences;
+- caller-bound whole-account deletion/anonymization;
+- anonymized retained customer transaction history with customer-authored retained line/event free text scrubbed.
 
-These counts are operational observations, not schema invariants.
-
-## Applied migration tail
-
-Current live migration history includes:
-
-```text
-20260812152607 create_shared_catalogue
-20260812154805 harden_catalogue_rls_policies
-20260812182212 create_authoritative_orders_and_scheduling
-20260812183029 index_order_foreign_keys
-20260820151421 add_scheduled_order_preparation_window
-20260820214041 refresh_catalogue_product_images
-20260820221139 replace_americano_catalogue_image
-20260822135421 add_drink_customization_catalogue
-20260822135602 integrate_drink_customizations_with_orders
-20260822141814 harden_drink_customization_indexes_and_rls
-20260822143542 grant_public_drink_customization_reads
-```
-
-Canonical executable migration files live only under the customer repository `supabase/migrations/` directory unless an accepted ADR changes ownership.
-
-## Identity / employee boundary
-
-Trusted identity remains Supabase Auth plus:
-
-- `user_profiles.app_role` / `disabled_at` for employee/Admin authorization;
-- `members` for customer membership identity.
-
-Public signup cannot self-assign privileged roles/member codes. Dashboard privileged browser flows continue through the same-origin HttpOnly employee BFF using the authenticated caller JWT; no service-role/browser bearer-token architecture is introduced by menu customization.
-
-## Catalogue authority
-
-Core catalogue resources now include:
-
-- `catalogue_categories`;
-- `catalogue_items` including `is_drink`;
-- `catalogue_item_variants`;
-- `catalogue_item_addons`;
-- `catalogue_option_groups`;
-- `catalogue_option_values`;
-- `catalogue_item_option_values`;
-- `catalogue_revision`;
-- `catalogue_audit_events`.
-
-Supabase remains authoritative for item/category publication, availability, UUIDs, integer-sen prices, variant ownership, compatible add-ons and drink-option configuration.
-
-Current standard drink groups:
+## Phase 1 topology resources
 
 ```text
-Temperature
-- Hot
-- Iced
-
-Sweetness
-- Regular
-- Less sweet
-- Least sweet
+public.branches
+public.employee_branch_assignments
+public.sales_points
+public.terminals
+private.terminal_enrolment_codes
+private.terminal_credentials
+public.orders.branch_id
+public.orders.sales_point_id
+public.orders.terminal_id
 ```
 
-Per-item option configuration can override the customer label, price delta, availability, default and sort order. Every live required group currently has at least one available option and exactly one available default.
+Operational topology remains server-owned. Browser/client payloads cannot substitute trusted branch/sales-point/terminal authority. Employee scope, terminal status and revocation are enforced server-side.
 
-The existing `Iced Drinks` products currently expose Iced as available/default and Hot as unavailable.
-
-Anonymous/public catalogue reads have the required table grants plus RLS for option catalogue data. Admin/Owner mutation remains behind `save_catalogue_item(jsonb)` and the trusted role boundary.
-
-## Order / modifier authority
-
-Current order resources include:
-
-- `order_schedule_settings`;
-- `orders`;
-- `order_lines` including `option_total_sen`;
-- `order_line_addons`;
-- `order_line_options`;
-- `order_events`.
-
-`order_line_options` is an immutable historical snapshot surface for selected option group/value IDs, group/value labels and price deltas. Ordinary authenticated users have no direct table read grant; authorized order snapshots expose permitted data through the trusted order functions.
-
-Order selection payloads may include:
+## Phase 2 shift/cash resources
 
 ```text
-itemId
-variantId
-addOnIds[]
-optionValueIds[]
-quantity
-note
+public.shifts
+public.cash_movements
+public.orders.shift_id
+public.orders.tender_type
+public.orders.payment_state
+public.orders.paid_at
 ```
 
-`quote_order(jsonb)` remains authoritative for validation and pricing. The deployed implementation returns `pricingVersion=2` and computes authoritative unit price from base + variant + options + compatible add-ons.
+New POS placement requires a matching open shift. Cash movements are append-only. Opening float/movements use integer sen. Expected cash and variance are server-derived. Non-zero variance close requires Admin/Owner authority. Cash/unpaid is internal settlement classification; external processor settlement/refunds remain deferred.
 
-When an older client omits a required option group, the live function definition resolves that group's configured available default. This provides rollout compatibility without moving authority into the client.
-
-## Scheduling policy
-
-Live policy verified 2026-08-23:
+## Phase 3 privacy/account resources
 
 ```text
-timezone                 Asia/Kuala_Lumpur
-schedule_enabled         true
-minimum_lead_minutes     15
-preparation_lead_minutes 15
-slot_interval_minutes    15
-maximum_advance_days     7
+public.customer_privacy_preferences
+public.orders.customer_deleted_at
+public.get_my_privacy_preferences()
+public.save_my_privacy_preferences(boolean, boolean)
+public.delete_own_account()
 ```
 
-Scheduled operational classification remains server-owned through immutable `prepare_at`, `serverNow` and `scheduleState`; no menu-customization change altered the accepted fulfilment-state machine.
+Whole-account deletion is caller-bound to `auth.uid()` and accepts no target user ID. Public wrappers are `SECURITY INVOKER`; private privileged helpers bind the actor to the authenticated caller and trusted customer profile. Staff/Admin cannot use customer self-deletion.
 
-## Realtime
+Retained customer transaction history loses `customer_user_id`, `member_id` and `created_by_user_id`, gains `customer_deleted_at`, and has retained `order_lines.note` / `order_events.reason` cleared. Commercial/operational facts remain retained. POS/staff actor identity is not weakened.
 
-`supabase_realtime` continues to publish the intended mutable signals:
+`customer_privacy_preferences` has FORCE RLS with no direct authenticated table grants. Marketing defaults off; transactional notifications default on.
 
-- `catalogue_revision` for catalogue invalidation/refetch;
-- `orders` for authorized customer order invalidation/refetch.
+## Relevant migration tail
 
-Dashboard employee clients still use same-origin BFF polling/refetch rather than exposing the HttpOnly employee JWT to React.
+Phase 1:
 
-## TASK-MENU-CUSTOMIZATION-001 verification
+```text
+20260910014434 create_branch_location_authority
+20260910014457 index_employee_branch_assignment_actor
+20260910023510 create_operational_sales_points_and_terminals
+20260910023552 harden_operational_topology_rls_and_indexes
+20260910040814 revoke_direct_branch_mutation_grants
+20260910041057 enforce_terminal_branch_scope_on_resolution
+20260910042619 differentiate_terminal_resolution_failures
+20260910044613 grant_branch_rpc_private_impl_execution
+20260910050152 grant_admin_operational_topology_reads
+```
 
-Live checks on 2026-08-23 proved:
+Phase 2:
 
-- 11 drink products and 4 add-ons are present;
-- no required drink group lacks an available default;
-- no current `Iced Drinks` product has Hot enabled;
-- anonymous can execute `get_catalogue()` and `quote_order(jsonb)`;
-- authenticated can execute `quote_order(jsonb)`;
-- anonymous/authenticated option-catalogue read grants are present;
-- ordinary authenticated users have no direct `order_line_options` read grant.
+```text
+20260911235419 create_shift_cash_authority_schema
+20260911235626 implement_shift_cash_authority_functions
+20260911235651 harden_shift_cash_authority_permissions
+20260912000002 index_shift_cash_foreign_keys
+```
 
-The inspection connector itself uses a read-only database role and cannot impersonate `anon`, so final closeout did not create a synthetic production order merely to exercise quote/place. The deployed function definitions and executable client suites were inspected instead.
+Phase 3:
 
-Detailed evidence: `docs/context/MENU_CUSTOMIZATION_2026-08-23.md`.
+```text
+20260912014924 customer_privacy_account_requirements
+20260912015010 harden_customer_privacy_rpc_boundary
+20260912020434 allow_customer_deletion_without_member_dependency
+20260912020652 allow_disabled_customer_account_deletion
+20260912021143 scrub_customer_free_text_on_account_deletion
+```
+
+Live migration inspection confirmed all Phase 1–3 migrations above are applied to project `eswovqxqzfevcdwwcmuh`.
+
+## Data/API permission observations
+
+Fresh live verification on 2026-09-12 confirmed:
+
+```text
+authenticated delete_own_account execute                  true
+anon delete_own_account execute                           false
+authenticated save_my_privacy_preferences execute         true
+anon save_my_privacy_preferences execute                  false
+authenticated direct privacy-preference SELECT grant      false
+authenticated direct privacy-preference UPDATE grant      false
+```
+
+The live deletion helper also includes the retained line-note/event-reason scrub before order anonymization.
+
+Dashboard employee access continues through same-origin HttpOnly BFF cookies with caller-JWT forwarding. Terminal credential remains HttpOnly/server-readable. No service-role secret or browser-readable reusable employee bearer token is introduced.
+
+## Executable database evidence
+
+Phase 3 implementation head `10ca26a776994e59b76f8afbd7227e296270cd68` passed Backend database audit #90 with:
+
+```text
+branch_authority_integration.sql                         COMPLETE
+operational_topology_integration.sql                    COMPLETE
+order_integration.sql                                   COMPLETE
+scheduled_order_operations_integration.sql              COMPLETE
+shift_cash_authority_integration.sql                    COMPLETE
+customer_privacy_account_integration.sql                COMPLETE
+customer_privacy_free_text_integration.sql              COMPLETE
+customer_privacy_student_cascade_integration.sql        COMPLETE
+```
+
+Customer release audit #182 is also `COMPLETE` at that implementation head.
 
 ## Advisor state
 
-Security advisor currently reports one pre-existing WARN only:
+Fresh security advisor review reports one pre-existing warning only:
 
-- `auth_leaked_password_protection` — Leaked Password Protection Disabled.
+```text
+auth_leaked_password_protection — Leaked Password Protection Disabled
+```
 
-Remediation: https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection
+No Phase 1–3-created security blocker remains.
 
-No new security WARN/ERROR is attributed to TASK-MENU-CUSTOMIZATION-001.
+Performance advisor findings are INFO-level unused-index observations only. Required Phase 2 foreign-key support indexes were added; no current missing-FK/index blocker was reported.
 
-Performance advisor findings are INFO-only unused indexes, including recent FK-supporting customization indexes on the small current dataset. Do not remove those indexes solely to clear an unused-index INFO result.
+## Deferred backend authority
 
-## Explicitly deferred backend authority
-
-Still not implemented as trusted live domains:
-
-- branch-specific opening hours/closures/capacity;
-- branch-scoped staff/order visibility;
-- terminal/sales-point authority;
-- shifts/cash reconciliation;
-- payment/refunds;
-- loyalty earning/redemption;
-- inventory depletion;
+- branch hours/closures/capacity and explicit customer pickup branch;
+- inventory/recipes/depletion;
+- loyalty/rewards/vouchers;
 - promotions/discounts;
-- tax/accounting/reporting;
-- delivery;
-- hosted production operations.
+- reporting/tax/accounting export;
+- external payment capture/refunds/processor settlement;
+- employee Auth-user/credential lifecycle;
+- printer/KDS/payment-device integration;
+- notification/marketing delivery provider;
+- delivery and deployment-heavy production infrastructure.
 
-## 2026-09-09 preserved backend drafts
+## Governance
 
-TASK-UI-REDESIGN-004 preserves useful account-deletion and referral/loyalty prototypes under `supabase/drafts/`.
-
-These files are **not live Supabase state** and are deliberately outside `supabase/migrations/`:
-
-- `supabase/drafts/20260826120000_add_customer_account_deletion.sql`;
-- `supabase/drafts/20260828120000_add_referral_program.sql`;
-- `supabase/drafts/tests/account_deletion_integration.sql`.
-
-They must not be listed as applied migrations. Promotion requires a dedicated bounded backend task, a new canonical migration timestamp, replay/regression validation, RLS/security review and advisor checks.
+Phases 1–3 remain draft/unmerged. Implementation is stopped. The next boundary is `docs/context/PHASE_1_3_ASTRA_AUDIT_BOUNDARY_2026-09-12.md`, currently `PARTIAL` until Astra review is executed/accepted. Phase 4 is blocked.

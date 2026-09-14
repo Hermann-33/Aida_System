@@ -57,6 +57,11 @@ declare
   v_policy jsonb;
   v_pos_order jsonb;
   v_prep_lead integer;
+  v_terminal_id uuid;
+  v_terminal_issue jsonb;
+  v_terminal_enrol jsonb;
+  v_terminal_credential text;
+  v_shift jsonb;
 begin
   select id into strict v_item_id
   from public.catalogue_items
@@ -136,6 +141,29 @@ begin
     null;
   end;
 
+  select (terminal ->> 'id')::uuid
+  into strict v_terminal_id
+  from jsonb_array_elements(public.list_admin_operational_locations()) branch,
+       jsonb_array_elements(branch -> 'salesPoints') sales_point,
+       jsonb_array_elements(sales_point -> 'terminals') terminal
+  where terminal ->> 'code' = 'POS-MAIN-01';
+
+  select public.issue_terminal_enrolment_code(v_terminal_id)
+  into v_terminal_issue;
+  select public.enrol_terminal(v_terminal_issue ->> 'code') into v_terminal_enrol;
+  v_terminal_credential := v_terminal_enrol ->> 'credential';
+
+  if v_terminal_credential is null then
+    raise exception 'scheduled-order regression terminal enrolment failed';
+  end if;
+
+  select public.open_shift(v_terminal_credential, 0) into v_shift;
+  if v_shift ->> 'status' <> 'open'
+     or v_shift ->> 'terminalId' <> v_terminal_id::text
+     or v_shift ->> 'operatorUserId' <> v_admin_id::text then
+    raise exception 'scheduled-order regression failed to establish trusted open shift: %', v_shift;
+  end if;
+
   v_schedule := (
     date_trunc('hour', now() at time zone 'Asia/Kuala_Lumpur') + interval '3 hours'
   ) at time zone 'Asia/Kuala_Lumpur';
@@ -150,12 +178,15 @@ begin
       'addOnIds', '[]'::jsonb,
       'quantity', 1
     ))
-  )) into v_pos_order;
+  ), v_terminal_credential) into v_pos_order;
 
   if (v_pos_order ->> 'prepareAt')::timestamptz
        is distinct from v_schedule - interval '10 minutes'
-     or v_pos_order ->> 'scheduleState' <> 'future' then
-    raise exception 'new scheduled POS order did not snapshot current preparation lead';
+     or v_pos_order ->> 'scheduleState' <> 'future'
+     or v_pos_order ->> 'shiftId' <> v_shift ->> 'id'
+     or v_pos_order #>> '{terminal,code}' <> 'POS-MAIN-01'
+     or v_pos_order #>> '{salesPoint,code}' <> 'SP-MAIN' then
+    raise exception 'new scheduled POS order did not snapshot current preparation lead/shift';
   end if;
 
   -- Policy changes never rewrite a previously accepted scheduled order.

@@ -122,10 +122,7 @@ class _OrderCheckoutSheetState extends State<OrderCheckoutSheet> {
       _fulfillment = fulfillment;
       _pickupAt = fulfillment == FulfillmentType.scheduled ? slots.first.pickupAt : null;
       _quote = null;
-      _error =
-          !canUseAsap && slots.isEmpty
-              ? state.message
-              : null;
+      _error = !canUseAsap && slots.isEmpty ? state.message : null;
       _busy = false;
     });
 
@@ -155,7 +152,6 @@ class _OrderCheckoutSheetState extends State<OrderCheckoutSheet> {
             return List.unmodifiable(slots.take(_maximumVisibleSlots));
           }
         case Err():
-          // Fail closed for the requested day. A later day can still be valid.
           continue;
       }
     }
@@ -191,10 +187,9 @@ class _OrderCheckoutSheetState extends State<OrderCheckoutSheet> {
     }
     setState(() {
       _fulfillment = value;
-      _pickupAt =
-          value == FulfillmentType.scheduled && _slots.isNotEmpty
-              ? _slots.first.pickupAt
-              : null;
+      _pickupAt = value == FulfillmentType.scheduled && _slots.isNotEmpty
+          ? _slots.first.pickupAt
+          : null;
     });
     await _refreshQuote();
   }
@@ -282,10 +277,10 @@ class _OrderCheckoutSheetState extends State<OrderCheckoutSheet> {
                       .toList(growable: false),
                   onChanged: _busy
                       ? null
-                      : (id) {
+                      : (id) async {
                           if (id == null || id == branch?.id) return;
                           final selected = _branches.firstWhere((item) => item.id == id);
-                          void _loadBranch(selected);
+                          await _loadBranch(selected);
                         },
                 ),
                 const SizedBox(height: 8),
@@ -323,25 +318,24 @@ class _OrderCheckoutSheetState extends State<OrderCheckoutSheet> {
               ),
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 260),
-                child:
-                    (_fulfillment == FulfillmentType.scheduled &&
-                            branch != null &&
-                            slotTimes.isNotEmpty &&
-                            _pickupAt != null)
-                        ? Padding(
-                          key: const ValueKey('pickup-wheel'),
-                          padding: const EdgeInsets.only(top: 10),
-                          child: _PickupSlotWheel(
-                            slots: slotTimes,
-                            timezone: branch.timezone,
-                            selected: _pickupAt!,
-                            enabled: !_busy,
-                            onSelected: _selectSlot,
-                          ),
-                        )
-                        : const SizedBox.shrink(
-                          key: ValueKey('pickup-wheel-empty'),
+                child: (_fulfillment == FulfillmentType.scheduled &&
+                        branch != null &&
+                        slotTimes.isNotEmpty &&
+                        _pickupAt != null)
+                    ? Padding(
+                        key: const ValueKey('pickup-wheel'),
+                        padding: const EdgeInsets.only(top: 10),
+                        child: _PickupSlotWheel(
+                          slots: slotTimes,
+                          timezone: branch.timezone,
+                          selected: _pickupAt!,
+                          enabled: !_busy,
+                          onSelected: _selectSlot,
                         ),
+                      )
+                    : const SizedBox.shrink(
+                        key: ValueKey('pickup-wheel-empty'),
+                      ),
               ),
               const SizedBox(height: 14),
               Container(
@@ -400,8 +394,8 @@ class _OrderCheckoutSheetState extends State<OrderCheckoutSheet> {
                     _busy
                         ? 'Checking…'
                         : _quote != null
-                        ? 'Place order · ${_quote!.total.formatted}'
-                        : 'Place order',
+                            ? 'Place order · ${_quote!.total.formatted}'
+                            : 'Place order',
                     style: AidaType.sans(size: 15, weight: FontWeight.w700),
                   ),
                 ),
@@ -439,28 +433,28 @@ class _ChoiceChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-    color: selected ? AidaColors.coffee.withValues(alpha: 0.08) : AidaColors.cream,
-    borderRadius: BorderRadius.circular(18),
-    child: InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-        decoration: BoxDecoration(
+        color: selected ? AidaColors.coffee.withValues(alpha: 0.08) : AidaColors.cream,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          onTap: onTap,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: selected ? AidaColors.coffee : AidaColors.latte),
-        ),
-        child: Text(
-          label,
-          style: AidaType.sans(
-            size: 12.5,
-            weight: FontWeight.w700,
-            color: selected ? AidaColors.coffee : AidaColors.textMuted,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: selected ? AidaColors.coffee : AidaColors.latte),
+            ),
+            child: Text(
+              label,
+              style: AidaType.sans(
+                size: 12.5,
+                weight: FontWeight.w700,
+                color: selected ? AidaColors.coffee : AidaColors.textMuted,
+              ),
+            ),
           ),
         ),
-      ),
-    ),
-  );
+      );
 }
 
 class _PickupSlotWheel extends StatefulWidget {
@@ -522,76 +516,76 @@ class _PickupSlotWheelState extends State<_PickupSlotWheel> {
 
   @override
   Widget build(BuildContext context) => IgnorePointer(
-    ignoring: !widget.enabled,
-    child: AnimatedOpacity(
-      duration: const Duration(milliseconds: 150),
-      opacity: widget.enabled ? 1 : 0.72,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
-        decoration: BoxDecoration(
-          color: AidaColors.cream,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AidaColors.latte),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'AVAILABLE PICKUP TIMES',
-              style: AidaType.sans(
-                size: 10.5,
-                weight: FontWeight.w800,
-                letterSpacing: 1.1,
-                color: AidaColors.textMuted,
-              ),
+        ignoring: !widget.enabled,
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 150),
+          opacity: widget.enabled ? 1 : 0.72,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+            decoration: BoxDecoration(
+              color: AidaColors.cream,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AidaColors.latte),
             ),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: _itemExtent * 3,
-              child: ListWheelScrollView.useDelegate(
-                controller: _controller,
-                itemExtent: _itemExtent,
-                physics: const FixedExtentScrollPhysics(),
-                diameterRatio: 1.7,
-                perspective: 0.003,
-                useMagnifier: true,
-                magnification: 1.06,
-                onSelectedItemChanged: (index) {
-                  if (index == _selectedIndex) return;
-                  setState(() => _selectedIndex = index);
-                  HapticFeedback.selectionClick();
-                  widget.onSelected(widget.slots[index]);
-                },
-                childDelegate: ListWheelChildBuilderDelegate(
-                  childCount: widget.slots.length,
-                  builder: (context, index) {
-                    final selected = index == _selectedIndex;
-                    return Center(
-                      child: Text(
-                        _slotLabel(widget.slots[index], widget.timezone),
-                        style: AidaType.sans(
-                          size: selected ? 16 : 13,
-                          weight: selected ? FontWeight.w800 : FontWeight.w600,
-                          color: selected
-                              ? AidaColors.coffee
-                              : AidaColors.textMuted.withValues(alpha: 0.55),
-                        ),
-                      ),
-                    );
-                  },
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'AVAILABLE PICKUP TIMES',
+                  style: AidaType.sans(
+                    size: 10.5,
+                    weight: FontWeight.w800,
+                    letterSpacing: 1.1,
+                    color: AidaColors.textMuted,
+                  ),
                 ),
-              ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: _itemExtent * 3,
+                  child: ListWheelScrollView.useDelegate(
+                    controller: _controller,
+                    itemExtent: _itemExtent,
+                    physics: const FixedExtentScrollPhysics(),
+                    diameterRatio: 1.7,
+                    perspective: 0.003,
+                    useMagnifier: true,
+                    magnification: 1.06,
+                    onSelectedItemChanged: (index) {
+                      if (index == _selectedIndex) return;
+                      setState(() => _selectedIndex = index);
+                      HapticFeedback.selectionClick();
+                      widget.onSelected(widget.slots[index]);
+                    },
+                    childDelegate: ListWheelChildBuilderDelegate(
+                      childCount: widget.slots.length,
+                      builder: (context, index) {
+                        final selected = index == _selectedIndex;
+                        return Center(
+                          child: Text(
+                            _slotLabel(widget.slots[index], widget.timezone),
+                            style: AidaType.sans(
+                              size: selected ? 16 : 13,
+                              weight: selected ? FontWeight.w800 : FontWeight.w600,
+                              color: selected
+                                  ? AidaColors.coffee
+                                  : AidaColors.textMuted.withValues(alpha: 0.55),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Only server-authoritative open slots with remaining capacity are shown.',
+                  style: AidaType.sans(size: 11, color: AidaColors.textMuted),
+                ),
+              ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Only server-authoritative open slots with remaining capacity are shown.',
-              style: AidaType.sans(size: 11, color: AidaColors.textMuted),
-            ),
-          ],
+          ),
         ),
-      ),
-    ),
-  );
+      );
 }
 
 String _slotLabel(DateTime slot, String timezone) {

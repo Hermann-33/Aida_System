@@ -1,145 +1,114 @@
 # Roadmap
 
-Updated: 2026-09-11
+Updated: 2026-09-15
 
 ## Current status
 
-Phase 1 — operational topology — is `COMPLETE` and frozen for Astra audit.
-
-Matching audit PRs:
+Phases 1–5 are individually `COMPLETE`. Phase 6 — loyalty, rewards and vouchers — is the current `PARTIAL` implementation boundary. Phase PRs remain draft/unmerged unless explicitly authorized.
 
 ```text
-Customer/backend PR #20
-Dashboard/POS PR #17
+Phase 1 — operational topology                         COMPLETE
+Phase 2 — shift and cash authority                    COMPLETE
+Phase 3 — customer privacy/account requirements       COMPLETE
+Phase 4 — branch scheduling and pickup authority      COMPLETE
+Phase 5 — inventory and recipes                       COMPLETE
+Phase 6 — loyalty, rewards and vouchers               PARTIAL
+Phase 7 — promotions and discounts                    blocked by Phase 6
+Phase 8 — reporting/accounting/audit                  deferred
+Phase 9 — payments/refunds/external integrations      deferred
+Phase 10 — App Store final release gate               deferred
 ```
 
-Do not merge the Phase 1 PRs as part of the closeout. Do not begin Phase 2 until Astra findings are resolved or explicitly accepted.
+Latest completed-phase evidence is recorded in `docs/context/PHASE_5_INVENTORY_RECIPES_CLOSEOUT_2026-09-15.md`.
 
-Detailed Phase 1 evidence:
+## Trusted foundation through Phase 5
 
-`docs/context/PHASE_1_OPERATIONAL_TOPOLOGY_CLOSEOUT_2026-09-11.md`
+The product now has server-owned authority for:
 
-## Trusted foundation now complete
+- customer/employee identity and trusted role/disabled state;
+- membership identity and customer privacy/account deletion;
+- catalogue/modifier compatibility and integer-sen pricing;
+- authoritative quote/order identity/status/commercial snapshots;
+- branch/sales-point/terminal topology and employee branch scope;
+- terminal enrolment/revocation with HttpOnly BFF credential handling;
+- shift lifecycle, cash ledger, expected drawer and variance;
+- POS shift/tender/payment attribution;
+- branch-local service windows, dated exceptions and scheduled slot capacity;
+- explicit customer pickup-branch validation;
+- inventory items, branch balances, recipes/components and append-only movement history;
+- transactionally enforced stock consumption and cancellation reversal.
 
-Implemented and validated to the current closeout standard:
+Dashboard privileged operations remain behind the same-origin HttpOnly BFF with caller-JWT forwarding. Customer Flutter submits intent through caller-bound public RPCs. Preview fixtures never become backend authority.
 
-- governance and shared-backend ownership;
-- trusted customer/employee identity and membership foundation;
-- customer Supabase Auth/member integration;
-- same-origin employee/Admin session boundary;
-- shared catalogue and protected Admin mutation;
-- catalogue-driven variants, drink options and compatible add-ons;
-- authoritative quote/order/schedule/status backend;
-- customer authoritative quote/place/history/detail/status flow;
-- Dashboard live POS ordering and polled order queue;
-- versioned fulfilment transitions;
-- immutable commercial order snapshots;
-- trusted branch identity and staff branch scope;
-- trusted sales-point and terminal topology;
-- manager-issued one-time terminal enrolment;
-- HttpOnly terminal credential handling;
-- terminal revocation;
-- terminal-bound POS order placement;
-- immutable branch/sales-point/terminal POS attribution;
-- clean Supabase migration replay and writable-database regressions;
-- current customer release and Dashboard CI gates.
+## Dependency-ordered continuation
 
-## Phase 1 validation boundary
+### Phase 6 — loyalty, rewards and vouchers
 
-```text
-Backend database audit #22
-  branch authority regression              PASS
-  operational topology regression         PASS
-  order regression                         PASS
-  scheduled-order operations regression   PASS
+Current plan: `docs/context/PHASE_6_LOYALTY_REWARDS_VOUCHERS_PLAN.md`.
 
-Customer release audit #114               PASS
-Dashboard CI #23                           PASS
-```
+Required completion boundary:
 
-Supabase advisor review shows one pre-existing leaked-password-protection WARN and INFO-only unused-index findings. No Phase 1-created security/performance blocker remains.
+- append-only point/stamp ledger tied idempotently to trusted completed orders;
+- server-derived loyalty balances;
+- reward catalogue and trusted points costs;
+- atomic points redemption;
+- server-issued vouchers with expiry/status authority;
+- authoritative voucher quote/application/consumption with stable commercial snapshots;
+- customer wallet integration;
+- Admin/Owner live support/configuration flows through the BFF;
+- customer/POS order compatibility where member/voucher intent is supported;
+- clean migration replay, transactional regressions, client CI/builds and Supabase advisors;
+- synchronized architecture/contracts/security/status/handoff/App Store documentation.
 
-## Dependency-ordered backend completion
+### Phase 7 — promotions and discounts
 
-The remaining backend continues in this order:
+Blocked until Phase 6 is `COMPLETE`.
 
-1. **Phase 2 — shift and cash authority**
-   - open/lock/resume/close shifts;
-   - opening float;
-   - cash movement ledger;
-   - expected/actual cash and variance;
-   - manager approval for material variance;
-   - order/sale shift attribution.
+Scope:
 
-2. **Phase 3 — customer privacy and App Store account requirements**
-   - production account deletion;
-   - retention/deletion rules;
-   - privacy/terms/support surfaces;
-   - consent/preferences and marketing opt-in/out.
+- promotion definitions and activation windows;
+- branch/channel/member/student/item eligibility;
+- fixed/percentage discount calculation;
+- stacking/exclusion policy;
+- authoritative quote/place enforcement;
+- immutable applied-discount snapshots;
+- Admin management through trusted BFF paths;
+- abuse/security/regression coverage.
 
-3. **Phase 4 — branch scheduling and pickup authority**
-   - branch opening hours;
-   - closures/holidays;
-   - capacity;
-   - explicit customer pickup branch;
-   - server validation of branch/time availability.
+### Phase 8 — reporting, accounting and audit
 
-4. **Phase 5 — inventory and recipes**
-   - inventory items/units;
-   - recipes/BOM;
-   - receiving/adjustment/transfer;
-   - stock movement ledger;
-   - order depletion;
-   - branch/inventory-pool attribution.
+Do not begin before Phase 7 closeout. Scope includes trusted sales/operations projections, branch/terminal/staff/shift breakdowns, tax-ready transaction records, export and privileged audit events.
 
-5. **Phase 6 — loyalty, rewards and vouchers**
-   - append-only loyalty ledger;
-   - earning/redemption;
-   - voucher/reward issuance and expiry;
-   - idempotent transaction linkage.
+### Phase 9 — payments, refunds and external integrations
 
-6. **Phase 7 — promotions and discounts**
-   - definitions/eligibility;
-   - stacking/exclusions;
-   - student/member rules;
-   - authoritative discount snapshots.
+External processor capture/settlement/refunds, processor idempotency/webhooks, accounting/device integrations and deployment-heavy work remain intentionally deferred until the internal authority layers are stable.
 
-7. **Phase 8 — reporting, accounting and audit**
-   - trusted sales/operational projections;
-   - branch/terminal/staff/shift breakdowns;
-   - tax-ready transaction records;
-   - export and privileged audit events.
+### Phase 10 — App Store release gate
 
-8. **Phase 9 — payments, refunds and external integrations**
-   - card/e-wallet/Apple Pay for physical goods where selected;
-   - refunds;
-   - processor idempotency/webhooks;
-   - accounting/device integrations.
-
-9. **Phase 10 — App Store release gate**
-   - iOS release build/current compatibility;
-   - privacy manifest/App Privacy answers;
-   - account deletion physically verified;
-   - support/privacy URLs;
-   - review credentials/notes;
-   - final on-device stability/accessibility.
+Final iOS compatibility/release build, privacy manifest/App Privacy answers, physical account-deletion verification, production support/privacy URLs, review credentials/notes and final device/accessibility validation.
 
 ## Dependency rule
 
-Do not skip forward when a later domain depends on an unaudited earlier authority boundary.
+Do not skip ahead when a later domain depends on an earlier authority boundary.
 
 ```text
-branch
- -> sales point / terminal
- -> shift
- -> inventory / sales attribution
- -> loyalty / promotions
+branch/topology
+ -> shift/cash
+ -> privacy/account boundary
+ -> scheduling/capacity
+ -> inventory/recipes
+ -> loyalty/rewards/vouchers
+ -> promotions/discounts
  -> reporting
- -> payments / refunds
+ -> payments/refunds
 ```
 
-The first two links are now complete through Phase 1. Phase 2 is the next dependency once Astra accepts the frozen boundary.
+Phases 1–5 have closed that chain through inventory. Phase 6 must close before Phase 7 starts.
 
-## Current deployment boundary
+## Independent audit policy
 
-Hosted production deployment remains deferred. The current Phase 1 verdict proves application/backend correctness for its defined scope; it does not claim final production hosting, payment settlement, device integration or App Store release readiness.
+ADR-0013 permits the owner-directed Phase 1–3 Codex audit to run in parallel with Phases 4–7. A valid blocking finding reopens the affected earlier phase. Completed implementation does not authorize automatic PR merge.
+
+## Deployment boundary
+
+Hosted production deployment, external settlement/device integrations and final store submission remain deferred. A phase `COMPLETE` verdict proves its defined implementation/validation/documentation boundary; it does not imply those later deployment gates are complete.

@@ -1,8 +1,8 @@
 # AIDA Backend Completion Phases
 
-**Status:** Phases 1, 2 and 3 `COMPLETE`; Phase 4 `PARTIAL` and active  
+**Status:** Phases 1–4 `COMPLETE`; Phase 5 is the next implementation boundary  
 **Started:** 2026-09-10  
-**Updated:** 2026-09-14
+**Updated:** 2026-09-15
 
 ## Phase rule
 
@@ -39,22 +39,39 @@ Completed boundary includes caller-bound whole-account deletion, privacy prefere
 
 ## Independent Phase 1–3 audit
 
-**Status:** `PARTIAL` — Codex audit reports pending.  
+**Status:** `PARTIAL` — Codex audit reports are external to this implementation sequence until accepted.  
 **Boundary:** `docs/context/PHASE_1_3_ASTRA_AUDIT_BOUNDARY_2026-09-12.md`
 
-The audit may reopen an earlier phase if it finds a real blocker. Do not merge Phase 1–3 merely because implementation is complete.
+A valid blocking audit finding reopens the affected earlier phase. Do not merge Phase 1–3 merely because implementation is complete.
 
 ## Phase 4 — Branch scheduling and pickup authority
 
 **Task:** `TASK-OPS-004`  
-**Status:** `PARTIAL` — implementation active.  
-**Plan:** `docs/context/PHASE_4_BRANCH_SCHEDULING_PICKUP_PLAN.md`
+**Status:** `COMPLETE`  
+**Plan:** `docs/context/PHASE_4_BRANCH_SCHEDULING_PICKUP_PLAN.md`  
+**Evidence:** `docs/context/PHASE_4_BRANCH_SCHEDULING_PICKUP_CLOSEOUT_2026-09-15.md`
 
-Target authority: active branch -> branch-local service calendar -> pickup policy -> slot capacity -> authoritative quote/order acceptance. POS branch identity remains terminal-derived; customer branch selection is validated intent only.
+Trusted chain: active branch -> branch-local service calendar -> pickup policy -> slot capacity -> authoritative quote/order acceptance. POS branch identity remains terminal/open-shift derived; customer branch selection is validated intent only.
+
+Final validation evidence at the Phase 4 implementation heads:
+
+```text
+Backend database audit #122   COMPLETE
+Customer release audit #213   COMPLETE
+Dashboard CI #84              COMPLETE
+Supabase security advisor     COMPLETE for Phase 4
+Supabase performance advisor  COMPLETE for Phase 4
+```
+
+## Phase 5 — Inventory and recipes
+
+**Status:** `PARTIAL` only after its dedicated branches and mirrored plan are created. No implementation may precede the plan.  
+**Dependency:** Phase 4 `COMPLETE`.
+
+Target authority: branch inventory -> stock movements -> recipe/component consumption -> availability/depletion -> authoritative ordering constraints. Inventory adjustments and recipe mutation must be privileged/server-authoritative; client-calculated stock must never become commercial authority.
 
 ## Later phases
 
-Phase 5: inventory and recipes.  
 Phase 6: loyalty, rewards and vouchers.  
 Phase 7: promotions and discounts.  
 Phase 8: reporting, accounting and audit.  
@@ -67,9 +84,9 @@ Phase 10: App Store release gate.
 Phase 1 COMPLETE
  -> Phase 2 COMPLETE
  -> Phase 3 COMPLETE
- -> Phase 1–3 Codex audit runs in parallel
- -> Phase 4 PARTIAL / active
- -> Phase 5 only after Phase 4 COMPLETE
+ -> independent Phase 1–3 Codex audit runs in parallel
+ -> Phase 4 COMPLETE
+ -> Phase 5 next
  -> Phase 6 only after Phase 5 COMPLETE
  -> Phase 7 only after Phase 6 COMPLETE
 ```

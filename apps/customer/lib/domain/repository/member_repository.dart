@@ -45,6 +45,11 @@ abstract interface class MemberRepository {
 
   Future<Result<List<Voucher>>> getVouchers();
 
+  /// Requests an atomic server-side points redemption. The client submits only
+  /// the selected reward ID; points cost, balance sufficiency and voucher
+  /// issuance remain backend authority.
+  Future<Result<void>> redeemReward(String rewardId);
+
   Future<Result<List<Offer>>> getOffers();
 
   Future<Result<List<Promo>>> getPromos();

@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/error/result.dart';
 import '../data/repository/supabase_catalogue_repository.dart';
+import '../data/repository/supabase_loyalty_repository.dart';
 import '../data/repository/supabase_member_repository.dart';
 import '../data/repository/supabase_order_repository.dart';
 import '../domain/model/cart.dart';
@@ -20,11 +21,19 @@ import '../domain/model/promo.dart';
 import '../domain/model/reward.dart';
 import '../domain/model/voucher.dart';
 import '../domain/repository/catalogue_repository.dart';
+import '../domain/repository/loyalty_repository.dart';
 import '../domain/repository/member_repository.dart';
 import '../domain/repository/order_repository.dart';
 
 final memberRepositoryProvider = Provider<MemberRepository>(
   (ref) => SupabaseMemberRepository(Supabase.instance.client),
+);
+
+/// Customer loyalty is its own caller-bound capability. Live providers never
+/// fall back to the legacy preview values that remain inside the member
+/// repository for UI-preview isolation.
+final loyaltyRepositoryProvider = Provider<LoyaltyRepository>(
+  (ref) => SupabaseLoyaltyRepository(Supabase.instance.client),
 );
 
 /// Catalogue is a separate capability from membership. It never falls back to
@@ -58,6 +67,10 @@ class AuthState extends Notifier<bool> {
     ref.read(memberEditsProvider.notifier).clear();
     ref.invalidate(memberProvider);
     ref.invalidate(privacyPreferencesProvider);
+    ref.invalidate(pointsProvider);
+    ref.invalidate(stampCardProvider);
+    ref.invalidate(rewardsProvider);
+    ref.invalidate(vouchersProvider);
     ref.invalidate(orderUpdatesProvider);
     ref.invalidate(orderHistoryProvider);
   }
@@ -170,11 +183,11 @@ final displayedMemberProvider = Provider<AsyncValue<Member>>((ref) {
 });
 
 final pointsProvider = FutureProvider<Points>(
-  (ref) => _unwrap(ref.watch(memberRepositoryProvider).getPoints()),
+  (ref) => _unwrap(ref.watch(loyaltyRepositoryProvider).getPoints()),
 );
 
 final stampCardProvider = FutureProvider<StampCard>(
-  (ref) => _unwrap(ref.watch(memberRepositoryProvider).getStampCard()),
+  (ref) => _unwrap(ref.watch(loyaltyRepositoryProvider).getStampCard()),
 );
 
 final offersProvider = FutureProvider<List<Offer>>(
@@ -218,11 +231,11 @@ final menuItemsProvider = FutureProvider<List<MenuItem>>((ref) async {
 });
 
 final rewardsProvider = FutureProvider<List<Reward>>(
-  (ref) => _unwrap(ref.watch(memberRepositoryProvider).getRewards()),
+  (ref) => _unwrap(ref.watch(loyaltyRepositoryProvider).getRewards()),
 );
 
 final vouchersProvider = FutureProvider<List<Voucher>>(
-  (ref) => _unwrap(ref.watch(memberRepositoryProvider).getVouchers()),
+  (ref) => _unwrap(ref.watch(loyaltyRepositoryProvider).getVouchers()),
 );
 
 class CartState extends Notifier<Cart> {

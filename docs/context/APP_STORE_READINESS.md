@@ -2,7 +2,7 @@
 
 **Applies to:** AIDA customer iOS application and backend behavior exposed by it.  
 **Reviewed:** 2026-09-15  
-**Current implementation verdict:** Phases 1–4 `COMPLETE`; Phase 5 inventory/recipes `PARTIAL`; final App Store release gate remains later work.
+**Current implementation verdict:** Phases 1–5 `COMPLETE`; Phase 6 is next; final App Store release gate remains later work.
 
 Official references must be re-checked before submission:
 
@@ -33,19 +33,7 @@ Shift/operator/cash reconciliation is staff operational data. Phase 2 adds only 
 
 **Verdict:** `COMPLETE`
 
-Delivered:
-
-- production whole-account deletion initiated from Settings;
-- caller-bound deletion RPC with no target user ID;
-- customer Auth/profile/member/student/preference identity deletion;
-- anonymized retention of legitimate transaction/audit facts;
-- customer/member/Auth IDs removed from retained customer orders;
-- customer-authored retained order free text scrubbed;
-- POS/staff audit identity preserved;
-- privacy/notification preferences with marketing default-off;
-- Privacy Policy, Terms and Support surfaces;
-- explicit public/guest versus authenticated feature split;
-- customer release and clean-database deletion/retention regressions.
+Delivered production whole-account deletion, caller-bound deletion authority, customer identity deletion/anonymized legitimate transaction retention, retained free-text scrubbing, privacy/notification preferences with marketing default-off, public Privacy/Terms/Support surfaces, and the iOS data/permission audit.
 
 Detailed closeout: `docs/context/PHASE_3_CUSTOMER_PRIVACY_ACCOUNT_CLOSEOUT_2026-09-12.md`.
 
@@ -53,32 +41,23 @@ Detailed closeout: `docs/context/PHASE_3_CUSTOMER_PRIVACY_ACCOUNT_CLOSEOUT_2026-
 
 **Verdict:** `COMPLETE`
 
-Phase 4 adds branch selection and pickup scheduling for physical café orders only. It adds no new customer identity category, tracking, advertising SDK, device permission, StoreKit/IAP or external payment processor. Branch/pickup intent is validated by server-owned branch policy and capacity. Detailed closeout: `docs/context/PHASE_4_BRANCH_SCHEDULING_PICKUP_CLOSEOUT_2026-09-15.md`.
+Phase 4 adds branch selection and pickup scheduling for physical café orders only. It adds no new customer identity category, tracking, advertising SDK, device permission, StoreKit/IAP or external payment processor. Detailed closeout: `docs/context/PHASE_4_BRANCH_SCHEDULING_PICKUP_CLOSEOUT_2026-09-15.md`.
 
 ## Phase 5 — inventory and recipes
 
-**Verdict:** `PARTIAL`
+**Verdict:** `COMPLETE`
 
-Phase 5 inventory items, branch stock balances, recipes, stock movements and depletion are operational business data. The customer app sends existing catalogue/quantity intent; it does not collect a new customer personal-data category or expose inventory administration.
+Inventory items, branch stock balances, recipes, stock movements and depletion are operational business data. The customer app sends existing catalogue/quantity intent; it does not collect a new customer personal-data category or expose inventory administration.
 
-Current Phase 5 implementation introduces no:
+Phase 5 introduces no tracking/advertising SDK, protected-device permission, push-notification request, StoreKit/IAP path, external payment processor or new customer identity field. Inventory sufficiency can reject a physical-goods order at quote/placement; that is commercial availability authority, not a new privacy permission or digital-goods purchase mechanism. Existing Phase 3 whole-account deletion remains unchanged because inventory/recipe records are not customer-owned personal data.
 
-- tracking or advertising SDK;
-- camera/photo/location/contact/microphone/Bluetooth/calendar permission;
-- push-notification authorization request;
-- StoreKit/IAP path;
-- external payment processor;
-- new customer identity field.
+Validation: Backend database audit #138 `COMPLETE`; Customer release audit #229 `COMPLETE`; Dashboard CI #99 `COMPLETE`; Supabase security/performance advisor boundary `COMPLETE`.
 
-Inventory sufficiency may reject a physical-goods order at quote/placement. That is a commercial availability rule, not a new privacy permission or digital-goods purchase mechanism. Existing Phase 3 whole-account deletion remains unchanged because inventory and recipe records are not customer-owned personal data; retained order history remains anonymized under the Phase 3 contract.
-
-Phase 5 remains `PARTIAL` until its clean-database regression, customer release audit, Dashboard CI, final advisor pass and synchronized closeout are all green/current.
+Detailed closeout: `docs/context/PHASE_5_INVENTORY_RECIPES_CLOSEOUT_2026-09-15.md`.
 
 ## iOS permission/data audit
 
-`docs/context/PHASE_3_IOS_DATA_PERMISSION_AUDIT.md` remains the current complete permission audit. Phases 4–5 add no protected iOS permission or tracking capability that would reopen it.
-
-`qr_flutter` renders the membership QR and does not justify a camera purpose string.
+`docs/context/PHASE_3_IOS_DATA_PERMISSION_AUDIT.md` remains the current complete permission audit. Phases 4–5 add no protected iOS permission or tracking capability that would reopen it. `qr_flutter` renders the membership QR and does not justify a camera purpose string.
 
 ## Guest/auth boundary
 

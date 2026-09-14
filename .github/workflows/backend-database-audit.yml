@@ -99,6 +99,13 @@ jobs:
           -v ON_ERROR_STOP=1
           -f supabase/tests/inventory_recipes_integration.sql
 
+      - name: Loyalty, rewards and vouchers regression
+        run: >-
+          psql
+          postgresql://postgres:postgres@127.0.0.1:54322/postgres
+          -v ON_ERROR_STOP=1
+          -f supabase/tests/loyalty_rewards_vouchers_integration.sql
+
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup

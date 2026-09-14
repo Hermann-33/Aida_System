@@ -1,6 +1,6 @@
 # AIDA Café Project Brief
 
-Updated: 2026-09-11
+Updated: 2026-09-15
 
 ## Product purpose
 
@@ -22,9 +22,11 @@ Shared backend
   ref: eswovqxqzfevcdwwcmuh
 ```
 
-Canonical executable Supabase migrations live in the customer/backend repository.
+Canonical executable Supabase migrations live only in `Hermann-33/Aida_System/supabase/migrations/`.
 
 ## Current trusted product tranche
+
+Phases 1–5 are individually `COMPLETE`. Phase 6 loyalty/rewards/vouchers is the current `PARTIAL` boundary.
 
 ### Customer application
 
@@ -32,145 +34,111 @@ Implemented authority/integration includes:
 
 - Supabase Auth/session/signup/logout and trusted member provisioning;
 - server-generated member identity/code;
-- database-backed catalogue with variants, drink option groups and compatible add-ons;
+- database-backed catalogue with variants, drink options and compatible add-ons;
 - authoritative quote and idempotent customer order placement;
-- Now/scheduled pickup from backend policy;
+- explicit validated pickup branch selection;
+- branch-local ASAP/scheduled pickup availability and server-derived preparation timing;
 - persisted order history/detail/status;
 - owner-scoped Realtime invalidation/refetch;
+- in-app privacy preferences and caller-bound whole-account deletion;
 - explicit pay-at-counter/unpaid semantics;
-- reproducible Android release build path.
+- reproducible Android release validation.
 
-Customer clients submit selection/fulfilment intent only and never become authority for commercial or operational truth.
+Customer clients submit identity-independent selection/fulfilment intent only. Catalogue compatibility, prices/totals, branch/schedule acceptance, inventory sufficiency, order identity/status and persisted commercial facts remain server-owned.
 
 ### Dashboard/Admin/POS
 
 Implemented authority/integration includes:
 
 - same-origin employee/Admin BFF with HttpOnly session cookies;
-- trusted role/disabled-state authorization;
-- trusted employee branch assignments;
-- protected Admin member/catalogue operations;
-- shared catalogue POS reads and authoritative quote/order placement;
-- live polled order queue and versioned fulfilment transitions;
+- trusted role/disabled-state and employee branch authorization;
+- protected Admin catalogue/member operations;
 - trusted branch/sales-point/terminal management;
-- one-time terminal enrolment and revocation;
-- HttpOnly terminal credential storage;
-- live POS placement bound to trusted terminal authority;
-- immutable branch/sales-point/terminal order attribution.
+- one-time terminal enrolment/revocation with HttpOnly terminal credential storage;
+- live POS placement bound to trusted terminal + employee + open-shift authority;
+- immutable topology/shift/tender/payment POS attribution;
+- trusted shift open/lock/resume/close and append-only cash movements;
+- server-derived expected cash and variance approval boundary;
+- branch scheduling/service-window/exception/capacity administration;
+- live inventory and recipe administration;
+- receiving/waste/manual-adjustment stock movements behind trusted RPCs;
+- shared live order queue and optimistic fulfilment transitions.
 
-Explicit UI Preview remains fixture-backed for demonstrations and is never trusted backend authority.
+Explicit UI Preview remains fixture-backed for demonstrations only and is never trusted backend authority or live fallback.
 
-### Shared backend
-
-Supabase currently owns trusted:
-
-- Auth/profile/member identity;
-- catalogue and modifier validity;
-- commercial prices/totals;
-- ordering/scheduling/idempotency;
-- immutable order snapshots;
-- fulfilment transitions/events;
-- branch identity and staff branch scope;
-- sales-point/terminal topology;
-- terminal enrolment/credential/revocation;
-- POS operational attribution;
-- RLS/FORCE-RLS and controlled RPC boundaries;
-- Realtime invalidation signals.
-
-## Phase 1 completion
-
-`TASK-OPS-002 — operational topology` is `COMPLETE` and frozen for Astra audit.
-
-Trusted operational chain:
+### Shared backend authority through Phase 5
 
 ```text
-branch
- -> sales point
- -> terminal
- -> employee branch scope
- -> POS order attribution
+Phase 1: branch -> sales point -> terminal -> employee branch scope -> POS attribution
+Phase 2: terminal + employee -> shift -> POS order / cash ledger
+Phase 3: customer identity -> privacy/account deletion -> anonymized retained history
+Phase 4: branch -> local service calendar -> pickup policy -> slot capacity -> order acceptance
+Phase 5: catalogue -> recipe -> branch stock -> transactional depletion/reversal
 ```
 
-Live seed topology:
+Supabase owns the corresponding trusted identity, authorization, operational, commercial, privacy, scheduling and inventory facts. Money remains integer sen; inventory quantities use integer milli-units. Historical accepted commercial facts are not rewritten by later configuration changes.
+
+## Validation boundary
+
+Latest completed phase evidence:
 
 ```text
-BR-MAIN — Main Café
-  SP-MAIN — Main Counter
-    POS-MAIN-01 [pending until manager enrolment]
+Phase 5 backend implementation head      2b26bc531e2f03c1af1f31e5e51a8b529111fc04
+Phase 5 dashboard implementation head    2f6128c40fe0b9778f193c43681ad0b6bbf47653
+Backend database audit #138              COMPLETE
+Customer release audit #229              COMPLETE
+Dashboard CI #99                         COMPLETE
+Supabase security advisor                COMPLETE for Phase 5
+Supabase performance advisor             COMPLETE for Phase 5
 ```
 
-Current executable evidence:
+Detailed evidence: `docs/context/PHASE_5_INVENTORY_RECIPES_CLOSEOUT_2026-09-15.md`.
 
-```text
-Backend database audit #22      PASS
-Customer release audit #114     PASS
-Dashboard CI #23                PASS
-```
+## Current Phase 6 boundary
 
-The clean database audit reconstructs Supabase from canonical migrations and passes branch, operational-topology, general-order and scheduled-order integration regressions.
+Phase 6 replaces preview/client loyalty state with server-authoritative:
 
-Full evidence:
+- append-only points/stamp earning history;
+- server-derived loyalty balances;
+- reward catalogue and point-cost authority;
+- atomic points redemption;
+- customer-owned voucher issuance/expiry/status;
+- trusted voucher quote/application/consumption;
+- stable applied-voucher commercial snapshots;
+- live Admin/Owner loyalty/reward support controls through the existing BFF.
 
-`docs/context/PHASE_1_OPERATIONAL_TOPOLOGY_CLOSEOUT_2026-09-11.md`
+Plan: `docs/context/PHASE_6_LOYALTY_REWARDS_VOUCHERS_PLAN.md`.
 
-Matching audit PRs:
-
-```text
-Customer/backend PR #20
-Dashboard/POS PR #17
-```
-
-These PRs are not merged by Phase 1 closeout. Astra findings must be resolved or explicitly accepted before Phase 2 begins.
+Phase 7 promotions/discounts may not begin until Phase 6 is `COMPLETE`.
 
 ## Trust rule
 
-Clients may stage interaction and selection intent but never authorize or calculate trusted:
+Clients may stage interaction and intent but never authorize or calculate trusted:
 
 - identity/roles/branch scope;
-- member codes;
-- branch/sales-point/terminal IDs;
+- member codes or customer ownership;
+- branch/sales-point/terminal/shift identity;
 - terminal credential state;
 - catalogue price/modifier validity;
+- branch scheduling/capacity acceptance;
+- inventory balances/recipes/depletion;
 - order totals/numbers/status;
-- payment settlement;
-- loyalty value;
-- inventory state;
-- shift/cash truth;
+- payment settlement/refunds;
+- loyalty balances/reward cost/voucher validity;
+- promotions/discounts;
 - reporting/accounting truth.
 
-Dashboard privileged operations stay behind the same-origin BFF. Customer Flutter uses public/publishable configuration and customer-scoped backend authority.
+Dashboard privileged operations stay behind the same-origin BFF with caller-JWT forwarding. Customer Flutter uses public/publishable configuration and caller-bound customer authority. No service-role secret or browser-readable reusable employee bearer/terminal credential is permitted.
 
-## Current scheduling compatibility
+## Deferred
 
-The current singleton scheduling policy remains:
-
-```text
-Asia/Kuala_Lumpur
-minimum lead 15 minutes
-preparation lead 15 minutes
-slot interval 15 minutes
-maximum advance 7 days
-```
-
-Customer placement still resolves the active default branch server-side. Explicit customer pickup-branch selection plus branch hours/closures/capacity remain a later coordinated contract.
-
-## Still deferred
-
-- Phase 2 shift/cash authority;
-- employee Auth-user provisioning, role mutation and badge/PIN lifecycle;
-- branch hours/closures/capacity and explicit customer branch selection;
-- inventory/recipes/depletion;
-- loyalty/rewards/vouchers;
-- promotions/discounts;
-- tax/accounting/reporting;
-- payment capture/refunds/external settlement;
+- promotions/discounts — Phase 7;
+- tax/accounting/reporting — Phase 8;
+- payment capture/refunds/external settlement and deployment-heavy integrations;
+- supplier purchasing, lot/expiry, forecasting and automated procurement;
+- employee Auth-user provisioning/credential lifecycle;
 - printer/KDS/payment-device integrations;
-- delivery;
-- hosted production/release operations;
-- final App Store release gate, including production account deletion.
+- delivery and hosted production/release operations;
+- final release-store operational submission gate.
 
-## Success criteria
-
-AIDA succeeds when each role completes its flow against one consistent trusted backend with server-owned identity, commercial and operational state; secure scoped access; reproducible migrations/builds; cross-client validation; and synchronized governance documentation.
-
-Phase 1 meets those criteria for operational topology and is now awaiting Astra audit before the next dependent phase.
+Under ADR-0013, the owner-directed independent Phase 1–3 Codex audit may run in parallel with Phases 4–7. A valid blocking finding reopens the affected earlier phase. Completion never authorizes automatic PR merge.

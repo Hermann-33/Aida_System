@@ -96,17 +96,13 @@ declare
   v_branch uuid;
   v_item uuid;
   v_variant uuid;
-  v_inventory_id uuid;
   v_quote jsonb;
   v_order jsonb;
-  v_order_id uuid;
-  v_balance bigint;
 begin
   perform set_config('request.jwt.claims',jsonb_build_object('sub',v_customer,'role','authenticated')::text,true);
   select id into strict v_branch from public.branches where is_default and is_active limit 1;
   select id into strict v_item from public.catalogue_items where sku='CF-LAT';
   select id into strict v_variant from public.catalogue_item_variants where item_id=v_item and code='medium';
-  select id into strict v_inventory_id from public.inventory_items where sku='P5-MILK';
 
   select public.quote_order(jsonb_build_object(
     'branchId',v_branch,
@@ -123,13 +119,7 @@ begin
     'fulfillmentType','asap',
     'items',jsonb_build_array(jsonb_build_object('itemId',v_item,'variantId',v_variant,'addOnIds','[]'::jsonb,'quantity',2))
   )) into v_order;
-  v_order_id := (v_order->>'id')::uuid;
-
-  select on_hand_milli into strict v_balance from public.branch_inventory where branch_id=v_branch and inventory_item_id=v_inventory_id;
-  if v_balance <> 300000 then raise exception 'order consumption balance mismatch: %',v_balance; end if;
-  if (select count(*) from public.inventory_movements where order_id=v_order_id and movement_kind='order_consumption') <> 1 then
-    raise exception 'order consumption movement was not recorded exactly once';
-  end if;
+  if nullif(v_order->>'id','') is null then raise exception 'customer order did not return an id'; end if;
 
   begin
     perform public.quote_order(jsonb_build_object(
@@ -156,6 +146,12 @@ begin
   select id into strict v_order_id from public.orders where client_request_id='55100000-0000-0000-0000-000000000001';
   select branch_id into strict v_branch from public.orders where id=v_order_id;
   select id into strict v_inventory_id from public.inventory_items where sku='P5-MILK';
+
+  select on_hand_milli into strict v_balance from public.branch_inventory where branch_id=v_branch and inventory_item_id=v_inventory_id;
+  if v_balance <> 300000 then raise exception 'order consumption balance mismatch: %',v_balance; end if;
+  if (select count(*) from public.inventory_movements where order_id=v_order_id and movement_kind='order_consumption') <> 1 then
+    raise exception 'order consumption movement was not recorded exactly once';
+  end if;
 
   update public.orders set status='cancelled', cancelled_at=now(), status_version=status_version+1, status_updated_at=now() where id=v_order_id;
 

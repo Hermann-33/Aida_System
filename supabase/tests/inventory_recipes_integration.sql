@@ -32,6 +32,17 @@ begin
      or not has_function_privilege('authenticated','public.record_inventory_movement(uuid,uuid,bigint,text,text)','execute') then
     raise exception 'authenticated inventory RPC grants are missing';
   end if;
+  if exists (
+    select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+    where n.nspname='public'
+      and p.proname in ('save_inventory_item','save_recipe','record_inventory_movement')
+      and p.prosecdef
+  ) then raise exception 'public inventory mutation RPC unexpectedly uses SECURITY DEFINER'; end if;
+  if has_function_privilege('authenticated','private.save_inventory_item_impl(jsonb)','execute')
+     or has_function_privilege('authenticated','private.save_recipe_impl(jsonb)','execute')
+     or has_function_privilege('authenticated','private.apply_inventory_movement_impl(uuid,uuid,bigint,text,uuid,uuid,uuid,bigint,text)','execute') then
+    raise exception 'authenticated role can execute unchecked private inventory write helper';
+  end if;
 end;
 $$;
 
@@ -115,6 +126,12 @@ begin
   select id into strict v_item from public.catalogue_items where sku='CF-LAT';
   select id into strict v_variant from public.catalogue_item_variants where item_id=v_item and code='medium';
   select id into strict v_addon from public.catalogue_items where sku='AD-SHT';
+
+  begin
+    perform public.save_inventory_item(jsonb_build_object('sku','ILLEGAL-CUSTOMER','name','Illegal customer item','baseUnit','unit','isActive',true));
+    raise exception 'customer inventory administration unexpectedly succeeded';
+  exception when insufficient_privilege then null;
+  end;
 
   select public.quote_order(jsonb_build_object(
     'branchId',v_branch,

@@ -79,7 +79,7 @@ Customer branch choice is intent only. Server validates active branch and branch
 
 ## Phase 5 inventory and recipes contract
 
-Phase 5 is the current implementation boundary.
+**Verdict:** `COMPLETE`
 
 Trusted resources:
 
@@ -113,7 +113,7 @@ Placement is final authority. Order-line and add-on insertion consumes recipe st
 
 ### Privileged inventory administration
 
-Public inventory Admin RPCs are caller-bound `SECURITY INVOKER` wrappers that require trusted Admin/Owner authorization. Narrow write implementations are private `SECURITY DEFINER` functions with empty search paths and explicit grants. Dashboard mutation routes enforce same-origin and forward the caller employee JWT with the publishable key only.
+Public inventory Admin RPCs are caller-bound `SECURITY INVOKER` wrappers that require trusted Admin/Owner authorization. Guarded private `SECURITY DEFINER` helpers have empty search paths and independently verify the caller before invoking lower-level write helpers. The unchecked private write helpers are not executable by authenticated/anonymous roles. Dashboard mutation routes enforce same-origin and forward the caller employee JWT with the publishable key only.
 
 ## Realtime and payment boundaries
 
@@ -135,7 +135,7 @@ External payment capture/refunds/processor settlement remain deferred. Phase 2 c
 
 ## Validation and governance
 
-Phases 1–4 are `COMPLETE`. Phase 5 remains `PARTIAL` until its clean-database regression, customer release audit, Dashboard CI, final live advisor review and mirrored closeout/current-context documentation are all green/current.
+Phases 1–5 are `COMPLETE`. Phase 6 loyalty/rewards/vouchers is the next implementation boundary and must have a mirrored plan before code. Phase 5 evidence is in `docs/context/PHASE_5_INVENTORY_RECIPES_CLOSEOUT_2026-09-15.md`.
 
 The independent Phase 1–3 Codex audit may run in parallel under ADR-0013. Any valid blocking finding reopens the affected earlier phase. Completed phase PRs remain draft/unmerged unless explicitly authorized.
 

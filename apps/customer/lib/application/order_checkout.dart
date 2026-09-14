@@ -69,7 +69,14 @@ List<DateTime> derivePickupSlots(
   );
   final slots = <DateTime>[];
   while (!slot.toUtc().isAfter(horizon) && slots.length < maximumSlots) {
-    slots.add(slot.toUtc());
+    // TZDateTime overrides toUtc() and retains its runtime subtype. This legacy
+    // helper promises ordinary UTC DateTime values, so normalize by epoch.
+    slots.add(
+      DateTime.fromMillisecondsSinceEpoch(
+        slot.millisecondsSinceEpoch,
+        isUtc: true,
+      ),
+    );
     slot = slot.add(Duration(minutes: interval));
   }
   return List.unmodifiable(slots);

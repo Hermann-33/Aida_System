@@ -3,7 +3,7 @@
 **As of:** 2026-09-15  
 **Current boundary:** Phase 6 — Loyalty, Rewards and Vouchers  
 **Current verdict:** Phase 6 `PARTIAL`; Phases 1–5 individually `COMPLETE`.  
-**Implementation state:** Phase 6 implementation is active on dedicated backend/customer and Dashboard branches. Phase 7 must not begin until every Phase 6 validation/documentation gate is `COMPLETE`.
+**Implementation state:** The documented Phase 6 feature scope is implemented on dedicated backend/customer and Dashboard branches. Phase 6 cannot be marked `COMPLETE` because final CI and live Supabase deployment/advisor gates are externally blocked. Phase 7 must not begin until those gates are proven.
 
 ## Product topology
 
@@ -60,20 +60,25 @@ Supabase performance advisor  COMPLETE for Phase 5
 
 Detailed evidence: `docs/context/PHASE_5_INVENTORY_RECIPES_CLOSEOUT_2026-09-15.md`.
 
-## Phase 6 active implementation
+## Phase 6 implemented boundary
 
-Implemented server authority includes:
+Implemented server/client authority includes:
 
 - server-owned loyalty program configuration, points/stamp ledgers and balances;
 - idempotent earning on qualifying completed orders;
 - server-owned reward catalogue and atomic points redemption;
 - server-issued member vouchers with immutable commercial snapshots;
-- trusted customer/POS voucher validation and order application;
-- privacy-preserving account-deletion handling for Phase 6 state;
-- Admin/Owner reward, member-support and loyalty-program configuration RPCs;
-- shift/terminal-bound POS member loyalty lookup with terminal credential kept inside the same-origin BFF;
+- trusted customer/POS voucher validation, authoritative quote/application and one-time order consumption;
+- privacy-preserving account-deletion handling for Phase 6 customer-owned state;
+- Admin/Owner reward management, member-support and loyalty-program configuration RPCs;
+- shift/terminal-bound POS member loyalty lookup with the terminal credential kept inside the same-origin BFF;
 - live customer loyalty repository using caller-bound RPCs rather than preview balances;
-- Dashboard Admin loyalty BFF/client surfaces and audited member adjustments.
+- live customer reward redemption with points/reward/voucher/stamp refresh;
+- live customer checkout voucher selection submitting only `voucherId` intent for authoritative quote/place validation;
+- Dashboard Admin loyalty BFF/client surfaces, full reward create/edit/enable/disable and audited member adjustments;
+- live POS checkout member lookup and voucher selection through the shift-bound BFF, submitting only `memberCode`/`voucherId` intent to authoritative order RPCs;
+- prior trusted POS quote is invalidated whenever selected member/voucher intent changes;
+- preview member/reward controls remain isolated from live order authority.
 
 Canonical Phase 6 migrations currently extend through:
 
@@ -81,16 +86,18 @@ Canonical Phase 6 migrations currently extend through:
 20260914184500_add_pos_loyalty_lookup_authority.sql
 ```
 
-Current incomplete gates:
+## Phase 6 remaining completion gates
 
-- customer reward redemption UI must call the live redemption repository and refresh balances/vouchers;
-- customer checkout must expose eligible issued-voucher selection and submit voucher intent for authoritative quote/place;
-- live POS member/voucher selection must consume the shift-bound POS lookup instead of preview-only member fixtures;
-- Dashboard reward management still needs the full create/edit flow required by the Phase 6 plan;
-- the AIDA Supabase project is not currently visible through the connected Supabase tool, so new Phase 6 migrations have not been deployed in this run and security/performance advisors cannot be rerun;
-- current GitHub Actions attempts are failing before runner steps execute, so they do not constitute code-validation evidence.
+No additional planned Phase 6 feature scope is currently outstanding. The remaining blockers are validation/infrastructure gates:
+
+- the connected Supabase account does not expose existing AIDA project `eswovqxqzfevcdwwcmuh`, so canonical Phase 6 migrations cannot be verified/deployed from this context and security/performance advisors cannot be rerun;
+- current GitHub Actions runs fail before runner allocation. Latest observed customer-release and Dashboard CI jobs report `steps: []` and `runner_id: 0`; therefore lint/typecheck/tests/build/database regression work never starts and these failures are not code-failure evidence;
+- a real executed backend database audit, customer release audit and Dashboard CI run are mandatory before `COMPLETE`;
+- final architecture/contracts/App Store/handoff closeout must record the exact validated final heads after those gates pass.
 
 Because these gates are unresolved, Phase 6 remains `PARTIAL` and Phase 7 is blocked by dependency order.
+
+Detailed implementation/validation handoff: `docs/context/PHASE_6_IMPLEMENTATION_STATUS_2026-09-15.md`.
 
 ## Independent Phase 1–3 audit
 
@@ -111,4 +118,4 @@ Do not merge merely because implementation is complete.
 
 ## Next boundary
 
-Close every Phase 6 functional, database, CI, advisor and mirrored-documentation gate. Only then mark Phase 6 `COMPLETE` and create dedicated Phase 7 promotions/discounts branches.
+Do not invent more Phase 6 features and do not start Phase 7. Restore/observe execution of the blocked validation gates. If an executed test/advisor exposes a real defect, repair only that defect on the existing Phase 6 branches. Once every gate is `COMPLETE`, write the synchronized Phase 6 closeout and then create dedicated Phase 7 promotions/discounts branches.

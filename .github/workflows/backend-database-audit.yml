@@ -86,6 +86,13 @@ jobs:
           -v ON_ERROR_STOP=1
           -f supabase/tests/customer_privacy_student_cascade_integration.sql
 
+      - name: Branch scheduling and pickup regression
+        run: >-
+          psql
+          postgresql://postgres:postgres@127.0.0.1:54322/postgres
+          -v ON_ERROR_STOP=1
+          -f supabase/tests/branch_scheduling_pickup_integration.sql
+
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup

@@ -2,8 +2,8 @@
 
 **As of:** 2026-09-15  
 **Current boundary:** Phase 6 — Loyalty, Rewards and Vouchers  
-**Current verdict:** Phase 5 `COMPLETE`; Phases 1–5 individually `COMPLETE`.  
-**Implementation state:** Phase 6 may start on dedicated branches from the frozen Phase 5 documentation heads.
+**Current verdict:** Phase 6 `PARTIAL`; Phases 1–5 individually `COMPLETE`.  
+**Implementation state:** Phase 6 implementation is active on dedicated backend/customer and Dashboard branches. Phase 7 must not begin until every Phase 6 validation/documentation gate is `COMPLETE`.
 
 ## Product topology
 
@@ -58,9 +58,39 @@ Supabase security advisor     COMPLETE for Phase 5
 Supabase performance advisor  COMPLETE for Phase 5
 ```
 
-Security advisor has no Phase 5 finding; the single remaining Auth warning is the pre-existing leaked-password-protection setting. Performance findings are INFO-level unused indexes only.
-
 Detailed evidence: `docs/context/PHASE_5_INVENTORY_RECIPES_CLOSEOUT_2026-09-15.md`.
+
+## Phase 6 active implementation
+
+Implemented server authority includes:
+
+- server-owned loyalty program configuration, points/stamp ledgers and balances;
+- idempotent earning on qualifying completed orders;
+- server-owned reward catalogue and atomic points redemption;
+- server-issued member vouchers with immutable commercial snapshots;
+- trusted customer/POS voucher validation and order application;
+- privacy-preserving account-deletion handling for Phase 6 state;
+- Admin/Owner reward, member-support and loyalty-program configuration RPCs;
+- shift/terminal-bound POS member loyalty lookup with terminal credential kept inside the same-origin BFF;
+- live customer loyalty repository using caller-bound RPCs rather than preview balances;
+- Dashboard Admin loyalty BFF/client surfaces and audited member adjustments.
+
+Canonical Phase 6 migrations currently extend through:
+
+```text
+20260914184500_add_pos_loyalty_lookup_authority.sql
+```
+
+Current incomplete gates:
+
+- customer reward redemption UI must call the live redemption repository and refresh balances/vouchers;
+- customer checkout must expose eligible issued-voucher selection and submit voucher intent for authoritative quote/place;
+- live POS member/voucher selection must consume the shift-bound POS lookup instead of preview-only member fixtures;
+- Dashboard reward management still needs the full create/edit flow required by the Phase 6 plan;
+- the AIDA Supabase project is not currently visible through the connected Supabase tool, so new Phase 6 migrations have not been deployed in this run and security/performance advisors cannot be rerun;
+- current GitHub Actions attempts are failing before runner steps execute, so they do not constitute code-validation evidence.
+
+Because these gates are unresolved, Phase 6 remains `PARTIAL` and Phase 7 is blocked by dependency order.
 
 ## Independent Phase 1–3 audit
 
@@ -74,10 +104,11 @@ Phase 2: Aida_System #21 / Dashboard #18
 Phase 3: Aida_System #22 / Dashboard #19
 Phase 4: Aida_System #23 / Dashboard #20
 Phase 5: Aida_System #24 / Dashboard #21
+Phase 6: Aida_System #25 / Dashboard #22
 ```
 
 Do not merge merely because implementation is complete.
 
 ## Next boundary
 
-Phase 6 must document its plan before implementation. It owns loyalty, rewards and vouchers. Promotions/discounts remain Phase 7 and may not begin until Phase 6 is `COMPLETE`.
+Close every Phase 6 functional, database, CI, advisor and mirrored-documentation gate. Only then mark Phase 6 `COMPLETE` and create dedicated Phase 7 promotions/discounts branches.

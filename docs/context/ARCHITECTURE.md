@@ -1,209 +1,151 @@
 # AIDA Café Architecture
 
-Updated: 2026-08-23
+Updated: 2026-09-15
+
+## System topology
 
 ```mermaid
 flowchart LR
   C[Customer Flutter app] -->|Supabase Auth + customer RPCs| S[Shared Supabase]
-  D[Dashboard React browser] -->|same-origin HttpOnly employee session| B[Dashboard BFF]
-  B -->|caller JWT| S
+  D[Dashboard React browser] -->|same-origin HttpOnly employee + terminal cookies| B[Dashboard BFF]
+  B -->|caller JWT + server-held terminal credential when required| S
   S --> A[Supabase Auth]
   S --> P[(Postgres + FORCE RLS)]
-  S --> CR[catalogue_revision]
-  S --> OR[orders Realtime]
-  CR -->|invalidate + refetch catalogue| C
-  OR -->|owner-scoped change + refetch order| C
-  D -->|poll/refetch employee queue; no browser staff token| B
+  S --> OR[orders Realtime invalidation]
 ```
 
-## Repository/runtime topology
+AIDA is one product across `Hermann-33/Aida_System`, `Hermann-33/Aida_System-Dashboard`, and Supabase project `eswovqxqzfevcdwwcmuh`. Canonical executable migrations live only in `Hermann-33/Aida_System/supabase/migrations/`.
 
-- Customer: `Hermann-33/Aida_System`, Flutter/Dart/Riverpod, default branch `master`.
-- Dashboard/Admin/POS: `Hermann-33/Aida_System-Dashboard`, React/TypeScript/Vite, default branch `main`.
-- Shared backend: Supabase project `Aida System`, ref `eswovqxqzfevcdwwcmuh`.
-- Canonical executable Supabase migrations live only in the customer repository `supabase/` workspace unless a future accepted ADR changes ownership.
+## Trusted authority through completed Phase 5
 
-## Identity / employee authority
+Supabase/server owns authenticated identity, trusted application role/disabled state, membership identity, employee branch scope, branch/sales-point/terminal topology, terminal credential validity, shift state, cash reconciliation, tender/payment classification, catalogue/commercial pricing, persisted order state, privacy/account deletion, branch scheduling/capacity, inventory balances, recipes and stock depletion/reversal.
 
-Supabase Auth owns authentication. Trusted employee/Admin authorization lives in `user_profiles.app_role` plus `disabled_at`; customer membership identity/code lives in `members`.
+Dashboard privileged operations stay behind the same-origin BFF. Employee access/refresh and terminal credentials are HttpOnly; the BFF forwards the caller JWT; no service-role secret or browser-readable employee bearer token is used. Preview fixtures are never backend authority.
 
-Dashboard employee credentials remain behind the ADR-0008 same-origin BFF. React receives HttpOnly cookies, while the BFF validates the employee and forwards only that caller JWT to Supabase. No service-role credential or browser-readable employee bearer token is part of the architecture.
+Customer Flutter uses publishable Supabase configuration and customer-scoped RPC/RLS boundaries. Customer-editable Auth metadata is never authorization authority.
 
-Customer Flutter uses public/publishable Supabase configuration and customer-scoped RLS/RPC boundaries.
+## Phase 1 — operational topology
 
-## Shared catalogue and modifier architecture
-
-ADR-0009 makes Supabase Postgres the catalogue authority.
-
-Core resources:
+Trusted chain:
 
 ```text
-catalogue_categories
-catalogue_items
-catalogue_item_variants
-catalogue_item_addons
-catalogue_option_groups
-catalogue_option_values
-catalogue_item_option_values
-catalogue_revision
-catalogue_audit_events
+branch -> sales point -> terminal -> employee branch scope -> POS order attribution
 ```
 
-`catalogue_items.kind` distinguishes normal products from reusable add-ons. `catalogue_items.is_drink` marks products that consume option groups.
+The browser does not choose trusted operational IDs for live placement. Manager-issued one-time enrolment activates a terminal; the credential is server-held by the Dashboard BFF; revocation or branch-scope removal invalidates authority. Accepted POS topology attribution is immutable.
 
-Current standard reusable drink groups:
+## Phase 2 — shift and cash authority
 
 ```text
-Temperature: Hot | Iced
-Sweetness: Regular | Less sweet | Least sweet
+branch -> sales point -> terminal -> employee -> shift -> POS order / cash ledger
 ```
 
-Per product, Admin/Owner can configure option label override, price delta, availability, default and order. Required groups must have at least one available option and exactly one available default.
+`public.shifts` and append-only `public.cash_movements` own shift/cash facts. New POS placement requires a matching open shift. Opening float and movements use integer sen; expected cash and closing variance are server-derived; non-zero variance close requires Admin/Owner authority. Persisted shift/tender/payment attribution is protected from ordinary mutation. Phase 2 tender semantics remain `cash | unpaid`; external processor settlement/refunds remain deferred.
 
-Compatible add-ons are normalized links from product to add-on. Customer browsing hides `kind=addon` rows/categories, but the same catalogue rows remain available to per-product customization.
+## Phase 3 — customer privacy and account requirements
 
-Customer reads use `get_catalogue()` under RLS. Dashboard Admin mutations use the accepted catalogue BFF/RPC boundary with the caller JWT. `catalogue_revision` is invalidation only.
-
-## Authoritative quote/order boundary
-
-ADR-0010 keeps the same Supabase project authoritative for customer and POS order pricing, persistence, scheduling and fulfilment.
-
-```mermaid
-flowchart TD
-  CC[Customer cart selections] --> Q[quote_order]
-  PC[POS cart selections] --> QB[Dashboard order BFF]
-  QB --> Q
-  Q --> CAT[(Catalogue + variants + options + add-ons)]
-  Q --> V[Validated server quote]
-  V --> CO[place_customer_order]
-  V --> PO[place_pos_order]
-  CO --> O[(orders + immutable line snapshots)]
-  PO --> O
-  O --> E[(order_events)]
-  STAFF[Staff Dashboard] -->|caller JWT via BFF| T[transition_order_status]
-  T --> O
-  O --> RT[orders Realtime]
-  RT --> CUSTOMER[Customer refetches authorized order]
-```
-
-Clients submit only IDs, quantities, notes and fulfilment intent. A line may contain:
+Trusted resources/contracts:
 
 ```text
-itemId
-variantId
-optionValueIds[]
-addOnIds[]
-quantity
-note
+public.customer_privacy_preferences
+public.orders.customer_deleted_at
+public.delete_own_account()
+public.get_my_privacy_preferences()
+public.save_my_privacy_preferences(...)
 ```
 
-Clients are not authority for labels, option/add-on prices, unit prices, totals, customer/member identity, order numbers, status or payment state.
+Customer deletion is caller-bound to `auth.uid()` and accepts no target user ID. Retained customer commercial history is anonymized: customer/member/Auth identity and customer-authored retained free text are removed while order/product/price/topology/payment facts remain. Staff/POS audit identity is preserved. Marketing preference defaults off. Phase 3 adds no tracking/advertising SDK or new protected device permission.
 
-`quote_order(jsonb)` validates product publication/availability, variants, compatible add-ons and per-drink option ownership/availability before deriving totals. The current quote contract is `pricingVersion=2`:
+## Phase 4 — branch scheduling and pickup authority
+
+Trusted chain:
 
 ```text
-base + variant + selected/default options + compatible add-ons
+active branch
+ -> branch timezone
+ -> weekly service windows / dated exceptions
+ -> ASAP or scheduled policy
+ -> lead time / scheduling horizon / slot interval
+ -> persisted scheduled-order capacity
+ -> authoritative quote and order placement
 ```
 
-If an older client omits a required option group, the live quote function resolves the configured available default. This is a server-side compatibility behavior, not client authority.
+Customer branch selection is intent only and is server-validated. POS branch authority remains terminal/open-shift derived. The server derives `prepare_at`, validates dated closures/opening windows and scheduling horizon/lead time, and serializes scheduled capacity checks using transaction-scoped locking before accepting an order. Customer checkout consumes authoritative branch/slot RPCs and fails closed when live availability cannot be obtained. Dashboard scheduling administration remains behind the caller-JWT BFF.
 
-## Immutable commercial snapshots
+## Phase 5 — inventory and recipes
 
-Server-owned order resources include:
+**Verdict:** `COMPLETE`
+
+Trusted chain:
 
 ```text
-orders
-order_lines
-order_line_addons
-order_line_options
-order_events
+catalogue item / variant / add-on
+ -> active recipe
+ -> recipe components
+ -> branch inventory
+ -> append-only stock movements
+ -> quote sufficiency check
+ -> transactional placement depletion
+ -> cancellation reversal
 ```
 
-`order_lines.option_total_sen` snapshots the accepted option-price contribution.
+### Inventory representation
 
-`order_line_options` snapshots selected group/value IDs, codes, customer-facing labels and accepted price deltas. Historical orders therefore remain stable after Admin later renames, reprices or disables an option.
+`public.inventory_items` defines globally addressable stock inputs using a base unit of `g`, `ml`, or `unit`. Physical quantities are stored as signed integer milli-units; no floating-point inventory arithmetic is authoritative.
 
-Placement remains idempotent through `clientRequestId`.
+`public.branch_inventory` stores one current non-negative on-hand balance per branch + inventory item. It is a derived current balance maintained only through trusted mutation helpers.
 
-## Customer modifier flow
+`public.inventory_movements` is append-only audit history for receiving, waste, manual adjustment, order consumption and cancellation reversal. Accepted order consumption is order/line attributed. Cancellation produces exactly-once compensating reversal movements; it does not rewrite historical consumption rows.
 
-```text
-Menu product
- -> ItemDetailScreen
- -> variant selection
- -> Temperature/Sweetness from catalogue
- -> compatible add-ons from catalogue
- -> local line configuration
- -> Add to cart
- -> return to Menu
- -> cart estimate
- -> quote_order
- -> server total
- -> place_customer_order
-```
+### Recipe representation
 
-Cart identity/equivalence includes option/add-on IDs so two differently customized copies remain separate configurations.
+`public.recipes` maps catalogue items, optionally a specific variant, to active recipe definitions. `public.recipe_components` maps each recipe to positive integer milli-unit requirements.
 
-Customer-facing immediate pickup copy is `Now`; the wire/backend value remains `asap`.
+Recipe control is opt-in. A catalogue item/add-on without an active recipe remains orderable and consumes no inventory. Once an active recipe exists, every active component becomes authoritative stock input. Exact variant recipes take precedence over item-default recipes.
 
-## Dashboard Admin / POS modifier flow
+### Quote and placement semantics
 
-```text
-Admin Menu editor
- -> isDrink + option label/delta/availability/default
- -> compatible add-on checkboxes
- -> same-origin BFF
- -> save_catalogue_item
- -> revision bump
+Quote performs an inventory sufficiency check using the same server-validated branch authority from Phase 4. It does not reserve stock.
 
-POS product
- -> variants
- -> required Temperature/Sweetness
- -> optional compatible add-ons
- -> local estimate only
- -> order BFF
- -> quote_order authoritative total
-```
+Order placement remains final authority. Order-line and add-on insert triggers perform atomic non-negative branch-stock decrements inside the same database transaction. If any component cannot be consumed, the order transaction fails; concurrent orders cannot both consume the same final stock. Client stock estimates never become authority.
 
-Dashboard preview remains read-only. Staff POS capability does not grant Admin catalogue mutation.
+### Privileged mutation boundary
 
-## Scheduling / operational queue
+Admin/Owner browser requests use the same-origin Dashboard BFF. Public inventory administration RPCs are caller-bound `SECURITY INVOKER` wrappers. Guarded private `SECURITY DEFINER` helpers use empty search paths and independently re-check caller identity and Admin/Owner authorization before reaching lower-level writes. Unchecked private write helpers are not executable by authenticated/anonymous roles. Ordinary authenticated/anonymous roles have no direct inventory/recipe write grants.
 
-Current live scheduling policy remains:
+The Dashboard live Inventory page uses authoritative branch stock/recipe state, stock-movement RPCs and recipe mutation RPCs. Preview inventory data is not a production fallback.
 
-```text
-Asia/Kuala_Lumpur
-15-minute minimum lead
-15-minute preparation lead
-15-minute slot interval
-7-day horizon
-```
+## Next architecture boundary
 
-Scheduled orders snapshot immutable `prepareAt`. Backend snapshots derive `scheduleState = future | due | overdue | null`; no timer/client auto-transitions fulfilment state.
+Phase 6 will add server-authoritative loyalty, rewards and vouchers. It must preserve trusted member identity, append-only ledger/history and stable commercial snapshots. Promotions/discounts remain Phase 7 and cannot be folded into Phase 6 casually.
 
-The Dashboard operational queue remains Active/Scheduled/Ready/History and uses trusted `scheduleState`. Customer Schedule UI keeps the accepted tactile wheel over `derivePickupSlots(OrderingPolicy)`.
+## Realtime and payment boundaries
 
-## Realtime boundary
+Customer Realtime is authorized invalidation followed by refetch. Dashboard privileged data does not expose employee access tokens for direct Realtime.
 
-`supabase_realtime` publishes:
+External payment capture/refunds/processor settlement remain deferred. Cash/unpaid state is internal POS authority, not processor integration.
 
-- `catalogue_revision` — catalogue invalidation;
-- `orders` — authorized order-header invalidation.
+## Security invariants
 
-Customer clients can use their Supabase session and refetch authorized data. Dashboard React does not expose the HttpOnly employee token for direct Supabase Realtime; it polls/refetches same-origin BFF endpoints.
+- no authorization trusts customer-editable `user_metadata`;
+- no service-role/secret credential is shipped to Flutter or browser code;
+- no browser-readable employee bearer token or terminal credential;
+- branch, terminal, shift, scheduling, inventory, recipe and commercial authority remain server-owned;
+- direct client mutation of protected operational tables is denied where controlled RPC authority is required;
+- inventory placement uses transactionally enforced non-negative stock rather than a quote reservation;
+- historical commercial snapshots remain immutable when stock is consumed or reversed;
+- privacy deletion cannot target another customer and does not erase staff/POS audit identity;
+- preview fixtures never become backend authority.
 
-## Validation boundary
+## Deferred authority domains
 
-TASK-MENU-CUSTOMIZATION-001 closeout is recorded in:
+- supplier purchasing, lots/expiry, procurement automation and cross-branch inventory transfer workflows;
+- loyalty/rewards/vouchers — Phase 6;
+- promotions/discounts — Phase 7;
+- reporting/tax/accounting export — Phase 8;
+- external processor settlement/refunds and deployment-heavy integrations — later work;
+- employee Auth-user/credential lifecycle;
+- printer/KDS/payment-device integrations;
+- marketing campaign delivery provider.
 
-`docs/context/MENU_CUSTOMIZATION_2026-08-23.md`
-
-Executable evidence:
-
-- Customer: `flutter analyze` PASS, 55/55 tests PASS, exact-size UI/golden QA PASS;
-- Dashboard: lint/typecheck/build PASS, Vitest 129/129, Playwright 10/10, desktop UI/theme QA PASS;
-- live Supabase: zero invalid required drink groups, intended grants/RLS confirmed, no new security WARN/ERROR.
-
-## Explicitly separate authority
-
-Payment settlement/refunds, loyalty, inventory, promotions/discounts, tax/accounting/reporting, branch scheduling/capacity, branch-scoped operations, terminal/sales-point lifecycle, shifts/cash reconciliation, delivery and hosted production remain separate trusted domains.
+Under ADR-0013, the independent Phase 1–3 Codex audit may run in parallel with Phase 4–7 implementation. A valid blocking audit finding reopens the affected earlier phase; phase completion does not authorize automatic PR merge.

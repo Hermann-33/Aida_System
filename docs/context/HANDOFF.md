@@ -1,185 +1,77 @@
 # Current Handoff
 
-Updated: 2026-09-10
+Updated: 2026-09-15
 
-## Task
+## Current boundary
 
-`TASK-UI-REDESIGN-004 — audited customer UI refresh and safe future-work preservation`
+Phase 6 — Loyalty, Rewards and Vouchers.
 
-**Verdict:** READY TO MERGE.
+**Verdict:** Phase 5 `COMPLETE`; Phases 1–5 individually `COMPLETE`.  
+**Implementation state:** Phase 6 may begin on dedicated branches from the frozen Phase 5 documentation heads.
 
-Detailed implementation/validation evidence:
-
-`docs/context/MENU_CUSTOMIZATION_2026-08-23.md`
-
-Matching task branches:
-
-`codex/task-menu-customization-001-modifier-groups`
-
-No PR or merge was created by this closeout.
-
-## What changed
-
-### Customer
-
-- drink detail is catalogue-driven for Size, Temperature, Sweetness and compatible add-ons;
-- selected option/add-on state belongs to the individual cart line;
-- add-on catalogue rows/categories are hidden from normal customer browsing;
-- local cart estimates include variant + option + add-on deltas while server quote remains final authority;
-- order intents include `optionValueIds` but no trusted prices/totals;
-- unavailable options remain visible/disabled with explicit text/semantics;
-- `Add to cart` immediately returns to Menu;
-- checkout presentation says `Now`, while the backend wire value remains `asap`;
-- accepted policy-derived Schedule wheel remains intact.
-
-### Dashboard / POS
-
-- Admin can mark a product as a drink;
-- each drink option exposes editable customer label, price delta, availability and default;
-- every required group must have at least one available option and exactly one available default;
-- compatible add-ons remain per-product checkboxes;
-- POS maps variants + required Temperature/Sweetness + optional add-ons into per-line modifier state;
-- POS order payload includes `optionValueIds` only as selection IDs;
-- preview remains read-only; staff remains excluded from Admin.
-
-### Backend
-
-Live migrations:
+## Completed phases
 
 ```text
-20260822135421 add_drink_customization_catalogue
-20260822135602 integrate_drink_customizations_with_orders
-20260822141814 harden_drink_customization_indexes_and_rls
-20260822143542 grant_public_drink_customization_reads
+Phase 1 / TASK-OPS-002 operational topology                  COMPLETE
+Phase 2 / TASK-OPS-003 shift and cash authority              COMPLETE
+Phase 3 / TASK-PRIVACY-001 privacy/account requirements      COMPLETE
+Phase 4 / TASK-OPS-004 branch scheduling/pickup authority    COMPLETE
+Phase 5 / TASK-OPS-005 inventory and recipes                 COMPLETE
 ```
 
-Trusted additions:
+Evidence:
 
-- `catalogue_items.is_drink`;
-- `catalogue_option_groups`;
-- `catalogue_option_values`;
-- `catalogue_item_option_values`;
-- `order_lines.option_total_sen`;
-- `order_line_options` immutable selected-option snapshots;
-- `pricingVersion=2` quote calculation includes option deltas.
+- `docs/context/PHASE_1_OPERATIONAL_TOPOLOGY_CLOSEOUT_2026-09-11.md`
+- `docs/context/PHASE_2_SHIFT_CASH_CLOSEOUT_2026-09-12.md`
+- `docs/context/PHASE_3_CUSTOMER_PRIVACY_ACCOUNT_CLOSEOUT_2026-09-12.md`
+- `docs/context/PHASE_4_BRANCH_SCHEDULING_PICKUP_CLOSEOUT_2026-09-15.md`
+- `docs/context/PHASE_5_INVENTORY_RECIPES_CLOSEOUT_2026-09-15.md`
 
-The live quote definition supplies the configured available default for a required group when an older client omits an `optionValueId`, preserving rollout compatibility.
+## Phase 5 handed off
 
-## Live closeout checks
+Branch inventory, recipes and stock depletion/reversal are now server-authoritative. Inventory uses integer milli-units, movements are append-only, quote performs stock sufficiency checks, placement consumes recipe components transactionally, and cancellation creates exactly-once compensating reversals. Client stock estimates are never authority.
 
-Checked on 2026-08-23:
+Dashboard Inventory is live behind the same-origin HttpOnly BFF and supports branch stock, receiving/waste/adjustment, live catalogue recipe selection and multi-component recipes. Preview inventory fixtures are not a production fallback.
+
+Final implementation heads before documentation closeout:
 
 ```text
-catalogue revision         130
-drink products              11
-non-drink products           4
-add-ons                      4
-invalid required groups      0
-Iced Drinks with Hot on      0
+Aida_System             2b26bc531e2f03c1af1f31e5e51a8b529111fc04
+Aida_System-Dashboard   2f6128c40fe0b9778f193c43681ad0b6bbf47653
 ```
 
-Public/authenticated function/table grants align with the intended RLS boundary. Ordinary authenticated users have no direct read grant on immutable `order_line_options`.
+Validation:
 
-Supabase security advisor has one pre-existing WARN only: Leaked Password Protection Disabled. Performance findings are INFO-only unused indexes.
+```text
+Backend database audit #138   COMPLETE
+Customer release audit #229   COMPLETE
+Dashboard CI #99              COMPLETE
+Supabase security advisor     COMPLETE for Phase 5
+Supabase performance advisor  COMPLETE for Phase 5
+```
 
-## Executable validation
+The security advisor has no Phase 5 finding. The remaining Auth warning is pre-existing leaked-password protection being disabled. Performance findings are INFO-level unused indexes only.
 
-### Customer
+## Open PRs
 
-Final validation commit:
+All phase PRs remain draft/unmerged unless explicitly authorized:
 
-`404662aec382364c8e70fcee8d66b38d4b303f0a`
+```text
+Aida_System #20 / Dashboard #17 — Phase 1
+Aida_System #21 / Dashboard #18 — Phase 2
+Aida_System #22 / Dashboard #19 — Phase 3
+Aida_System #23 / Dashboard #20 — Phase 4
+Aida_System #24 / Dashboard #21 — Phase 5
+```
 
-Results:
+## Independent Phase 1–3 audit
 
-- Flutter 3.44.7 / Dart 3.12.2 / JDK 21.0.12;
-- `flutter pub get` PASS;
-- format PASS;
-- analyze PASS;
-- Flutter tests 55 passed / 0 failed / 0 skipped;
-- `git diff --check` PASS;
-- secret scan PASS;
-- UI/golden review PASS at 390x844 and 430x932;
-- no physical Android device was connected for this final pass.
+The owner-directed Codex audit may run in parallel under ADR-0013. A valid blocking finding reopens the affected earlier phase and must be fixed before later-phase completion can stand.
 
-### Dashboard
+## Deferred / non-goals
 
-Final validation commit:
-
-`af0fcd2babfa02073f882ec63ddbec102e591672`
-
-Results:
-
-- Node v24.11.1 / npm 11.6.2;
-- `npm ci` PASS, 0 vulnerabilities;
-- lint PASS with two established Fast Refresh warnings;
-- typecheck PASS;
-- Vitest 29 files / 129 tests PASS;
-- build PASS with existing large-chunk advisory only;
-- Playwright 10/10 PASS;
-- `git diff --check` PASS;
-- visual QA PASS at 1366x768 and 1440x900;
-- no task-related browser console errors/warnings.
-
-## UI consistency
-
-Customer customization keeps the accepted AIDA rose/cream/espresso palette, Playfair + Plus Jakarta Sans, tactile/neumorphic controls, existing hero/sheet hierarchy, selected check indicators and explicit disabled text.
-
-Dashboard uses the existing design tokens, Admin cards/form classes, labelled native radios/checkboxes, focus-visible/reduced-motion behavior and existing POS modifier density. No Luckin styling or second theme was introduced.
-
-## Security/trust result
-
-Preserved:
-
-- Supabase commercial authority;
-- RLS/FORCE-RLS boundaries;
-- Admin/Owner catalogue mutation;
-- caller-JWT same-origin HttpOnly employee BFF;
-- no browser employee token persistence;
-- no service-role credential in clients;
-- no fabricated branch/terminal/shift authority;
-- Pay-at-counter remains unpaid presentation, not payment settlement.
+Phase 6 owns loyalty, rewards and vouchers. Promotions/discounts remain Phase 7. Reporting/accounting remains Phase 8. Supplier purchasing, lot/expiry tracking, forecasting/procurement automation and generalized cross-branch inventory transfers remain deferred. External payment capture/refunds/settlement and deployment-heavy integrations remain later work.
 
 ## Next action
 
-This task is ready for repository merge/release handling, but those are separate explicit actions. If merging, merge both matching task branches so the two frontends remain contract-compatible with the already-live backend.
-
-After a customer merge, build a fresh APK from the merged customer default branch before distribution. The final Codex validation did not use a connected physical Android device.
-
-## Deferred domains
-
-Branch authority/capacity, terminal/sales-point lifecycle, shifts/cash reconciliation, payment/refunds, loyalty, inventory, promotions/discounts, tax/accounting/reporting, delivery and hosted production operations remain separate tasks.
-
-## 2026-09-10 — TASK-UI-REDESIGN-004 final handoff
-
-PR #19 carries the audited integration from `codex/task-ui-redesign-004-audit-integration`.
-
-Final accepted scope:
-
-- reviewed customer UI/branding refresh is active;
-- all demo-only order/status/test tooling is removed;
-- account-deletion/referral SQL prototypes are preserved under `supabase/drafts/`, not canonical migrations;
-- related account-deletion/referral client surfaces are compile-time gated off by default;
-- useful iOS migration observations are documented, while stale generated Xcode/CocoaPods state is excluded;
-- production order status remains Supabase-authoritative;
-- generated golden failure artifacts are excluded.
-
-Release compatibility correction:
-
-- `share_plus 13.3.0` caused the release APK build to fail because that package generation requires Kotlin 2.2-era Android artifacts;
-- the dormant referral-sharing prototype is pinned to `share_plus 11.1.0` instead of forcing an unrelated Android toolchain migration in this UI task;
-- lockfile dependencies are reconciled accordingly.
-
-Executable validation:
-
-- workflow: Customer release audit run #87;
-- code head: `7388c1bd40b7da4c0ce56041b8e0e02ece3847db`;
-- dependency resolution PASS;
-- Flutter analyze PASS;
-- non-golden regression PASS;
-- golden regression PASS;
-- release APK build PASS;
-- release APK upload PASS.
-
-The subsequent branch changes are documentation-only closeout. PR #19 must be squash-merged so the original mixed source-branch ancestry does not enter `master`.
-
+Create dedicated Phase 6 branches from the frozen Phase 5 documentation heads. Before implementation, add a mirrored Phase 6 plan defining points earning/ledger authority, reward catalogue, atomic redemption, voucher lifecycle/consumption, order interactions, security/regression strategy, deferred scope and App Store impact. Do not begin Phase 7 until Phase 6 is `COMPLETE`.

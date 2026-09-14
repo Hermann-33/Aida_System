@@ -5,7 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'application/providers.dart';
 import 'core/theme/aida_theme.dart';
-import 'features/auth/login_screen.dart';
+import 'features/auth/unauthenticated_screen.dart';
 import 'features/shell/app_shell.dart';
 import 'features/splash/splash_screen.dart';
 
@@ -89,12 +89,14 @@ class AidaApp extends StatelessWidget {
 
 /// Session state is restored by Supabase before the app starts and then kept
 /// current by the AuthState listener. No client-only login flag survives here.
+/// Signed-out users get only the authentication flow plus public legal/support
+/// information; personalized membership and ordering remain authenticated.
 class AuthGate extends ConsumerWidget {
   const AuthGate({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final signedIn = ref.watch(authStateProvider);
-    return signedIn ? const AppShell() : const LoginScreen();
+    return signedIn ? const AppShell() : const UnauthenticatedScreen();
   }
 }

@@ -56,13 +56,11 @@ Implemented Dashboard surfaces preserve the existing Phase 1–5 trust boundary:
 Implemented:
 
 - live `SupabaseLoyaltyRepository` using `get_my_loyalty_wallet` and `redeem_my_reward`;
-- points, stamp, reward and voucher providers now resolve from the live loyalty repository rather than legacy preview values;
-- authentication changes invalidate all customer loyalty providers.
-
-Still required before `COMPLETE`:
-
-- Rewards UI must execute live redemption and refresh points/vouchers after success;
-- customer checkout must expose eligible issued-voucher selection and submit `voucherId` as intent for server quote/place validation.
+- points, stamp, reward and voucher providers resolve from the live loyalty repository rather than legacy preview values;
+- authentication changes invalidate all customer loyalty providers;
+- Rewards UI performs live atomic point redemption and refreshes points, rewards, vouchers and stamp state after success;
+- checkout exposes caller-owned active issued vouchers, sends only `voucherId` intent, requotes through the authoritative order RPC, and revalidates/consumes the voucher on placement;
+- checkout displays the resulting server-derived discount as `subtotal - total`; the client never computes an authoritative discount value.
 
 ## POS implementation
 
@@ -70,12 +68,10 @@ Implemented:
 
 - server `get_pos_member_loyalty` is bound to `auth.uid()`, staff-or-above role, trusted terminal credential and an open shift;
 - same-origin Dashboard BFF and typed client exist;
-- BFF tests assert caller-JWT forwarding, terminal-secret containment and fail-closed behavior without terminal enrolment.
-
-Still required before `COMPLETE`:
-
-- live Counter/POS UI must consume the shift-bound lookup, allow explicit member/voucher selection and pass only `memberCode`/`voucherId` intent to the existing authoritative order BFF;
-- preview-only `MemberPanel` must remain isolated from live authority.
+- BFF tests assert caller-JWT forwarding, terminal-secret containment and fail-closed behavior without terminal enrolment;
+- live POS checkout performs shift-bound member lookup through that BFF, exposes only vouchers returned for the trusted member, and sends `memberCode`/`voucherId` as intent to the existing authoritative order BFF;
+- changing/removing a member or voucher invalidates the prior trusted quote, so placement requires a fresh authoritative quote;
+- preview-only `MemberPanel` remains isolated from the live checkout authority.
 
 ## Admin implementation
 
@@ -105,9 +101,17 @@ The backend audit workflow runs the Phase 1–5 suites before all Phase 6 SQL re
 
 Current validation verdict is `PARTIAL`.
 
-GitHub Actions attempts on the active Phase 6 heads are currently failing before any runner steps execute (`steps`/runner data absent). Those attempts are infrastructure startup failures and do not count as either code-pass or code-fail evidence. A real executed backend database audit, customer release audit and Dashboard CI run are still required.
+The current Phase 6 implementation surface is feature-complete against the documented Phase 6 scope, but the completion gates are not proven.
 
-The connected Supabase account currently does not expose project `eswovqxqzfevcdwwcmuh`. Therefore the two latest canonical migrations cannot be deployed from this execution context and security/performance advisors cannot be rerun. No replacement project may be created.
+Latest observed GitHub Actions attempts still fail before a runner is allocated:
+
+- customer release audit on backend head `e3d7c649f0570299bcaed95be659bfd609bad20d`: job contained `steps: []` and `runner_id: 0`;
+- Dashboard CI on Dashboard head `1e998f69da71aa5b951a0737a2405638d080b53b`: job contained `steps: []` and `runner_id: 0`;
+- backend database audit on the active Phase 6 branch is subject to the same Actions startup condition.
+
+Those runs are infrastructure startup failures and do not count as either code-pass or code-fail evidence. A real executed backend database audit, customer release audit and Dashboard CI run are still mandatory before `COMPLETE`.
+
+The connected Supabase account still does not expose the existing AIDA project `eswovqxqzfevcdwwcmuh`; the connector currently exposes only an unrelated project. Therefore canonical Phase 6 migrations cannot be deployed from this execution context and security/performance advisors cannot be rerun. No replacement project may be created.
 
 ## Deferred / non-goals
 
@@ -118,12 +122,11 @@ The connected Supabase account currently does not expose project `eswovqxqzfevcd
 
 ## Handoff
 
-Resume Phase 6, not Phase 7. Priority order:
+Resume Phase 6, not Phase 7. Do not add more feature scope unless an executed validation failure demonstrates a real defect.
 
-1. Run clean-database/backend and customer release workflows once GitHub Actions actually allocates a runner; fix any executed failure.
-2. Restore access to the existing AIDA Supabase project, deploy canonical Phase 6 migrations in order, then rerun security/performance advisors.
-3. Wire customer reward redemption and voucher checkout intent.
-4. Wire live POS member/voucher selection through the shift-bound BFF.
-5. Run Dashboard CI and customer tests/builds.
-6. Synchronize architecture/contracts/App Store/handoff docs and write the Phase 6 `COMPLETE` closeout only after every gate is proven.
-7. Only then create Phase 7 branches.
+Priority order:
+
+1. Once GitHub Actions allocates runners, execute backend database audit, customer release audit and Dashboard CI against the exact current Phase 6 heads; fix only real executed failures.
+2. Restore connector access to existing AIDA Supabase project `eswovqxqzfevcdwwcmuh`, verify/apply canonical Phase 6 migrations in order, then run security and performance advisors.
+3. If all validation is `COMPLETE`, synchronize the exact final heads/evidence into architecture/contracts/App Store/handoff docs and write the Phase 6 `COMPLETE` closeout.
+4. Only then create Phase 7 branches.

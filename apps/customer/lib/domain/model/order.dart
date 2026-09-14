@@ -82,26 +82,30 @@ class OrderRequest {
     required this.items,
     this.requestedPickupAt,
     this.clientRequestId,
+    this.voucherId,
   });
 
   final FulfillmentType fulfillmentType;
   final List<OrderSelectionLine> items;
   final DateTime? requestedPickupAt;
   final String? clientRequestId;
+  final String? voucherId;
 
   Map<String, dynamic> toJson() => <String, dynamic>{
     if (clientRequestId != null) 'clientRequestId': clientRequestId,
+    if (voucherId != null) 'voucherId': voucherId,
     'fulfillmentType': fulfillmentType.name,
     if (fulfillmentType == FulfillmentType.scheduled)
       'requestedPickupAt': requestedPickupAt!.toUtc().toIso8601String(),
     'items': items.map((line) => line.toJson()).toList(growable: false),
   };
 
-  OrderRequest copyWith({String? clientRequestId}) => OrderRequest(
+  OrderRequest copyWith({String? clientRequestId, String? voucherId}) => OrderRequest(
     fulfillmentType: fulfillmentType,
     items: items,
     requestedPickupAt: requestedPickupAt,
     clientRequestId: clientRequestId ?? this.clientRequestId,
+    voucherId: voucherId ?? this.voucherId,
   );
 }
 

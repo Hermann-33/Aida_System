@@ -325,7 +325,10 @@ void main() {
     final allowedSlots = derivePickupSlots(TestOrderRepository.policy);
     expect(scheduled.fulfillmentType, FulfillmentType.scheduled);
     expect(scheduled.requestedPickupAt, isNotNull);
-    expect(allowedSlots, contains(scheduled.requestedPickupAt));
+    expect(
+      allowedSlots.map((slot) => slot.toUtc()),
+      contains(scheduled.requestedPickupAt!.toUtc()),
+    );
     expect(
       scheduled.requestedPickupAt!.difference(allowedSlots.first),
       Duration.zero,

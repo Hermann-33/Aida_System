@@ -4,7 +4,7 @@ Updated: 2026-09-15
 
 | System | Runtime | Trusted source |
 |---|---|---|
-| Customer | Flutter/Riverpod | Supabase Auth/member + catalogue + customer order/branch/loyalty RPCs |
+| Customer | Flutter/Riverpod | Supabase Auth/member + catalogue + customer order/branch RPCs |
 | Dashboard/Admin/POS | React/Vite | same-origin HttpOnly employee/terminal BFF + caller-JWT RPCs |
 | Backend | Supabase | Auth, Postgres, FORCE RLS, controlled RPCs, Realtime invalidation |
 

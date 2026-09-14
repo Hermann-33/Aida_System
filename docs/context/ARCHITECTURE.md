@@ -16,7 +16,7 @@ flowchart LR
 
 AIDA is one product across `Hermann-33/Aida_System`, `Hermann-33/Aida_System-Dashboard`, and Supabase project `eswovqxqzfevcdwwcmuh`. Canonical executable migrations live only in `Hermann-33/Aida_System/supabase/migrations/`.
 
-## Trusted authority through the current Phase 5 boundary
+## Trusted authority through completed Phase 5
 
 Supabase/server owns authenticated identity, trusted application role/disabled state, membership identity, employee branch scope, branch/sales-point/terminal topology, terminal credential validity, shift state, cash reconciliation, tender/payment classification, catalogue/commercial pricing, persisted order state, privacy/account deletion, branch scheduling/capacity, inventory balances, recipes and stock depletion/reversal.
 
@@ -74,7 +74,7 @@ Customer branch selection is intent only and is server-validated. POS branch aut
 
 ## Phase 5 — inventory and recipes
 
-Phase 5 is the current implementation boundary.
+**Verdict:** `COMPLETE`
 
 Trusted chain:
 
@@ -111,9 +111,13 @@ Order placement remains final authority. Order-line and add-on insert triggers p
 
 ### Privileged mutation boundary
 
-Admin/Owner browser requests use the same-origin Dashboard BFF. Public inventory administration RPCs remain caller-bound `SECURITY INVOKER` wrappers that verify trusted role state. Narrow write implementations live in `private` `SECURITY DEFINER` helpers with empty search paths. Ordinary authenticated/anonymous roles have no direct inventory/recipe write grants.
+Admin/Owner browser requests use the same-origin Dashboard BFF. Public inventory administration RPCs are caller-bound `SECURITY INVOKER` wrappers. Guarded private `SECURITY DEFINER` helpers use empty search paths and independently re-check caller identity and Admin/Owner authorization before reaching lower-level writes. Unchecked private write helpers are not executable by authenticated/anonymous roles. Ordinary authenticated/anonymous roles have no direct inventory/recipe write grants.
 
 The Dashboard live Inventory page uses authoritative branch stock/recipe state, stock-movement RPCs and recipe mutation RPCs. Preview inventory data is not a production fallback.
+
+## Next architecture boundary
+
+Phase 6 will add server-authoritative loyalty, rewards and vouchers. It must preserve trusted member identity, append-only ledger/history and stable commercial snapshots. Promotions/discounts remain Phase 7 and cannot be folded into Phase 6 casually.
 
 ## Realtime and payment boundaries
 

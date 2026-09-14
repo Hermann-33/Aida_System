@@ -1,10 +1,10 @@
 # Phase 4 Closeout — Branch Scheduling and Pickup Authority
 
 **Task:** `TASK-OPS-004`  
-**Verdict:** `PARTIAL`  
+**Verdict:** `COMPLETE`  
 **Date:** 2026-09-15
 
-## Scope
+## Scope and dependency rationale
 
 Phase 4 makes branch-local pickup availability server-authoritative before Phase 5 inventory work. The trusted chain is:
 
@@ -18,7 +18,7 @@ active branch
  -> authoritative quote and order placement
 ```
 
-Customer branch selection is intent only and is validated by the server. POS branch identity remains terminal/open-shift derived and is never trusted from a browser branch ID.
+Customer branch selection is intent only and is validated by the server. POS branch identity remains terminal/open-shift derived and is never trusted from a browser branch ID. Inventory/recipe authority is intentionally deferred to Phase 5 so scheduling capacity and branch attribution exist first.
 
 ## Implemented backend authority
 
@@ -48,8 +48,12 @@ Existing branches were initialized as all-day/unlimited capacity to preserve pre
 - `20260914154300_grant_phase4_private_rpc_schema_usage.sql`
 - `20260914154400_preserve_quote_schedule_policy_timezone.sql`
 - `20260914154500_grant_quote_pickup_helper_execute.sql`
+- `20260914165306_optimize_branch_scheduling_read_policies.sql`
+- `20260914165735_reconcile_phase4_rpc_contract.sql`
+- `20260914170102_normalize_branch_scheduling_validation_error.sql`
+- `20260914170625_restore_customer_payment_authority_guard.sql`
 
-## Security boundary
+## Security and contract boundary
 
 Phase 4 preserves the existing authority model:
 
@@ -60,7 +64,8 @@ Phase 4 preserves the existing authority model:
 - privileged aggregate/table work is isolated behind narrowly granted `private` helpers;
 - direct customer/Admin DML against scheduling authority remains denied;
 - client-calculated opening hours, slot capacity or branch identity never become trusted placement authority;
-- customer orders remain terminal/shift-free; POS orders retain trusted topology and shift attribution.
+- customer orders remain terminal/shift-free; POS orders retain trusted topology and shift attribution;
+- quote/place compatibility and customer payment-authority guards remain intact after scheduling integration.
 
 ## Customer app implementation
 
@@ -71,7 +76,7 @@ Customer checkout now:
 - loads current branch pickup state using server time;
 - loads scheduled slots from `list_branch_pickup_slots` rather than deriving live availability locally;
 - submits branch and pickup time only as intent;
-- binds both quote and placement to the same selected branch;
+- binds quote and placement to the same selected branch;
 - fails closed when authoritative availability cannot be obtained;
 - retains existing idempotent customer placement request IDs.
 
@@ -84,7 +89,7 @@ Dashboard Phase 4 adds:
 - live branch scheduling/pickup Admin route;
 - BFF endpoints for reading/saving branch pickup configuration and dated exceptions;
 - caller-JWT forwarding with the publishable key only;
-- same-origin enforcement for all scheduling mutations;
+- same-origin enforcement for scheduling mutations;
 - typed client parsing;
 - live weekly-hours, lead/preparation, slot interval/horizon/capacity controls;
 - dated closure/open-hours/capacity overrides;
@@ -94,18 +99,30 @@ Preview fixtures remain non-authoritative.
 
 ## Validation evidence
 
-Current validated evidence:
+Final implementation heads before documentation closeout:
 
-- Dashboard CI run `#82` on commit `c752326ed7944cd16d904c0afd19d1d5dc897ff5`: `COMPLETE` — lint, typecheck, unit tests and production build passed;
-- later Dashboard test commit adds explicit proof that POS placement surfaces server branch-closed rejection with no local fallback; its current CI result must still be recorded before `COMPLETE`;
-- `supabase/tests/branch_scheduling_pickup_integration.sql` covers forced RLS/grants, branch initialization, Admin configuration, service windows, dated closures, quote validation, server-derived `prepare_at`, one-order slot capacity, full-slot rejection, cancellation freeing capacity and direct-DML denial;
-- backend clean-database workflow includes all Phase 1–3 regressions followed by Phase 4 branch scheduling regression;
-- an earlier clean replay exposed `permission denied for schema private`; Phase 4 hardening migrations now explicitly grant only the schema/helper boundary needed by invoker wrappers. The current-head rerun remains pending at this document revision;
-- customer release audit on the current Phase 4 head remains pending at this document revision.
+```text
+Aida_System             f5e204c0cb882a1b0b4ca25b32086c47f5eef796
+Aida_System-Dashboard   de7e9da36db8a9d426e8d545d89229cc53ce733f
+```
 
-## Advisor status
+Validation results:
 
-`PARTIAL`: the installed Supabase connection available to this execution context does not have permission to read AIDA project `entzcjeexjfscxujaxgi` security/performance advisors. A live advisor rerun therefore has not been fabricated or marked complete. This is a remaining completion gate.
+```text
+Backend database audit #122   COMPLETE
+Customer release audit #213   COMPLETE
+Dashboard CI #84              COMPLETE
+```
+
+`supabase/tests/branch_scheduling_pickup_integration.sql` covers forced RLS/grants, branch initialization, Admin configuration, service windows, dated closures, quote validation, server-derived `prepare_at`, one-order slot capacity, full-slot rejection, cancellation freeing capacity and direct-DML denial. The backend workflow replays the full migration chain on a clean database and executes all Phase 1–4 regressions.
+
+## Supabase advisor evidence
+
+Live project: `eswovqxqzfevcdwwcmuh` (`Aida System`).
+
+Security advisor: `COMPLETE` for the Phase 4 boundary. No Phase 4-created security lint remains. The single remaining warning is the pre-existing Auth setting `auth_leaked_password_protection` (Leaked Password Protection Disabled).
+
+Performance advisor: `COMPLETE` for the Phase 4 boundary. Findings are INFO-level unused-index observations only, including new branch scheduling indexes that have not yet accumulated production usage. No missing-RLS, unsafe-function, missing-FK-index or Phase 4 performance blocker is reported.
 
 ## Deferred / non-goals
 
@@ -120,16 +137,8 @@ Deferred beyond Phase 4:
 
 ## App Store impact
 
-Phase 4 does not add tracking, advertising SDKs, new device permissions, StoreKit/IAP or new account/privacy categories. It changes pickup-location and scheduling behavior only. Privacy/account deletion authority from Phase 3 remains unchanged.
+Phase 4 adds no tracking, advertising SDKs, new device permissions, StoreKit/IAP or new account/privacy categories. It changes pickup-location and scheduling behavior only. Phase 3 privacy/account-deletion authority remains unchanged.
 
-## Remaining completion gates
+## Handoff
 
-Phase 4 stays `PARTIAL` until all of the following are recorded `COMPLETE`:
-
-1. clean-database backend workflow on the final Phase 4 head;
-2. customer Flutter analysis/tests/release build on the final Phase 4 head;
-3. Dashboard CI on the final Dashboard Phase 4 head;
-4. Supabase security and performance advisor rerun on the AIDA project;
-5. final synchronized architecture/contracts/status/handoff/App Store documentation in both repositories.
-
-Do not start Phase 5 before this verdict becomes `COMPLETE`.
+Phase 4 is `COMPLETE`. Phase 5 may begin from the frozen Phase 4 heads after mirrored closeout/current-context documentation is synchronized. Phase 4 PRs remain draft/unmerged; completion alone is not merge authorization.

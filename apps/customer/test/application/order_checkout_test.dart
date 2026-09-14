@@ -12,7 +12,7 @@ void main() {
     items: [OrderSelectionLine(itemId: 'item-id', quantity: 1)],
   );
 
-  test('slots honor lead time, interval and horizon', () {
+  test('legacy slots honor lead time, interval and horizon', () {
     final slots = derivePickupSlots(
       TestOrderRepository.policy,
       maximumSlots: 500,
@@ -20,6 +20,26 @@ void main() {
     expect(slots.first, DateTime.utc(2026, 8, 13, 2, 30));
     expect(slots[1].difference(slots.first), const Duration(minutes: 15));
     expect(slots.last.isAfter(DateTime.utc(2026, 8, 15, 2)), isFalse);
+  });
+
+  test('branch-bound checkout sends branch intent to quote and placement', () async {
+    final repository = TestOrderRepository();
+    final session = OrderCheckoutSession(
+      repository,
+      createId: () => 'branch-request',
+    );
+
+    expect(
+      await session.quote(request, branchId: TestOrderRepository.pickupBranch.id),
+      isA<Ok<OrderQuote>>(),
+    );
+    expect(
+      await session.place(request, branchId: TestOrderRepository.pickupBranch.id),
+      isA<Ok<OrderSnapshot>>(),
+    );
+    expect(repository.quotedBranchIds, [TestOrderRepository.pickupBranch.id]);
+    expect(repository.placedBranchIds, [TestOrderRepository.pickupBranch.id]);
+    expect(repository.placedRequests.single.clientRequestId, 'branch-request');
   });
 
   test('ambiguous failure reuses id and success starts a new intent', () async {

@@ -165,6 +165,12 @@ class MockMemberRepository implements MemberRepository {
   }
 
   @override
+  Future<Result<void>> redeemReward(String rewardId) async {
+    await Future<void>.delayed(latency);
+    return const Ok(null);
+  }
+
+  @override
   Future<Result<List<Offer>>> getOffers() async {
     await Future<void>.delayed(latency);
     final now = DateTime.now();

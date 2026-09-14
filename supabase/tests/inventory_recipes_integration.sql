@@ -51,6 +51,7 @@ declare
   v_branch uuid;
   v_item uuid;
   v_variant uuid;
+  v_addon uuid;
   v_inventory jsonb;
   v_inventory_id uuid;
   v_recipe jsonb;
@@ -60,6 +61,7 @@ begin
   select id into strict v_branch from public.branches where is_default and is_active limit 1;
   select id into strict v_item from public.catalogue_items where sku='CF-LAT';
   select id into strict v_variant from public.catalogue_item_variants where item_id=v_item and code='medium';
+  select id into strict v_addon from public.catalogue_items where sku='AD-SHT';
 
   select public.save_inventory_item(jsonb_build_object('sku','P5-MILK','name','Phase 5 Milk','baseUnit','ml','isActive',true)) into v_inventory;
   v_inventory_id := (v_inventory->>'id')::uuid;
@@ -74,9 +76,17 @@ begin
     'components',jsonb_build_array(jsonb_build_object('inventoryItemId',v_inventory_id,'quantityMilli',100000))
   )) into v_recipe;
 
+  perform public.save_recipe(jsonb_build_object(
+    'itemId',v_addon,
+    'variantId',null,
+    'name','Phase 5 extra-shot recipe',
+    'isActive',true,
+    'components',jsonb_build_array(jsonb_build_object('inventoryItemId',v_inventory_id,'quantityMilli',50000))
+  ));
+
   select public.list_inventory_state(v_branch) into v_state;
-  if jsonb_array_length(v_state->'items') < 1 or jsonb_array_length(v_state->'recipes') < 1 then
-    raise exception 'inventory state did not expose configured stock/recipe to admin';
+  if jsonb_array_length(v_state->'items') < 1 or jsonb_array_length(v_state->'recipes') < 2 then
+    raise exception 'inventory state did not expose configured stock/recipes to admin';
   end if;
 
   begin
@@ -96,6 +106,7 @@ declare
   v_branch uuid;
   v_item uuid;
   v_variant uuid;
+  v_addon uuid;
   v_quote jsonb;
   v_order jsonb;
 begin
@@ -103,11 +114,12 @@ begin
   select id into strict v_branch from public.branches where is_default and is_active limit 1;
   select id into strict v_item from public.catalogue_items where sku='CF-LAT';
   select id into strict v_variant from public.catalogue_item_variants where item_id=v_item and code='medium';
+  select id into strict v_addon from public.catalogue_items where sku='AD-SHT';
 
   select public.quote_order(jsonb_build_object(
     'branchId',v_branch,
     'fulfillmentType','asap',
-    'items',jsonb_build_array(jsonb_build_object('itemId',v_item,'variantId',v_variant,'addOnIds','[]'::jsonb,'quantity',2))
+    'items',jsonb_build_array(jsonb_build_object('itemId',v_item,'variantId',v_variant,'addOnIds',jsonb_build_array(v_addon),'quantity',2))
   )) into v_quote;
   if not coalesce((v_quote->>'inventoryChecked')::boolean,false) then
     raise exception 'authoritative quote did not report inventory check';
@@ -117,7 +129,7 @@ begin
     'clientRequestId','55100000-0000-0000-0000-000000000001',
     'branchId',v_branch,
     'fulfillmentType','asap',
-    'items',jsonb_build_array(jsonb_build_object('itemId',v_item,'variantId',v_variant,'addOnIds','[]'::jsonb,'quantity',2))
+    'items',jsonb_build_array(jsonb_build_object('itemId',v_item,'variantId',v_variant,'addOnIds',jsonb_build_array(v_addon),'quantity',2))
   )) into v_order;
   if nullif(v_order->>'id','') is null then raise exception 'customer order did not return an id'; end if;
 
@@ -125,7 +137,7 @@ begin
     perform public.quote_order(jsonb_build_object(
       'branchId',v_branch,
       'fulfillmentType','asap',
-      'items',jsonb_build_array(jsonb_build_object('itemId',v_item,'variantId',v_variant,'addOnIds','[]'::jsonb,'quantity',4))
+      'items',jsonb_build_array(jsonb_build_object('itemId',v_item,'variantId',v_variant,'addOnIds',jsonb_build_array(v_addon),'quantity',2))
     ));
     raise exception 'insufficient inventory quote unexpectedly succeeded';
   exception when invalid_parameter_value then
@@ -148,21 +160,21 @@ begin
   select id into strict v_inventory_id from public.inventory_items where sku='P5-MILK';
 
   select on_hand_milli into strict v_balance from public.branch_inventory where branch_id=v_branch and inventory_item_id=v_inventory_id;
-  if v_balance <> 300000 then raise exception 'order consumption balance mismatch: %',v_balance; end if;
-  if (select count(*) from public.inventory_movements where order_id=v_order_id and movement_kind='order_consumption') <> 1 then
-    raise exception 'order consumption movement was not recorded exactly once';
+  if v_balance <> 200000 then raise exception 'order/add-on consumption balance mismatch: %',v_balance; end if;
+  if (select count(*) from public.inventory_movements where order_id=v_order_id and movement_kind='order_consumption') <> 2 then
+    raise exception 'base + add-on consumption movements were not recorded exactly once each';
   end if;
 
   update public.orders set status='cancelled', cancelled_at=now(), status_version=status_version+1, status_updated_at=now() where id=v_order_id;
 
   select on_hand_milli into strict v_balance from public.branch_inventory where branch_id=v_branch and inventory_item_id=v_inventory_id;
   if v_balance <> 500000 then raise exception 'cancellation did not restore inventory: %',v_balance; end if;
-  if (select count(*) from public.inventory_movements where order_id=v_order_id and movement_kind='order_reversal') <> 1 then
-    raise exception 'cancellation reversal was not recorded exactly once';
+  if (select count(*) from public.inventory_movements where order_id=v_order_id and movement_kind='order_reversal') <> 2 then
+    raise exception 'cancellation reversals were not recorded exactly once each';
   end if;
 
   update public.orders set status='cancelled' where id=v_order_id;
-  if (select count(*) from public.inventory_movements where order_id=v_order_id and movement_kind='order_reversal') <> 1 then
+  if (select count(*) from public.inventory_movements where order_id=v_order_id and movement_kind='order_reversal') <> 2 then
     raise exception 'repeated cancellation created duplicate inventory reversal';
   end if;
 end;

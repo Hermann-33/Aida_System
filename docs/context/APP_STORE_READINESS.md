@@ -1,8 +1,8 @@
 # Apple App Store Readiness Guardrails
 
 **Applies to:** AIDA customer iOS application and backend behavior exposed by it.  
-**Reviewed:** 2026-09-12  
-**Current implementation verdict:** Phase 3 privacy/account boundary `COMPLETE`; final App Store release gate remains later work.
+**Reviewed:** 2026-09-15  
+**Current implementation verdict:** Phases 1–4 `COMPLETE`; Phase 5 inventory/recipes `PARTIAL`; final App Store release gate remains later work.
 
 Official references must be re-checked before submission:
 
@@ -33,38 +33,50 @@ Shift/operator/cash reconciliation is staff operational data. Phase 2 adds only 
 
 **Verdict:** `COMPLETE`
 
-The known account-deletion/privacy implementation blocker is closed at the code/backend boundary.
-
 Delivered:
 
 - production whole-account deletion initiated from Settings;
-- deletion RPC accepts no target user ID and is caller-bound to `auth.uid()`;
+- caller-bound deletion RPC with no target user ID;
 - customer Auth/profile/member/student/preference identity deletion;
 - anonymized retention of legitimate transaction/audit facts;
 - customer/member/Auth IDs removed from retained customer orders;
-- customer-authored retained `order_lines.note` and `order_events.reason` scrubbed;
+- customer-authored retained order free text scrubbed;
 - POS/staff audit identity preserved;
 - privacy/notification preferences with marketing default-off;
 - Privacy Policy, Terms and Support surfaces;
-- signed-out access to legal/support information;
 - explicit public/guest versus authenticated feature split;
 - customer release and clean-database deletion/retention regressions.
 
-Implementation evidence:
-
-```text
-Aida_System head 10ca26a776994e59b76f8afbd7227e296270cd68
-Backend database audit #90   COMPLETE
-Customer release audit #182 COMPLETE
-```
-
 Detailed closeout: `docs/context/PHASE_3_CUSTOMER_PRIVACY_ACCOUNT_CLOSEOUT_2026-09-12.md`.
+
+## Phase 4 — branch scheduling and pickup authority
+
+**Verdict:** `COMPLETE`
+
+Phase 4 adds branch selection and pickup scheduling for physical café orders only. It adds no new customer identity category, tracking, advertising SDK, device permission, StoreKit/IAP or external payment processor. Branch/pickup intent is validated by server-owned branch policy and capacity. Detailed closeout: `docs/context/PHASE_4_BRANCH_SCHEDULING_PICKUP_CLOSEOUT_2026-09-15.md`.
+
+## Phase 5 — inventory and recipes
+
+**Verdict:** `PARTIAL`
+
+Phase 5 inventory items, branch stock balances, recipes, stock movements and depletion are operational business data. The customer app sends existing catalogue/quantity intent; it does not collect a new customer personal-data category or expose inventory administration.
+
+Current Phase 5 implementation introduces no:
+
+- tracking or advertising SDK;
+- camera/photo/location/contact/microphone/Bluetooth/calendar permission;
+- push-notification authorization request;
+- StoreKit/IAP path;
+- external payment processor;
+- new customer identity field.
+
+Inventory sufficiency may reject a physical-goods order at quote/placement. That is a commercial availability rule, not a new privacy permission or digital-goods purchase mechanism. Existing Phase 3 whole-account deletion remains unchanged because inventory and recipe records are not customer-owned personal data; retained order history remains anonymized under the Phase 3 contract.
+
+Phase 5 remains `PARTIAL` until its clean-database regression, customer release audit, Dashboard CI, final advisor pass and synchronized closeout are all green/current.
 
 ## iOS permission/data audit
 
-`docs/context/PHASE_3_IOS_DATA_PERMISSION_AUDIT.md` is `COMPLETE` for the Phase 3 code boundary.
-
-Phase 3 introduces no camera, photo-library, location, contacts, microphone, Bluetooth, calendar/reminder, tracking/ATT or notification authorization request. It adds no advertising/tracking SDK. Privacy preference state is not OS push permission and is not cross-app tracking consent.
+`docs/context/PHASE_3_IOS_DATA_PERMISSION_AUDIT.md` remains the current complete permission audit. Phases 4–5 add no protected iOS permission or tracking capability that would reopen it.
 
 `qr_flutter` renders the membership QR and does not justify a camera purpose string.
 
@@ -90,15 +102,15 @@ No anonymous Supabase user is created merely to represent a guest.
 
 - publishable/public Supabase configuration only in customer code;
 - no service-role/secret credential in Flutter/browser code;
-- trusted roles, prices, identifiers, commercial/operational/payment/privacy state validated server-side;
+- trusted roles, prices, identifiers, branch/scheduling/inventory/commercial/payment/privacy state validated server-side;
 - customer self-deletion is caller-bound and cannot target another user;
-- RLS/RPC authorization around personal data;
+- RLS/RPC authorization around personal data and privileged operational data;
 - preview fixtures are never production authority;
 - QR/member possession is not authentication.
 
 ## Remaining final release gate
 
-Phase 3 completion is not an App Store submission verdict. Before submission, the release candidate still requires:
+Implementation phase completion is not an App Store submission verdict. Before submission, the release candidate still requires:
 
 - operational public Privacy Policy and Support URLs matching the in-app disclosures;
 - App Privacy answers and privacy manifests reconciled against the complete release build and all linked SDK manifests;
@@ -109,4 +121,4 @@ Phase 3 completion is not an App Store submission verdict. Before submission, th
 
 ## Governance
 
-Phases 1–3 are `COMPLETE` but remain draft/unmerged. Implementation stops for `docs/context/PHASE_1_3_ASTRA_AUDIT_BOUNDARY_2026-09-12.md`, whose verdict remains `PARTIAL` until Astra review is executed/accepted. Do not begin Phase 4 before that boundary is resolved.
+The independent Phase 1–3 Codex audit may run in parallel with Phase 4–7 implementation under `docs/decisions/ADR-0013-parallel-audit-and-phase-4-7-implementation.md`. A valid blocking audit finding reopens the affected earlier phase. Completed phase PRs remain draft/unmerged unless explicitly authorized.

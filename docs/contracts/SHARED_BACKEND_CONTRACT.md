@@ -1,12 +1,12 @@
 # Shared Backend Contract
 
-Updated: 2026-09-12
+Updated: 2026-09-15
 
 ## Authority
 
 Supabase Auth/Postgres/FORCE-RLS plus controlled RPC/BFF operations are authoritative. Canonical executable Supabase migrations live only in `Hermann-33/Aida_System/supabase/migrations/`.
 
-Neither frontend is authority for authenticated identity, trusted role/disabled state, membership identity, employee branch scope, branch/sales-point/terminal identity, terminal credential validity, shift state, cash reconciliation, catalogue/pricing, order totals/status, tender/payment classification, privacy preferences or account-deletion/anonymization state.
+Neither frontend is authority for authenticated identity, trusted role/disabled state, membership identity, employee branch scope, branch/sales-point/terminal identity, terminal credential validity, shift/cash state, scheduling/capacity, catalogue/pricing, inventory/recipes/depletion, order totals/status, tender/payment classification, privacy preferences or account-deletion/anonymization state.
 
 Dashboard privileged flows remain behind the same-origin BFF with HttpOnly employee and terminal credentials and caller-JWT forwarding. No service-role secret or browser-readable reusable employee bearer token/terminal credential is used. Preview fixtures never become backend authority.
 
@@ -30,8 +30,6 @@ Customer order placement derives customer/member identity from `auth.uid()` plus
 
 ## Phase 1 operational topology contract
 
-Trusted chain:
-
 ```text
 branch -> sales point -> terminal -> employee branch scope -> POS attribution
 ```
@@ -40,106 +38,114 @@ A sales point belongs to one branch and a terminal to one sales point. Manager-i
 
 ## Phase 2 shift and cash contract
 
-Trusted chain:
-
 ```text
 terminal + employee -> shift -> POS order / cash ledger
 ```
 
-Contracts:
-
-- shift lifecycle `open | locked | closed` with optimistic versioning;
+- shift lifecycle is `open | locked | closed` with optimistic versioning;
 - one live open/locked shift per terminal and per operator;
-- opening float and cash movement amounts are integer sen;
+- opening float and cash movements use integer sen;
 - `cash_movements` is append-only;
-- expected cash = opening float + cash-in - cash-out + trusted cash-paid POS sales;
-- employee submits actual count; backend derives variance;
+- expected cash and closing variance are server-derived;
 - non-zero variance close requires Admin/Owner;
 - new POS placement requires the caller's matching open shift;
 - persisted `shift_id`, tender and payment state are protected from ordinary mutation;
 - Phase 2 tender classification is `cash | unpaid` only;
-- cash-paid cancellation remains blocked until trusted refund authority exists;
 - customer orders remain shift-free and unpaid.
 
 External processor capture, settlement and refunds are not implied by Phase 2.
 
 ## Phase 3 customer privacy/account contract
 
+`delete_own_account()` accepts no target user ID and remains caller-bound to `auth.uid()`. Before deleting Auth identity, the backend removes retained customer-authored order free text and anonymizes customer/member/Auth identity on retained customer transactions. Staff/POS audit identity and commercial facts remain. Privacy preferences are owner-bound; marketing defaults off. Existing JWTs cannot recover personalized state after profile/member ownership is removed.
+
+Customer app exposes in-app account deletion, privacy preferences, Privacy Policy, Terms and Support. Phase 3 introduces no tracking/advertising SDK, new protected-device permission or StoreKit/IAP path for physical café goods.
+
+## Phase 4 branch scheduling and pickup contract
+
+Trusted chain:
+
+```text
+active branch
+ -> branch timezone
+ -> weekly service windows / dated exceptions
+ -> ASAP or scheduled policy
+ -> lead/preparation time + horizon + slot interval
+ -> persisted slot capacity
+ -> authoritative quote / placement acceptance
+```
+
+Customer branch choice is intent only. Server validates active branch and branch-local schedule and derives `prepare_at`. Scheduled placement serializes branch+slot capacity before acceptance. POS branch remains terminal/open-shift derived. Public pickup/quote read boundaries are invoker-side; privileged aggregate work stays narrowly private. Dashboard Admin scheduling mutation stays behind the caller-JWT BFF.
+
+## Phase 5 inventory and recipes contract
+
+Phase 5 is the current implementation boundary.
+
 Trusted resources:
 
 ```text
-public.customer_privacy_preferences
-public.orders.customer_deleted_at
-public.get_my_privacy_preferences()
-public.save_my_privacy_preferences(boolean, boolean)
-public.delete_own_account()
+public.inventory_items
+public.branch_inventory
+public.inventory_movements
+public.recipes
+public.recipe_components
+public.save_inventory_item(jsonb)
+public.record_inventory_movement(...)
+public.save_recipe(jsonb)
+public.list_inventory_state(uuid)
 ```
 
-### Privacy preferences
+### Quantity and stock authority
 
-`customer_privacy_preferences` is FORCE-RLS protected and direct authenticated table grants are revoked. Public RPCs expose only the caller's preference record. Marketing notifications default off; transactional notifications default on. Preference state does not itself request OS notification permission or deliver notifications.
+Inventory quantities use integer milli-units. Each inventory item declares base unit `g`, `ml`, or `unit`. `branch_inventory` stores current non-negative branch balances. `inventory_movements` is append-only history for receiving, waste, adjustment, order consumption and cancellation reversal.
 
-### Whole-account deletion
+Clients never submit authoritative resulting stock. Admin/Owner submits movement intent; the backend atomically applies the delta and writes the movement record. Ordinary direct table writes are revoked.
 
-`delete_own_account()` accepts no target user ID. The public wrapper is `SECURITY INVOKER`. The private privileged helper is caller-bound to `auth.uid()`, requires a trusted customer profile, and cannot be used by staff/Admin to self-delete through the customer path.
+### Recipe authority
 
-Deletion remains available to a trusted customer profile even when disabled and does not depend on a healthy active member row.
+An active recipe maps a catalogue item, optionally one variant, to positive component quantities. Variant-specific active recipe takes precedence over the item default. A catalogue item/add-on with no active recipe is not inventory-controlled. Once a recipe is active, all its active components are required for orderability.
 
-Before deleting the Auth user, the backend:
+### Quote and placement
 
-1. identifies only the caller's customer orders;
-2. clears retained customer-authored `order_lines.note` and `order_events.reason`;
-3. performs the one permitted internal customer anonymization transition;
-4. nulls `customer_user_id`, `member_id` and customer `created_by_user_id`;
-5. sets `customer_deleted_at`;
-6. verifies retained order identity/free text no longer references the caller;
-7. deletes the caller from `auth.users`, cascading owned profile/member/student/preference/session state through existing FKs/ownership.
+Quote resolves the Phase 4 trusted branch then checks aggregate recipe requirements against current branch stock. Quote does not reserve inventory.
 
-No synthetic permanent deleted-customer Auth user is created.
+Placement is final authority. Order-line and add-on insertion consumes recipe stock transactionally through atomic non-negative updates. If any required component cannot be consumed, the whole order transaction fails. Concurrent placement cannot oversell the same final stock. Cancellation restores accepted consumption through exactly-once compensating movements without mutating historical consumption or commercial snapshots.
 
-Retained anonymized transaction/audit facts may include order number, catalogue snapshots, quantities, prices/totals/currency, fulfilment/status timestamps, branch/sales-point/terminal/shift attribution and tender/payment facts. POS/staff audit identity is preserved.
+### Privileged inventory administration
 
-Already-issued JWTs may remain cryptographically valid until expiry, so personalized RPCs continue requiring trusted current profile/member state. An anonymized retained order is no longer owned by the deleted subject.
+Public inventory Admin RPCs are caller-bound `SECURITY INVOKER` wrappers that require trusted Admin/Owner authorization. Narrow write implementations are private `SECURITY DEFINER` functions with empty search paths and explicit grants. Dashboard mutation routes enforce same-origin and forward the caller employee JWT with the publishable key only.
 
-## Scheduling and Realtime
+## Realtime and payment boundaries
 
-Scheduling policy, `prepareAt`, server time and schedule classification remain server-owned. Branch-specific opening hours/closures/capacity and explicit customer pickup branch are deferred.
+Customer Realtime is authorized invalidation followed by authoritative refetch. Dashboard privileged data does not expose employee bearer tokens for direct Realtime.
 
-Customer Realtime is authorized invalidation followed by authoritative refetch. Dashboard employee clients continue through same-origin BFF polling/refetch because the employee bearer token is HttpOnly.
+External payment capture/refunds/processor settlement remain deferred. Phase 2 cash/unpaid state is internal POS authority, not processor integration.
 
-## Customer app privacy/App Store contract
-
-The customer app exposes in-app whole-account deletion, privacy preferences, Privacy Policy, Terms and Support. Public/guest-capable catalogue and legal/support surfaces do not require unnecessary authentication. Membership identity/QR, profile mutation, customer order placement/history, student verification, account preferences and account deletion remain authenticated-only.
-
-Phase 3 adds no camera, photo-library, location, contacts, microphone, Bluetooth, calendar/reminder, ATT/tracking or notification authorization request and no tracking/advertising SDK. AIDA sells physical café goods, so StoreKit/IAP is not the payment path.
-
-## Security invariants through Phase 3
+## Security invariants through Phase 5
 
 - no authorization trusts customer-editable metadata or preview fixtures;
-- no direct client mutation of trusted topology/shift/cash/privacy tables where controlled RPC authority is required;
-- private definer helpers bind actor identity and expose minimal public wrappers;
-- customer self-deletion cannot target another user;
-- retained customer transactions lose stable customer/member/Auth identity;
-- retained customer-authored order free text is scrubbed on deletion;
-- staff/POS actor identity is not weakened by customer deletion;
 - no service-role/secret credential in Flutter/browser code;
-- employee JWT and terminal credential remain HttpOnly in Dashboard live flows.
+- employee JWT and terminal credential remain HttpOnly in Dashboard live flows;
+- no direct client mutation of trusted topology/shift/cash/scheduling/inventory/recipe tables where controlled authority is required;
+- branch/terminal/shift/scheduling/inventory/commercial facts are derived from server-owned state;
+- inventory depletion is transactionally non-negative and does not trust client stock calculations;
+- customer self-deletion cannot target another user;
+- retained customer transactions lose stable customer/member/Auth identity and customer-authored retained free text;
+- staff/POS actor identity and commercial history remain preserved.
 
 ## Validation and governance
 
-Phase 3 implementation head `10ca26a776994e59b76f8afbd7227e296270cd68` passed Backend database audit #90 and Customer release audit #182. Dashboard Phase 3 runtime is unchanged; pre-closeout Dashboard CI #66 passed. Full Phase 3 evidence is in `docs/context/PHASE_3_CUSTOMER_PRIVACY_ACCOUNT_CLOSEOUT_2026-09-12.md`.
+Phases 1–4 are `COMPLETE`. Phase 5 remains `PARTIAL` until its clean-database regression, customer release audit, Dashboard CI, final live advisor review and mirrored closeout/current-context documentation are all green/current.
 
-Phases 1–3 are `COMPLETE` but draft/unmerged. Implementation is stopped for `docs/context/PHASE_1_3_ASTRA_AUDIT_BOUNDARY_2026-09-12.md`, currently `PARTIAL` until Astra review is executed/accepted. Phase 4 is blocked.
+The independent Phase 1–3 Codex audit may run in parallel under ADR-0013. Any valid blocking finding reopens the affected earlier phase. Completed phase PRs remain draft/unmerged unless explicitly authorized.
 
 ## Deferred authority
 
-- branch hours/closures/capacity and explicit pickup branch;
-- inventory/recipes/depletion;
-- loyalty/rewards/vouchers;
-- promotions/discounts;
-- reporting/tax/accounting export;
-- external payment capture/refunds/processor settlement;
+- supplier purchasing, lot/expiry tracking, forecasting and automated procurement;
+- loyalty/rewards/vouchers — Phase 6;
+- promotions/discounts — Phase 7;
+- reporting/tax/accounting export — Phase 8;
+- external payment capture/refunds/processor settlement and deployment-heavy integrations;
 - employee Auth-user/credential lifecycle;
 - printer/KDS/payment-device integrations;
-- notification/marketing delivery provider;
-- delivery/deployment-heavy production infrastructure.
+- notification/marketing delivery provider.

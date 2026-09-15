@@ -63,22 +63,15 @@ begin
     ))
   ));
 
+  -- Use a stable public catalogue fixture for Phase 5. Looking the item back up
+  -- through public.recipes from a customer session is invalid because recipe
+  -- rows are intentionally admin-only under RLS.
   select ci.id into strict v_item
   from public.catalogue_items ci
-  where ci.kind='product'
+  where ci.sku='FD-SAN'
+    and ci.kind='product'
     and ci.is_published
-    and ci.is_available
-    and not ci.is_drink
-    and not exists (
-      select 1 from public.catalogue_item_variants v
-      where v.item_id=ci.id and v.is_available
-    )
-    and not exists (
-      select 1 from public.recipes r
-      where r.catalogue_item_id=ci.id and r.variant_id is null and r.is_active
-    )
-  order by ci.created_at,ci.id
-  limit 1;
+    and ci.is_available;
 
   select public.save_inventory_item(jsonb_build_object(
     'sku','P16-CONC-STOCK',

@@ -195,7 +195,9 @@ Future<void> _loadFonts() async {
 void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
-    goldenFileComparator = _RasterStableGoldenComparator(Platform.script);
+    goldenFileComparator = _RasterStableGoldenComparator(
+      Uri.file('${Directory.current.path}/test/golden/screens_golden_test.dart'),
+    );
     await _loadFonts();
   });
 

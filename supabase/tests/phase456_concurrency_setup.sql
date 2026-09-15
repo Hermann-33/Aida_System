@@ -134,10 +134,16 @@ set status='completed',
     status_version=status_version+1
 where client_request_id='77300000-0000-0000-0000-000000000001';
 
+-- Fixed ID is deliberate: authenticated contention sessions must not gain
+-- SELECT access to the RPC-only reward_catalogue table merely to discover the
+-- fixture row.
 insert into public.reward_catalogue(
-  code,name,reward_type,points_cost,fixed_amount_sen,expiry_days,is_points_redeemable,is_active
+  id,code,name,reward_type,points_cost,fixed_amount_sen,expiry_days,is_points_redeemable,is_active
 )
-values('P16_CONC_RM1','Phase 1-6 Concurrency RM1','fixed_amount',10,100,7,true,true);
+values(
+  '77500000-0000-0000-0000-000000000001',
+  'P16_CONC_RM1','Phase 1-6 Concurrency RM1','fixed_amount',10,100,7,true,true
+);
 
 do $$
 declare

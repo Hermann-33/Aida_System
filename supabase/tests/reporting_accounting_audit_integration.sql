@@ -73,6 +73,11 @@ select set_config(
   (select id::text from public.catalogue_items where sku='FD-SAN' and kind='product' limit 1),
   false
 );
+select set_config(
+  'test.phase8.inventory_item_id',
+  (select id::text from public.inventory_items where is_active order by sku,id limit 1),
+  false
+);
 
 -- Make the current default branch deterministic for an ASAP order regardless of
 -- CI wall-clock time. All changes are inside this transaction.
@@ -88,7 +93,6 @@ declare
   v_timezone text := current_setting('test.phase8.timezone');
   v_weekday integer := extract(dow from (now() at time zone v_timezone))::integer;
   v_config jsonb;
-  v_inventory_item record;
 begin
   perform set_config('request.jwt.claims',jsonb_build_object('sub',v_admin,'role','authenticated')::text,true);
 
@@ -125,19 +129,16 @@ begin
     'branchIds',jsonb_build_array(v_branch::text)
   ));
 
-  -- Use the Phase 5 authority itself to make stock ample. These receiving
-  -- movements are useful Phase 8 inventory/audit source facts and roll back.
-  for v_inventory_item in
-    select i.id from public.inventory_items i where i.is_active
-  loop
-    perform public.record_inventory_movement(
-      v_branch,
-      v_inventory_item.id,
-      1000000000,
-      'receiving',
-      'Phase 8 reporting regression stock'
-    );
-  end loop;
+  -- Resolve the inventory item before entering the authenticated role. Direct
+  -- inventory-item table reads are intentionally not the Admin write path.
+  -- The actual source fact is still authored through the Phase 5 movement RPC.
+  perform public.record_inventory_movement(
+    v_branch,
+    current_setting('test.phase8.inventory_item_id')::uuid,
+    1000000000,
+    'receiving',
+    'Phase 8 reporting regression stock'
+  );
 end;
 $$;
 reset role;

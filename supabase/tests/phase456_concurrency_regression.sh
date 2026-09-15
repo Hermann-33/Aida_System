@@ -98,7 +98,7 @@ select public.place_customer_order(jsonb_build_object(
   'branchId',(select id from public.branches where is_default and is_active limit 1),
   'fulfillmentType','asap',
   'items',jsonb_build_array(jsonb_build_object(
-    'itemId',(select item_id from public.recipes where name='Phase 1-6 concurrency recipe' and is_active limit 1),
+    'itemId',(select catalogue_item_id from public.recipes where name='Phase 1-6 concurrency recipe' and is_active limit 1),
     'addOnIds','[]'::jsonb,
     'quantity',1
   ))
@@ -116,7 +116,7 @@ select public.place_customer_order(jsonb_build_object(
   'branchId',(select id from public.branches where is_default and is_active limit 1),
   'fulfillmentType','asap',
   'items',jsonb_build_array(jsonb_build_object(
-    'itemId',(select item_id from public.recipes where name='Phase 1-6 concurrency recipe' and is_active limit 1),
+    'itemId',(select catalogue_item_id from public.recipes where name='Phase 1-6 concurrency recipe' and is_active limit 1),
     'addOnIds','[]'::jsonb,
     'quantity',1
   ))

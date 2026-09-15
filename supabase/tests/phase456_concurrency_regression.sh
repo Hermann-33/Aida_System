@@ -135,13 +135,15 @@ inventory_balance=$("${PSQL[@]}" -Atc "select bi.on_hand_milli from public.branc
 [[ "$inventory_orders" == "1" ]] || fail "Phase 5 final stock produced $inventory_orders accepted orders"
 [[ "$inventory_balance" == "0" ]] || fail "Phase 5 final stock balance is $inventory_balance instead of zero"
 
-# Phase 6a: exactly ten points and a ten-point reward. Both sessions redeem the
-# same member balance; FOR UPDATE must serialize them so only one can spend it.
+# Phase 6a: exactly ten points and a ten-point reward. The fixture reward has a
+# deterministic UUID so authenticated customer sessions invoke the public RPC
+# without gaining direct SELECT access to the RPC-only reward table. Both
+# sessions redeem the same balance; FOR UPDATE must serialize them.
 REDEEM_FIRST=$(cat <<'SQL'
 begin;
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"77000000-0000-0000-0000-000000000006","role":"authenticated"}',true);
-select public.redeem_my_reward((select id from public.reward_catalogue where code='P16_CONC_RM1'));
+select public.redeem_my_reward('77500000-0000-0000-0000-000000000001'::uuid);
 select pg_sleep(2);
 commit;
 SQL
@@ -150,21 +152,27 @@ REDEEM_SECOND=$(cat <<'SQL'
 begin;
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"77000000-0000-0000-0000-000000000006","role":"authenticated"}',true);
-select public.redeem_my_reward((select id from public.reward_catalogue where code='P16_CONC_RM1'));
+select public.redeem_my_reward('77500000-0000-0000-0000-000000000001'::uuid);
 commit;
 SQL
 )
 run_competing_sessions "phase6-points" "$REDEEM_FIRST" "$REDEEM_SECOND" 'insufficient loyalty points'
 
 redeem_count=$("${PSQL[@]}" -Atc "select count(*) from public.loyalty_point_ledger l join public.members m on m.id=l.member_id where m.user_id='77000000-0000-0000-0000-000000000006' and l.event_kind='redeem';")
-voucher_count=$("${PSQL[@]}" -Atc "select count(*) from public.member_vouchers mv join public.reward_catalogue r on r.id=mv.reward_id join public.members m on m.id=mv.member_id where r.code='P16_CONC_RM1' and m.user_id='77000000-0000-0000-0000-000000000006' and mv.status='active';")
+voucher_count=$("${PSQL[@]}" -Atc "select count(*) from public.member_vouchers mv join public.members m on m.id=mv.member_id where mv.reward_id='77500000-0000-0000-0000-000000000001' and m.user_id='77000000-0000-0000-0000-000000000006' and mv.status='active';")
 [[ "$redeem_count" == "1" ]] || fail "Phase 6 concurrent redemption wrote $redeem_count redemption ledger rows"
 [[ "$voucher_count" == "1" ]] || fail "Phase 6 concurrent redemption issued $voucher_count active vouchers"
+
+# Discover the server-issued voucher under the privileged test harness, then
+# pass only its opaque ID as customer intent. The competing authenticated
+# sessions never query member_vouchers/reward_catalogue directly.
+voucher_id=$("${PSQL[@]}" -Atc "select mv.id from public.member_vouchers mv join public.members m on m.id=mv.member_id where mv.reward_id='77500000-0000-0000-0000-000000000001' and m.user_id='77000000-0000-0000-0000-000000000006' and mv.status='active' limit 1;")
+[[ -n "$voucher_id" ]] || fail "Phase 6 redemption did not produce an active voucher ID"
 
 # Phase 6b: two orders compete to consume that one voucher. The winning
 # transaction holds the voucher row lock until after placement; the loser must
 # revalidate against the committed used state and fail.
-VOUCHER_FIRST=$(cat <<'SQL'
+VOUCHER_FIRST=$(cat <<SQL
 begin;
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"77000000-0000-0000-0000-000000000006","role":"authenticated"}',true);
@@ -172,7 +180,7 @@ select public.place_customer_order(jsonb_build_object(
   'clientRequestId','77400000-0000-0000-0000-000000000001',
   'branchId',(select id from public.branches where is_default and is_active limit 1),
   'fulfillmentType','asap',
-  'voucherId',(select mv.id from public.member_vouchers mv join public.reward_catalogue r on r.id=mv.reward_id join public.members m on m.id=mv.member_id where r.code='P16_CONC_RM1' and m.user_id='77000000-0000-0000-0000-000000000006' and mv.status='active' limit 1),
+  'voucherId','$voucher_id',
   'items',jsonb_build_array(jsonb_build_object(
     'itemId',(select id from public.catalogue_items where sku='CF-LAT'),
     'variantId',(select v.id from public.catalogue_item_variants v join public.catalogue_items i on i.id=v.item_id where i.sku='CF-LAT' and v.code='medium'),
@@ -184,7 +192,7 @@ select pg_sleep(2);
 commit;
 SQL
 )
-VOUCHER_SECOND=$(cat <<'SQL'
+VOUCHER_SECOND=$(cat <<SQL
 begin;
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"77000000-0000-0000-0000-000000000006","role":"authenticated"}',true);
@@ -192,7 +200,7 @@ select public.place_customer_order(jsonb_build_object(
   'clientRequestId','77400000-0000-0000-0000-000000000002',
   'branchId',(select id from public.branches where is_default and is_active limit 1),
   'fulfillmentType','asap',
-  'voucherId',(select mv.id from public.member_vouchers mv join public.reward_catalogue r on r.id=mv.reward_id join public.members m on m.id=mv.member_id where r.code='P16_CONC_RM1' and m.user_id='77000000-0000-0000-0000-000000000006' limit 1),
+  'voucherId','$voucher_id',
   'items',jsonb_build_array(jsonb_build_object(
     'itemId',(select id from public.catalogue_items where sku='CF-LAT'),
     'variantId',(select v.id from public.catalogue_item_variants v join public.catalogue_items i on i.id=v.item_id where i.sku='CF-LAT' and v.code='medium'),

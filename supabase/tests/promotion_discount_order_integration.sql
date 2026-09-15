@@ -138,7 +138,7 @@ begin
      or (v_order->>'voucherDiscountSen')::bigint<>0
      or (v_order->>'totalSen')::bigint<>1061
      or jsonb_array_length(v_order->'promotions')<>2
-     or v_order->'voucher' is not null then
+     or coalesce(v_order->'voucher','null'::jsonb) <> 'null'::jsonb then
     raise exception 'accepted promotion order snapshot is incorrect: %',v_order;
   end if;
 

@@ -1,8 +1,8 @@
 # AIDA Backend Completion Phases
 
-**Status:** Phases 1–7 `COMPLETE`; Phase 8–10 frozen  
+**Status:** Phases 1–7 `COMPLETE`; Phase 8 `PARTIAL`; Phase 9–10 frozen  
 **Started:** 2026-09-10  
-**Updated:** 2026-09-15
+**Updated:** 2026-09-16
 
 ## Completion rule
 
@@ -18,35 +18,28 @@ A phase is `COMPLETE` only when implementation, canonical migrations, authorizat
 | 4 — Branch scheduling/pickup | `TASK-OPS-004` | `COMPLETE` | Phase 4 closeout + true contention regression |
 | 5 — Inventory and recipes | `TASK-OPS-005` | `COMPLETE` | Phase 5 closeout + true contention regression |
 | 6 — Loyalty, rewards and vouchers | `TASK-OPS-006` | `COMPLETE` | Phase 6 closeout + strict clients + true contention regression |
-| 7 — Promotions and discounts | `TASK-OPS-007` | `COMPLETE` | Phase 7 closeout + repository CI + live AIDA deployment/advisors |
+| 7 — Promotions and discounts | `TASK-OPS-007` | `COMPLETE` | Phase 7 closeout + exact-head repository CI + live AIDA deployment/advisors |
+| 8 — Reporting, accounting and audit | `TASK-OPS-008` | `PARTIAL` | Active implementation; plan dated 2026-09-16 |
 
-## Phase 7 validated implementation boundary
-
-```text
-Aida_System             c6abf24b498edb401af878f86d26e1c63a633121
-Aida_System-Dashboard   7e14326253b263412da5fa38f47bb137c31d7379
-Backend database audit #231   COMPLETE
-Customer release audit #311   COMPLETE
-Dashboard CI #147             COMPLETE
-```
-
-Canonical migrations:
+## Phase 7 final closure baseline
 
 ```text
-20260915100000_create_promotion_discount_authority.sql
-20260915101000_integrate_promotions_with_order_authority.sql
-20260915101100_normalize_phase7_nullable_voucher_quote.sql
+Aida_System             8f37d838fc4659a1e1d3a5dcae43887a796ca2be
+Aida_System-Dashboard   c70fc8cd39f447eb68a0470e657d121db5c0f90f
+Backend database audit #234   COMPLETE
+Customer release audit #314   COMPLETE
+Dashboard CI #149             COMPLETE
 ```
 
-Live AIDA migration-history mapping:
+## Phase 8 boundary
 
-```text
-20260915120917_create_promotion_discount_authority
-20260915121057_integrate_promotions_with_order_authority
-20260915121119_normalize_phase7_nullable_voucher_quote
-```
+Phase 8 builds read-only operational reporting and audit projections from authoritative Phase 1–7 source facts. It does not create a second mutation authority.
 
-Live project `eswovqxqzfevcdwwcmuh` is `ACTIVE_HEALTHY`. Phase 7 tables were verified with RLS + FORCE RLS and no direct anon/authenticated CRUD grants. Fresh security advisors added only expected INFO RPC-only RLS/no-policy findings; the sole WARN remains the pre-existing leaked-password-protection setting. Fresh performance advisors contain INFO unused-index findings only.
+In scope: sales/order reporting, voucher/promotion discount reconciliation, shift/cash reporting, loyalty activity, inventory movements, transaction detail, branch/timezone scope and source-backed audit projections.
+
+Out of scope unless already represented by a trusted fact: statutory tax/accounting treatment, general ledger, financial statements, profit/COGS without historical cost basis, processor refunds/capture/settlement, bank reconciliation and external accounting integrations.
+
+The detailed completion boundary is `docs/context/PHASE_8_REPORTING_ACCOUNTING_AUDIT_PLAN_2026-09-16.md`.
 
 ## Dependency chain
 
@@ -58,13 +51,13 @@ Phase 1 COMPLETE
  -> Phase 5 COMPLETE
  -> Phase 6 COMPLETE
  -> Phase 7 COMPLETE
- -X-> Phase 8 FROZEN pending explicit owner authorization
+ -> Phase 8 PARTIAL
+ -X-> Phase 9 FROZEN pending Phase 8 audit/authorization
 ```
 
 ## Later phases
 
-- Phase 8 — reporting, accounting and audit — `FROZEN`
 - Phase 9 — payments, refunds and external integrations — `FROZEN`
 - Phase 10 — App Store release gate — `FROZEN`
 
-Do not begin Phase 8, resume a later-phase scheduler or merge Phase 7 PRs without explicit owner authorization.
+Do not begin Phase 9 or merge Phase 7/8 PRs without explicit owner authorization.

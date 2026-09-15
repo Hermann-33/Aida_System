@@ -1,8 +1,8 @@
 # Active Context
 
-**As of:** 2026-09-15  
-**Current boundary:** Phase 7 — promotions and discounts  
-**Current verdict:** `COMPLETE` against the defined Phase 7 implementation, live-deployment, advisor and documentation boundary. Phase 8–10 remain frozen until explicit owner authorization.
+**As of:** 2026-09-16  
+**Current boundary:** Phase 8 — reporting, accounting and audit  
+**Current verdict:** `PARTIAL` — active implementation. Phase 7 is `COMPLETE`; Phase 9–10 remain frozen.
 
 ## Product topology
 
@@ -11,7 +11,7 @@
 - shared Supabase project: `Aida System`, ref `eswovqxqzfevcdwwcmuh`, region `ap-southeast-1`
 - canonical executable migrations: `Hermann-33/Aida_System/supabase/migrations/` only
 
-## Authority completed through Phase 7
+## Completed authority through Phase 7
 
 ```text
 Phase 1 COMPLETE  branch -> sales point -> terminal -> employee branch scope -> POS attribution
@@ -21,66 +21,65 @@ Phase 4 COMPLETE  branch calendar/policy -> pickup capacity -> authoritative quo
 Phase 5 COMPLETE  recipe -> branch inventory -> transactional depletion/reversal
 Phase 6 COMPLETE  member -> loyalty -> reward/voucher -> authoritative voucher discount/consumption
 Phase 7 COMPLETE  promotion config -> server evaluation -> locked placement -> immutable promotion snapshots
+Phase 8 PARTIAL   trusted Phase 1–7 facts -> read-only operational reports/audit projections
 ```
 
-Phase 7 keeps commercial authority on the server. Clients do not submit accepted promotion IDs, promotion discounts or totals. Active promotions are resolved from trusted configuration with branch/product/variant/add-on scope, windows, subtotal thresholds, member rules, usage limits, stacking and voucher-coexistence policy.
-
-Accepted orders expose distinct `voucherDiscountSen` and `promotionDiscountSen` components that reconcile to `discountSen`. Placement serializes candidate promotion configuration/usage, and accepted promotion applications persist immutable commercial snapshots.
-
-Dashboard promotion management remains behind the same-origin HttpOnly employee session/BFF and caller-JWT forwarding. Flutter and POS parse promotion authority fail-closed. Preview mode makes no privileged promotion requests.
-
-## Validated implementation heads
+## Phase 7 closure baseline
 
 ```text
-Aida_System             c6abf24b498edb401af878f86d26e1c63a633121
-Aida_System-Dashboard   7e14326253b263412da5fa38f47bb137c31d7379
-Backend database audit #231   COMPLETE
-Customer release audit #311   COMPLETE
-Dashboard CI #147             COMPLETE
+Aida_System             8f37d838fc4659a1e1d3a5dcae43887a796ca2be
+Aida_System-Dashboard   c70fc8cd39f447eb68a0470e657d121db5c0f90f
+Backend database audit #234   COMPLETE
+Customer release audit #314   COMPLETE
+Dashboard CI #149             COMPLETE
 ```
 
-## Live Phase 7 deployment
+The Phase 7 live promotion deployment remains valid. Do not rewrite its migration-service timestamps to match canonical repository filenames.
 
-Canonical repository migrations:
+## Phase 8 authority boundary
+
+Phase 8 replaces fixture-derived production reports with source-backed operational reporting and reconciliation. It must remain read-only with respect to Phase 1–7 authority.
+
+Trusted report inputs include accepted order/commercial snapshots, order events, topology attribution, shift/cash ledgers, loyalty ledgers/application snapshots, promotion applications and inventory movement ledgers.
+
+Production reports must not invent:
+
+- tax/VAT/SST or statutory accounting treatment;
+- general-ledger entries or financial statements;
+- profit/COGS without trusted historical cost basis;
+- processor capture/refund/settlement truth before Phase 9;
+- synthetic production trends, fake refund reasons or fixture payment facts.
+
+Branch/time reporting must use authoritative scope and timezone semantics. Customer PII is not part of the reporting contract unless explicitly necessary and authorized.
+
+## Dashboard boundary
+
+The current production-reporting targets are:
+
+- `AdminOverviewPage`;
+- `AdminSalesPerformancePage`;
+- `AdminTransactionsPage`;
+- `AdminAuditPage`.
+
+Outside preview mode these pages must move to same-origin BFF reporting endpoints forwarding the caller JWT to narrow Supabase reporting RPCs. Preview remains fixture-only and must not contact privileged reporting endpoints.
+
+## Phase 8 branch state
 
 ```text
-20260915100000_create_promotion_discount_authority.sql
-20260915101000_integrate_promotions_with_order_authority.sql
-20260915101100_normalize_phase7_nullable_voucher_quote.sql
+Aida_System             codex/phase-8-reporting-accounting-audit
+Aida_System-Dashboard   codex/phase-8-reporting-accounting-audit
 ```
 
-Live Supabase applied-history entries created by the migration service on 2026-09-15:
+Phase 8 implementation starts from the exact Phase 7 closure heads above.
 
-```text
-20260915120917_create_promotion_discount_authority
-20260915121057_integrate_promotions_with_order_authority
-20260915121119_normalize_phase7_nullable_voucher_quote
-```
+## Live backend rule
 
-These live timestamps map to the three canonical repository files above. Do not rewrite already-applied live migration history merely to match repository filename timestamps.
+No Phase 8 migration is considered deployed merely because it exists in the repository. Deploy only after local/CI regression coverage is green, then verify live migration history, grants/schema and fresh Supabase security/performance advisors.
 
-Live verification after deployment:
+## PR / merge governance
 
-- project `eswovqxqzfevcdwwcmuh`: `ACTIVE_HEALTHY`;
-- all six promotion tables: RLS enabled + FORCE RLS;
-- no direct `anon` or `authenticated` CRUD grants on promotion tables;
-- Admin promotion, quote and placement RPCs/functions present with intended execute grants;
-- retired Phase 6 pending-voucher trigger absent;
-- no production promotions or promotion applications were inserted during deployment verification;
-- fresh security advisor: Phase 7 tables appear only as expected INFO `rls_enabled_no_policy`; sole WARN remains the pre-existing leaked-password-protection Auth setting;
-- fresh performance advisor: INFO unused-index findings only; no blocking performance lint.
+Phase 7 PRs remain draft/unmerged. Phase 8 work also remains draft/unmerged until explicitly authorized. Completion of Phase 8 does not authorize merge or Phase 9.
 
-The database connector itself runs as `supabase_read_only_user` and cannot impersonate the app `anon` role, so a direct end-user RPC call was not made through that connector. Repository SQL/E2E gates validate the runtime RPC behavior; live verification validated deployment history, schema, grants and advisors without creating production order/test data.
+## Next action
 
-## PR boundaries
-
-```text
-Aida_System             draft PR #27
-Aida_System-Dashboard   draft PR #24
-```
-
-Both remain draft/unmerged. Phase completion does not authorize merge.
-
-## Next phase rule
-
-Phase 8–10 remain frozen. Do not begin Phase 8 or resume a later-phase scheduler unless the owner explicitly authorizes continuation.
+Implement the Phase 8 read-only reporting/audit RPC contract and blocking SQL regression coverage first. Only after that contract is green should Dashboard production reporting pages be wired to it.

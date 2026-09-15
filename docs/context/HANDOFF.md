@@ -6,6 +6,17 @@ Updated: 2026-09-15
 
 Phases 1–6 are `COMPLETE`. Phase 7 promotions/discounts is next in dependency order and has not been started.
 
+## Codex audit prompt routing
+
+AIDA uses two separate Codex working directories/repositories. For every future Codex audit request, always provide **two separate prompts** unless the owner explicitly asks for a combined prompt:
+
+```text
+Aida_System             — app/backend audit prompt
+Aida_System-Dashboard   — Dashboard/Admin/POS audit prompt
+```
+
+The persistent rule and scope split are documented in `docs/context/CODEX_AUDIT_WORKFLOW.md`.
+
 ## Final Phase 6 implementation heads
 
 ```text

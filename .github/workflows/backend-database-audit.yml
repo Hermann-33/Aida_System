@@ -127,6 +127,9 @@ jobs:
           -v ON_ERROR_STOP=1
           -f supabase/tests/pos_loyalty_lookup_contract.sql
 
+      - name: Phase 4-6 true contention regression
+        run: bash supabase/tests/phase456_concurrency_regression.sh
+
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup

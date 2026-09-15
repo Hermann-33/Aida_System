@@ -55,7 +55,6 @@ jobs:
 
       - name: Golden regression suite
         id: goldens
-        continue-on-error: true
         run: flutter test test/golden/screens_golden_test.dart
 
       - name: Upload golden failure evidence

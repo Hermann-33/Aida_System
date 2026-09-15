@@ -1,70 +1,144 @@
 # AIDA Café Project Brief
 
-Updated: 2026-08-17
+Updated: 2026-09-15
 
 ## Product purpose
 
 AIDA Café is the customer ordering, membership and café-operations system for City University Malaysia. It combines a Flutter customer application and a React Dashboard/Admin/POS over one authoritative Supabase backend.
 
-## Current implemented tranche
+## Repositories and backend
+
+```text
+Customer/backend
+  Hermann-33/Aida_System
+  default: master
+
+Dashboard/Admin/POS
+  Hermann-33/Aida_System-Dashboard
+  default: main
+
+Shared backend
+  Supabase project: Aida System
+  ref: eswovqxqzfevcdwwcmuh
+```
+
+Canonical executable Supabase migrations live only in `Hermann-33/Aida_System/supabase/migrations/`.
+
+## Current trusted product tranche
+
+Phases 1–5 are individually `COMPLETE`. Phase 6 loyalty/rewards/vouchers is the current `PARTIAL` boundary.
 
 ### Customer application
 
-Repository: `Hermann-33/Aida_System`.
+Implemented authority/integration includes:
 
-Implemented and validated:
-
-- Supabase Auth/session/signup/logout and trusted customer profile/member provisioning;
-- server-generated member code and minimum per-user offline member-code cache;
-- shared database-backed catalogue with variants/add-ons and revision invalidation/refetch;
+- Supabase Auth/session/signup/logout and trusted member provisioning;
+- server-generated member identity/code;
+- database-backed catalogue with variants, drink options and compatible add-ons;
 - authoritative quote and idempotent customer order placement;
-- ASAP/scheduled pickup from server policy;
-- explicit Pay-at-counter/unpaid order semantics;
-- persisted order history/detail/status and owner-scoped Realtime-triggered refetch;
-- Android production Internet permission and reproducible release packaging from committed Git.
+- explicit validated pickup branch selection;
+- branch-local ASAP/scheduled pickup availability and server-derived preparation timing;
+- persisted order history/detail/status;
+- owner-scoped Realtime invalidation/refetch;
+- in-app privacy preferences and caller-bound whole-account deletion;
+- explicit pay-at-counter/unpaid semantics;
+- reproducible Android release validation.
 
-Physical Android validation proved signup/member provisioning and Dashboard catalogue mutation propagation to the installed app.
+Customer clients submit identity-independent selection/fulfilment intent only. Catalogue compatibility, prices/totals, branch/schedule acceptance, inventory sufficiency, order identity/status and persisted commercial facts remain server-owned.
 
 ### Dashboard/Admin/POS
 
-Repository: `Hermann-33/Aida_System-Dashboard`.
-
-Implemented and validated:
+Implemented authority/integration includes:
 
 - same-origin employee/Admin BFF with HttpOnly session cookies;
-- trusted role/disabled-state authorization;
-- protected Admin Members;
-- shared catalogue POS reads and protected Admin catalogue mutation;
-- TASK-AUTH-005 preview/live session separation;
-- authoritative POS quote/place using the existing order BFF;
-- server-policy ASAP/scheduled pickup;
-- stable placement idempotency;
-- explicit Pay-at-counter/unpaid semantics;
-- live polled order queue with no preview-order fallback;
-- legal versioned fulfilment transitions and stale-version refetch.
+- trusted role/disabled-state and employee branch authorization;
+- protected Admin catalogue/member operations;
+- trusted branch/sales-point/terminal management;
+- one-time terminal enrolment/revocation with HttpOnly terminal credential storage;
+- live POS placement bound to trusted terminal + employee + open-shift authority;
+- immutable topology/shift/tender/payment POS attribution;
+- trusted shift open/lock/resume/close and append-only cash movements;
+- server-derived expected cash and variance approval boundary;
+- branch scheduling/service-window/exception/capacity administration;
+- live inventory and recipe administration;
+- receiving/waste/manual-adjustment stock movements behind trusted RPCs;
+- shared live order queue and optimistic fulfilment transitions.
 
-### Shared backend
+Explicit UI Preview remains fixture-backed for demonstrations only and is never trusted backend authority or live fallback.
 
-Supabase project **Aida System**, ref `eswovqxqzfevcdwwcmuh`.
+### Shared backend authority through Phase 5
 
-Implemented authority includes Auth/profile/member, catalogue, quote/order, scheduling, immutable order snapshots, idempotency, fulfilment transitions/events, RLS/FORCE RLS, controlled RPCs and Realtime signals. Canonical executable migrations live in the customer repository.
+```text
+Phase 1: branch -> sales point -> terminal -> employee branch scope -> POS attribution
+Phase 2: terminal + employee -> shift -> POS order / cash ledger
+Phase 3: customer identity -> privacy/account deletion -> anonymized retained history
+Phase 4: branch -> local service calendar -> pickup policy -> slot capacity -> order acceptance
+Phase 5: catalogue -> recipe -> branch stock -> transactional depletion/reversal
+```
 
-## Current closeout status
+Supabase owns the corresponding trusted identity, authorization, operational, commercial, privacy, scheduling and inventory facts. Money remains integer sen; inventory quantities use integer milli-units. Historical accepted commercial facts are not rewritten by later configuration changes.
 
-`TASK-CLOSEOUT-001` is **COMPLETE** for implementation and applicable ADR-0004 validation.
+## Validation boundary
 
-The final live proof on 2026-08-17 placed customer order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`) at an authoritative total of 1,290 sen. The Dashboard observed the exact record and persisted `confirmed` v1 → `preparing` v2 → `ready` v3 → `completed` v4. Customer-authorized reads observed every persisted transition. Independent database verification confirms the completed order and event sequence.
+Latest completed phase evidence:
 
-Customer PR #13 and Dashboard PR #12 are independently verified mergeable. Final coordinated merge is repository housekeeping, not an implementation blocker.
+```text
+Phase 5 backend implementation head      2b26bc531e2f03c1af1f31e5e51a8b529111fc04
+Phase 5 dashboard implementation head    2f6128c40fe0b9778f193c43681ad0b6bbf47653
+Backend database audit #138              COMPLETE
+Customer release audit #229              COMPLETE
+Dashboard CI #99                         COMPLETE
+Supabase security advisor                COMPLETE for Phase 5
+Supabase performance advisor             COMPLETE for Phase 5
+```
+
+Detailed evidence: `docs/context/PHASE_5_INVENTORY_RECIPES_CLOSEOUT_2026-09-15.md`.
+
+## Current Phase 6 boundary
+
+Phase 6 replaces preview/client loyalty state with server-authoritative:
+
+- append-only points/stamp earning history;
+- server-derived loyalty balances;
+- reward catalogue and point-cost authority;
+- atomic points redemption;
+- customer-owned voucher issuance/expiry/status;
+- trusted voucher quote/application/consumption;
+- stable applied-voucher commercial snapshots;
+- live Admin/Owner loyalty/reward support controls through the existing BFF.
+
+Plan: `docs/context/PHASE_6_LOYALTY_REWARDS_VOUCHERS_PLAN.md`.
+
+Phase 7 promotions/discounts may not begin until Phase 6 is `COMPLETE`.
 
 ## Trust rule
 
-Clients may stage interaction and selection intent, but never authorize identity, roles, member codes, prices, totals, order numbers/status, payment state, loyalty value, inventory or reporting truth. Dashboard privileged calls stay behind the same-origin BFF; customer Flutter uses public client configuration and customer-scoped backend authority.
+Clients may stage interaction and intent but never authorize or calculate trusted:
 
-## Deferred scope
+- identity/roles/branch scope;
+- member codes or customer ownership;
+- branch/sales-point/terminal/shift identity;
+- terminal credential state;
+- catalogue price/modifier validity;
+- branch scheduling/capacity acceptance;
+- inventory balances/recipes/depletion;
+- order totals/numbers/status;
+- payment settlement/refunds;
+- loyalty balances/reward cost/voucher validity;
+- promotions/discounts;
+- reporting/accounting truth.
 
-Real payment/refunds, loyalty ledger/redemption, inventory, promotions/discount authority, tax/accounting, trusted reporting, branch-scoped operations/capacity, delivery and hosted production deployment/release operations remain future bounded tasks.
+Dashboard privileged operations stay behind the same-origin BFF with caller-JWT forwarding. Customer Flutter uses public/publishable configuration and caller-bound customer authority. No service-role secret or browser-readable reusable employee bearer/terminal credential is permitted.
 
-## Success criteria
+## Deferred
 
-AIDA succeeds when role-appropriate users complete their flows against one trusted backend with consistent IDs/state transitions, server-authoritative value calculations, secure ownership/role access, reproducible migrations/builds, cross-client integration evidence and current mirrored documentation. The current tranche meets those criteria for its defined scope.
+- promotions/discounts — Phase 7;
+- tax/accounting/reporting — Phase 8;
+- payment capture/refunds/external settlement and deployment-heavy integrations;
+- supplier purchasing, lot/expiry, forecasting and automated procurement;
+- employee Auth-user provisioning/credential lifecycle;
+- printer/KDS/payment-device integrations;
+- delivery and hosted production/release operations;
+- final release-store operational submission gate.
+
+Under ADR-0013, the owner-directed independent Phase 1–3 Codex audit may run in parallel with Phases 4–7. A valid blocking finding reopens the affected earlier phase. Completion never authorizes automatic PR merge.

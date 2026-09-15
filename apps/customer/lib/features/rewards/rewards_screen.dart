@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/providers.dart';
+import '../../core/error/result.dart';
 import '../../core/theme/aida_colors.dart';
 import '../../core/theme/aida_theme.dart';
 import '../../core/theme/aida_type.dart';
@@ -14,16 +15,9 @@ import '../../domain/model/voucher.dart';
 import 'widgets/earned_rewards_list.dart';
 import 'widgets/reward_ticket_card.dart';
 
-/// Rewards tab — earned voucher wallet + points catalogue. PRD CUS-06 / CUS-07.
-///
-/// Layout mirrors the Starbucks earned-rewards ticket list the client shared,
-/// recolored to the Rose palette (§19.3): cream page, white tickets, coffee
-/// actions, espresso reward badge with gold star.
-///
-/// "Apply" on an earned voucher is a request to present at the counter —
-/// staff still consume the entitlement (CUS-07). "Redeem" on a catalogue
-/// tier converts points → voucher; that call is not wired yet, so the button
-/// says so honestly rather than pretending the points moved.
+/// Rewards tab backed entirely by the caller-bound Phase 6 loyalty authority.
+/// Point redemption is atomic on the server and returns only after a voucher
+/// has been issued. The client never computes or persists a resulting balance.
 class RewardsScreen extends ConsumerStatefulWidget {
   const RewardsScreen({super.key});
 
@@ -36,6 +30,7 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
   final _viewportKey = GlobalKey();
   final _earnedKey = GlobalKey();
   final _catalogueKey = GlobalKey();
+  final Set<String> _redeeming = <String>{};
 
   @override
   void dispose() {
@@ -54,8 +49,24 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
     );
   }
 
-  void _snack(String message) {
-    AidaPopup.show(context, title: message);
+  void _snack(String message) => AidaPopup.show(context, title: message);
+
+  Future<void> _redeem(Reward reward) async {
+    if (_redeeming.contains(reward.id)) return;
+    setState(() => _redeeming.add(reward.id));
+    final result = await ref.read(loyaltyRepositoryProvider).redeemReward(reward.id);
+    if (!mounted) return;
+    setState(() => _redeeming.remove(reward.id));
+    switch (result) {
+      case Ok<void>():
+        ref.invalidate(pointsProvider);
+        ref.invalidate(rewardsProvider);
+        ref.invalidate(vouchersProvider);
+        ref.invalidate(stampCardProvider);
+        _snack('${reward.name} added to your vouchers.');
+      case Err<void>(failure: final failure):
+        _snack(failure.message);
+    }
   }
 
   void _showDetails({required String title, required String body}) {
@@ -65,64 +76,43 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AidaColors.latte,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AidaColors.latte,
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const SizedBox(height: 20),
-              Text(
-                title,
-                style: AidaType.serif(size: 22, color: AidaColors.textPrimary),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                body,
-                style: AidaType.sans(
-                  size: 14,
-                  color: AidaColors.textMuted,
-                  height: 1.45,
+            ),
+            const SizedBox(height: 20),
+            Text(title, style: AidaType.serif(size: 22, color: AidaColors.textPrimary)),
+            const SizedBox(height: 10),
+            Text(body, style: AidaType.sans(size: 14, color: AidaColors.textMuted, height: 1.45)),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AidaColors.coffee,
+                  foregroundColor: AidaColors.cardWhite,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
                 ),
+                child: Text('Got it', style: AidaType.sans(size: 15, weight: FontWeight.w700, color: AidaColors.cardWhite)),
               ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AidaColors.coffee,
-                    foregroundColor: AidaColors.cardWhite,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(28),
-                    ),
-                  ),
-                  child: Text(
-                    'Got it',
-                    style: AidaType.sans(
-                      size: 15,
-                      weight: FontWeight.w700,
-                      color: AidaColors.cardWhite,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -163,32 +153,21 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
                       ),
                     ),
                     const SizedBox(height: 28),
-                    ScrollReveal(
-                      controller: _scrollController,
-                      viewportKey: _viewportKey,
-                      order: 1,
-                      child: KeyedSubtree(
-                        key: _earnedKey,
-                        child: _SectionTitle(
-                          title: 'Earned Rewards',
-                          subtitle: 'Show at the counter, staff apply them',
-                        ),
+                    KeyedSubtree(
+                      key: _earnedKey,
+                      child: const _SectionTitle(
+                        title: 'Earned Rewards',
+                        subtitle: 'Choose an issued voucher during checkout or present it at the counter',
                       ),
                     ),
                     const SizedBox(height: 14),
                     ..._earnedTickets(vouchers),
                     const SizedBox(height: 32),
-                    ScrollReveal(
-                      controller: _scrollController,
-                      viewportKey: _viewportKey,
-                      order: 4,
-                      child: KeyedSubtree(
-                        key: _catalogueKey,
-                        child: _SectionTitle(
-                          title: 'Redeem with Points',
-                          subtitle: 'Convert points into a voucher in-app',
-                          comingSoon: true,
-                        ),
+                    KeyedSubtree(
+                      key: _catalogueKey,
+                      child: const _SectionTitle(
+                        title: 'Redeem with Points',
+                        subtitle: 'Convert points into a server-issued voucher',
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -205,30 +184,11 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
 
   List<Widget> _earnedTickets(AsyncValue<List<Voucher>> vouchers) {
     return vouchers.when(
-      loading:
-          () => [
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
-              child: Center(
-                child: CircularProgressIndicator(color: AidaColors.coffee),
-              ),
-            ),
-          ],
-      error:
-          (_, __) => [
-            Text(
-              'Couldn\'t load your rewards. Pull to try again later.',
-              style: AidaType.sans(size: 13, color: AidaColors.textMuted),
-            ),
-          ],
+      loading: () => const [Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: CircularProgressIndicator(color: AidaColors.coffee)))],
+      error: (_, __) => [Text("Couldn't load your rewards.", style: AidaType.sans(size: 13, color: AidaColors.textMuted))],
       data: (list) {
         if (list.isEmpty) {
-          return [
-            Text(
-              'No earned rewards yet. Complete a stamp card or redeem points.',
-              style: AidaType.sans(size: 13, color: AidaColors.textMuted),
-            ),
-          ];
+          return [Text('No earned rewards yet. Complete a stamp card or redeem points.', style: AidaType.sans(size: 13, color: AidaColors.textMuted))];
         }
         return [
           EarnedRewardsList(
@@ -236,46 +196,21 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
             scrollController: _scrollController,
             viewportKey: _viewportKey,
             revealOrderStart: 2,
-            onApply:
-                (voucher) => _snack(
-                  'Show this reward at the counter. Staff will apply it.',
-                ),
-            onDetails:
-                (voucher) => _showDetails(
-                  title: voucher.title,
-                  body:
-                      '${voucher.description}\n\n'
-                      '${voucher.expiresLabel}.\n\n'
-                      'Points are not refunded if a voucher expires unused. '
-                      'Only staff can apply this at checkout.',
-                ),
+            onApply: (_) => _snack('Select this voucher during checkout or show it at the counter.'),
+            onDetails: (voucher) => _showDetails(
+              title: voucher.title,
+              body: '${voucher.description}\n\n${voucher.expiresLabel}.\n\nThe server validates ownership, expiry and item eligibility when the voucher is applied.',
+            ),
           ),
         ];
       },
     );
   }
 
-  List<Widget> _catalogueTickets(
-    AsyncValue<List<Reward>> rewards,
-    AsyncValue<Points> points,
-  ) {
+  List<Widget> _catalogueTickets(AsyncValue<List<Reward>> rewards, AsyncValue<Points> points) {
     return rewards.when(
-      loading:
-          () => [
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
-              child: Center(
-                child: CircularProgressIndicator(color: AidaColors.coffee),
-              ),
-            ),
-          ],
-      error:
-          (_, __) => [
-            Text(
-              'Couldn\'t load the rewards catalogue.',
-              style: AidaType.sans(size: 13, color: AidaColors.textMuted),
-            ),
-          ],
+      loading: () => const [Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: CircularProgressIndicator(color: AidaColors.coffee)))],
+      error: (_, __) => [Text("Couldn't load the rewards catalogue.", style: AidaType.sans(size: 13, color: AidaColors.textMuted))],
       data: (list) {
         final balance = points.value?.balance ?? 0;
         return [
@@ -290,27 +225,21 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
                 description: _catalogueDescription(list[i]),
                 metaLabel: '${list[i].pointsCost} POINTS',
                 kind: list[i].kind,
-                imageCategory:
-                    list[i].kind == RewardKind.freeItem ? 'Pastries' : 'Drinks',
+                imageCategory: list[i].kind == RewardKind.freeItem ? 'Pastries' : 'Drinks',
                 showRewardBadge: false,
-                // Always muted, never tappable — the section header's own
-                // "Coming soon" badge already discloses that redemption
-                // isn't live yet, so there's nothing left for a tap to do
-                // here even for an affordable tier.
-                primaryLabel:
-                    list[i].isAffordableAt(balance) ? 'Redeem' : 'Need more',
-                primaryEnabled: false,
-                onPrimary: null,
-                onDetails:
-                    () => _showDetails(
-                      title: list[i].name,
-                      body:
-                          '${_catalogueDescription(list[i])}\n\n'
-                          'Costs ${list[i].pointsCost} points. '
-                          'You currently have $balance. '
-                          'Redeeming converts points into a voucher; '
-                          'staff still apply it at the counter.',
-                    ),
+                primaryLabel: _redeeming.contains(list[i].id)
+                    ? 'Redeeming…'
+                    : list[i].isAffordableAt(balance)
+                        ? 'Redeem'
+                        : 'Need more',
+                primaryEnabled: list[i].isAffordableAt(balance) && !_redeeming.contains(list[i].id),
+                onPrimary: list[i].isAffordableAt(balance) && !_redeeming.contains(list[i].id)
+                    ? () => _redeem(list[i])
+                    : null,
+                onDetails: () => _showDetails(
+                  title: list[i].name,
+                  body: '${_catalogueDescription(list[i])}\n\nCosts ${list[i].pointsCost} points. You currently have $balance. Redemption is atomic and creates a voucher only after the server debits the points.',
+                ),
               ),
             ),
           ],
@@ -320,15 +249,9 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> {
   }
 
   String _catalogueDescription(Reward reward) => switch (reward.kind) {
-    RewardKind.voucher =>
-      'Convert ${reward.pointsCost} points into a ${reward.name.toLowerCase()} '
-          'you can use at checkout.',
-    RewardKind.freeItem =>
-      'A free pastry voucher for ${reward.pointsCost} points. '
-          'Staff apply it when you order.',
-    RewardKind.freeDrink =>
-      'A free drink for ${reward.pointsCost} points. '
-          'Show the voucher at the counter.',
+    RewardKind.voucher => 'Convert ${reward.pointsCost} points into a ${reward.name.toLowerCase()} you can use at checkout.',
+    RewardKind.freeItem => 'A free-item voucher for ${reward.pointsCost} points.',
+    RewardKind.freeDrink => 'A free-drink voucher for ${reward.pointsCost} points.',
   };
 }
 
@@ -336,110 +259,34 @@ class _Header extends StatelessWidget {
   const _Header();
 
   @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Rewards',
-          style: AidaType.serif(size: 28, color: AidaColors.textPrimary),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Your vouchers and what you can unlock next.',
-          style: AidaType.sans(size: 13, color: AidaColors.textMuted),
-        ),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text('Rewards', style: AidaType.serif(size: 28, color: AidaColors.textPrimary)),
+      const SizedBox(height: 4),
+      Text('Your vouchers and what you can unlock next.', style: AidaType.sans(size: 13, color: AidaColors.textMuted)),
+    ],
+  );
 }
 
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({
-    required this.title,
-    required this.subtitle,
-    this.comingSoon = false,
-  });
-
+  const _SectionTitle({required this.title, required this.subtitle});
   final String title;
   final String subtitle;
 
-  /// Discloses that this section isn't live yet up front, on the section
-  /// itself, rather than only after someone taps into it.
-  final bool comingSoon;
-
   @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(
-              title,
-              style: AidaType.sans(
-                size: 16,
-                weight: FontWeight.w700,
-                color: AidaColors.textPrimary,
-              ),
-            ),
-            if (comingSoon) ...[
-              const SizedBox(width: 8),
-              const _ComingSoonBadge(),
-            ],
-          ],
-        ),
-        const SizedBox(height: 2),
-        Text(
-          subtitle,
-          style: AidaType.sans(size: 12, color: AidaColors.textMuted),
-        ),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(title, style: AidaType.sans(size: 16, weight: FontWeight.w700, color: AidaColors.textPrimary)),
+      const SizedBox(height: 2),
+      Text(subtitle, style: AidaType.sans(size: 12, color: AidaColors.textMuted)),
+    ],
+  );
 }
 
-class _ComingSoonBadge extends StatelessWidget {
-  const _ComingSoonBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: AidaColors.latte.withValues(alpha: 0.65),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(
-        'COMING SOON',
-        style: AidaType.sans(
-          size: 9,
-          weight: FontWeight.w800,
-          letterSpacing: 0.4,
-          color: AidaColors.textMuted,
-        ),
-      ),
-    );
-  }
-}
-
-/// Same dark card language as the membership/QR card
-/// ([MembershipCardScreen]'s `_Card`) — coffee→espresso gradient, 28px
-/// radius, cream serif name, "MEMBER · code" footer — so the two feel like
-/// one card family rather than two unrelated designs. Layout (chip badge,
-/// hide-balance toggle, balance caption, pill action row) follows a
-/// wallet-app reference the user shared, with the actions mapped to real
-/// in-app destinations — "Vouchers"/"Redeem" scroll to the sections already
-/// on this page — rather than invented banking actions that don't apply to
-/// a café points card.
 class _BalanceCard extends StatefulWidget {
-  const _BalanceCard({
-    required this.points,
-    required this.member,
-    required this.onVouchers,
-    required this.onRedeem,
-  });
-
+  const _BalanceCard({required this.points, required this.member, required this.onVouchers, required this.onRedeem});
   final AsyncValue<Points> points;
   final AsyncValue<Member> member;
   final VoidCallback onVouchers;
@@ -457,34 +304,17 @@ class _BalanceCardState extends State<_BalanceCard> {
     final balance = widget.points.value?.formatted ?? '—';
     final name = widget.member.value?.name ?? 'Aida Member';
     final code = widget.member.value?.memberCode;
-
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
-        gradient: const LinearGradient(
-          colors: [AidaColors.coffee, AidaColors.espresso],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AidaColors.espresso.withValues(alpha: 0.25),
-            blurRadius: 32,
-            offset: const Offset(0, 12),
-          ),
-        ],
+        gradient: const LinearGradient(colors: [AidaColors.coffee, AidaColors.espresso], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        boxShadow: [BoxShadow(color: AidaColors.espresso.withValues(alpha: 0.25), blurRadius: 32, offset: const Offset(0, 12))],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(28),
         child: Stack(
           children: [
-            // A large, faint watermark of the café's own logo — the
-            // "premium card" texture trick real membership/bank cards use.
-            // Circular crop, zoomed in past the source photo's own cream
-            // border/edges (it's a photo of a printed sticker, not a clean
-            // isolated mark) so only the emblem itself shows, not a
-            // rectangular patch of that border reading as blank space.
             Positioned(
               right: -45,
               bottom: -45,
@@ -494,13 +324,7 @@ class _BalanceCardState extends State<_BalanceCard> {
                   child: SizedBox(
                     width: 260,
                     height: 260,
-                    child: Transform.scale(
-                      scale: 1.5,
-                      child: Image.asset(
-                        'assets/images/aida_logo.jpg',
-                        fit: BoxFit.cover,
-                      ),
-                    ),
+                    child: Transform.scale(scale: 1.5, child: Image.asset('assets/images/aida_logo.jpg', fit: BoxFit.cover)),
                   ),
                 ),
               ),
@@ -510,54 +334,22 @@ class _BalanceCardState extends State<_BalanceCard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    name,
-                    style: AidaType.sans(
-                      size: 14,
-                      weight: FontWeight.w600,
-                      color: AidaColors.latte,
-                    ),
-                  ),
+                  Text(name, style: AidaType.sans(size: 14, weight: FontWeight.w600, color: AidaColors.latte)),
                   const SizedBox(height: 6),
-                  Text(
-                    _hidden ? '••••' : balance,
-                    style: AidaType.serif(
-                      size: 52,
-                      weight: FontWeight.w700,
-                      color: AidaColors.cream,
-                    ),
-                  ),
+                  Text(_hidden ? '••••' : balance, style: AidaType.serif(size: 52, weight: FontWeight.w700, color: AidaColors.cream)),
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      Expanded(
-                        child: _CardPillButton(
-                          icon: Icons.confirmation_number_outlined,
-                          label: 'Vouchers',
-                          onTap: widget.onVouchers,
-                        ),
-                      ),
+                      Expanded(child: _CardPillButton(icon: Icons.confirmation_number_outlined, label: 'Vouchers', onTap: widget.onVouchers)),
                       const SizedBox(width: 10),
-                      Expanded(
-                        child: _CardPillButton(
-                          icon: Icons.redeem_rounded,
-                          label: 'Redeem',
-                          onTap: widget.onRedeem,
-                        ),
-                      ),
+                      Expanded(child: _CardPillButton(icon: Icons.redeem_rounded, label: 'Redeem', onTap: widget.onRedeem)),
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Text(
-                    code == null ? 'MEMBER' : 'MEMBER · $code',
-                    style: AidaTheme.sectionLabel(color: AidaColors.latte),
-                  ),
+                  Text(code == null ? 'MEMBER' : 'MEMBER · $code', style: AidaTheme.sectionLabel(color: AidaColors.latte)),
                 ],
               ),
             ),
-            // Floats independently of the Column above — it used to sit in
-            // its own row there, pushing the name/balance down by its own
-            // height for no reason, since it's a small corner control.
             Positioned(
               top: 16,
               right: 22,
@@ -570,20 +362,8 @@ class _BalanceCardState extends State<_BalanceCard> {
                   child: Container(
                     width: 30,
                     height: 30,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AidaColors.cardWhite.withValues(alpha: 0.14),
-                      border: Border.all(
-                        color: AidaColors.cardWhite.withValues(alpha: 0.28),
-                      ),
-                    ),
-                    child: Icon(
-                      _hidden
-                          ? Icons.visibility_off_rounded
-                          : Icons.visibility_rounded,
-                      size: 15,
-                      color: AidaColors.cardWhite.withValues(alpha: 0.9),
-                    ),
+                    decoration: BoxDecoration(shape: BoxShape.circle, color: AidaColors.cardWhite.withValues(alpha: 0.14), border: Border.all(color: AidaColors.cardWhite.withValues(alpha: 0.28))),
+                    child: Icon(_hidden ? Icons.visibility_off_rounded : Icons.visibility_rounded, size: 15, color: AidaColors.cardWhite.withValues(alpha: 0.9)),
                   ),
                 ),
               ),
@@ -595,52 +375,31 @@ class _BalanceCardState extends State<_BalanceCard> {
   }
 }
 
-/// The "Request"/"Transfer" pill shape from the reference, wired to
-/// in-page navigation instead of banking actions.
 class _CardPillButton extends StatelessWidget {
-  const _CardPillButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
+  const _CardPillButton({required this.icon, required this.label, required this.onTap});
   final IconData icon;
   final String label;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AidaColors.cardWhite.withValues(alpha: 0.12),
+  Widget build(BuildContext context) => Material(
+    color: AidaColors.cardWhite.withValues(alpha: 0.12),
+    borderRadius: BorderRadius.circular(20),
+    child: InkWell(
+      onTap: onTap,
       borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 13),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: AidaColors.cardWhite.withValues(alpha: 0.3),
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 16, color: AidaColors.cream),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: AidaType.sans(
-                  size: 12.5,
-                  weight: FontWeight.w700,
-                  color: AidaColors.cream,
-                ),
-              ),
-            ],
-          ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 13),
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), border: Border.all(color: AidaColors.cardWhite.withValues(alpha: 0.3))),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 16, color: AidaColors.cream),
+            const SizedBox(width: 6),
+            Text(label, style: AidaType.sans(size: 12.5, weight: FontWeight.w700, color: AidaColors.cream)),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
 }

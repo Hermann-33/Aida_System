@@ -1,203 +1,78 @@
 # System Map
 
-Updated: 2026-08-23
+Updated: 2026-09-15
 
-| System | Runtime | Current trusted source |
+| System | Runtime | Trusted source |
 |---|---|---|
-| Customer | Flutter/Riverpod | Supabase Auth/member + shared catalogue/options + customer order RPCs |
-| Dashboard/Admin/POS | React/Vite | same-origin employee BFF + shared catalogue/options/member/order RPCs |
-| Backend | Supabase | Auth, Postgres, FORCE RLS, controlled RPCs, Realtime |
+| Customer | Flutter/Riverpod | Supabase Auth/member + catalogue/order/branch/loyalty RPCs |
+| Dashboard/Admin/POS | React/Vite | same-origin HttpOnly employee/terminal BFF + caller-JWT RPCs |
+| Backend | Supabase | Auth, Postgres, FORCE RLS, controlled RPCs, authorized invalidation |
 
-## Catalogue / customization flow
-
-```text
-Admin Menu editor
- -> same-origin BFF cookie session
- -> Admin/Owner caller JWT
- -> save_catalogue_item
- -> catalogue item + variants + option overrides + compatible add-ons
- -> audit + catalogue revision bump
- -> catalogue_revision Realtime
- -> clients invalidate/refetch catalogue
-```
-
-Server catalogue controls:
+## Authority chain through Phase 6
 
 ```text
-product vs addon
-isDrink
-variant labels/deltas/availability/default
-Temperature/Sweetness labels/deltas/availability/default
-compatible add-on links
-publication / availability / image / sort order
+P1 branch -> sales point -> terminal -> employee scope -> POS attribution
+P2 terminal + employee -> shift -> POS order / cash ledger
+P3 customer -> privacy/deletion -> anonymized retained history
+P4 branch calendar/policy -> pickup slot capacity -> accepted quote/order
+P5 recipe -> branch inventory -> transactional depletion/reversal
+P6 member -> points/stamps -> reward/voucher -> discount/consumption
 ```
 
-Current reusable drink groups:
-
-```text
-Temperature: Hot | Iced
-Sweetness: Regular | Less sweet | Least sweet
-```
-
-Customer browse filters `kind=addon` rows/categories, but compatible add-ons remain available to the selected product's Customize section.
-
-## Customer configured-item flow
-
-```text
-Menu product
- -> Item detail
- -> choose Size when applicable
- -> choose required Temperature
- -> choose required Sweetness
- -> choose optional compatible add-ons
- -> quantity / note
- -> Add to cart
- -> configured line stored locally
- -> return to Menu
-```
-
-Cart identity includes option/add-on selections. Therefore:
-
-```text
-Latte · Hot · Regular
-Latte · Iced · Less sweet · Boba
-```
-
-remain distinct configurations.
-
-The customer local price is an estimate only:
-
-```text
-base + variant + option deltas + add-ons
-```
-
-Checkout always obtains the server quote before placement.
+Clients send intent. Supabase/server owns resulting identity, topology, shift/cash/payment/commercial, schedule, stock and loyalty state.
 
 ## Customer order flow
 
 ```text
-Flutter cart selections
- -> quote_order(item/variant/option/add-on IDs + qty/note/intent)
- -> server validates catalogue compatibility/availability
- -> server calculates pricingVersion=2 totals
- -> customer chooses Now or server-policy-derived Schedule
- -> place_customer_order(clientRequestId + selections)
- -> trusted customer/member derived from auth session
- -> orders + immutable order_lines/order_line_addons/order_line_options snapshots
- -> order_events(created)
- -> persisted order returned
+catalogue + branch/pickup state + wallet
+ -> cart / pickup / voucher intent
+ -> quote_order
+ -> server validates catalogue + branch + schedule + inventory + voucher
+ -> authoritative subtotal/discount/total
+ -> place_customer_order
+ -> revalidation + capacity + inventory + voucher consumption in transaction
+ -> immutable order/commercial snapshot
 ```
 
-Customer-facing `Now` maps to trusted wire value `asap`; it is not a new backend fulfilment type.
-
-Older client requests that omit required option IDs are resolved by the server's configured available defaults.
-
-## POS configured-item flow
+## POS flow
 
 ```text
-POS catalogue product
- -> variant required when present
- -> Temperature required single choice
- -> Sweetness required single choice
- -> compatible add-ons optional multi-select
- -> local estimate
- -> POST /api/v1/orders/quote
- -> employee HttpOnly session validated by BFF
- -> caller JWT -> quote_order
+HttpOnly employee session + HttpOnly terminal credential
+ -> open shift
+ -> member lookup (optional)
+ -> catalogue/cart/member/voucher intent
  -> authoritative quote
- -> POST /api/v1/orders/place
  -> place_pos_order
+ -> trusted topology + shift/tender + inventory + voucher authority
+ -> persisted snapshot
 ```
 
-Unavailable choices remain disabled. POS order intents contain selection IDs/quantity/note, not trusted prices/totals.
+Matching idempotent retries are resolvable under current terminal/caller authority even after the original shift is later locked/closed; new placement still requires an open shift.
 
-## Admin option-management flow
+## Privacy flow
 
 ```text
-Admin -> Menu management -> Edit item
- -> Drink customization toggle
- -> group cards
-    -> customer label
-    -> price delta
-    -> Available
-    -> Default
- -> Compatible add-ons checkboxes
- -> save
+auth.uid()
+ -> delete_own_account
+ -> collect owned members/orders/vouchers
+ -> delete customer-owned loyalty state
+ -> detach identifying loyalty snapshot references
+ -> scrub order line/event free text + original request digest
+ -> anonymize retained customer order identity
+ -> delete Auth/member/profile-owned state
 ```
 
-Every active required group needs at least one available option and exactly one available default. The Admin client validates this before save; the backend validates it as trusted authority.
-
-Preview remains read-only and does not call privileged mutation routes.
-
-## Scheduled pickup / operational flow
+## Validation boundary
 
 ```text
-get_ordering_policy
- -> Asia/Kuala_Lumpur
- -> minimumLead 15
- -> preparationLead 15
- -> slots 15 minutes
- -> horizon 7 days
- -> customer/POS Schedule selection
- -> quote_order validates server time/horizon/slot
- -> scheduled order persists prepareAt/status=scheduled
+Backend database audit #190   COMPLETE
+Customer release audit #281   COMPLETE
+Dashboard CI #126             COMPLETE
+Live Supabase deploy/advisors COMPLETE
 ```
 
-Customer keeps the accepted tactile policy-derived wheel. Branch hours/closures/capacity are not authoritative yet.
+Full Phase 6 evidence: `docs/context/PHASE_6_LOYALTY_REWARDS_VOUCHERS_CLOSEOUT_2026-09-15.md`.
 
-Dashboard workload projection remains:
+## Deferred
 
-```text
-server order snapshots
- -> scheduled + overdue/due => Active, persisted status remains scheduled
- -> scheduled + future => Scheduled
- -> ready => Ready
- -> completed/cancelled => History
- -> explicit Start preparing + expectedVersion => persisted preparing
-```
-
-## Fulfilment/status flow
-
-```text
-Dashboard order board
- -> same-origin GET /api/v1/orders
- -> staff selects legal next state
- -> POST /api/v1/orders/status + expectedVersion
- -> transition_order_status
- -> statusVersion changes + order_events append
- -> customer receives owner-scoped orders Realtime invalidation
- -> Flutter authorized refetch
-```
-
-Legal flow remains `confirmed|scheduled -> preparing -> ready -> completed`, with cancellation allowed before ready. Completed/cancelled remain terminal.
-
-## Realtime / employee token boundary
-
-Customer Flutter may use its Supabase session for owner-scoped Realtime invalidation.
-
-Employee JWTs remain HttpOnly. Dashboard React does not expose a staff JWT for direct Supabase Realtime; its order workload polls/refetches the same-origin BFF and invalidates after place/status mutations.
-
-## Live validation state
-
-TASK-MENU-CUSTOMIZATION-001 closeout on 2026-08-23 verified:
-
-```text
-catalogue revision         130
-drink products              11
-non-drink products           4
-add-ons                      4
-invalid required groups      0
-Iced Drinks with Hot on      0
-```
-
-Customer executable validation: analyze PASS, 55/55 tests PASS, exact-size UI/golden QA PASS.
-
-Dashboard executable validation: lint/typecheck/build PASS, Vitest 129/129, Playwright 10/10, UI/theme QA PASS.
-
-Detailed evidence: `docs/context/MENU_CUSTOMIZATION_2026-08-23.md`.
-
-## Deployment / deferred authority
-
-Hosted deployment remains deferred and is not implied by local/client validation.
-
-Real payments/refunds, loyalty, inventory, promotions/discounts, tax/accounting/reporting, branch scheduling/capacity, branch-scoped operations, terminal/sales-point lifecycle, shifts/cash reconciliation and delivery remain separate trusted tasks.
+Phase 7 promotions/discounts; Phase 8 reporting/accounting; external payment capture/refunds/settlement; employee credential lifecycle; hardware integrations; supplier/lot/procurement expansion; delivery/deployment-heavy production work.

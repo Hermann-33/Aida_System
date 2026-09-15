@@ -128,7 +128,7 @@ select public.place_customer_order(jsonb_build_object(
 commit;
 SQL
 )
-run_competing_sessions "phase5-stock" "$INVENTORY_FIRST" "$INVENTORY_SECOND" 'inventory unavailable|insufficient inventory|stock'
+run_competing_sessions "phase5-stock" "$INVENTORY_FIRST" "$INVENTORY_SECOND" 'INVENTORY_UNAVAILABLE|insufficient.*inventory|stock'
 
 inventory_orders=$("${PSQL[@]}" -Atc "select count(*) from public.orders where client_request_id in ('77200000-0000-0000-0000-000000000001','77200000-0000-0000-0000-000000000002');")
 inventory_balance=$("${PSQL[@]}" -Atc "select bi.on_hand_milli from public.branch_inventory bi join public.inventory_items ii on ii.id=bi.inventory_item_id where ii.sku='P16-CONC-STOCK' and bi.branch_id=(select id from public.branches where is_default and is_active limit 1);")

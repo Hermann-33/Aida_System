@@ -43,7 +43,8 @@ run_competing_sessions() {
 
 # Phase 4: one scheduled slot remains. The winning transaction deliberately
 # stays open after insertion so the second session must contend on the advisory
-# xact lock before rechecking committed slot usage.
+# xact lock before rechecking committed slot usage. Use a catalogue item that is
+# not controlled by the Phase 5 inventory fixture so this test isolates capacity.
 SCHEDULE_FIRST=$(cat <<'SQL'
 begin;
 set local role authenticated;
@@ -54,7 +55,8 @@ select public.place_customer_order(jsonb_build_object(
   'fulfillmentType','scheduled',
   'requestedPickupAt',(((now() at time zone 'Asia/Kuala_Lumpur')::date + 1 + time '12:00') at time zone 'Asia/Kuala_Lumpur'),
   'items',jsonb_build_array(jsonb_build_object(
-    'itemId',(select id from public.catalogue_items where kind='product' and is_published and is_available and not is_drink and not exists (select 1 from public.catalogue_item_variants v where v.item_id=catalogue_items.id and v.is_available) order by created_at,id limit 1),
+    'itemId',(select id from public.catalogue_items where sku='CF-LAT'),
+    'variantId',(select v.id from public.catalogue_item_variants v join public.catalogue_items i on i.id=v.item_id where i.sku='CF-LAT' and v.code='medium'),
     'addOnIds','[]'::jsonb,
     'quantity',1
   ))
@@ -73,7 +75,8 @@ select public.place_customer_order(jsonb_build_object(
   'fulfillmentType','scheduled',
   'requestedPickupAt',(((now() at time zone 'Asia/Kuala_Lumpur')::date + 1 + time '12:00') at time zone 'Asia/Kuala_Lumpur'),
   'items',jsonb_build_array(jsonb_build_object(
-    'itemId',(select id from public.catalogue_items where kind='product' and is_published and is_available and not is_drink and not exists (select 1 from public.catalogue_item_variants v where v.item_id=catalogue_items.id and v.is_available) order by created_at,id limit 1),
+    'itemId',(select id from public.catalogue_items where sku='CF-LAT'),
+    'variantId',(select v.id from public.catalogue_item_variants v join public.catalogue_items i on i.id=v.item_id where i.sku='CF-LAT' and v.code='medium'),
     'addOnIds','[]'::jsonb,
     'quantity',1
   ))

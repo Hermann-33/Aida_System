@@ -1,9 +1,14 @@
 import 'dart:io';
 
 import 'package:aida_customer/application/providers.dart';
+import 'package:aida_customer/core/error/result.dart';
 import 'package:aida_customer/core/theme/aida_theme.dart';
 import 'package:aida_customer/core/theme/aida_type.dart';
 import 'package:aida_customer/data/repository/mock_member_repository.dart';
+import 'package:aida_customer/domain/model/loyalty.dart';
+import 'package:aida_customer/domain/model/reward.dart';
+import 'package:aida_customer/domain/model/voucher.dart';
+import 'package:aida_customer/domain/repository/loyalty_repository.dart';
 import 'package:aida_customer/features/shell/app_shell.dart';
 import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
@@ -14,8 +19,35 @@ import 'package:flutter_test/flutter_test.dart';
 import '../support/test_catalogue_repository.dart';
 
 const _fast = MockMemberRepository(latency: Duration.zero);
+const _loyalty = _GoldenLoyaltyRepository(_fast);
 const _catalogue = TestCatalogueRepository();
 final _fixedNow = DateTime(2026, 1, 16, 14);
+
+/// Golden fixtures deliberately use the preview member data for visual
+/// determinism, but Phase 6 moved live loyalty behind a dedicated repository.
+/// Keep the golden harness explicit about that capability rather than falling
+/// through to Supabase or weakening production provider boundaries.
+class _GoldenLoyaltyRepository implements LoyaltyRepository {
+  const _GoldenLoyaltyRepository(this.memberFixture);
+
+  final MockMemberRepository memberFixture;
+
+  @override
+  Future<Result<Points>> getPoints() => memberFixture.getPoints();
+
+  @override
+  Future<Result<StampCard>> getStampCard() => memberFixture.getStampCard();
+
+  @override
+  Future<Result<List<Reward>>> getRewards() => memberFixture.getRewards();
+
+  @override
+  Future<Result<List<Voucher>>> getVouchers() => memberFixture.getVouchers();
+
+  @override
+  Future<Result<void>> redeemReward(String rewardId) =>
+      memberFixture.redeemReward(rewardId);
+}
 
 Future<void> _loadFonts() async {
   Future<void> load(String family, String path) async {
@@ -53,6 +85,7 @@ void main() {
       ProviderScope(
         overrides: [
           memberRepositoryProvider.overrideWithValue(_fast),
+          loyaltyRepositoryProvider.overrideWithValue(_loyalty),
           catalogueRepositoryProvider.overrideWithValue(_catalogue),
         ],
         child: MaterialApp(

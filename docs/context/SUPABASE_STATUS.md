@@ -4,8 +4,8 @@
 **Project:** Aida System  
 **Ref:** `eswovqxqzfevcdwwcmuh`  
 **Region:** `ap-southeast-1`  
-**Last verified project state:** `ACTIVE_HEALTHY`  
-**Implementation verdict:** Phases 1–6 `PARTIAL` while the audit-remediation boundary is being revalidated.
+**Project state:** `ACTIVE_HEALTHY`  
+**Implementation verdict:** Phases 1–6 audit-remediation boundary `COMPLETE`.
 
 Canonical executable migrations live only in `Hermann-33/Aida_System/supabase/migrations/`.
 
@@ -13,76 +13,59 @@ Canonical executable migrations live only in `Hermann-33/Aida_System/supabase/mi
 
 Supabase owns identity/role/membership, operational topology, terminal credentials, shift/cash, catalogue/orders, privacy/account deletion, branch scheduling/capacity, inventory/recipes/depletion, and loyalty/reward/voucher/discount authority.
 
-## Phase 6 resources
+## Phase 6 migration-history reconciliation
 
-```text
-public.loyalty_program_config
-public.member_loyalty_accounts
-public.loyalty_order_awards
-public.loyalty_point_ledger
-public.loyalty_stamp_ledger
-public.reward_catalogue
-public.member_vouchers
-public.voucher_order_applications
-public.orders.discount_sen
-```
-
-Public RPCs include customer wallet/redeem, Admin/Owner loyalty state/reward/program/support operations and shift-bound POS member loyalty lookup. Voucher quote/application/consumption is integrated into authoritative quote/place flows.
-
-## Live reconciliation and migration-history mapping
-
-The live project contained two earlier partial loyalty draft migrations. Before reconciliation:
-
-```text
-member_loyalty_accounts  0
-loyalty_point_ledger     0
-loyalty_stamp_ledger     0
-member_vouchers          0
-```
-
-Only seed configuration/rewards existed. The canonical repository migrations are:
+Canonical repository migrations are:
 
 ```text
 20260915083000_reconcile_partial_phase6_live_schema.sql
 20260915083500_index_loyalty_foreign_keys.sql
 ```
 
-The live project historically recorded the equivalent deployment steps under these already-applied timestamps:
+The live project historically recorded the equivalent already-applied deployment steps as:
 
 ```text
 20260915002000_reconcile_partial_phase6_live_schema.sql
 20260915002800_index_loyalty_foreign_keys.sql
 ```
 
-That live migration history must not be rewritten. Documentation maps the historical applied timestamps to the canonical repository filenames instead. The guarded reconciliation fails closed if customer loyalty data or an unknown schema shape exists; it safely removed the unused draft so the canonical Phase 6 authority could be deployed. No replacement Supabase project was created.
+Applied live migration history is not rewritten. Documentation maps the historical live timestamps to the canonical replay filenames.
 
-## Security boundary
+## Fresh advisor verification
 
-All eight Phase 6 authority tables are RLS + FORCE RLS and deny direct authenticated INSERT/UPDATE/DELETE. The generic private order writer is not executable by `authenticated`. Intended customer/POS/Admin RPCs retain their narrow execute grants; anonymous privileged loyalty/POS functions are denied.
+Fresh live checks were run against project `eswovqxqzfevcdwwcmuh` on 2026-09-15 after the Phase 1–6 remediation implementation passed CI.
 
-At the original Phase 6 closeout, the security advisor reported no Phase 6 WARN/ERROR. The only WARN was the pre-existing `auth_leaked_password_protection` setting. INFO `rls_enabled_no_policy` notices are intentional because these tables are RPC-only and direct client table grants are revoked.
+Security advisor:
 
-## Performance boundary
+- no Phase 1–6 implementation-created WARN/ERROR finding;
+- eight `rls_enabled_no_policy` INFO findings are intentional RPC-only tables whose direct client mutation/read grants are restricted by the documented authority model;
+- the only WARN is the pre-existing project setting `auth_leaked_password_protection` being disabled. This is an account-level Auth hardening item, not a Phase 1–6 code/schema regression. Remediation reference: https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection
 
-The original Phase 6 performance advisor identified six unindexed loyalty foreign keys. Canonical migration `20260915083500_index_loyalty_foreign_keys.sql` added covering indexes. The original rerun contained no missing-FK finding; remaining notices were INFO-level unused indexes on the then-small/new dataset.
+Performance advisor:
 
-## Validation state
+- no missing-foreign-key-index regression;
+- remaining findings are INFO-level `unused_index` observations on the current dataset and are not evidence that required authority indexes are absent.
 
-Original Phase 6 closeout evidence remains historical evidence only:
+## Remediation validation
+
+Validated implementation heads:
 
 ```text
-Backend database audit #190   COMPLETE
-Customer release audit #281   COMPLETE
-Dashboard CI #126             COMPLETE
-Live Phase 6 deployment       COMPLETE
-Security advisor              COMPLETE for Phase 6
-Performance advisor           COMPLETE for Phase 6
+Aida_System             6d64cf3aef2369af61bec68ca1746193157841f5
+Aida_System-Dashboard   f442168221ffa630ea91504111a5582f06bad56a
 ```
 
-The cumulative Phase 1–6 audit-remediation branch adds stricter Dashboard parsing/isolation, strict Flutter Phase 6 commercial parsing and true concurrent-session scheduling/inventory/points/voucher regressions. Exact-head backend/customer CI, final cross-repository documentation parity and a fresh live advisor check are required before restoring the combined Phase 1–6 verdict to `COMPLETE`.
+```text
+Backend database audit #218   COMPLETE
+Customer release audit #309   COMPLETE
+Dashboard CI #137             COMPLETE
+Live project health           ACTIVE_HEALTHY
+Security advisor              COMPLETE for Phase 1–6 boundary
+Performance advisor           COMPLETE for Phase 1–6 boundary
+```
 
-The current connected Supabase project list does not expose AIDA ref `eswovqxqzfevcdwwcmuh`, so the fresh live advisor check cannot be independently rerun from the present connector session. This is a validation blocker only; it does not justify changing or recreating the live project.
+Backend #218 includes the full ordinary Phase 1–6 SQL suite plus true concurrent-session regressions for the final pickup slot, final inventory stock, simultaneous points redemption and simultaneous one-time voucher consumption. Customer #309 includes static analysis, non-golden regressions, blocking goldens and release APK build/upload. Dashboard #137 validates the current remediation implementation/documentation head.
 
 ## Deferred authority
 
-Generalized promotions/discounts, reporting/accounting, external payment/refund settlement, employee credential lifecycle, hardware integrations, supplier/lot/procurement expansion and deployment-heavy production work remain later boundaries. Phase 7–10 implementation stays frozen until the Phase 1–6 remediation boundary is `COMPLETE`.
+Generalized promotions/discounts, reporting/accounting, external payment/refund settlement, employee Badge/PIN credential lifecycle, hardware integrations and final release work remain outside the Phase 1–6 boundary. Phase 7–10 implementation remains frozen until explicitly resumed by the owner.

@@ -1,6 +1,6 @@
 # AIDA Backend Completion Phases
 
-**Status:** Phases 1–6 `COMPLETE`; Phase 7 is next and not started  
+**Status:** Phases 1–6 `COMPLETE` against the combined audit-remediation boundary; Phase 7–10 frozen  
 **Started:** 2026-09-10  
 **Updated:** 2026-09-15
 
@@ -8,28 +8,35 @@
 
 A phase is `COMPLETE` only when implementation, canonical migrations, authorization/regression coverage, affected client validation, advisor review, synchronized documentation, deferred scope and App Store impact are recorded. Phase completion does not authorize PR merge.
 
+The cumulative Phase 1–6 boundary additionally requires the independent audit findings and the cross-phase concurrency gaps to be closed with executable evidence before later phases can proceed.
+
 ## Documentation cadence rule
 
-Implementation and documentation must advance together. After every implementation change or coherent implementation batch in Phases 7–10 — including code, migrations, RPCs, BFF routes, client/UI changes, workflow/tests, security hardening or release configuration — update the affected documentation in **both** repositories in the same work cycle. Do not leave code ahead of documentation between hourly continuation runs. Shared/mirrored governance documents must remain byte-for-byte synchronized where required; Dashboard-specific operational docs must be updated whenever Dashboard/Admin/POS behavior changes.
-
-At minimum, update as applicable: `ACTIVE_CONTEXT.md`, `HANDOFF.md`, `IMPLEMENTATION_PHASES.md`, `ARCHITECTURE.md`, `SYSTEM_MAP.md`, `SUPABASE_STATUS.md`, `APP_STORE_READINESS.md`, shared backend/order/security/schema contracts, the active phase plan/status/closeout, and Dashboard audit/state/fragile-boundary/mock documentation. Documentation parity is a hard phase-completion gate.
-
-Under ADR-0013, the independent Phase 1–3 Codex audit ran alongside later work; valid blockers were repaired cumulatively and are closed in `PHASE_1_3_CODEX_AUDIT_REMEDIATION_CLOSEOUT_2026-09-15.md`. The earlier Astra handoff document remains historical and is not treated as an Astra acceptance.
+Implementation and documentation must advance together. Shared/mirrored governance documents must remain byte-for-byte synchronized where required; Dashboard-specific operational docs must reflect current Dashboard/Admin/POS behavior. Canonical executable Supabase migrations live only in `Hermann-33/Aida_System/supabase/migrations/`.
 
 ## Phase status
 
 | Phase | Task | Status | Evidence |
 |---|---|---|---|
-| 1 — Operational topology | `TASK-OPS-002` | `COMPLETE` | `PHASE_1_OPERATIONAL_TOPOLOGY_CLOSEOUT_2026-09-11.md` |
-| 2 — Shift and cash authority | `TASK-OPS-003` | `COMPLETE` | `PHASE_2_SHIFT_CASH_CLOSEOUT_2026-09-12.md` |
-| 3 — Customer privacy/account requirements | `TASK-PRIVACY-001` | `COMPLETE` | `PHASE_3_CUSTOMER_PRIVACY_ACCOUNT_CLOSEOUT_2026-09-12.md` |
-| 4 — Branch scheduling/pickup | `TASK-OPS-004` | `COMPLETE` | `PHASE_4_BRANCH_SCHEDULING_PICKUP_CLOSEOUT_2026-09-15.md` |
-| 5 — Inventory and recipes | `TASK-OPS-005` | `COMPLETE` | `PHASE_5_INVENTORY_RECIPES_CLOSEOUT_2026-09-15.md` |
-| 6 — Loyalty, rewards and vouchers | `TASK-OPS-006` | `COMPLETE` | `PHASE_6_LOYALTY_REWARDS_VOUCHERS_CLOSEOUT_2026-09-15.md` |
+| 1 — Operational topology | `TASK-OPS-002` | `COMPLETE` | `PHASE_1_OPERATIONAL_TOPOLOGY_CLOSEOUT_2026-09-11.md` + cumulative remediation closeout |
+| 2 — Shift and cash authority | `TASK-OPS-003` | `COMPLETE` | `PHASE_2_SHIFT_CASH_CLOSEOUT_2026-09-12.md` + cumulative remediation closeout |
+| 3 — Customer privacy/account requirements | `TASK-PRIVACY-001` | `COMPLETE` | `PHASE_3_CUSTOMER_PRIVACY_ACCOUNT_CLOSEOUT_2026-09-12.md` + cumulative remediation closeout |
+| 4 — Branch scheduling/pickup | `TASK-OPS-004` | `COMPLETE` | `PHASE_4_BRANCH_SCHEDULING_PICKUP_CLOSEOUT_2026-09-15.md` + true contention regression |
+| 5 — Inventory and recipes | `TASK-OPS-005` | `COMPLETE` | `PHASE_5_INVENTORY_RECIPES_CLOSEOUT_2026-09-15.md` + true contention regression |
+| 6 — Loyalty, rewards and vouchers | `TASK-OPS-006` | `COMPLETE` | `PHASE_6_LOYALTY_REWARDS_VOUCHERS_CLOSEOUT_2026-09-15.md` + strict client contracts + true contention regression |
 
-Phase 6 final validation: Backend database audit #190 `COMPLETE`; Customer release audit #281 `COMPLETE`; Dashboard CI #126 `COMPLETE`; live Supabase deployment/security/performance advisor boundary `COMPLETE`.
+Combined remediation evidence: `PHASE_1_6_CODEX_AUDIT_REMEDIATION_CLOSEOUT_2026-09-15.md`.
 
-Cumulative Phase 4–6 implementation record: `PHASE_4_6_IMPLEMENTATION_SUMMARY_2026-09-15.md`.
+Validated implementation heads and gates:
+
+```text
+Aida_System             6d64cf3aef2369af61bec68ca1746193157841f5
+Aida_System-Dashboard   f442168221ffa630ea91504111a5582f06bad56a
+Backend database audit #218   COMPLETE
+Customer release audit #309   COMPLETE
+Dashboard CI #137             COMPLETE
+Fresh live Supabase advisors  COMPLETE for scoped boundary
+```
 
 ## Dependency chain
 
@@ -40,14 +47,14 @@ Phase 1 COMPLETE
  -> Phase 4 COMPLETE
  -> Phase 5 COMPLETE
  -> Phase 6 COMPLETE
- -> Phase 7 next (not started)
+ -X-> Phase 7 FROZEN until owner explicitly resumes later-phase work
 ```
 
 ## Later phases
 
-- Phase 7 — promotions and discounts
-- Phase 8 — reporting, accounting and audit
-- Phase 9 — payments, refunds and external integrations
-- Phase 10 — App Store release gate
+- Phase 7 — promotions and discounts — `FROZEN`
+- Phase 8 — reporting, accounting and audit — `FROZEN`
+- Phase 9 — payments, refunds and external integrations — `FROZEN`
+- Phase 10 — App Store release gate — `FROZEN`
 
-Do not pull external processor/deployment-heavy work into an earlier phase.
+Do not start a later phase, resume an implementation scheduler, or merge the remediation PRs without explicit owner authorization.

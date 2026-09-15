@@ -1,8 +1,8 @@
 # Active Context
 
 **As of:** 2026-09-15  
-**Current boundary:** Phase 6 closeout — Loyalty, Rewards and Vouchers  
-**Current verdict:** Phases 1–6 `COMPLETE`; valid Phase 1–3 Codex audit findings remediated `COMPLETE`; Phase 7 not started.
+**Current boundary:** Combined Phase 1–6 Codex audit remediation  
+**Current verdict:** Phases 1–6 `COMPLETE` against the defined audited implementation boundary; Phase 7–10 remain frozen and not started by this remediation.
 
 ## Product topology
 
@@ -22,49 +22,55 @@ Phase 5 COMPLETE  recipe -> branch inventory -> transactional depletion/reversal
 Phase 6 COMPLETE  member -> loyalty ledgers/balances -> reward/voucher -> authoritative discount/consumption
 ```
 
-Supabase/server remains authority for identity, roles, topology, shift/cash/payment/commercial state, privacy/deletion, scheduling/capacity, inventory/recipes and loyalty/voucher state. Dashboard privileged flows remain behind the same-origin HttpOnly BFF with caller-JWT forwarding. No normal flow exposes a service-role secret, reusable employee bearer token or terminal credential to browser JavaScript. Preview fixtures are never backend authority.
+Supabase/server remains authority for identity, roles, topology, shift/cash/payment/commercial state, privacy/deletion, scheduling/capacity, inventory/recipes and loyalty/voucher state. Dashboard privileged flows remain behind the same-origin HttpOnly BFF with caller-JWT forwarding. Preview fixtures are never backend authority.
 
-## Phase 1–3 Codex remediation
+## Audit-remediation changes now closed
 
-Valid findings are closed. Key fixes: generic order writer grant removed; POS retry/open-shift authority hardened; Phase 3 anonymization restored under a narrow internal transition; retained customer request digests scrubbed; loyalty-aware deletion added; live Dashboard authority tests made blocking; customer full-screen goldens made blocking.
+The combined remediation closes the valid findings surfaced across the backend/customer and Dashboard audits, including:
 
-Evidence: `docs/context/PHASE_1_3_CODEX_AUDIT_REMEDIATION_CLOSEOUT_2026-09-15.md`.
+- Phase 1–3 security/privacy remediation and blocking regressions;
+- strict Dashboard Phase 6 order/voucher, loyalty and inventory parsing;
+- stale POS member/voucher intent invalidation;
+- explicit Badge/PIN deferral rather than exposed-but-unimplemented live behavior;
+- preview isolation as a blocking Dashboard browser gate;
+- strict Flutter Phase 6 `discountSen` and voucher commercial snapshots;
+- fail-closed Flutter order status, integer, boolean and date parsing;
+- authoritative commercial invariants: line subtotal, discount arithmetic and voucher/discount consistency;
+- true PostgreSQL contention regressions for Phase 4 scheduling, Phase 5 inventory and Phase 6 redemption/voucher consumption;
+- canonical-vs-historical Phase 6 migration filename reconciliation without rewriting applied migration history;
+- synchronized Phase 1–6 governance/screen-map documentation.
 
-The older combined Astra boundary document remains historical and is not represented as an Astra acceptance.
+Detailed evidence: `docs/context/PHASE_1_6_CODEX_AUDIT_REMEDIATION_CLOSEOUT_2026-09-15.md`.
 
-## Phase 6 final evidence
-
-Implementation heads before documentation closeout:
+## Validated implementation heads
 
 ```text
-Aida_System             9273ba8f6c2f3d42404d9f6a34005bdde3df69e0
-Aida_System-Dashboard   9979df27ed663b779c3d5c79670de4f19367b01c
+Aida_System             6d64cf3aef2369af61bec68ca1746193157841f5
+Aida_System-Dashboard   f442168221ffa630ea91504111a5582f06bad56a
 ```
 
 ```text
-Backend database audit #190   COMPLETE
-Customer release audit #281   COMPLETE
-Dashboard CI #126             COMPLETE
-Supabase deployment           COMPLETE
-Supabase security advisor     COMPLETE for Phase 6
-Supabase performance advisor  COMPLETE for Phase 6
+Backend database audit #218   COMPLETE
+Customer release audit #309   COMPLETE
+Dashboard CI #137             COMPLETE
+Live AIDA Supabase health     ACTIVE_HEALTHY
+Fresh security advisor        COMPLETE for scoped boundary
+Fresh performance advisor     COMPLETE for scoped boundary
 ```
 
-Detailed evidence: `docs/context/PHASE_6_LOYALTY_REWARDS_VOUCHERS_CLOSEOUT_2026-09-15.md`.
+The security advisor retains one pre-existing Auth WARN for leaked-password protection being disabled; it is documented separately and was not introduced by Phase 1–6. RPC-only RLS/no-policy notices and unused-index observations are INFO-level and consistent with the documented architecture.
 
-## Current PR boundaries
+## PR boundaries
+
+The cumulative remediation PRs are:
 
 ```text
-Phase 1: Aida_System #20 / Dashboard #17
-Phase 2: Aida_System #21 / Dashboard #18
-Phase 3: Aida_System #22 / Dashboard #19
-Phase 4: Aida_System #23 / Dashboard #20
-Phase 5: Aida_System #24 / Dashboard #21
-Phase 6: Aida_System #25 / Dashboard #22
+Aida_System             PR #26  codex/phase-1-6-audit-remediation
+Aida_System-Dashboard   PR #23  codex/phase-1-6-audit-remediation
 ```
 
-All remain draft/unmerged unless explicitly authorized. Completion is not merge authorization.
+Both remain draft/unmerged. Completion does not authorize merge.
 
 ## Next boundary
 
-Phase 7 promotions/discounts is next in dependency order, but it has not been started. External payment/refund/deployment-heavy work remains deferred.
+Phase 7 promotions/discounts remains the next dependency boundary, but Phase 7–10 are intentionally frozen. Do not resume implementation or schedulers until the owner explicitly resumes later-phase work.

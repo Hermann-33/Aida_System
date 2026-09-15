@@ -1,7 +1,7 @@
 # Phase 7 Plan — Promotions and Discounts
 
 **Task:** `TASK-OPS-007`  
-**Status:** `PARTIAL` — plan established; implementation not yet started  
+**Status:** `PARTIAL` — authority foundation implemented; quote/place/Admin UI integration remains  
 **Date:** 2026-09-15  
 **Dependency:** Phases 1–6 `COMPLETE`.
 
@@ -22,15 +22,29 @@ active promotion
  -> immutable accepted promotion/discount snapshot
 ```
 
-## Required backend authority
+## Implemented foundation
 
-Phase 7 will define canonical migration-backed promotion configuration and application records, Admin/Owner mutation RPCs, quote integration, placement-time revalidation and immutable accepted snapshots. Direct ordinary client writes remain denied. Money remains integer sen.
+Canonical migration `20260915055000_create_promotion_discount_authority.sql` now establishes the Phase 7 data/security foundation:
 
-The design must support deterministic precedence/stacking with Phase 6 vouchers. A quote is not durable promotion authority: placement recomputes/revalidates all applicable promotion state in the same trusted order transaction.
+- `promotions` with fixed-sen or percentage-basis-point discount shape, minimum subtotal, optional cap, effective window, deterministic priority, stacking mode, voucher compatibility, member requirement and optional global/per-member usage limits;
+- branch, catalogue-item, variant and add-on scope junctions bound to the canonical Phase 1 catalogue/branch tables;
+- `promotion_order_applications` for immutable accepted promotion snapshots, with customer/member identity nullable so Phase 3 deletion can later detach identity without deleting commercial history;
+- FK-supporting indexes for all scope/application reverse lookups;
+- RLS + FORCE RLS on all Phase 7 authority tables;
+- no direct `anon`/`authenticated` table privileges;
+- caller-bound Admin/Owner guard and `get_promotion_admin_state()` SECURITY INVOKER wrapper.
+
+This migration is committed canonically in `Aida_System` only. It has **not** been deployed to live Supabase yet because Phase 7 quote/place integration and transactional regressions are not complete. Live production remains at the Phase 6 boundary.
+
+## Remaining backend authority
+
+Subsequent Phase 7 migrations must add Admin/Owner mutation RPCs, deterministic eligibility/discount evaluation, voucher stacking/precedence, quote integration, placement-time revalidation, usage-limit serialization/idempotency and order snapshot exposure. Direct ordinary client writes remain denied. Money remains integer sen.
+
+A quote is not durable promotion authority: placement must recompute/revalidate all applicable promotion state in the trusted order transaction.
 
 ## Eligibility/scope baseline
 
-The implementation may support branch, catalogue item/variant/add-on, member/customer segment and effective-window constraints only where the schema/contracts make the rule deterministic. It must not invent external marketing segmentation, legal/tax rules or payment-provider behavior.
+Supported deterministic scope is branch, catalogue item, variant, add-on, member requirement and effective window. External marketing segmentation, tax/legal rules and payment-provider behavior remain out of scope.
 
 ## Security boundary
 
@@ -47,11 +61,11 @@ Customer surfaces may display server-provided promotion effects and eligibility.
 
 ## Dashboard/POS scope
 
-Dashboard gains live Admin/Owner promotion configuration and operational visibility. POS consumes server-calculated promotion effects and invalidates stale quote authority when promotion-relevant intent changes. Preview fixtures remain isolated.
+Dashboard will gain live Admin/Owner promotion configuration and operational visibility. POS consumes server-calculated promotion effects and invalidates stale quote authority when promotion-relevant intent changes. Preview fixtures remain isolated.
 
 ## Concurrency and idempotency
 
-Placement must remain deterministic under concurrent promotion use, especially if a promotion introduces global/member usage limits. Usage counters/anchors must be transactionally serialized or atomically constrained. Retry of an already accepted idempotent order must not consume promotion usage twice.
+Placement must remain deterministic under concurrent promotion use, especially for global/member usage limits. Usage must be transactionally serialized or atomically constrained. Retry of an already accepted idempotent order must not consume promotion usage twice.
 
 ## Validation gate
 
@@ -75,4 +89,4 @@ Before `COMPLETE`:
 
 ## App Store impact
 
-Generalized discounts on physical cafe goods do not introduce StoreKit/IAP. Phase 7 must not add tracking/advertising SDKs or protected-device permissions without a separately documented approved requirement.
+Generalized discounts on physical cafe goods do not introduce StoreKit/IAP. Phase 7 adds no tracking/advertising SDK or protected-device permission.

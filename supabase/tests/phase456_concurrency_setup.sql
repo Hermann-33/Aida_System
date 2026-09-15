@@ -155,7 +155,7 @@ begin
   from public.members
   where user_id='77000000-0000-0000-0000-000000000006';
 
-  select coalesce(sum(points_delta),0) into v_points
+  select coalesce(sum(delta_points),0) into v_points
   from public.loyalty_point_ledger
   where member_id=v_member;
 

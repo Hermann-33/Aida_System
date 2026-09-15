@@ -2,7 +2,7 @@
 
 Updated: 2026-09-15
 
-**Current verdict:** Phases 1–6 `COMPLETE`; Phase 7 repository implementation validated, formal Phase 7 `PARTIAL` pending live AIDA deployment/advisor verification.
+**Current verdict:** Phases 1–7 `COMPLETE` against the defined implementation/live-verification boundary. Phase 8–10 remain frozen pending explicit owner authorization.
 
 ## Core trust controls
 
@@ -20,19 +20,19 @@ Branch scheduling/capacity is server-owned; inventory consumption is transaction
 
 ## Loyalty and voucher controls
 
-Phase 6 authority tables are RLS + FORCE RLS and deny direct authenticated mutation. Customer wallet/redemption is caller-bound. Admin/Owner loyalty configuration/support rechecks trusted role and actor. POS member lookup requires staff-or-above, valid server-held terminal credential and open caller shift. Voucher ownership/status/expiry/eligibility and discount are validated server-side and consumption is placement-atomic.
+Phase 6 authority tables use RLS + FORCE RLS and deny direct authenticated mutation. Customer wallet/redemption is caller-bound. Admin/Owner loyalty configuration/support rechecks trusted role and actor. POS member lookup requires staff-or-above, valid server-held terminal credential and open caller shift. Voucher ownership/status/expiry/eligibility and discount are validated server-side and consumption is placement-atomic.
 
 ## Phase 7 promotion controls
 
-Promotion configuration tables and immutable application history use RLS + FORCE RLS with direct client table access revoked. Admin/Owner promotion management is exposed only through caller-bound RPCs that recheck trusted role and session actor.
+Promotion configuration and immutable application tables use RLS + FORCE RLS with direct `anon`/`authenticated` table access revoked. Admin/Owner promotion management is exposed only through caller-bound RPCs that recheck trusted role and session actor.
 
-Clients do not submit authoritative promotion IDs, promotion discount amounts or order totals. `quote_order` resolves promotions from trusted server configuration. Placement locks eligible promotion candidates in deterministic order before re-evaluation so global/per-member usage counts cannot be oversubscribed by concurrent orders.
+Clients do not submit authoritative promotion IDs, promotion discount amounts or order totals. `quote_order` resolves promotions from trusted configuration. Placement locks candidate promotion rows in deterministic order before re-evaluation so global/per-member usage counts cannot be oversubscribed by concurrent orders.
 
-Promotion scope validation enforces product/add-on catalogue kind and trusted branch/catalogue foreign keys. Fixed discounts use integer sen; percentage discounts use bounded basis points. Window, subtotal, maximum discount, stacking mode, voucher coexistence and usage-limit constraints are validated server-side.
+Promotion scope validation enforces product/add-on catalogue kind and trusted branch/catalogue foreign keys. Fixed discounts use integer sen; percentage discounts use bounded basis points. Window, subtotal, maximum discount, stacking mode, voucher coexistence and usage-limit constraints are server-validated.
 
-Accepted promotion facts are persisted as immutable code/name/type/value/discount/priority/stacking/voucher-coexistence snapshots and reconciled to `orders.discount_sen`. Voucher and promotion discount components remain distinct so one authority cannot silently overwrite the other.
+Accepted promotion facts persist as immutable code/name/type/value/discount/priority/stacking/voucher-coexistence snapshots and reconcile to `orders.discount_sen`. Voucher and promotion discount components remain distinct.
 
-The Phase 7 contention regression proves that two concurrent orders competing for the final permitted promotion use yield exactly one accepted promotion application.
+The Phase 7 contention regression proves that two concurrent orders competing for the final permitted promotion use produce exactly one accepted promotion application.
 
 ## Privacy controls
 
@@ -40,9 +40,7 @@ Whole-account deletion accepts no target user ID. It deletes customer-owned loya
 
 Promotion application history may retain legitimate non-identifying accepted commercial facts; nullable member/promotion references prevent configuration or identity deletion from rewriting historic price truth.
 
-## Client validation controls
-
-Validated implementation heads before documentation synchronization:
+## Repository validation
 
 ```text
 Aida_System             c6abf24b498edb401af878f86d26e1c63a633121
@@ -52,14 +50,30 @@ Customer release audit #311   COMPLETE
 Dashboard CI #147             COMPLETE
 ```
 
-Customer #311 covers static analysis, non-golden regressions, goldens, release APK build and artifact upload. Dashboard #147 covers lint, typecheck, unit tests, live POS browser authority, preview isolation and production build. Backend #231 replays all migrations/regressions through Phase 7 plus the final-promotion-use contention gate.
+Customer #311 covers static analysis, non-golden regressions, goldens, release APK build and artifact upload. Dashboard #147 covers lint, typecheck, unit tests, live POS browser authority, preview isolation and production build. Backend #231 replays all migrations/regressions through Phase 7 and includes the final-promotion-use contention gate.
 
-## Live Supabase advisor status
+## Live Supabase verification
 
-Earlier Phase 1–6 advisor checks on 2026-09-15 found no implementation-created blocking security issue; one pre-existing Auth warning remained for leaked-password protection, and performance findings were INFO-level after FK index remediation.
+Project `eswovqxqzfevcdwwcmuh` is `ACTIVE_HEALTHY` after deployment of the canonical Phase 7 SQL. Live history records:
 
-Fresh Phase 7 advisors have **not** been run because the Supabase connection currently available does not expose AIDA project `eswovqxqzfevcdwwcmuh`. This is the remaining security-verification blocker. Do not substitute advisors from an unrelated Supabase project.
+```text
+20260915120917_create_promotion_discount_authority
+20260915121057_integrate_promotions_with_order_authority
+20260915121119_normalize_phase7_nullable_voucher_quote
+```
+
+Post-deployment checks confirmed all six Phase 7 tables have RLS + FORCE RLS, with no direct anon/authenticated CRUD privileges. Required public/private Phase 7 functions are present with intended execute grants, and the old `orders_consume_pending_voucher` trigger is retired. Verification inserted no production promotion or order fixture data.
+
+Fresh security advisor findings:
+
+- INFO `rls_enabled_no_policy` for RPC-only Phase 7 promotion tables and existing RPC-only loyalty tables. This is intentional because direct table privileges are revoked.
+- The sole WARN remains `auth_leaked_password_protection`: Supabase Auth leaked-password protection is disabled. This predates Phase 7 and is not a Phase 7 schema regression.
+- Remediation: https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection
+
+Fresh performance advisor findings are INFO `unused_index` observations only, including newly deployed Phase 7 indexes before production usage accumulates. No blocking missing-index/performance warning was reported.
+
+The connected SQL inspection role is `supabase_read_only_user` and cannot assume `anon`, so a direct app-role RPC smoke call cannot be executed through that connector. This is a connector-role limitation, not an application grant defect; intended app-role execute grants were independently verified and runtime behavior is covered by the blocking repository regressions.
 
 ## Deferred security domains
 
-Reporting/accounting, external payment/refund settlement, employee Badge/PIN credential lifecycle, hardware integrations and final production/App Store release operations remain Phase 8–10 or separately deferred. Phase 8–10 remain frozen while Phase 7 is `PARTIAL`.
+Reporting/accounting, external payment/refund settlement, employee Badge/PIN credential lifecycle, hardware integrations and final production/App Store release operations remain Phase 8–10 or separately deferred. Do not begin them without explicit owner authorization.

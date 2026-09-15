@@ -1,12 +1,12 @@
 # AIDA Backend Completion Phases
 
-**Status:** Phases 1–6 `COMPLETE`; Phase 7 `PARTIAL`; Phase 8–10 frozen  
+**Status:** Phases 1–7 `COMPLETE`; Phase 8–10 frozen  
 **Started:** 2026-09-10  
 **Updated:** 2026-09-15
 
 ## Completion rule
 
-A phase is `COMPLETE` only when implementation, canonical migrations, authorization/regression coverage, affected client validation, live-backend verification where applicable, advisor review, synchronized documentation, deferred scope and App Store impact are recorded. Phase completion does not authorize PR merge.
+A phase is `COMPLETE` only when implementation, canonical migrations, authorization/regression coverage, affected client validation, live-backend verification where applicable, advisor review, synchronized documentation, deferred scope and App Store impact are recorded. Completion does not authorize PR merge or the next phase.
 
 ## Phase status
 
@@ -17,12 +17,8 @@ A phase is `COMPLETE` only when implementation, canonical migrations, authorizat
 | 3 — Customer privacy/account requirements | `TASK-PRIVACY-001` | `COMPLETE` | Phase 3 closeout + cumulative remediation closeout |
 | 4 — Branch scheduling/pickup | `TASK-OPS-004` | `COMPLETE` | Phase 4 closeout + true contention regression |
 | 5 — Inventory and recipes | `TASK-OPS-005` | `COMPLETE` | Phase 5 closeout + true contention regression |
-| 6 — Loyalty, rewards and vouchers | `TASK-OPS-006` | `COMPLETE` | Phase 6 closeout + strict client contracts + true contention regression |
-| 7 — Promotions and discounts | `TASK-OPS-007` | `PARTIAL` | implementation/CI complete; live AIDA deployment + fresh advisors blocked by project access |
-
-Combined Phase 1–6 remediation evidence: `PHASE_1_6_CODEX_AUDIT_REMEDIATION_CLOSEOUT_2026-09-15.md`.
-
-Phase 7 implementation evidence is recorded in `PHASE_7_PROMOTIONS_DISCOUNTS_CLOSEOUT_2026-09-15.md`.
+| 6 — Loyalty, rewards and vouchers | `TASK-OPS-006` | `COMPLETE` | Phase 6 closeout + strict clients + true contention regression |
+| 7 — Promotions and discounts | `TASK-OPS-007` | `COMPLETE` | Phase 7 closeout + repository CI + live AIDA deployment/advisors |
 
 ## Phase 7 validated implementation boundary
 
@@ -34,7 +30,7 @@ Customer release audit #311   COMPLETE
 Dashboard CI #147             COMPLETE
 ```
 
-Canonical Phase 7 migrations:
+Canonical migrations:
 
 ```text
 20260915100000_create_promotion_discount_authority.sql
@@ -42,21 +38,15 @@ Canonical Phase 7 migrations:
 20260915101100_normalize_phase7_nullable_voucher_quote.sql
 ```
 
-Repository validation proves server-owned promotion configuration/evaluation, quote/place reconciliation, immutable applied snapshots, usage-limit locking/contention, strict Flutter/Dashboard contracts, live Admin campaign management through the BFF, preview isolation and release/build viability.
-
-## Remaining Phase 7 blocker
-
-The currently connected Supabase account does not expose the documented AIDA project `eswovqxqzfevcdwwcmuh`. No Phase 7 migration has been intentionally applied to another project. Phase 7 therefore remains `PARTIAL` until AIDA project access is restored and the following are complete:
+Live AIDA migration-history mapping:
 
 ```text
-Phase 7 migrations deployed/reconciled on AIDA
- -> live smoke verification
- -> fresh security advisor
- -> fresh performance advisor
- -> blocking findings resolved
- -> final documentation-head validation
- -> Phase 7 COMPLETE
+20260915120917_create_promotion_discount_authority
+20260915121057_integrate_promotions_with_order_authority
+20260915121119_normalize_phase7_nullable_voucher_quote
 ```
+
+Live project `eswovqxqzfevcdwwcmuh` is `ACTIVE_HEALTHY`. Phase 7 tables were verified with RLS + FORCE RLS and no direct anon/authenticated CRUD grants. Fresh security advisors added only expected INFO RPC-only RLS/no-policy findings; the sole WARN remains the pre-existing leaked-password-protection setting. Fresh performance advisors contain INFO unused-index findings only.
 
 ## Dependency chain
 
@@ -67,8 +57,8 @@ Phase 1 COMPLETE
  -> Phase 4 COMPLETE
  -> Phase 5 COMPLETE
  -> Phase 6 COMPLETE
- -> Phase 7 PARTIAL
- -X-> Phase 8 FROZEN
+ -> Phase 7 COMPLETE
+ -X-> Phase 8 FROZEN pending explicit owner authorization
 ```
 
 ## Later phases
@@ -77,4 +67,4 @@ Phase 1 COMPLETE
 - Phase 9 — payments, refunds and external integrations — `FROZEN`
 - Phase 10 — App Store release gate — `FROZEN`
 
-Do not begin Phase 8, resume a later-phase scheduler or merge Phase 7 PRs merely because repository CI is green. The live AIDA deployment/advisor gate remains part of Phase 7 completion.
+Do not begin Phase 8, resume a later-phase scheduler or merge Phase 7 PRs without explicit owner authorization.

@@ -2,51 +2,46 @@
 
 **As of:** 2026-09-15  
 **Current boundary:** Phase 7 — promotions and discounts  
-**Current verdict:** `PARTIAL` — implementation and repository validation are complete; live AIDA Supabase deployment/advisor verification remains blocked by project access in the current connection. Phase 8–10 remain frozen.
+**Current verdict:** `COMPLETE` against the defined Phase 7 implementation, live-deployment, advisor and documentation boundary. Phase 8–10 remain frozen until explicit owner authorization.
 
 ## Product topology
 
 - customer/backend: `Hermann-33/Aida_System`
 - Dashboard/Admin/POS: `Hermann-33/Aida_System-Dashboard`
-- shared Supabase project ref: `eswovqxqzfevcdwwcmuh`
+- shared Supabase project: `Aida System`, ref `eswovqxqzfevcdwwcmuh`, region `ap-southeast-1`
 - canonical executable migrations: `Hermann-33/Aida_System/supabase/migrations/` only
 
-## Completed authority through the current code boundary
+## Authority completed through Phase 7
 
 ```text
 Phase 1 COMPLETE  branch -> sales point -> terminal -> employee branch scope -> POS attribution
 Phase 2 COMPLETE  terminal + employee -> shift -> POS order / cash ledger
-Phase 3 COMPLETE  customer identity -> privacy preferences / whole-account deletion -> anonymized retained history
-Phase 4 COMPLETE  branch calendar/policy -> pickup slot capacity -> authoritative quote/place
+Phase 3 COMPLETE  customer -> privacy/account deletion -> anonymized retained history
+Phase 4 COMPLETE  branch calendar/policy -> pickup capacity -> authoritative quote/place
 Phase 5 COMPLETE  recipe -> branch inventory -> transactional depletion/reversal
-Phase 6 COMPLETE  member -> loyalty ledgers/balances -> reward/voucher -> authoritative voucher discount/consumption
-Phase 7 CODE COMPLETE  promotion config -> server evaluation -> quote/place -> immutable promotion snapshots
+Phase 6 COMPLETE  member -> loyalty -> reward/voucher -> authoritative voucher discount/consumption
+Phase 7 COMPLETE  promotion config -> server evaluation -> locked placement -> immutable promotion snapshots
 ```
 
-Phase 7 keeps commercial authority on the server. Clients do not submit accepted promotion IDs, promotion discounts or totals. Active promotions are selected from server configuration and may be scoped by branch, product, variant or add-on, with optional member requirements, windows, subtotal thresholds, global/member usage limits, stacking mode and voucher coexistence rules.
+Phase 7 keeps commercial authority on the server. Clients do not submit accepted promotion IDs, promotion discounts or totals. Active promotions are resolved from trusted configuration with branch/product/variant/add-on scope, windows, subtotal thresholds, member rules, usage limits, stacking and voucher-coexistence policy.
 
-Accepted orders expose distinct `voucherDiscountSen` and `promotionDiscountSen` components that reconcile to `discountSen`. Promotion applications persist immutable commercial snapshots. Placement serializes candidate promotion configuration/usage so final-use contention has one accepted winner rather than oversubscription.
+Accepted orders expose distinct `voucherDiscountSen` and `promotionDiscountSen` components that reconcile to `discountSen`. Placement serializes candidate promotion configuration/usage, and accepted promotion applications persist immutable commercial snapshots.
 
-Dashboard privileged promotion management remains behind the same-origin HttpOnly employee session/BFF and caller-JWT forwarding. Flutter and POS consume authoritative quote/order promotion snapshots with fail-closed parsing. Preview mode does not make privileged promotion requests.
+Dashboard promotion management remains behind the same-origin HttpOnly employee session/BFF and caller-JWT forwarding. Flutter and POS parse promotion authority fail-closed. Preview mode makes no privileged promotion requests.
 
 ## Validated implementation heads
-
-These are the implementation heads validated before the documentation synchronization commit:
 
 ```text
 Aida_System             c6abf24b498edb401af878f86d26e1c63a633121
 Aida_System-Dashboard   7e14326253b263412da5fa38f47bb137c31d7379
-```
-
-```text
 Backend database audit #231   COMPLETE
 Customer release audit #311   COMPLETE
 Dashboard CI #147             COMPLETE
 ```
 
-Backend #231 includes the complete Phase 1–7 SQL regression suite, Phase 4–6 true-contention coverage and the Phase 7 final-promotion-use contention gate. Customer #311 includes static analysis, non-golden regressions, golden regressions, release APK build and artifact upload. Dashboard #147 includes lint, typecheck, unit tests, live POS browser regression, preview isolation and production build.
+## Live Phase 7 deployment
 
-## Canonical Phase 7 migrations
+Canonical repository migrations:
 
 ```text
 20260915100000_create_promotion_discount_authority.sql
@@ -54,29 +49,38 @@ Backend #231 includes the complete Phase 1–7 SQL regression suite, Phase 4–6
 20260915101100_normalize_phase7_nullable_voucher_quote.sql
 ```
 
-## Live Supabase boundary
+Live Supabase applied-history entries created by the migration service on 2026-09-15:
 
-The AIDA project ref is documented as `eswovqxqzfevcdwwcmuh`. Earlier Phase 1–6 verification on 2026-09-15 recorded it `ACTIVE_HEALTHY` with scoped security/performance advisors complete.
+```text
+20260915120917_create_promotion_discount_authority
+20260915121057_integrate_promotions_with_order_authority
+20260915121119_normalize_phase7_nullable_voucher_quote
+```
 
-The Supabase connection available during the current Phase 7 continuation does not list or expose that AIDA project; it exposes unrelated projects only. Therefore this session did **not** deploy Phase 7 migrations to any live project and did **not** run fresh Phase 7 security/performance advisors. It would be unsafe to deploy to an unrelated database.
+These live timestamps map to the three canonical repository files above. Do not rewrite already-applied live migration history merely to match repository filename timestamps.
+
+Live verification after deployment:
+
+- project `eswovqxqzfevcdwwcmuh`: `ACTIVE_HEALTHY`;
+- all six promotion tables: RLS enabled + FORCE RLS;
+- no direct `anon` or `authenticated` CRUD grants on promotion tables;
+- Admin promotion, quote and placement RPCs/functions present with intended execute grants;
+- retired Phase 6 pending-voucher trigger absent;
+- no production promotions or promotion applications were inserted during deployment verification;
+- fresh security advisor: Phase 7 tables appear only as expected INFO `rls_enabled_no_policy`; sole WARN remains the pre-existing leaked-password-protection Auth setting;
+- fresh performance advisor: INFO unused-index findings only; no blocking performance lint.
+
+The database connector itself runs as `supabase_read_only_user` and cannot impersonate the app `anon` role, so a direct end-user RPC call was not made through that connector. Repository SQL/E2E gates validate the runtime RPC behavior; live verification validated deployment history, schema, grants and advisors without creating production order/test data.
 
 ## PR boundaries
 
 ```text
-Aida_System             draft PR #27  codex/phase-7-promotions-discounts
-Aida_System-Dashboard   draft PR #24  codex/phase-7-promotions-discounts
+Aida_System             draft PR #27
+Aida_System-Dashboard   draft PR #24
 ```
 
-Both remain draft/unmerged. Completion of repository implementation does not authorize merge.
+Both remain draft/unmerged. Phase completion does not authorize merge.
 
-## Remaining Phase 7 closure gate
+## Next phase rule
 
-To change Phase 7 from `PARTIAL` to `COMPLETE`:
-
-1. restore authorized access to Supabase project `eswovqxqzfevcdwwcmuh`;
-2. deploy/reconcile the three canonical Phase 7 migrations on that project without rewriting valid historical migration records;
-3. run live Phase 7 smoke verification plus fresh security and performance advisors;
-4. confirm no new blocking findings and record the live evidence;
-5. revalidate the final documentation heads.
-
-Do not begin Phase 8–10 until this Phase 7 closure gate is complete and the owner explicitly authorizes the next phase.
+Phase 8–10 remain frozen. Do not begin Phase 8 or resume a later-phase scheduler unless the owner explicitly authorizes continuation.

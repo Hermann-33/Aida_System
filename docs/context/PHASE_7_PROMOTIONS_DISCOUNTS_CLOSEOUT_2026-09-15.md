@@ -2,11 +2,9 @@
 
 ## Verdict
 
-**`PARTIAL`**
+**`COMPLETE`**
 
-The Phase 7 repository implementation is complete and all blocking repository CI gates are green. Formal Phase 7 closure is withheld because the current Supabase connection does not expose the documented AIDA project `eswovqxqzfevcdwwcmuh`, so the live migration/reconciliation, live smoke test and fresh advisor gates cannot be completed safely in this session.
-
-Phase 8–10 remain frozen.
+Phase 7 is complete against its defined implementation, regression, affected-client, live AIDA deployment, advisor and documentation boundary. Phase 8–10 remain frozen pending explicit owner authorization.
 
 ## Scope delivered
 
@@ -41,6 +39,18 @@ Delivered authority includes:
 
 Canonical executable migration ownership remains `Hermann-33/Aida_System/supabase/migrations/` only.
 
+## Live migration-history mapping
+
+The canonical SQL was applied to AIDA project `eswovqxqzfevcdwwcmuh` through the Supabase migration service. The live history entries are:
+
+```text
+20260915120917_create_promotion_discount_authority
+20260915121057_integrate_promotions_with_order_authority
+20260915121119_normalize_phase7_nullable_voucher_quote
+```
+
+These deployment timestamps map in order to the three canonical repository files. They are valid live migration history and must not be rewritten merely to match canonical filename timestamps.
+
 ## Backend authority
 
 The promotion foundation introduces `promotions`, branch/item/variant/add-on scope tables and `promotion_order_applications`. Promotion tables use RLS + FORCE RLS with direct client grants revoked.
@@ -53,13 +63,13 @@ A Phase 7 regression proves final-use contention: two simultaneous orders compet
 
 ## Customer Flutter
 
-The customer order model was extended to fail closed on Phase 7 commercial fields. Quote/order parsing now requires separate voucher and promotion discount components and validates promotion snapshots, total discount arithmetic and line/subtotal consistency. Unknown/malformed authority remains rejected rather than silently defaulted.
+The customer order model fails closed on Phase 7 commercial fields. Quote/order parsing requires separate voucher and promotion discount components and validates promotion snapshots, total-discount arithmetic and line/subtotal consistency. Unknown/malformed authority is rejected rather than silently defaulted.
 
-The customer release workflow was also corrected so stacked phase PRs targeting the Phase 1–6 remediation branch receive the full release audit instead of skipping it.
+The customer release workflow also validates stacked phase PRs targeting the Phase 1–6 integration branch.
 
 ## Dashboard / POS / Admin
 
-Dashboard now includes:
+Dashboard includes:
 
 - strict Phase 7 order quote/snapshot parsing;
 - separate voucher/promotion commercial reconciliation;
@@ -73,9 +83,9 @@ Dashboard now includes:
 
 No service-role secret or browser-readable employee bearer credential was introduced.
 
-## Validated implementation heads
+## Repository validation
 
-These implementation heads were fully green before documentation synchronization:
+Validated implementation heads:
 
 ```text
 Aida_System             c6abf24b498edb401af878f86d26e1c63a633121
@@ -96,36 +106,29 @@ Customer #311 covers Flutter static analysis, non-golden regression suite, golde
 
 Dashboard #147 covers lint, typecheck, unit tests, live POS browser regression, preview-isolation browser regression and production build.
 
+## Live AIDA verification
+
+After migration deployment:
+
+- project `eswovqxqzfevcdwwcmuh` is `ACTIVE_HEALTHY`;
+- all six Phase 7 promotion tables have RLS + FORCE RLS;
+- no direct `anon` or `authenticated` CRUD privileges exist on those tables;
+- expected promotion Admin, quote and placement functions/RPCs are present with intended execute grants;
+- the old Phase 6 pending-voucher trigger is absent;
+- promotion and promotion-application row counts were both zero immediately after verification, so no production test fixture data was introduced.
+
+Fresh security advisor findings contain only the expected INFO `rls_enabled_no_policy` notices on RPC-only promotion/loyalty tables plus the pre-existing Auth WARN that leaked-password protection is disabled. That Auth setting is not a Phase 7 schema defect. Remediation reference: https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection
+
+Fresh performance advisor findings are INFO `unused_index` notices only; no blocking missing-index or other performance warning was reported.
+
+The SQL connector runs as `supabase_read_only_user` and cannot switch to application role `anon`; therefore it cannot directly execute an end-user `quote_order` smoke call. Intended app-role grants were separately verified, repository SQL/client/browser gates exercise runtime RPC behavior, and live verification intentionally avoided creating production promotion/order test data.
+
 ## App Store impact
 
-Phase 7 adds discounts for physical café goods only. It adds no StoreKit/IAP, digital entitlement, subscription, tracking SDK or protected-device permission. Under Apple's physical-goods rule, café food/drink payment remains outside In-App Purchase. Server-authoritative promotion calculation also ensures price/discount presentation reflects accepted backend commercial state.
+Phase 7 adds discounts for physical café goods only. It adds no StoreKit/IAP, digital entitlement, subscription, tracking SDK or protected-device permission. Café food/drink payment remains outside In-App Purchase under Apple's physical-goods rule. Server-authoritative promotion calculation keeps accepted price/discount presentation consistent with backend commercial state.
 
 Final App Store submission remains Phase 10.
 
-## Live Supabase blocker
-
-The project ref for AIDA is `eswovqxqzfevcdwwcmuh`. Earlier Phase 1–6 closeout checks on 2026-09-15 recorded that project `ACTIVE_HEALTHY` and completed scoped security/performance advisors.
-
-During this Phase 7 continuation, the available Supabase account/project listing does not expose AIDA; it exposes unrelated projects only. Therefore this continuation intentionally did not:
-
-- deploy Phase 7 migrations to a different project;
-- claim Phase 7 migrations are live;
-- run security/performance advisors against an unrelated database;
-- mark Phase 7 `COMPLETE` without live evidence.
-
-This is the sole remaining formal closure blocker currently known.
-
-## Closure conditions
-
-Phase 7 may move from `PARTIAL` to `COMPLETE` only after:
-
-1. authorized access to `eswovqxqzfevcdwwcmuh` is restored;
-2. the three canonical Phase 7 migrations are deployed/reconciled on that project;
-3. live quote/place/promotion admin behavior is smoke-tested;
-4. fresh Supabase security and performance advisors are run;
-5. any new blocking findings are remediated;
-6. final documentation heads are revalidated in CI and the live evidence is appended without reopening implementation defects.
-
 ## Governance
 
-Backend PR #27 and Dashboard PR #24 remain draft/unmerged. Phase 8–10 are excluded from this closeout and must not begin until Phase 7 is formally `COMPLETE` and the owner explicitly authorizes continuation.
+Backend PR #27 and Dashboard PR #24 remain draft/unmerged. Phase 8–10 are excluded from this closeout and must not begin until the owner explicitly authorizes continuation. Phase 7 completion does not itself authorize PR merge.

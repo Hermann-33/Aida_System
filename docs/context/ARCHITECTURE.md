@@ -16,9 +16,9 @@ flowchart LR
 
 AIDA is one product across `Hermann-33/Aida_System`, `Hermann-33/Aida_System-Dashboard`, and Supabase project `eswovqxqzfevcdwwcmuh`. Canonical executable migrations live only in `Aida_System/supabase/migrations/`.
 
-## Trusted authority through Phase 7 code
+## Trusted authority through Phase 7
 
-Supabase/server owns authenticated identity, trusted role/disabled state, membership, employee branch scope, operational topology, terminal credential validity, shift/cash state, tender/payment classification, catalogue/pricing, branch scheduling/capacity, inventory/recipes/depletion, privacy/account deletion, loyalty balances/reward/voucher state, generalized promotion configuration/evaluation and persisted commercial snapshots.
+Supabase/server owns authenticated identity, trusted role/disabled state, membership, employee branch scope, operational topology, terminal credential validity, shift/cash state, tender/payment classification, catalogue/pricing, branch scheduling/capacity, inventory/recipes/depletion, privacy/account deletion, loyalty/reward/voucher state, generalized promotion configuration/evaluation and persisted commercial snapshots.
 
 Dashboard privileged operations stay behind the same-origin BFF. Employee access/refresh and terminal credentials are HttpOnly; the BFF forwards the caller JWT and publishable key. No normal flow uses a service-role credential or browser-readable reusable employee bearer/terminal secret. Preview fixtures are never backend authority.
 
@@ -36,21 +36,25 @@ Phase 7: promotion config -> eligibility/stacking/usage -> quote/place -> immuta
 
 ## Phase 7 promotion architecture
 
-Trusted resources include `promotions`, `promotion_branches`, `promotion_items`, `promotion_variants`, `promotion_addons` and `promotion_order_applications`.
+Trusted resources include `promotions`, `promotion_branches`, `promotion_items`, `promotion_variants`, `promotion_addons` and `promotion_order_applications`. All six are live with RLS + FORCE RLS and no direct anon/authenticated CRUD grants.
 
 Promotion configuration supports fixed or percentage discounts, optional maximum discount, active windows, minimum subtotal, priority, exclusive/stackable behavior, explicit voucher coexistence, member requirements and global/per-member usage limits. Catalogue scope is validated so product scope references products and add-on scope references add-ons.
 
-`quote_order` computes the base Phase 5 quote, optional Phase 6 voucher adjustment and then automatically evaluates eligible active promotions. Clients do not submit accepted promotion IDs or discount values. The quote returns distinct `voucherDiscountSen`, `promotionDiscountSen`, total `discountSen`, `totalSen`, voucher snapshot and promotion snapshots.
+`quote_order` computes the authoritative base quote and optional voucher adjustment, then automatically evaluates eligible active promotions. Clients do not submit accepted promotion IDs or discount values. The quote returns distinct `voucherDiscountSen`, `promotionDiscountSen`, total `discountSen`, `totalSen`, voucher snapshot and promotion snapshots.
 
-Placement locks candidate promotion rows in deterministic order before re-evaluating the authoritative quote. This stabilizes global/member usage counts and prevents concurrent orders from oversubscribing a final promotion use. Accepted promotions are inserted into `promotion_order_applications` as immutable code/name/type/value/discount/priority/stacking/voucher-coexistence snapshots and must reconcile to the order's authoritative discount.
+Placement locks candidate promotion rows in deterministic order before re-evaluating the quote. This stabilizes usage counts and prevents concurrent orders from oversubscribing a final promotion use. Accepted promotions are inserted into `promotion_order_applications` as immutable code/name/type/value/discount/priority/stacking/voucher-coexistence snapshots and must reconcile to the order's authoritative discount.
 
-Phase 7 replaces the old Phase 6 pending-voucher trigger path with explicit finalization of voucher and promotion applications after order creation. Voucher and promotion discounts remain separate components even though `orders.discount_sen` stores the accepted total discount.
+Phase 7 replaces the old pending-voucher trigger path with explicit finalization of voucher and promotion applications. Voucher and promotion discounts remain separate components even though `orders.discount_sen` stores the accepted total discount.
+
+## Live deployment record
+
+Canonical migrations `20260915100000`, `20260915101000`, `20260915101100` are applied to AIDA as live migration-history versions `20260915120917`, `20260915121057`, `20260915121119`. The project is `ACTIVE_HEALTHY`. Fresh security/performance advisors produced no new blocking Phase 7 finding.
 
 ## Client architecture
 
 Customer Flutter parses Phase 7 quote/order promotion snapshots fail-closed and verifies voucher/promotion components reconcile to total discount and order arithmetic.
 
-Dashboard/POS uses the same authoritative fields. `/admin/rewards/campaigns` manages live promotion configuration through a same-origin BFF using the employee HttpOnly session and caller JWT. Preview mode renders fixtures and does not issue privileged promotion requests.
+Dashboard/POS uses the same authoritative fields. `/admin/rewards/campaigns` manages promotion configuration through a same-origin BFF using the employee HttpOnly session and caller JWT. Preview mode renders fixtures and does not issue privileged promotion requests.
 
 ## Privacy and commercial retention
 
@@ -58,9 +62,7 @@ Whole-account deletion removes customer-owned loyalty state and detaches identif
 
 ## Realtime and payment boundaries
 
-Customer Realtime is authorized invalidation followed by refetch. Dashboard privileged data does not expose employee tokens for direct Realtime.
-
-Cash/unpaid remains internal POS tender authority. External payment capture/refunds/processor settlement remain Phase 9.
+Customer Realtime is authorized invalidation followed by refetch. Dashboard privileged data does not expose employee tokens for direct Realtime. Cash/unpaid remains internal POS tender authority. External payment capture/refunds/processor settlement remain Phase 9.
 
 ## Security invariants
 
@@ -75,8 +77,4 @@ Cash/unpaid remains internal POS tender authority. External payment capture/refu
 - customer self-deletion cannot target another user and does not erase staff/POS audit identity;
 - retained customer history loses identifying customer/member/Auth references and customer-authored free text/request digest.
 
-## Current deployment boundary
-
-The Phase 7 repository implementation and CI are complete, but the currently connected Supabase account does not expose project `eswovqxqzfevcdwwcmuh`. Phase 7 therefore remains `PARTIAL` until its canonical migrations are deployed/reconciled on the real AIDA project and fresh security/performance advisors pass.
-
-Phase 8–10 remain frozen.
+Phases 1–7 are `COMPLETE`. Phase 8–10 remain frozen pending explicit owner authorization.

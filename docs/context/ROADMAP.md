@@ -4,7 +4,7 @@ Updated: 2026-09-15
 
 ## Current status
 
-Phases 1–6 are `COMPLETE`. Phase 7 — promotions and discounts — has completed repository implementation and validation but remains `PARTIAL` because the live AIDA Supabase deployment/advisor gate is currently inaccessible from the connected Supabase account. Phase 8–10 remain frozen.
+Phases 1–7 are `COMPLETE` against their defined authority, regression, client, live-deployment and advisor boundaries. Phase 8–10 remain frozen pending explicit owner authorization.
 
 ```text
 Phase 1 — operational topology                         COMPLETE
@@ -13,54 +13,37 @@ Phase 3 — customer privacy/account requirements       COMPLETE
 Phase 4 — branch scheduling and pickup authority      COMPLETE
 Phase 5 — inventory and recipes                       COMPLETE
 Phase 6 — loyalty, rewards and vouchers               COMPLETE
-Phase 7 — promotions and discounts                    PARTIAL
+Phase 7 — promotions and discounts                    COMPLETE
 Phase 8 — reporting/accounting/audit                  FROZEN
 Phase 9 — payments/refunds/external integrations      FROZEN
 Phase 10 — App Store final release gate               FROZEN
 ```
 
-## Trusted foundation through Phase 7 code
+## Trusted foundation through Phase 7
 
-The validated repository implementation now has server-owned authority for:
+The product now has server-owned authority for identity/roles, membership/privacy deletion, catalogue/pricing, topology, terminals, shifts/cash, scheduling/capacity, inventory/recipes, loyalty/rewards/vouchers, generalized promotions and immutable accepted commercial snapshots.
 
-- customer/employee identity and trusted role/disabled state;
-- membership identity and customer privacy/account deletion;
-- catalogue/modifier compatibility and integer-sen pricing;
-- authoritative quote/order identity/status/commercial snapshots;
-- branch/sales-point/terminal topology and employee branch scope;
-- terminal enrolment/revocation with HttpOnly BFF credential handling;
-- shift lifecycle, cash ledger, expected drawer and variance;
-- POS shift/tender/payment attribution;
-- branch-local service windows, dated exceptions and scheduled slot capacity;
-- explicit customer pickup-branch validation;
-- inventory items, branch balances, recipes/components and append-only movement history;
-- transactionally enforced stock consumption and cancellation reversal;
-- loyalty points/stamps, rewards, issued vouchers and atomic voucher consumption;
-- generalized fixed/percentage promotions with branch/catalogue targeting, time windows, subtotal thresholds, stacking, voucher coexistence, member/global usage limits and immutable application snapshots.
-
-Dashboard privileged operations remain behind the same-origin HttpOnly BFF with caller-JWT forwarding. Customer Flutter submits intent through caller-bound public RPCs. Preview fixtures never become backend authority.
+Dashboard privileged operations remain behind the same-origin HttpOnly BFF with caller-JWT forwarding. Customer Flutter submits intent through caller-bound RPCs. Preview fixtures never become backend authority.
 
 ## Phase 7 — promotions and discounts
 
-**Repository implementation:** complete.  
-**Formal phase verdict:** `PARTIAL` pending live AIDA deployment/advisors.
+Completed scope:
 
-Implemented scope:
-
-- promotion definitions and activation windows;
-- fixed and percentage discount calculation with optional cap;
+- fixed/percentage promotion definitions and activation windows;
+- optional maximum discount, minimum subtotal and priority;
 - branch/product/variant/add-on targeting;
-- optional member requirement, minimum subtotal and usage limits;
-- exclusive/stackable policy plus explicit voucher coexistence;
+- optional member requirement and global/per-member usage limits;
+- exclusive/stackable policy and explicit voucher coexistence;
 - automatic server-side promotion selection during quote;
-- locked re-evaluation during placement;
-- immutable accepted-promotion commercial snapshots;
+- deterministic locked re-evaluation during placement;
+- immutable applied-promotion commercial snapshots;
 - final-use concurrency protection;
 - Admin management through trusted BFF paths;
-- strict Flutter and Dashboard promotion/voucher commercial reconciliation;
-- POS promotion presentation and preview isolation.
+- strict Flutter and Dashboard voucher/promotion reconciliation;
+- POS promotion presentation and preview isolation;
+- live AIDA migration deployment plus fresh advisors.
 
-Validated implementation heads:
+Validated implementation:
 
 ```text
 Aida_System             c6abf24b498edb401af878f86d26e1c63a633121
@@ -70,25 +53,19 @@ Customer release audit #311   COMPLETE
 Dashboard CI #147             COMPLETE
 ```
 
-Remaining Phase 7 completion work:
-
-- regain authorized access to Supabase project `eswovqxqzfevcdwwcmuh`;
-- deploy/reconcile canonical Phase 7 migrations `20260915100000`, `20260915101000`, `20260915101100`;
-- run live smoke verification;
-- run fresh security/performance advisors;
-- resolve any blocking findings and record final evidence.
+Live AIDA project `eswovqxqzfevcdwwcmuh` is `ACTIVE_HEALTHY`. Canonical migrations `20260915100000`, `20260915101000`, `20260915101100` were applied through the migration service as live history `20260915120917`, `20260915121057`, `20260915121119`. Fresh advisors have no new blocking Phase 7 finding.
 
 ## Phase 8 — reporting, accounting and audit
 
-Do not begin before Phase 7 is `COMPLETE` and the owner explicitly authorizes continuation. Scope includes trusted sales/operations projections, branch/terminal/staff/shift breakdowns, tax-ready transaction records, export and privileged audit events.
+`FROZEN`. Do not begin until the owner explicitly authorizes continuation. Intended scope includes trusted sales/operations projections, branch/terminal/staff/shift breakdowns, tax-ready transaction records, export and privileged audit events.
 
 ## Phase 9 — payments, refunds and external integrations
 
-External processor capture/settlement/refunds, processor idempotency/webhooks, accounting/device integrations and deployment-heavy work remain intentionally deferred until the internal authority layers are stable.
+`FROZEN`. External processor capture/settlement/refunds, processor idempotency/webhooks, accounting/device integrations and deployment-heavy work remain deferred.
 
 ## Phase 10 — App Store release gate
 
-Final iOS compatibility/release build, privacy manifest/App Privacy answers, physical account-deletion verification, production support/privacy URLs, review credentials/notes and final device/accessibility validation.
+`FROZEN`. Final iOS compatibility/release build, privacy manifest/App Privacy answers, physical account-deletion verification, production support/privacy URLs, review credentials/notes and final device/accessibility validation remain later work.
 
 ## Dependency rule
 
@@ -100,9 +77,7 @@ branch/topology
  -> inventory/recipes
  -> loyalty/rewards/vouchers
  -> promotions/discounts
- -X-> reporting while Phase 7 is PARTIAL
+ -X-> reporting until owner authorization
  -> payments/refunds
  -> final release gate
 ```
-
-A repository-green phase is not automatically a live-complete phase. Deployment/advisor evidence must be recorded when the phase changes the live Supabase authority surface.

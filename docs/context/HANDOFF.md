@@ -4,74 +4,42 @@ Updated: 2026-09-15
 
 ## Current boundary
 
-Phase 6 — Loyalty, Rewards and Vouchers.
+Phases 1–6 are `COMPLETE`. Phase 7 promotions/discounts is next in dependency order and has not been started.
 
-**Verdict:** Phase 5 `COMPLETE`; Phases 1–5 individually `COMPLETE`.  
-**Implementation state:** Phase 6 may begin on dedicated branches from the frozen Phase 5 documentation heads.
-
-## Completed phases
+## Final Phase 6 implementation heads
 
 ```text
-Phase 1 / TASK-OPS-002 operational topology                  COMPLETE
-Phase 2 / TASK-OPS-003 shift and cash authority              COMPLETE
-Phase 3 / TASK-PRIVACY-001 privacy/account requirements      COMPLETE
-Phase 4 / TASK-OPS-004 branch scheduling/pickup authority    COMPLETE
-Phase 5 / TASK-OPS-005 inventory and recipes                 COMPLETE
+Aida_System             9273ba8f6c2f3d42404d9f6a34005bdde3df69e0
+Aida_System-Dashboard   9979df27ed663b779c3d5c79670de4f19367b01c
 ```
 
-Evidence:
-
-- `docs/context/PHASE_1_OPERATIONAL_TOPOLOGY_CLOSEOUT_2026-09-11.md`
-- `docs/context/PHASE_2_SHIFT_CASH_CLOSEOUT_2026-09-12.md`
-- `docs/context/PHASE_3_CUSTOMER_PRIVACY_ACCOUNT_CLOSEOUT_2026-09-12.md`
-- `docs/context/PHASE_4_BRANCH_SCHEDULING_PICKUP_CLOSEOUT_2026-09-15.md`
-- `docs/context/PHASE_5_INVENTORY_RECIPES_CLOSEOUT_2026-09-15.md`
-
-## Phase 5 handed off
-
-Branch inventory, recipes and stock depletion/reversal are now server-authoritative. Inventory uses integer milli-units, movements are append-only, quote performs stock sufficiency checks, placement consumes recipe components transactionally, and cancellation creates exactly-once compensating reversals. Client stock estimates are never authority.
-
-Dashboard Inventory is live behind the same-origin HttpOnly BFF and supports branch stock, receiving/waste/adjustment, live catalogue recipe selection and multi-component recipes. Preview inventory fixtures are not a production fallback.
-
-Final implementation heads before documentation closeout:
+## Validation
 
 ```text
-Aida_System             2b26bc531e2f03c1af1f31e5e51a8b529111fc04
-Aida_System-Dashboard   2f6128c40fe0b9778f193c43681ad0b6bbf47653
+Backend database audit #190   COMPLETE
+Customer release audit #281   COMPLETE
+Dashboard CI #126             COMPLETE
+Live AIDA Supabase deploy     COMPLETE
+Security advisor              COMPLETE for Phase 6
+Performance advisor           COMPLETE for Phase 6
 ```
 
-Validation:
+Customer #281 includes blocking static analysis, 58 non-golden regressions, all four full-screen golden regressions, release APK build and artifact upload. Dashboard #126 includes lint, typecheck, unit tests, blocking live-POS browser regression and production build.
 
-```text
-Backend database audit #138   COMPLETE
-Customer release audit #229   COMPLETE
-Dashboard CI #99              COMPLETE
-Supabase security advisor     COMPLETE for Phase 5
-Supabase performance advisor  COMPLETE for Phase 5
-```
+## Phase 6 handed off
 
-The security advisor has no Phase 5 finding. The remaining Auth warning is pre-existing leaked-password protection being disabled. Performance findings are INFO-level unused indexes only.
+Loyalty program configuration, point/stamp ledgers and balances, completed-order earning, reward redemption, member vouchers, authoritative voucher quote/application/consumption, Admin/Owner loyalty support and shift-bound POS member lookup are live. Customer and Dashboard clients submit intent only; points, voucher state, discount and resulting totals remain server-owned.
 
-## Open PRs
+Live AIDA Supabase contained an unused partial loyalty draft; a guarded reconciliation verified there was no customer loyalty data before replacing it with the canonical Phase 6 schema. Missing Phase 6 FK indexes were added and the advisor rerun is clear of missing-FK findings.
 
-All phase PRs remain draft/unmerged unless explicitly authorized:
+## Phase 1–3 remediation
 
-```text
-Aida_System #20 / Dashboard #17 — Phase 1
-Aida_System #21 / Dashboard #18 — Phase 2
-Aida_System #22 / Dashboard #19 — Phase 3
-Aida_System #23 / Dashboard #20 — Phase 4
-Aida_System #24 / Dashboard #21 — Phase 5
-```
+The valid independent Codex findings are `COMPLETE`; see `PHASE_1_3_CODEX_AUDIT_REMEDIATION_CLOSEOUT_2026-09-15.md`. Do not describe the historical Astra handoff as an Astra acceptance.
 
-## Independent Phase 1–3 audit
+## PRs
 
-The owner-directed Codex audit may run in parallel under ADR-0013. A valid blocking finding reopens the affected earlier phase and must be fixed before later-phase completion can stand.
+Phase 1–6 PRs remain draft/unmerged. Do not merge merely because the implementation and documentation gates are complete.
 
-## Deferred / non-goals
+## Deferred / next
 
-Phase 6 owns loyalty, rewards and vouchers. Promotions/discounts remain Phase 7. Reporting/accounting remains Phase 8. Supplier purchasing, lot/expiry tracking, forecasting/procurement automation and generalized cross-branch inventory transfers remain deferred. External payment capture/refunds/settlement and deployment-heavy integrations remain later work.
-
-## Next action
-
-Create dedicated Phase 6 branches from the frozen Phase 5 documentation heads. Before implementation, add a mirrored Phase 6 plan defining points earning/ledger authority, reward catalogue, atomic redemption, voucher lifecycle/consumption, order interactions, security/regression strategy, deferred scope and App Store impact. Do not begin Phase 7 until Phase 6 is `COMPLETE`.
+Phase 7 owns generalized promotions/discounts. Reporting/accounting remains Phase 8; payment capture/refunds/external settlement and deployment-heavy integrations remain later work. Employee Auth provisioning/credential lifecycle and hardware integrations remain deferred unless a later approved phase explicitly owns them.

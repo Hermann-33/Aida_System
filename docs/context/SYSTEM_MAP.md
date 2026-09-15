@@ -4,178 +4,75 @@ Updated: 2026-09-15
 
 | System | Runtime | Trusted source |
 |---|---|---|
-| Customer | Flutter/Riverpod | Supabase Auth/member + catalogue + customer order/branch RPCs |
+| Customer | Flutter/Riverpod | Supabase Auth/member + catalogue/order/branch/loyalty RPCs |
 | Dashboard/Admin/POS | React/Vite | same-origin HttpOnly employee/terminal BFF + caller-JWT RPCs |
-| Backend | Supabase | Auth, Postgres, FORCE RLS, controlled RPCs, Realtime invalidation |
+| Backend | Supabase | Auth, Postgres, FORCE RLS, controlled RPCs, authorized invalidation |
 
-## Authority chain through Phase 5
+## Authority chain through Phase 6
 
 ```text
-Phase 1 COMPLETE
-branch -> sales point -> terminal -> employee branch scope -> POS attribution
-
-Phase 2 COMPLETE
-terminal + employee -> shift -> POS order / cash ledger
-
-Phase 3 COMPLETE
-customer identity -> privacy preferences / own-account deletion
-                  -> anonymized retained commercial history
-
-Phase 4 COMPLETE
-active branch -> branch-local service calendar -> pickup policy -> slot capacity
-              -> authoritative quote/order acceptance
-
-Phase 5 COMPLETE
-catalogue item/variant/add-on -> active recipe -> branch stock
-                              -> transactional depletion / cancellation reversal
+P1 branch -> sales point -> terminal -> employee scope -> POS attribution
+P2 terminal + employee -> shift -> POS order / cash ledger
+P3 customer -> privacy/deletion -> anonymized retained history
+P4 branch calendar/policy -> pickup slot capacity -> accepted quote/order
+P5 recipe -> branch inventory -> transactional depletion/reversal
+P6 member -> points/stamps -> reward/voucher -> discount/consumption
 ```
 
-Supabase/server owns identity, roles, branch/terminal/shift, scheduling/capacity, catalogue/pricing, inventory/recipes, tender/payment classification, order IDs/status/commercial history and privacy/account-deletion state. Client state is intent only. Preview fixtures are never live authority.
+Clients send intent. Supabase/server owns resulting identity, topology, shift/cash/payment/commercial, schedule, stock and loyalty state.
 
 ## Customer order flow
 
 ```text
-get_catalogue
- -> customer configures cart intent
- -> list_active_branches / branch pickup state / available slots
+catalogue + branch/pickup state + wallet
+ -> cart / pickup / voucher intent
  -> quote_order
- -> server validates catalogue + branch + schedule + inventory
+ -> server validates catalogue + branch + schedule + inventory + voucher
+ -> authoritative subtotal/discount/total
  -> place_customer_order
- -> server derives authenticated customer/member
- -> validates selected active branch as intent
- -> serializes scheduled slot capacity where applicable
- -> transactionally consumes recipe inventory
- -> persists immutable commercial/operational snapshot
+ -> revalidation + capacity + inventory + voucher consumption in transaction
+ -> immutable order/commercial snapshot
 ```
 
-Customer orders remain terminal-free and shift-free. Customer branch choice is validated intent, not trusted authority. Prices, totals, schedule acceptance, inventory sufficiency and persisted IDs remain server-owned.
-
-## Dashboard privileged boundary
+## POS flow
 
 ```text
-React browser
- -> same-origin BFF
- -> HttpOnly employee session + HttpOnly terminal credential
- -> caller JWT + publishable Supabase key
- -> controlled RPCs
- -> Supabase authorization / branch / terminal / shift / Admin checks
+HttpOnly employee session + HttpOnly terminal credential
+ -> open shift
+ -> member lookup (optional)
+ -> catalogue/cart/member/voucher intent
+ -> authoritative quote
+ -> place_pos_order
+ -> trusted topology + shift/tender + inventory + voucher authority
+ -> persisted snapshot
 ```
 
-No service-role secret, reusable employee bearer token or terminal credential is exposed to browser JavaScript.
+Matching idempotent retries are resolvable under current terminal/caller authority even after the original shift is later locked/closed; new placement still requires an open shift.
 
-## Phase 1 operational topology
-
-```text
-branches -> sales_points -> terminals
-employee_branch_assignments -> employee operational scope
-manager one-time enrolment -> terminal credential -> HttpOnly BFF cookie
-```
-
-POS placement resolves trusted branch/sales-point/terminal from the server-held terminal credential and validates employee branch scope. Accepted topology attribution is immutable. Credentialless POS placement is denied.
-
-## Phase 2 shift/cash flow
-
-```text
-employee + terminal
- -> open/locked shift
- -> opening float
- -> append-only cash movements
- -> POS order shift/tender/payment attribution
- -> server-derived expected cash
- -> close + actual cash + variance
-```
-
-New POS placement requires the caller's matching open shift. Money is integer sen. Non-zero close variance requires Admin/Owner authority. External processor settlement/refunds remain deferred.
-
-## Phase 3 privacy/account flow
+## Privacy flow
 
 ```text
 auth.uid()
- -> customer privacy preferences
- -> delete_own_account()
- -> scrub customer-authored retained free text
- -> anonymize retained customer transaction identity
- -> delete customer/member/Auth identity
+ -> delete_own_account
+ -> collect owned members/orders/vouchers
+ -> delete customer-owned loyalty state
+ -> detach identifying loyalty snapshot references
+ -> scrub order line/event free text + original request digest
+ -> anonymize retained customer order identity
+ -> delete Auth/member/profile-owned state
 ```
-
-Deletion accepts no target customer parameter. Staff/POS audit identity and non-identifying commercial facts remain preserved.
-
-## Phase 4 branch scheduling/pickup flow
-
-```text
-active branch
- -> branch timezone
- -> weekly service windows / dated exceptions
- -> ASAP/scheduled policy
- -> lead + preparation time + horizon + slot interval
- -> scheduled slot capacity
- -> authoritative quote/place acceptance
-```
-
-The server derives `prepare_at`, rejects closed/invalid windows, and serializes scheduled branch+slot capacity before placement. POS branch remains terminal/open-shift derived. Dashboard scheduling administration stays behind the caller-JWT BFF.
-
-## Phase 5 inventory/recipe flow
-
-```text
-catalogue item/variant/add-on
- -> active recipe
- -> recipe_components
- -> branch_inventory
- -> quote sufficiency check
- -> transactional non-negative consumption
- -> append-only inventory_movements
- -> exactly-once cancellation reversal
-```
-
-Inventory uses integer milli-units with base units `g`, `ml`, or `unit`. Quote does not reserve stock. Placement is final authority and rolls back if required stock cannot be consumed. Preview inventory is not a live fallback.
-
-## Fulfilment/status flow
-
-```text
-Dashboard queue
- -> BFF list_orders
- -> branch authorization
- -> legal next-state + expectedVersion
- -> transition_order_status
- -> append order event
- -> customer owner-scoped invalidation/refetch
-```
-
-Persisted flow remains:
-
-```text
-confirmed -> preparing | cancelled
-scheduled -> preparing | cancelled
-preparing -> ready | cancelled
-ready -> completed
-```
-
-Completed/cancelled remain terminal. Time does not auto-mutate fulfilment state.
 
 ## Validation boundary
 
-Phase 5 closeout evidence:
-
 ```text
-Backend database audit #138   COMPLETE
-Customer release audit #229   COMPLETE
-Dashboard CI #99              COMPLETE
-Supabase security advisor     COMPLETE for Phase 5
-Supabase performance advisor  COMPLETE for Phase 5
+Backend database audit #190   COMPLETE
+Customer release audit #281   COMPLETE
+Dashboard CI #126             COMPLETE
+Live Supabase deploy/advisors COMPLETE
 ```
 
-Full evidence: `docs/context/PHASE_5_INVENTORY_RECIPES_CLOSEOUT_2026-09-15.md`.
+Full Phase 6 evidence: `docs/context/PHASE_6_LOYALTY_REWARDS_VOUCHERS_CLOSEOUT_2026-09-15.md`.
 
-## Current boundary / deferred
+## Deferred
 
-Phase 6 is `PARTIAL` until loyalty/rewards/vouchers are implemented and validated. Phase 7 promotions/discounts cannot begin until Phase 6 is `COMPLETE`.
-
-Still deferred beyond the current Phase 6 boundary:
-
-- generalized promotions/discounts — Phase 7;
-- tax/accounting/reporting — Phase 8;
-- supplier purchasing, lot/expiry, forecasting and automated procurement;
-- external payment capture/refunds/settlement;
-- employee Auth-user/credential lifecycle;
-- printer/KDS/payment-device integrations;
-- delivery and deployment-heavy production infrastructure.
+Phase 7 promotions/discounts; Phase 8 reporting/accounting; external payment capture/refunds/settlement; employee credential lifecycle; hardware integrations; supplier/lot/procurement expansion; delivery/deployment-heavy production work.

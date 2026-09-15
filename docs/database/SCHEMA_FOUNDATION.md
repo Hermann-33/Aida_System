@@ -1,228 +1,70 @@
 # Database Schema Foundation
 
-Updated: 2026-09-11
+Updated: 2026-09-15
 
-Canonical executable migrations are owned by `Hermann-33/Aida_System/supabase/`. The Dashboard repository mirrors this schema documentation but does not own a second migration ledger.
+Canonical executable migrations are owned only by `Hermann-33/Aida_System/supabase/migrations/`; the Dashboard mirrors schema documentation but does not own a second migration ledger.
 
-## Identity/member foundation
+## Trusted schema through Phase 6
 
-Trusted identity/membership tables:
+Identity/member: `user_profiles`, `members`, `student_verifications`, `customer_privacy_preferences`.
 
-- `user_profiles` — Auth-linked application profile, trusted `app_role`, disabled state and profile fields;
-- `members` — customer membership identity and server-generated member code;
-- `student_verifications` — trusted verification-review records.
+Catalogue/orders: shared catalogue tables; `orders`, line/add-on/option snapshots and `order_events`.
 
-Public signup provisions customer-only trusted state. Clients cannot self-promote employee roles, assign trusted member codes/verification outcomes or grant branch scope.
+Operational topology/shift: `branches`, `employee_branch_assignments`, `sales_points`, `terminals`, private terminal credentials/codes, `shifts`, `cash_movements`.
 
-## Shared catalogue foundation
+Scheduling: branch ordering policies, service windows/exceptions and accepted scheduling/capacity facts.
 
-Core live catalogue tables:
+Inventory: `inventory_items`, `branch_inventory`, `inventory_movements`, `recipes`, `recipe_components`.
 
-```text
-catalogue_categories
-catalogue_items
-catalogue_item_variants
-catalogue_item_addons
-catalogue_option_groups
-catalogue_option_values
-catalogue_item_option_values
-catalogue_revision
-catalogue_audit_events
-```
-
-Money is integer sen. Catalogue IDs are server-owned UUIDs. Product/add-on availability, variants, option values, compatibility and prices are backend authority.
-
-`catalogue_revision` is a public read-only invalidation signal, not catalogue truth.
-
-## Authoritative order/scheduling foundation
-
-Core order tables:
+Phase 6 loyalty:
 
 ```text
-order_schedule_settings
-orders
-order_lines
-order_line_addons
-order_line_options
-order_events
+loyalty_program_config
+member_loyalty_accounts
+loyalty_order_awards
+loyalty_point_ledger
+loyalty_stamp_ledger
+reward_catalogue
+member_vouchers
+voucher_order_applications
+orders.discount_sen
 ```
 
-`orders` contains server-owned order identity, source, trusted actor references, fulfilment intent, versioned status, integer-sen totals, scheduling timestamps and operational topology attribution.
+## Phase 6 invariants
 
-`order_lines`, `order_line_addons` and `order_line_options` preserve immutable accepted commercial snapshots.
+- loyalty current balances are server-maintained and non-negative;
+- order awards provide exactly-once completed-order earning;
+- point/stamp history is application append-only; account deletion may remove customer-owned rows;
+- vouchers have server-owned source/status/expiry and immutable reward eligibility snapshots;
+- voucher order applications preserve accepted non-identifying commercial facts;
+- order discount is server-derived and constrained to `0 <= discount <= subtotal`, with `total = subtotal - discount`;
+- Phase 6 tables use RLS + FORCE RLS and deny direct authenticated mutation;
+- required foreign keys have covering indexes after `20260915002800_index_loyalty_foreign_keys.sql`.
 
-All exposed order tables use RLS + FORCE RLS. Ordinary customers receive no direct commercial INSERT/UPDATE authority; controlled RPCs own quote/place/read/status operations.
+## Phase 1–3 remediation invariants
 
-Current core RPC surface includes:
+`private.create_order_impl_v2(...)` is not executable by ordinary authenticated callers. The guarded POS authority wrapper owns retry/new-order decisions. Whole-account deletion can perform only the expected customer identity + digest anonymization transition and deletes customer-owned loyalty state before Auth/member teardown.
+
+## Canonical Phase 6 tail
 
 ```text
-get_ordering_policy()
-quote_order(jsonb)
-place_customer_order(jsonb)
-place_pos_order(jsonb,text)
-get_order(uuid)
-get_my_orders(integer)
-list_orders(text[],integer)
-transition_order_status(uuid,text,bigint,text)
-save_ordering_policy(jsonb)
+20260914183500_create_loyalty_rewards_voucher_authority.sql
+20260914183600_harden_loyalty_authority_foundation.sql
+20260914183800_integrate_vouchers_with_order_authority.sql
+20260914183900_make_voucher_consumption_trigger_internal.sql
+20260914184000_preserve_loyalty_privacy_deletion.sql
+20260914184100_expose_voucher_commercial_snapshot.sql
+20260914184200_separate_voucher_quote_from_consumption_lock.sql
+20260914184300_add_loyalty_admin_authority.sql
+20260914184400_add_loyalty_program_configuration_authority.sql
+20260914184500_add_pos_loyalty_lookup_authority.sql
+20260914235500_restore_privacy_anonymization_boundary.sql
+20260914235600_harden_pos_order_authority_boundary.sql
+20260915000500_reconcile_loyalty_account_deletion.sql
+20260915002000_reconcile_partial_phase6_live_schema.sql
+20260915002800_index_loyalty_foreign_keys.sql
 ```
 
-The legacy credentialless `place_pos_order(jsonb)` signature is not executable by `authenticated`.
+## Validation
 
-## Branch and employee operational scope
-
-Live branch resources:
-
-```text
-branches
-employee_branch_assignments
-orders.branch_id
-```
-
-`orders.branch_id` is non-null, foreign-keyed and immutable.
-
-Current seed:
-
-```text
-BR-MAIN — Main Café
-Asia/Kuala_Lumpur
-active/default
-```
-
-Authorization:
-
-- customer ownership remains owner-scoped;
-- ordinary staff can read/transition only assigned-branch orders;
-- staff without assignments fail closed;
-- Admin/Owner remain global operational roles for the current tranche;
-- public branch directory reads expose active branch data only;
-- branch/assignment mutations use controlled Admin/Owner RPCs.
-
-## Phase 1 sales-point and terminal foundation
-
-Live topology tables:
-
-```text
-public.sales_points
-public.terminals
-private.terminal_enrolment_codes
-private.terminal_credentials
-orders.sales_point_id
-orders.terminal_id
-```
-
-Relationships:
-
-```text
-branches.id
-  <- sales_points.branch_id
-     <- terminals.sales_point_id
-
-orders.branch_id
-orders.sales_point_id
-orders.terminal_id
-```
-
-Database constraints and server functions preserve topology consistency. Accepted POS attribution is immutable.
-
-Live seed:
-
-```text
-BR-MAIN
-  SP-MAIN
-    POS-MAIN-01 [pending]
-```
-
-The terminal remains pending until manager-issued one-time enrolment creates an active credential.
-
-`terminal_enrolment_codes` and `terminal_credentials` are private schema state and are not direct client tables.
-
-Terminal credential resolution validates credential state, terminal status, sales-point/branch active state and employee branch authorization.
-
-Customer orders keep `sales_point_id` and `terminal_id` null.
-
-## RLS/grant model
-
-Operational tables use RLS + FORCE RLS.
-
-- browser roles have no direct INSERT/UPDATE/DELETE on branches, sales points or terminals;
-- `authenticated` SELECT on `sales_points`/`terminals` exists to support SECURITY INVOKER Admin topology RPCs;
-- RLS policies expose those rows only to Admin/Owner;
-- anonymous SELECT remains denied;
-- branch public reads are separately active/read-only;
-- private terminal credential tables are not client-readable.
-
-## Scheduling defaults
-
-Current singleton policy:
-
-```text
-timezone                 Asia/Kuala_Lumpur
-schedule_enabled         true
-minimum_lead_minutes     15
-preparation_lead_minutes 15
-slot_interval_minutes    15
-maximum_advance_days     7
-```
-
-Scheduled orders persist immutable `prepare_at`. Branch hours/closures/capacity are not yet modeled and belong to Phase 4.
-
-## Phase 1 canonical migrations
-
-```text
-20260910014434_create_branch_location_authority.sql
-20260910014457_index_employee_branch_assignment_actor.sql
-20260910023510_create_operational_sales_points_and_terminals.sql
-20260910023552_harden_operational_topology_rls_and_indexes.sql
-20260910040814_revoke_direct_branch_mutation_grants.sql
-20260910041057_enforce_terminal_branch_scope_on_resolution.sql
-20260910042619_differentiate_terminal_resolution_failures.sql
-20260910044613_grant_branch_rpc_private_impl_execution.sql
-20260910050152_grant_admin_operational_topology_reads.sql
-```
-
-## Canonical regression coverage
-
-Phase 1 database audit executes transactionally:
-
-```text
-branch_authority_integration.sql
-operational_topology_integration.sql
-order_integration.sql
-scheduled_order_operations_integration.sql
-```
-
-GitHub Actions backend database audit run #22 rebuilt a clean Supabase environment from the canonical ledger and all four suites passed.
-
-Synthetic test data rolls back.
-
-## Current live Phase 1 observations
-
-```text
-branches                      1
-sales points                  1
-terminals                     1
-active seeded terminals       0
-orders total                 25
-orders without branch         0
-customer orders with terminal 0
-```
-
-Historical orders are not assigned fabricated sales-point/terminal IDs.
-
-## Deferred schema domains
-
-Not yet trusted/live schema authority:
-
-- shifts and cash movement/reconciliation;
-- employee provisioning/role/badge/PIN lifecycle;
-- branch hours/closures/capacity;
-- inventory/recipes/depletion;
-- loyalty/rewards/vouchers;
-- promotions/discounts;
-- tax/accounting/reporting;
-- payment settlement/refunds;
-- device/KDS/printer integrations;
-- delivery.
-
-Full closeout evidence: `docs/context/PHASE_1_OPERATIONAL_TOPOLOGY_CLOSEOUT_2026-09-11.md`.
+Backend database audit #190 reconstructed the cumulative schema from canonical migrations and passed all regressions through Phase 6. Live AIDA Supabase is deployed and advisor-checked. Phase 7 generalized promotion/discount schema is not started.

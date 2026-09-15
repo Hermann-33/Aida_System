@@ -1,107 +1,56 @@
 # Active Context
 
 **As of:** 2026-09-15  
-**Current boundary:** Phase 6 — Loyalty, Rewards and Vouchers  
-**Current verdict:** Phase 6 `PARTIAL`; Phases 1–5 individually `COMPLETE`.  
-**Implementation state:** The documented Phase 6 feature scope is implemented on dedicated backend/customer and Dashboard branches. Phase 6 cannot be marked `COMPLETE` because final CI and live Supabase deployment/advisor gates are externally blocked. Phase 7 must not begin until those gates are proven.
+**Current boundary:** Phase 6 closeout — Loyalty, Rewards and Vouchers  
+**Current verdict:** Phases 1–6 `COMPLETE`; valid Phase 1–3 Codex audit findings remediated `COMPLETE`; Phase 7 not started.
 
 ## Product topology
 
-AIDA Café is one product across:
+- customer/backend: `Hermann-33/Aida_System`
+- Dashboard/Admin/POS: `Hermann-33/Aida_System-Dashboard`
+- shared Supabase: `eswovqxqzfevcdwwcmuh` (`ACTIVE_HEALTHY`)
+- canonical executable migrations: `Hermann-33/Aida_System/supabase/migrations/` only
 
-- customer/backend: `Hermann-33/Aida_System`;
-- Dashboard/Admin/POS: `Hermann-33/Aida_System-Dashboard`;
-- shared Supabase project: `eswovqxqzfevcdwwcmuh`.
-
-Canonical executable Supabase migrations live only in `Hermann-33/Aida_System/supabase/migrations/`.
-
-## Completed authority through Phase 5
+## Completed authority
 
 ```text
-Phase 1 COMPLETE
-branch -> sales point -> terminal -> employee branch scope -> POS attribution
-
-Phase 2 COMPLETE
-terminal + employee -> shift -> POS order / cash ledger
-
-Phase 3 COMPLETE
-customer identity -> privacy preferences / whole-account deletion
-                  -> anonymized retained transaction history
-
-Phase 4 COMPLETE
-active branch -> service calendar -> pickup policy -> slot capacity
-              -> authoritative quote/order acceptance
-
-Phase 5 COMPLETE
-catalogue item/variant/add-on -> active recipe -> branch stock
-                              -> transactional depletion/reversal
+Phase 1 COMPLETE  branch -> sales point -> terminal -> employee branch scope -> POS attribution
+Phase 2 COMPLETE  terminal + employee -> shift -> POS order / cash ledger
+Phase 3 COMPLETE  customer identity -> privacy preferences / whole-account deletion -> anonymized retained history
+Phase 4 COMPLETE  branch calendar/policy -> pickup slot capacity -> authoritative quote/place
+Phase 5 COMPLETE  recipe -> branch inventory -> transactional depletion/reversal
+Phase 6 COMPLETE  member -> loyalty ledgers/balances -> reward/voucher -> authoritative discount/consumption
 ```
 
-Supabase/server owns trusted identity, role/disabled state, membership, topology, shift/cash/payment/commercial state, privacy/account-deletion state, branch-local scheduling/capacity, inventory balances, recipes and order-linked stock depletion/reversal. Dashboard privileged flows stay behind the same-origin HttpOnly BFF with caller-JWT forwarding. No service-role secret or browser-readable employee bearer token/terminal credential is introduced. Preview fixtures are never backend authority.
+Supabase/server remains authority for identity, roles, topology, shift/cash/payment/commercial state, privacy/deletion, scheduling/capacity, inventory/recipes and loyalty/voucher state. Dashboard privileged flows remain behind the same-origin HttpOnly BFF with caller-JWT forwarding. No normal flow exposes a service-role secret, reusable employee bearer token or terminal credential to browser JavaScript. Preview fixtures are never backend authority.
 
-## Phase 5 final evidence
+## Phase 1–3 Codex remediation
+
+Valid findings are closed. Key fixes: generic order writer grant removed; POS retry/open-shift authority hardened; Phase 3 anonymization restored under a narrow internal transition; retained customer request digests scrubbed; loyalty-aware deletion added; live Dashboard authority tests made blocking; customer full-screen goldens made blocking.
+
+Evidence: `docs/context/PHASE_1_3_CODEX_AUDIT_REMEDIATION_CLOSEOUT_2026-09-15.md`.
+
+The older combined Astra boundary document remains historical and is not represented as an Astra acceptance.
+
+## Phase 6 final evidence
 
 Implementation heads before documentation closeout:
 
 ```text
-Aida_System             2b26bc531e2f03c1af1f31e5e51a8b529111fc04
-Aida_System-Dashboard   2f6128c40fe0b9778f193c43681ad0b6bbf47653
+Aida_System             9273ba8f6c2f3d42404d9f6a34005bdde3df69e0
+Aida_System-Dashboard   9979df27ed663b779c3d5c79670de4f19367b01c
 ```
-
-Validation:
 
 ```text
-Backend database audit #138   COMPLETE
-Customer release audit #229   COMPLETE
-Dashboard CI #99              COMPLETE
-Supabase security advisor     COMPLETE for Phase 5
-Supabase performance advisor  COMPLETE for Phase 5
+Backend database audit #190   COMPLETE
+Customer release audit #281   COMPLETE
+Dashboard CI #126             COMPLETE
+Supabase deployment           COMPLETE
+Supabase security advisor     COMPLETE for Phase 6
+Supabase performance advisor  COMPLETE for Phase 6
 ```
 
-Detailed evidence: `docs/context/PHASE_5_INVENTORY_RECIPES_CLOSEOUT_2026-09-15.md`.
-
-## Phase 6 implemented boundary
-
-Implemented server/client authority includes:
-
-- server-owned loyalty program configuration, points/stamp ledgers and balances;
-- idempotent earning on qualifying completed orders;
-- server-owned reward catalogue and atomic points redemption;
-- server-issued member vouchers with immutable commercial snapshots;
-- trusted customer/POS voucher validation, authoritative quote/application and one-time order consumption;
-- privacy-preserving account-deletion handling for Phase 6 customer-owned state;
-- Admin/Owner reward management, member-support and loyalty-program configuration RPCs;
-- shift/terminal-bound POS member loyalty lookup with the terminal credential kept inside the same-origin BFF;
-- live customer loyalty repository using caller-bound RPCs rather than preview balances;
-- live customer reward redemption with points/reward/voucher/stamp refresh;
-- live customer checkout voucher selection submitting only `voucherId` intent for authoritative quote/place validation;
-- Dashboard Admin loyalty BFF/client surfaces, full reward create/edit/enable/disable and audited member adjustments;
-- live POS checkout member lookup and voucher selection through the shift-bound BFF, submitting only `memberCode`/`voucherId` intent to authoritative order RPCs;
-- prior trusted POS quote is invalidated whenever selected member/voucher intent changes;
-- preview member/reward controls remain isolated from live order authority.
-
-Canonical Phase 6 migrations currently extend through:
-
-```text
-20260914184500_add_pos_loyalty_lookup_authority.sql
-```
-
-## Phase 6 remaining completion gates
-
-No additional planned Phase 6 feature scope is currently outstanding. The remaining blockers are validation/infrastructure gates:
-
-- the connected Supabase account does not expose existing AIDA project `eswovqxqzfevcdwwcmuh`, so canonical Phase 6 migrations cannot be verified/deployed from this context and security/performance advisors cannot be rerun;
-- current GitHub Actions runs fail before runner allocation. Latest observed customer-release and Dashboard CI jobs report `steps: []` and `runner_id: 0`; therefore lint/typecheck/tests/build/database regression work never starts and these failures are not code-failure evidence;
-- a real executed backend database audit, customer release audit and Dashboard CI run are mandatory before `COMPLETE`;
-- final architecture/contracts/App Store/handoff closeout must record the exact validated final heads after those gates pass.
-
-Because these gates are unresolved, Phase 6 remains `PARTIAL` and Phase 7 is blocked by dependency order.
-
-Detailed implementation/validation handoff: `docs/context/PHASE_6_IMPLEMENTATION_STATUS_2026-09-15.md`.
-
-## Independent Phase 1–3 audit
-
-The owner-directed Codex audit of Phases 1–3 may run in parallel with later implementation under `docs/decisions/ADR-0013-parallel-audit-and-phase-4-7-implementation.md`. A valid blocking audit finding reopens the affected earlier phase. Phase PRs remain draft/unmerged unless explicitly authorized otherwise.
+Detailed evidence: `docs/context/PHASE_6_LOYALTY_REWARDS_VOUCHERS_CLOSEOUT_2026-09-15.md`.
 
 ## Current PR boundaries
 
@@ -114,8 +63,8 @@ Phase 5: Aida_System #24 / Dashboard #21
 Phase 6: Aida_System #25 / Dashboard #22
 ```
 
-Do not merge merely because implementation is complete.
+All remain draft/unmerged unless explicitly authorized. Completion is not merge authorization.
 
 ## Next boundary
 
-Do not invent more Phase 6 features and do not start Phase 7. Restore/observe execution of the blocked validation gates. If an executed test/advisor exposes a real defect, repair only that defect on the existing Phase 6 branches. Once every gate is `COMPLETE`, write the synchronized Phase 6 closeout and then create dedicated Phase 7 promotions/discounts branches.
+Phase 7 promotions/discounts is next in dependency order, but it has not been started. External payment/refund/deployment-heavy work remains deferred.

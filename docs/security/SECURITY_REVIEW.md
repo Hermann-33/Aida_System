@@ -1,166 +1,43 @@
 # AIDA Café Security Review
 
-Updated: 2026-09-11
+Updated: 2026-09-15
 
-**Current verdict:** Phase 1 operational topology is `COMPLETE`. Identity, employee branch scope, catalogue/pricing, ordering/scheduling, fulfilment, branch/sales-point/terminal identity and POS operational attribution are server-controlled. No Phase 1-created security blocker remains.
+**Current verdict:** Phases 1–6 `COMPLETE`; valid Phase 1–3 Codex findings remediated `COMPLETE`.
 
 ## Core trust controls
 
-- Supabase Auth is trusted user identity.
-- `user_profiles.app_role` plus `disabled_at` are trusted employee authorization state.
-- `members` is trusted customer membership state.
-- Public signup cannot self-promote role, member code, verification outcome or operational branch scope.
-- Dashboard privileged traffic uses same-origin HttpOnly employee sessions and caller-JWT Supabase access.
-- No service-role key or browser-readable employee bearer token is part of normal runtime architecture.
-- Customer Flutter uses public/publishable configuration with customer-scoped RLS/RPC authority.
+- Supabase Auth is authentication identity; trusted role/disabled state comes from server-owned profile state.
+- Customer-editable Auth metadata and preview fixtures are never authorization authority.
+- Dashboard privileged traffic uses same-origin HttpOnly employee/terminal cookies and caller-JWT forwarding.
+- No normal Flutter/browser/BFF flow uses a service-role secret or exposes a reusable employee bearer/terminal credential to browser JavaScript.
+- Controlled RPCs plus RLS/FORCE RLS own protected operational/commercial/customer state.
 
-## Employee branch-scope controls
+## Operational controls
 
-`employee_branch_assignments` is authoritative operational scope.
+Employee branch scope, terminal enrolment/revocation, topology attribution, shift ownership/state and cash reconciliation are server-validated. New POS placement requires current terminal/caller authority and an open shift. Matching idempotent retries may resolve after lock/close without creating new authority.
 
-- ordinary staff can operate only assigned branches;
-- staff with no assignment fail closed;
-- order reads/transitions re-check trusted branch scope;
-- terminal resolution re-checks trusted branch scope;
-- removing a branch assignment immediately prevents that staff member from resolving a terminal in the removed branch;
-- Admin/Owner remain global operational roles for the current tranche.
+Branch scheduling/capacity is server-owned; inventory consumption is transactional/non-negative with compensating cancellation reversals.
 
-Preview/browser state cannot manufacture branch authority.
+## Phase 6 loyalty controls
 
-## Operational topology controls
+Eight Phase 6 authority tables are RLS + FORCE RLS and deny direct authenticated INSERT/UPDATE/DELETE. Customer wallet/redemption is caller-bound. Admin/Owner loyalty configuration/support rechecks trusted role and actor. POS member lookup requires staff-or-above, valid server-held terminal credential and open caller shift. Voucher ownership/status/expiry/eligibility and discount are validated server-side and consumption is placement-atomic.
 
-Trusted topology:
+The generic private order writer is not executable by `authenticated`. Anonymous privileged loyalty and POS lookup execution is denied.
 
-```text
-branches
- -> sales_points
- -> terminals
-```
+## Privacy controls
 
-Backend invariants:
+Whole-account deletion accepts no target user ID. It deletes customer-owned loyalty accounts/ledgers/vouchers, detaches identifying loyalty references from retained commercial snapshots, scrubs retained order-line/event free text, replaces the original customer payload digest, anonymizes retained customer order identity, then removes Auth/member-owned state. Staff/POS audit identity and non-identifying commercial facts remain.
 
-- IDs are server-owned;
-- topology relationships are foreign-keyed and server-validated;
-- branch identity on all orders is immutable;
-- POS sales-point/terminal attribution is immutable;
-- customer orders remain terminal-free;
-- direct branch/sales-point/terminal DML is denied to browser roles.
+## Client validation controls
 
-`branches`, `sales_points` and `terminals` use RLS + FORCE RLS. Authenticated SELECT on `sales_points`/`terminals` exists only to support SECURITY INVOKER Admin topology reads; RLS limits rows to Admin/Owner. Anonymous SELECT remains denied.
+Customer release audit #281 is blocking for static analysis, 58 non-golden tests, four full-screen golden tests, release APK build and artifact upload. Dashboard CI #126 is blocking for lint, typecheck, unit tests, live-POS browser authority regression and production build. Backend audit #190 replays every migration/regression through Phase 6.
 
-## Terminal enrolment and credential controls
+## Live Supabase advisor result
 
-Terminal activation requires a one-time manager-issued enrolment code.
+Security advisor: no Phase 6 WARN/ERROR. One pre-existing warning remains: leaked-password protection is disabled. INFO RLS-with-no-policy notices on RPC-only Phase 6 tables are expected because direct client table grants are revoked.
 
-Possessing the code alone is insufficient. `enrol_terminal` validates authenticated employee state and branch authorization before issuing a terminal credential.
+Performance advisor: the six Phase 6 missing-FK-index notices were fixed; remaining notices are INFO unused-index observations.
 
-Security properties proven by regression:
+## Deferred security domains
 
-- failed authorization does not consume the one-time code;
-- a used code cannot be replayed;
-- codes expire;
-- the terminal credential is stored by the Dashboard BFF in an HttpOnly cookie, not normal React state;
-- private credential storage contains hashed authority state rather than a browser-readable credential catalogue;
-- terminal resolution revalidates active terminal, sales point, branch and employee branch scope;
-- revocation invalidates terminal resolution and POS placement immediately.
-
-## POS placement controls
-
-The credentialless POS signature is not executable by `authenticated`:
-
-```text
-place_pos_order(jsonb)        denied
-place_pos_order(jsonb,text)   allowed for authenticated caller subject to server validation
-```
-
-The terminal-bound placement function derives `branch_id`, `sales_point_id` and `terminal_id` from the validated terminal credential. Browser-supplied topology IDs are not trusted placement authority.
-
-Order pricing remains server-owned through `quote_order`. `clientRequestId` preserves idempotency, and immutable operational attribution prevents later workstation/browser rewriting.
-
-## Catalogue/pricing controls
-
-Catalogue IDs, availability, variants, required options, compatible add-ons and integer-sen pricing are server data.
-
-Clients send only selection intent. `quote_order(jsonb)` revalidates all selections and computes `pricingVersion=2` authoritative prices.
-
-Historical option/add-on/commercial snapshots remain immutable after catalogue changes.
-
-## Scheduling/fulfilment controls
-
-- scheduling is validated against server policy/time;
-- scheduled orders persist immutable `prepareAt`;
-- `scheduleState` is server-derived;
-- time never auto-mutates fulfilment status;
-- status changes require legal transition, authorized staff branch scope and expected `statusVersion`;
-- stale transitions fail.
-
-Branch-specific hours/closures/capacity are not yet implemented and must not be invented by clients.
-
-## Dashboard/BFF controls
-
-The Dashboard same-origin boundary preserves:
-
-- HttpOnly access/refresh cookies;
-- HttpOnly terminal credential cookie;
-- Secure cookies on HTTPS;
-- same-origin protection on state-changing routes;
-- server-side employee role/disabled/branch validation;
-- caller JWT forwarding to Supabase;
-- server-side terminal credential forwarding only where required;
-- no browser-readable employee bearer-token persistence;
-- no service-role credential in browser/Vite code.
-
-Explicit UI Preview remains non-authoritative and cannot substitute fixture IDs for live branch/terminal authority.
-
-## Writable-database regression evidence
-
-Backend database audit run #22 reconstructed a clean Supabase instance from canonical migrations and passed:
-
-```text
-branch_authority_integration.sql              PASS
-operational_topology_integration.sql         PASS
-order_integration.sql                        PASS
-scheduled_order_operations_integration.sql   PASS
-```
-
-This proves the intended allow/deny rules on a fresh install rather than relying only on live-schema inspection.
-
-## Client executable evidence
-
-```text
-Customer release audit #114   PASS
-Dashboard CI #23              PASS
-Dashboard Vitest              31 files / 150 tests PASS
-```
-
-## Advisor state
-
-Current Supabase security advisor reports one pre-existing WARN only:
-
-```text
-auth_leaked_password_protection — Leaked Password Protection Disabled
-```
-
-No Phase 1-created security WARN/ERROR remains.
-
-Performance findings are INFO-only unused indexes on the current small dataset. The missing FK-supporting index previously identified for `employee_branch_assignments.assigned_by` was fixed.
-
-## Preserved non-live work
-
-Account-deletion/referral SQL under `supabase/drafts/` remains non-applied and must not be treated as live authority. Related client surfaces remain default-off where preserved.
-
-## Still deferred security/authority domains
-
-- shift/cash authority and variance approval;
-- employee Auth-user provisioning, role mutation and badge/PIN lifecycle;
-- branch hours/closures/capacity and explicit customer pickup branch;
-- inventory/recipes/depletion;
-- loyalty/rewards/vouchers;
-- promotions/discounts;
-- tax/accounting/reporting;
-- payment capture/refunds/processor settlement;
-- printer/KDS/payment-device integrations;
-- delivery;
-- hosted production operations.
-
-Full Phase 1 evidence: `docs/context/PHASE_1_OPERATIONAL_TOPOLOGY_CLOSEOUT_2026-09-11.md`.
+General promotions/discount stacking/targeting, reporting/accounting, external payment/refund settlement, employee credential lifecycle, hardware integrations and deployment-heavy production operations remain later boundaries.

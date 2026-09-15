@@ -37,6 +37,14 @@ Performance advisor           COMPLETE for Phase 6
 
 Customer #281 includes blocking static analysis, 58 non-golden regressions, all four full-screen golden regressions, release APK build and artifact upload. Dashboard #126 includes lint, typecheck, unit tests, blocking live-POS browser regression and production build.
 
+## Cumulative Phase 4–6 implementation record
+
+The full cross-phase record of scheduling/pickup, inventory/recipes, loyalty/rewards/vouchers, canonical migrations, client/Dashboard changes, security hardening, Phase 1–3 remediation interactions and validation evidence is mirrored in:
+
+`docs/context/PHASE_4_6_IMPLEMENTATION_SUMMARY_2026-09-15.md`
+
+Use that summary together with the individual Phase 4, Phase 5 and Phase 6 plan/closeout files when resuming implementation or preparing future audits. After every Phase 7–10 implementation increment, both repositories' affected governance/architecture/contracts/security/release/handoff documentation must be updated before that increment is treated as complete.
+
 ## Phase 6 handed off
 
 Loyalty program configuration, point/stamp ledgers and balances, completed-order earning, reward redemption, member vouchers, authoritative voucher quote/application/consumption, Admin/Owner loyalty support and shift-bound POS member lookup are live. Customer and Dashboard clients submit intent only; points, voucher state, discount and resulting totals remain server-owned.

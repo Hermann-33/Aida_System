@@ -80,23 +80,15 @@ delete from public.branch_service_exceptions
 where branch_id=current_setting('test.phase8.branch_id')::uuid
   and service_date=(now() at time zone current_setting('test.phase8.timezone'))::date;
 
--- Ensure the existing recipe stock cannot make this reporting fixture flaky.
-insert into public.branch_inventory(branch_id,inventory_item_id,on_hand_milli)
-select current_setting('test.phase8.branch_id')::uuid, i.id, 1000000000
-from public.inventory_items i
-on conflict (branch_id,inventory_item_id) do update
-set on_hand_milli=greatest(public.branch_inventory.on_hand_milli,excluded.on_hand_milli),
-    updated_at=now();
-
 set local role authenticated;
 do $$
 declare
   v_admin uuid := '88000000-0000-0000-0000-000000000001';
   v_branch uuid := current_setting('test.phase8.branch_id')::uuid;
   v_timezone text := current_setting('test.phase8.timezone');
-  v_today date := (now() at time zone v_timezone)::date;
   v_weekday integer := extract(dow from (now() at time zone v_timezone))::integer;
   v_config jsonb;
+  v_inventory_item record;
 begin
   perform set_config('request.jwt.claims',jsonb_build_object('sub',v_admin,'role','authenticated')::text,true);
 
@@ -132,6 +124,20 @@ begin
     'isActive',true,
     'branchIds',jsonb_build_array(v_branch::text)
   ));
+
+  -- Use the Phase 5 authority itself to make stock ample. These receiving
+  -- movements are useful Phase 8 inventory/audit source facts and roll back.
+  for v_inventory_item in
+    select i.id from public.inventory_items i where i.is_active
+  loop
+    perform public.record_inventory_movement(
+      v_branch,
+      v_inventory_item.id,
+      1000000000,
+      'receiving',
+      'Phase 8 reporting regression stock'
+    );
+  end loop;
 end;
 $$;
 reset role;
@@ -192,20 +198,238 @@ begin
   end if;
 
   perform set_config('test.phase8.order_id',v_order->>'id',false);
+  perform set_config('test.phase8.order_total_sen',v_order->>'totalSen',false);
 end;
 $$;
 reset role;
 
--- Add a trusted shift/cash ledger fact on the same reporting branch.
-insert into public.shifts(
-  branch_id,sales_point_id,terminal_id,opened_by_user_id,operator_user_id,
-  status,opening_float_sen
+-- Add a durable closed shift + cash ledger fact without creating a live-shift
+-- uniqueness conflict with any seed topology.
+with inserted_shift as (
+  insert into public.shifts(
+    branch_id,sales_point_id,terminal_id,opened_by_user_id,operator_user_id,
+    status,opening_float_sen,opened_at,closed_at,
+    closing_expected_cash_sen,closing_actual_cash_sen,cash_variance_sen,
+    close_notes,closed_by_user_id
+  ) values (
+    current_setting('test.phase8.branch_id')::uuid,
+    current_setting('test.phase8.sales_point_id')::uuid,
+    current_setting('test.phase8.terminal_id')::uuid,
+    '88000000-0000-0000-0000-000000000001'::uuid,
+    '88000000-0000-0000-0000-000000000001'::uuid,
+    'closed',
+    5000,
+    now()-interval '10 minutes',
+    now(),
+    5500,
+    5400,
+    -100,
+    'Phase 8 reporting regression close',
+    '88000000-0000-0000-0000-000000000001'::uuid
+  )
+  returning id
+)
+select set_config('test.phase8.shift_id',(select id::text from inserted_shift),false);
+
+insert into public.cash_movements(
+  shift_id,movement_type,amount_sen,reason,actor_user_id
 ) values (
-  current_setting('test.phase8.branch_id')::uuid,
-  current_setting('test.phase8.sales_point_id')::uuid,
-  current_setting('test.phase8.terminal_id')::uuid,
-  '88000000-0000-0000-0000-000000000001'::uuid,
-  '88000000-0000-0000-0000-000000000001'::uuid,
-  'open',
-  5000
-) returning id::text into strict _phase8_shift_id;
+  current_setting('test.phase8.shift_id')::uuid,
+  'cash_in',
+  500,
+  'Phase 8 reporting regression',
+  '88000000-0000-0000-0000-000000000001'::uuid
+);
+
+set local role authenticated;
+do $$
+declare
+  v_admin uuid := '88000000-0000-0000-0000-000000000001';
+  v_local_date text := ((now() at time zone current_setting('test.phase8.timezone'))::date)::text;
+  v_filter jsonb;
+  v_summary jsonb;
+  v_transactions jsonb;
+  v_audit jsonb;
+  v_page_one jsonb;
+  v_page_two jsonb;
+  v_detail text;
+begin
+  perform set_config('request.jwt.claims',jsonb_build_object('sub',v_admin,'role','authenticated')::text,true);
+
+  v_filter := jsonb_build_object(
+    'fromDate',v_local_date,
+    'toDate',v_local_date,
+    'branchId',current_setting('test.phase8.branch_id'),
+    'pageSize',100,
+    'offset',0
+  );
+
+  select public.get_admin_reporting_summary(v_filter) into v_summary;
+
+  if (v_summary#>>'{semantics,commercialValue}') <> 'accepted_order_value_not_processor_settlement'
+     or (v_summary#>>'{semantics,statutoryAccountingIncluded}')::boolean
+     or (v_summary#>>'{semantics,processorSettlementIncluded}')::boolean then
+    raise exception 'Phase 8 summary semantics are misleading: %',v_summary->'semantics';
+  end if;
+
+  if (v_summary#>>'{orders,acceptedOrderCount}')::bigint < 1
+     or (v_summary#>>'{orders,voucherDiscountSen}')::bigint <> 100
+     or (v_summary#>>'{orders,promotionDiscountSen}')::bigint <> 200
+     or (v_summary#>>'{orders,discountSen}')::bigint <> 300
+     or not (v_summary#>>'{orders,discountReconciled}')::boolean
+     or (v_summary#>>'{orders,unpaidAcceptedOrderValueSen}')::bigint <> current_setting('test.phase8.order_total_sen')::bigint
+     or (v_summary#>>'{orders,paidPosCashSen}')::bigint <> 0 then
+    raise exception 'Phase 8 order summary did not reconcile authoritative order facts: %',v_summary->'orders';
+  end if;
+
+  if (v_summary#>>'{loyaltyAndDiscountApplications,voucherApplicationCount}')::bigint <> 1
+     or (v_summary#>>'{loyaltyAndDiscountApplications,voucherDiscountSen}')::bigint <> 100
+     or (v_summary#>>'{loyaltyAndDiscountApplications,promotionApplicationCount}')::bigint <> 1
+     or (v_summary#>>'{loyaltyAndDiscountApplications,promotionDiscountSen}')::bigint <> 200 then
+    raise exception 'Phase 8 loyalty/discount summary did not reconcile application snapshots: %',v_summary->'loyaltyAndDiscountApplications';
+  end if;
+
+  if (v_summary#>>'{shifts,shiftOpenedCount}')::bigint < 1
+     or (v_summary#>>'{shifts,closedShiftCount}')::bigint < 1
+     or (v_summary#>>'{shifts,cashVarianceSen}')::bigint <> -100
+     or (v_summary#>>'{cashMovements,movementCount}')::bigint < 1
+     or (v_summary#>>'{cashMovements,cashInSen}')::bigint <> 500 then
+    raise exception 'Phase 8 shift/cash summary did not reconcile source ledgers: shifts %, cash %',v_summary->'shifts',v_summary->'cashMovements';
+  end if;
+
+  if (v_summary#>>'{inventoryMovements,movementCount}')::bigint < 1
+     or jsonb_array_length(v_summary#>'{inventoryMovements,byItem}') < 1 then
+    raise exception 'Phase 8 inventory movement summary is missing source-ledger facts: %',v_summary->'inventoryMovements';
+  end if;
+
+  if not exists (
+    select 1
+    from jsonb_array_elements(v_summary->'byProduct') x
+    where x->>'sku'='FD-SAN'
+      and (x->>'quantity')::bigint >= 1
+  ) then
+    raise exception 'Phase 8 product reporting did not use immutable order-line snapshots: %',v_summary->'byProduct';
+  end if;
+
+  select public.get_admin_transaction_report(v_filter) into v_transactions;
+
+  if (v_transactions#>>'{semantics,refundDataAvailable}')::boolean
+     or (v_transactions#>>'{semantics,processorSettlementIncluded}')::boolean then
+    raise exception 'Phase 8 transaction report claimed unavailable Phase 9 facts: %',v_transactions->'semantics';
+  end if;
+
+  if not exists (
+    select 1
+    from jsonb_array_elements(v_transactions->'items') x
+    where x->>'orderId'=current_setting('test.phase8.order_id')
+      and (x->>'voucherDiscountSen')::bigint=100
+      and (x->>'promotionDiscountSen')::bigint=200
+      and (x->>'discountSen')::bigint=300
+      and (x->>'discountReconciled')::boolean
+      and not (x ? 'refundSen')
+      and jsonb_array_length(x->'lines')=1
+  ) then
+    raise exception 'Phase 8 transaction report did not preserve authoritative commercial detail: %',v_transactions;
+  end if;
+
+  select public.get_admin_audit_events(v_filter) into v_audit;
+
+  if not (v_audit#>>'{coverage,sourceBackedOnly}')::boolean
+     or (v_audit#>>'{coverage,completeGeneralAuditLog}')::boolean
+     or (v_audit->>'totalCount')::bigint < 5 then
+    raise exception 'Phase 8 audit coverage declaration or source facts are invalid: %',v_audit;
+  end if;
+
+  if not exists (select 1 from jsonb_array_elements(v_audit->'items') x where x->>'category'='order')
+     or not exists (select 1 from jsonb_array_elements(v_audit->'items') x where x->>'category'='discount')
+     or not exists (select 1 from jsonb_array_elements(v_audit->'items') x where x->>'category'='inventory')
+     or not exists (select 1 from jsonb_array_elements(v_audit->'items') x where x->>'category'='cash')
+     or not exists (select 1 from jsonb_array_elements(v_audit->'items') x where x->>'category'='shift') then
+    raise exception 'Phase 8 audit projection omitted a durable source category: %',v_audit->'items';
+  end if;
+
+  select public.get_admin_audit_events(v_filter || '{"pageSize":1,"offset":0}'::jsonb) into v_page_one;
+  select public.get_admin_audit_events(v_filter || '{"pageSize":1,"offset":1}'::jsonb) into v_page_two;
+
+  if jsonb_array_length(v_page_one->'items') <> 1
+     or jsonb_array_length(v_page_two->'items') <> 1
+     or v_page_one#>>'{items,0,eventKey}' = v_page_two#>>'{items,0,eventKey}' then
+    raise exception 'Phase 8 audit pagination is not deterministic: page1 %, page2 %',v_page_one,v_page_two;
+  end if;
+
+  begin
+    perform public.get_admin_reporting_summary(jsonb_build_object(
+      'fromDate',v_local_date,
+      'toDate',v_local_date,
+      'pageSize',101
+    ));
+    raise exception 'expected invalid Phase 8 page size to fail';
+  exception when sqlstate '22023' then
+    get stacked diagnostics v_detail = PG_EXCEPTION_DETAIL;
+    if v_detail is distinct from 'REPORT_PAGE_INVALID' then
+      raise exception 'unexpected invalid page-size detail: %',v_detail;
+    end if;
+  end;
+
+  begin
+    perform public.get_admin_transaction_report(jsonb_build_object(
+      'fromDate',(current_date+1)::text,
+      'toDate',current_date::text
+    ));
+    raise exception 'expected reversed Phase 8 date range to fail';
+  exception when sqlstate '22023' then
+    get stacked diagnostics v_detail = PG_EXCEPTION_DETAIL;
+    if v_detail is distinct from 'REPORT_DATE_RANGE_INVALID' then
+      raise exception 'unexpected invalid date-range detail: %',v_detail;
+    end if;
+  end;
+end;
+$$;
+reset role;
+
+-- A normal customer can execute the wrapper symbol but cannot cross the
+-- caller-bound Admin/Owner authorization boundary.
+set local role authenticated;
+do $$
+declare
+  v_customer uuid := '88000000-0000-0000-0000-000000000002';
+  v_local_date text := ((now() at time zone current_setting('test.phase8.timezone'))::date)::text;
+  v_filter jsonb := jsonb_build_object('fromDate',v_local_date,'toDate',v_local_date);
+  v_detail text;
+begin
+  perform set_config('request.jwt.claims',jsonb_build_object('sub',v_customer,'role','authenticated')::text,true);
+
+  begin
+    perform public.get_admin_reporting_summary(v_filter);
+    raise exception 'expected customer Phase 8 summary access to fail';
+  exception when insufficient_privilege then
+    get stacked diagnostics v_detail = PG_EXCEPTION_DETAIL;
+    if v_detail is distinct from 'REPORTING_ADMIN_REQUIRED' then
+      raise exception 'unexpected customer summary denial detail: %',v_detail;
+    end if;
+  end;
+
+  begin
+    perform public.get_admin_transaction_report(v_filter);
+    raise exception 'expected customer Phase 8 transaction access to fail';
+  exception when insufficient_privilege then
+    get stacked diagnostics v_detail = PG_EXCEPTION_DETAIL;
+    if v_detail is distinct from 'REPORTING_ADMIN_REQUIRED' then
+      raise exception 'unexpected customer transaction denial detail: %',v_detail;
+    end if;
+  end;
+
+  begin
+    perform public.get_admin_audit_events(v_filter);
+    raise exception 'expected customer Phase 8 audit access to fail';
+  exception when insufficient_privilege then
+    get stacked diagnostics v_detail = PG_EXCEPTION_DETAIL;
+    if v_detail is distinct from 'REPORTING_ADMIN_REQUIRED' then
+      raise exception 'unexpected customer audit denial detail: %',v_detail;
+    end if;
+  end;
+end;
+$$;
+reset role;
+
+rollback;

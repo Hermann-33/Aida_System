@@ -91,7 +91,8 @@ slot_count=$("${PSQL[@]}" -Atc "select count(*) from public.orders where client_
 
 # Phase 5: stock is exactly one recipe unit. The first transaction consumes the
 # row and remains open; the second must wait for the row lock and then fail the
-# non-negative conditional balance update.
+# non-negative conditional balance update. The fixture item is resolved through
+# the public catalogue rather than admin-only recipe rows.
 INVENTORY_FIRST=$(cat <<'SQL'
 begin;
 set local role authenticated;
@@ -101,7 +102,7 @@ select public.place_customer_order(jsonb_build_object(
   'branchId',(select id from public.branches where is_default and is_active limit 1),
   'fulfillmentType','asap',
   'items',jsonb_build_array(jsonb_build_object(
-    'itemId',(select catalogue_item_id from public.recipes where name='Phase 1-6 concurrency recipe' and is_active limit 1),
+    'itemId',(select id from public.catalogue_items where sku='FD-SAN'),
     'addOnIds','[]'::jsonb,
     'quantity',1
   ))
@@ -119,7 +120,7 @@ select public.place_customer_order(jsonb_build_object(
   'branchId',(select id from public.branches where is_default and is_active limit 1),
   'fulfillmentType','asap',
   'items',jsonb_build_array(jsonb_build_object(
-    'itemId',(select catalogue_item_id from public.recipes where name='Phase 1-6 concurrency recipe' and is_active limit 1),
+    'itemId',(select id from public.catalogue_items where sku='FD-SAN'),
     'addOnIds','[]'::jsonb,
     'quantity',1
   ))

@@ -4,68 +4,65 @@
 **Project:** Aida System  
 **Ref:** `eswovqxqzfevcdwwcmuh`  
 **Region:** `ap-southeast-1`  
-**Project state:** `ACTIVE_HEALTHY`  
-**Implementation verdict:** Phases 1–6 audit-remediation boundary `COMPLETE`.
+**Current state:** `ACTIVE_HEALTHY`  
+**Current verdict:** Phase 7 live deployment/advisor boundary `COMPLETE`.
 
 Canonical executable migrations live only in `Hermann-33/Aida_System/supabase/migrations/`.
 
-## Trusted authority through Phase 6
+## Phase 7 live deployment
 
-Supabase owns identity/role/membership, operational topology, terminal credentials, shift/cash, catalogue/orders, privacy/account deletion, branch scheduling/capacity, inventory/recipes/depletion, and loyalty/reward/voucher/discount authority.
-
-## Phase 6 migration-history reconciliation
-
-Canonical repository migrations are:
+Canonical repository migrations:
 
 ```text
-20260915083000_reconcile_partial_phase6_live_schema.sql
-20260915083500_index_loyalty_foreign_keys.sql
+20260915100000_create_promotion_discount_authority.sql
+20260915101000_integrate_promotions_with_order_authority.sql
+20260915101100_normalize_phase7_nullable_voucher_quote.sql
 ```
 
-The live project historically recorded the equivalent already-applied deployment steps as:
+Migration-service live history:
 
 ```text
-20260915002000_reconcile_partial_phase6_live_schema.sql
-20260915002800_index_loyalty_foreign_keys.sql
+20260915120917_create_promotion_discount_authority
+20260915121057_integrate_promotions_with_order_authority
+20260915121119_normalize_phase7_nullable_voucher_quote
 ```
 
-Applied live migration history is not rewritten. Documentation maps the historical live timestamps to the canonical replay filenames.
+The live versions are historical deployment identifiers generated when the canonical SQL was applied. Do not rewrite applied migration history to force timestamp equality with repository filenames.
 
-## Fresh advisor verification
+## Live verification
 
-Fresh live checks were run against project `eswovqxqzfevcdwwcmuh` on 2026-09-15 after the Phase 1–6 remediation implementation passed CI.
+Post-deployment verification confirmed:
 
-Security advisor:
+- `promotions`, `promotion_branches`, `promotion_items`, `promotion_variants`, `promotion_addons`, `promotion_order_applications` exist;
+- every Phase 7 table has RLS enabled and FORCE RLS enabled;
+- `anon` has no direct SELECT/INSERT privilege on Phase 7 tables;
+- `authenticated` has no direct SELECT/INSERT/UPDATE/DELETE privilege on Phase 7 tables;
+- `get_promotion_admin_state`, `save_promotion`, `quote_order`, customer placement and POS placement functions are present;
+- expected authenticated/anon execute grants are present on public RPC boundaries;
+- the old `orders_consume_pending_voucher` trigger is retired;
+- zero promotion rows and zero promotion application rows existed immediately after deployment verification, so no production fixture data was introduced.
 
-- no Phase 1–6 implementation-created WARN/ERROR finding;
-- eight `rls_enabled_no_policy` INFO findings are intentional RPC-only tables whose direct client mutation/read grants are restricted by the documented authority model;
-- the only WARN is the pre-existing project setting `auth_leaked_password_protection` being disabled. This is an account-level Auth hardening item, not a Phase 1–6 code/schema regression. Remediation reference: https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection
+The SQL inspection connector runs as `supabase_read_only_user` and cannot switch to `anon`, so it cannot directly execute the public app RPC despite the app-role grants being present. Runtime RPC behavior remains covered by the blocking local database and client/browser regressions; live verification intentionally avoided creating production test orders/promotions.
 
-Performance advisor:
+## Fresh advisors after Phase 7 DDL
 
-- no missing-foreign-key-index regression;
-- remaining findings are INFO-level `unused_index` observations on the current dataset and are not evidence that required authority indexes are absent.
+### Security
 
-## Remediation validation
+- INFO `rls_enabled_no_policy` appears on the six Phase 7 RPC-only promotion tables and the existing RPC-only loyalty tables. This is intentional because direct table grants are revoked and access is through controlled RPCs.
+- The only WARN is the existing `auth_leaked_password_protection` setting being disabled. This pre-dates Phase 7 and is a Supabase Auth configuration item, not a Phase 7 schema defect.
+- Remediation reference: https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection
 
-Validated implementation heads:
+### Performance
+
+- Advisor output contains INFO `unused_index` findings only, including newly created Phase 7 indexes before production usage accumulates.
+- No blocking missing-index or other performance warning was reported.
+
+## Repository validation paired with live state
 
 ```text
-Aida_System             6d64cf3aef2369af61bec68ca1746193157841f5
-Aida_System-Dashboard   f442168221ffa630ea91504111a5582f06bad56a
+Backend database audit #231   COMPLETE
+Customer release audit #311   COMPLETE
+Dashboard CI #147             COMPLETE
 ```
 
-```text
-Backend database audit #218   COMPLETE
-Customer release audit #309   COMPLETE
-Dashboard CI #137             COMPLETE
-Live project health           ACTIVE_HEALTHY
-Security advisor              COMPLETE for Phase 1–6 boundary
-Performance advisor           COMPLETE for Phase 1–6 boundary
-```
-
-Backend #218 includes the full ordinary Phase 1–6 SQL suite plus true concurrent-session regressions for the final pickup slot, final inventory stock, simultaneous points redemption and simultaneous one-time voucher consumption. Customer #309 includes static analysis, non-golden regressions, blocking goldens and release APK build/upload. Dashboard #137 validates the current remediation implementation/documentation head.
-
-## Deferred authority
-
-Generalized promotions/discounts, reporting/accounting, external payment/refund settlement, employee Badge/PIN credential lifecycle, hardware integrations and final release work remain outside the Phase 1–6 boundary. Phase 7–10 implementation remains frozen until explicitly resumed by the owner.
+Phases 1–7 are now `COMPLETE` against the defined boundary. Phase 8–10 remain frozen pending explicit owner authorization.

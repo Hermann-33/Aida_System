@@ -1,81 +1,55 @@
 # Customer Mocks and Placeholders Register
 
-Updated: 2026-08-20
+Updated: 2026-09-15
 
-## Removed from production runtime
+This register distinguishes production data paths from intentional visual/sample content. Production must fail closed rather than silently substitute mock commercial/customer authority.
 
-- hardcoded menu categories/items/prices/availability/images as commercial catalogue authority;
-- static Small/Medium/Large `ItemSize` enum and deltas;
-- category-name logic for whether sizes/add-ons apply;
-- fake catalogue ratings and bonus-point presentation;
-- random local order-number generation;
-- local-only `PastOrder` persistence/history as order truth;
-- fixed/local order status authority;
-- timer-driven fulfilment progression;
-- cart-derived subtotal as final trusted order total;
-- payment-method copy implying a processor payment succeeded;
-- absence of server-policy-backed ASAP/Schedule-for-later selection;
-- the old explicit `AidaLogo` placeholder box: the shared widget now uses the bundled `assets/images/aida_logo.jpg` presentation asset.
+## Live production authority through Phase 7
 
-Customer catalogue/order flows now fail visibly when the backend boundary fails; they do not fall back to sample commercial/order authority.
+The following are **not mocks** in production:
 
-## Presentation assets versus trusted data
+- Supabase Auth session and member/profile state;
+- privacy preferences and whole-account deletion;
+- shared catalogue, variants/options/add-ons and server prices;
+- branch scheduling/pickup policy/capacity;
+- authoritative quote/place and order history/status;
+- inventory/recipe availability and placement-time depletion;
+- loyalty points/stamps, rewards and vouchers through `SupabaseLoyaltyRepository`;
+- voucher validation/discount/consumption;
+- Phase 7 automatic promotion eligibility, promotion discount and immutable accepted promotion snapshots.
 
-The redesign adds/uses bundled imagery, but these assets are presentation only:
+## Legacy/sample member content
 
-- `aida_logo.jpg` is a bundled logo image used by the shared `AidaLogo` widget and Rewards watermark. It is not member/identity data.
-- category cut-out art may be used by the Menu category rail and as `MenuListItem` image fallback. It does not replace the server `MenuItem.imageUrl`, product ID, name, availability or price.
-- `ProductImage` still prefers a non-empty server `imageUrl` and falls back gracefully when it is absent or fails to load.
+Legacy preview/sample values may remain in mock repositories for previews/tests. The production providers are explicitly wired to Supabase repositories and must not fall back to mock member/loyalty data if the backend is unavailable.
 
-Because the logo is bundled, its use on Membership QR does not add a network dependency to the offline-critical card.
+## Marketing offers and promo cards
 
-## Test-only data
+Home offer/promo presentation can contain curated or preview marketing content. Such cards are not proof of commercial eligibility and are not accepted discount authority. The only authoritative Phase 7 promotion outcome is returned by the order quote/place backend.
 
-`test/support/test_catalogue_repository.dart` is an explicit catalogue fixture used only for isolated test/golden coverage. `test/support/test_order_repository.dart` is likewise test-only order coverage. Neither is wired as a production fallback.
+## Referral
 
-The test order repository records quote requests so post-redesign tests can prove that the scheduled checkout UI submits server-policy-derived timestamps. This instrumentation exists only in `test/`.
+Referral is intentionally preserved as a future draft surface. `AIDA_ENABLE_REFERRAL_DRAFT` defaults to false. It must not be exposed as a live production capability until its backend/privacy/abuse model is explicitly implemented and approved.
 
-## Allowed local UI state
+## Payments
 
-The following may remain local because they are interaction state rather than trusted business authority:
+Current customer orders do not have external processor capture/settlement authority. Any processor-like sample/placeholder must not imply a successful payment. External payment/refund UX is Phase 9.
 
-- cart selections before quote;
-- selected item/variant/add-on/quantity/note choices;
-- selected ASAP vs scheduled option before server validation;
-- Menu category/favorites selection;
-- temporary loading/error/expanded/collapsed/animation state;
-- local display estimates before authoritative quote;
-- one placement `clientRequestId` retained across retries of the same intended order;
-- local favourites and other explicitly non-authoritative presentation state.
+## Legal/support/release presentation
 
-Once quoted/placed, displayed commercial totals, order number and fulfilment status come from the backend response/snapshot.
+In-app legal/support presentation exists, but final hosted public Privacy/Support URLs, App Privacy metadata, manifests, screenshots/review metadata and submission status are Phase 10 release work. Sample URLs or preview metadata must not be represented as production submission evidence.
 
-## Rewards mixed-data boundary
+## Removed stale deferrals
 
-The redesigned Rewards screen is intentionally mixed, not wholly mock:
+The following older placeholder labels are obsolete and must not be reintroduced:
 
-- member name/code presentation comes from `displayedMemberProvider`, whose base is the real owner-scoped Supabase member/profile read;
-- points, reward catalogue and vouchers remain delegated to `MockMemberRepository` pending the trusted loyalty task.
+- loyalty/rewards/vouchers as mock-only;
+- account deletion as unavailable/draft-only;
+- branch pickup policy/capacity as unmodeled;
+- inventory/recipe enforcement as deferred;
+- generalized order promotions as a future Phase 7 capability.
 
-A real member name beside a preview points balance does not make the balance authoritative. Reward redemption and voucher consumption are still deferred.
+Those capabilities are implemented in the Phase 1–7 backend/runtime boundary.
 
-## Payment demo boundary
+## Governance
 
-Until a real payment task exists, use explicit `Pay at counter`/unpaid semantics. Do not fake payment-success state, processor transactions or refunds.
-
-## Still preview/untrusted beyond this tranche
-
-- loyalty points/stamps/rewards/vouchers and redemption/consumption;
-- offers/promotions as trusted commercial authority;
-- real payment/refund handling;
-- inventory/depletion;
-- branch-capacity/opening-hours scheduling;
-- tax/accounting;
-- notifications;
-- trusted reporting;
-- several profile/settings/support surfaces;
-- hosted production deployment/release operations.
-
-The final live order E2E validates the current trusted Auth/catalogue/order boundary but does not promote these deferred areas to production authority.
-
-See `UI_REDESIGN_AUDIT_2026-08-20.md` for the post-merge redesign audit.
+Historical redesign/audit documents may preserve the state at their original date. Current runtime truth is defined by this register, `STATE_AND_DATA_FLOW.md`, `UI_SCREEN_MAP.md`, `ACTIVE_CONTEXT.md`, shared contracts and current phase closeouts.

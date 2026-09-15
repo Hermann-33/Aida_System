@@ -1,166 +1,97 @@
-# POS/Admin State and Data Flow
+# Dashboard State and Data Flow
 
-Updated: 2026-09-11
+Updated: 2026-09-15
 
-## Employee session
+**Current live boundary:** Phases 1–7 `COMPLETE`.
+
+The Dashboard/Admin/POS application is a thin privileged client over the shared Supabase backend. Live privileged calls use the same-origin BFF; preview mode is presentation-only and isolated from privileged APIs.
+
+## Employee/session flow
 
 ```text
-employee login
+browser login/employee action
  -> same-origin BFF
- -> Supabase Auth
- -> user_profiles role/disabled check
- -> employee_branch_assignments
- -> HttpOnly access/refresh cookies
- -> React receives identity + assignedBranchIds only
+ -> Supabase Auth / caller-bound RPC
+ -> HttpOnly employee access + refresh cookies
+ -> trusted user_profile role/disabled-state checks
 ```
 
-The employee bearer token is never persisted/read by browser JavaScript. Ordinary staff with no trusted branch assignment fail closed.
+Browser JavaScript does not own reusable employee bearer tokens. Terminal credentials likewise remain HttpOnly/server-held.
 
-## Terminal enrolment/session
+## Topology and shift flow
 
 ```text
-Admin creates terminal
- -> manager issues one-time enrolment code
- -> employee enters code on workstation
- -> POST terminal enrol endpoint
- -> BFF validates employee session and forwards caller JWT
- -> Supabase validates code + terminal + employee branch scope
- -> one terminal credential returned
- -> BFF stores credential in HttpOnly cookie
- -> React receives only trusted location/status projection
+Admin branch/sales-point/terminal UI
+ -> BFF -> caller-bound admin RPCs -> trusted topology
+
+POS request
+ -> server-held terminal credential
+ -> terminal context + employee branch scope
+ -> open shift requirement
+ -> POS order/cash authority
 ```
 
-The terminal credential is not exposed to normal React state or local storage.
+A new POS order requires current employee/terminal authorization and an open shift. Matching idempotent retries can resolve an already accepted order without creating new shift authority.
 
-Terminal status resolution revalidates active terminal, sales point, branch and employee branch scope. Revocation or loss of branch scope blocks the flow.
+## Catalogue, scheduling and inventory
 
-## Admin operational topology
+Catalogue reads/writes use the shared canonical catalogue. Branch pickup configuration owns timezone, windows/exceptions, lead/horizon/slot interval and capacity. Inventory administration owns branch stock, recipes and movements.
+
+POS quote/place does not calculate accepted prices, pickup capacity or stock outcome in the browser. Supabase validates and returns them.
+
+## Loyalty and voucher flow
 
 ```text
-AdminLocationsPage
- -> operationalLocationClient
- -> same-origin BFF
- -> branch / sales-point RPCs
+POS member intent / Admin loyalty support
+ -> BFF
+ -> caller-bound loyalty RPCs
+ -> member loyalty account / reward / voucher authority
 
-AdminTerminalsPage
- -> operationalLocationClient
- -> Admin topology / save terminal / issue code / revoke RPCs
-
-AdminEmployeesPage
- -> operationalLocationClient
- -> trusted employee directory / branch-assignment RPCs
+order quote/place with voucher intent
+ -> server validates ownership/status/expiry/eligibility
+ -> accepted voucher discount snapshot
+ -> one-time consumption at placement
 ```
 
-Live mode uses these APIs. Explicit UI Preview follows a separate fixture path and remains non-authoritative.
+Points, stamps, rewards and vouchers shown in live Dashboard flows come from trusted backend state. Preview fixtures do not become live loyalty authority.
 
-## POS catalogue and quote
+## Phase 7 promotion flow
 
 ```text
-catalogue selection IDs
- -> local cart + estimate
- -> POST /api/v1/orders/quote
- -> employee BFF session validation
- -> caller JWT -> quote_order
- -> server catalogue/modifier/schedule validation
- -> authoritative integer-sen quote
+/admin/rewards/campaigns
+ -> promotion BFF route
+ -> get_promotion_admin_state / save_promotion
+ -> server-owned promotion + scope tables
 ```
 
-Local cart state is interaction only; server quote is commercial authority.
+Admin/Owner can configure fixed/percentage offers, windows, subtotal/cap, priority, exclusive/stackable mode, voucher coexistence, member/usage limits and branch/product/variant/add-on scope.
 
-## Live POS placement — Phase 1
+POS order flow:
 
 ```text
-employee session
- + HttpOnly terminal credential
- + selection/fulfilment intent
- -> POST /api/v1/orders/place
- -> order BFF
- -> caller JWT + server-held terminal credential
- -> place_pos_order(payload, credential)
- -> Supabase resolves terminal -> sales point -> branch
- -> validates employee may operate branch
- -> persists trusted POS order attribution
+cart/member/voucher intent
+ -> authoritative quote_order
+ -> schedule + stock + voucher validation
+ -> automatic promotion evaluation
+ -> voucherDiscountSen + promotionDiscountSen + discountSen + totalSen
+ -> POS presentation
+
+place
+ -> deterministic promotion locks + full revalidation
+ -> accepted order
+ -> immutable voucher/promotion application snapshots
 ```
 
-Persisted POS snapshot includes immutable branch/sales-point/terminal authority. The browser never supplies trusted topology IDs.
+The browser never submits an accepted promotion ID or authoritative promotion discount. A promotion shown on the accepted order is a server snapshot.
 
-Credentialless `place_pos_order(jsonb)` is not executable by authenticated users.
+## Order board and status
 
-## Customer placement contrast
+Order lists/snapshots are strict-parsed. Commercial arithmetic must reconcile before the UI trusts the payload. Staff status transitions use server authorization and expected `statusVersion`; display concepts such as due/overdue do not mutate persisted status.
 
-Customer Flutter does not participate in terminal flow:
+## Preview isolation
 
-```text
-customer selections
- -> quote_order
- -> place_customer_order
- -> backend derives customer/member + active default branch
- -> salesPointId/terminalId remain null
-```
-
-## Order queue/status
-
-```text
-GET /api/v1/orders
- -> BFF caller JWT
- -> backend branch scope
- -> Active / Scheduled / Ready / History projection
- -> periodic refetch
-
-staff next-state action + statusVersion
- -> POST /api/v1/orders/status
- -> transition_order_status
- -> branch authorization + legal transition + optimistic version check
- -> order event + updated snapshot
-```
-
-Backend `prepareAt`, `serverNow` and `scheduleState` remain operational scheduling authority. No React timer changes persisted order state.
-
-## Catalogue propagation
-
-```text
-Admin catalogue mutation
- -> Supabase
- -> catalogue_revision bump
- -> customer/POS invalidate and refetch
-```
-
-Preview catalogue data cannot override live catalogue state.
-
-## Customer order propagation
-
-```text
-staff fulfilment transition
- -> orders change
- -> owner-scoped Realtime invalidation
- -> customer authorized refetch
-```
-
-Dashboard employee flows do not expose employee JWT for direct Realtime.
-
-## Payment boundary
-
-There is no trusted processor/settlement state. Current flow remains explicit pay-at-counter/unpaid semantics.
-
-## Phase 1 validation
-
-```text
-Dashboard CI #23              PASS — 31 files / 150 tests
-Backend database audit #22   PASS — all four SQL suites
-Customer release audit #114  PASS
-```
-
-Detailed evidence: `docs/context/PHASE_1_OPERATIONAL_TOPOLOGY_CLOSEOUT_2026-09-11.md`.
+Preview mode may provide deterministic fixtures for visual testing, but it must not call privileged live routes. Browser CI contains a blocking preview-isolation regression. Live mode must fail closed rather than silently substitute fixture authority.
 
 ## Deferred flows
 
-- shift/cash open/lock/close and variance;
-- employee provisioning/role/badge/PIN lifecycle;
-- branch hours/closures/capacity/customer branch selection;
-- inventory/recipes/depletion;
-- loyalty/rewards;
-- promotions;
-- tax/accounting/reporting;
-- payment/refunds;
-- printer/KDS/payment-device integrations;
-- delivery/hosted production.
+Phase 8 will replace/extend reporting/accounting/audit presentation with trusted derived reports. Phase 9 owns external payment/refund/settlement integrations. Hardware and Badge/PIN lifecycle remain separately deferred. Phase 10 owns final release/App Store verification.

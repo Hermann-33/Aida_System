@@ -1,121 +1,85 @@
-# POS/Admin Backend Integration Plan
+# Dashboard Backend Integration Plan
 
-Updated: 2026-08-17
+Updated: 2026-09-15
 
-## Deployment/Auth boundary
+This document describes the **current integration state through Phase 7** and the remaining later-phase work. It is not an implementation wishlist for already-completed capabilities.
 
-The validated current demo topology is local Dashboard PC → cloud Supabase → installed Android customer app.
+## Current architecture
 
-Employee/Admin authentication uses the same-origin BFF with HttpOnly cookies, trusted profile role/disabled-state validation and caller-JWT Supabase access. No service-role key or browser-local employee bearer token is required or allowed.
+Dashboard/Admin/POS uses the shared Supabase backend through a same-origin BFF. Employee session and terminal credential material stay HttpOnly/server-side. BFF handlers forward the caller JWT and publishable key so Supabase RPC/RLS remains authorization authority.
 
-A historical Vercel `READY` deployment exists, but hosted BFF runtime configuration is not complete. Hosted deployment remains **DEFERRED** and is not a blocker for the accepted local-demo tranche.
+Production Dashboard must not use a service-role credential as a shortcut and must not expose reusable employee/terminal secrets to browser JavaScript.
 
-## Members — integrated and validated
+## Integrated live capabilities
 
-Protected Admin Members uses the same-origin BFF/RLS path. Preview mode does not fabricate or request privileged member data.
+### Phase 1 — operational topology
 
-Physical validation proved a new Android customer signup → trusted profile/member provisioning → the new member appearing in Dashboard Members.
+Live branches, employee branch scope, sales points, terminals, enrolment/revocation and POS topology attribution.
 
-## Admin + POS catalogue — integrated and validated
+### Phase 2 — shifts and cash
 
-Admin Menu uses the shared catalogue BFF for trusted management. POS browsing uses the same published catalogue for categories, availability, base display prices, per-item variants and compatible add-ons. There is no runtime preview-catalogue fallback.
+Open/resume/lock/close shift authority, cash movements/reconciliation/history and new-order open-shift enforcement.
 
-A real Owner changed a catalogue price through Admin Menu and the installed Android customer app observed the changed value after the revision/refetch flow.
+### Phase 3 — customer/privacy dependency
 
-## Orders and scheduled pickup — integrated and validated
+Dashboard retained transaction views respect the customer anonymisation boundary; staff audit identity is not erased by customer self-deletion.
 
-ADR-0010 and `docs/contracts/ORDER_AND_SCHEDULING_CONTRACT.md` are authoritative.
+### Phase 4 — scheduling
 
-Same-origin endpoints:
+Branch pickup policy, service windows/exceptions, lead/horizon/slot capacity and authoritative quote/place scheduling are live.
 
-- `GET /api/v1/orders/policy`
-- `GET /api/v1/orders`
-- `GET /api/v1/orders/detail?id=<uuid>`
-- `POST /api/v1/orders/quote`
-- `POST /api/v1/orders/place`
-- `POST /api/v1/orders/status`
-- `POST /api/v1/admin/orders/policy`
+### Phase 5 — inventory and recipes
 
-All employee mutations validate the HttpOnly employee session, forward the caller JWT and require same origin.
+Branch inventory, movements, recipes/components and order-time transactional stock consumption/reversal are live.
 
-### POS integration
+### Phase 6 — loyalty/rewards/vouchers
 
-The active POS order path:
+Loyalty program/reward configuration, member wallet/support adjustments, POS member lookup and voucher-aware quote/place are live through caller-bound BFF/RPC flows.
 
-1. keeps cart/customization as selection state only;
-2. sends catalogue item/variant/add-on IDs, quantities and notes;
-3. offers ASAP/Schedule for later from `/api/v1/orders/policy`;
-4. derives schedule slots from server time/policy;
-5. renders `/api/v1/orders/quote` as commercial authority;
-6. keeps one UUID `clientRequestId` across retries of the same placement;
-7. persists through `/api/v1/orders/place`;
-8. clears the sale only after successful persistence;
-9. uses server order number/total/schedule/status;
-10. uses explicit `Pay at counter`/unpaid semantics.
+### Phase 7 — promotions/discounts
 
-Current POS placement is a guest-order boundary; the browser does not invent customer/member association.
+`/admin/rewards/campaigns` is connected to live promotion authority. BFF endpoints use `get_promotion_admin_state` and `save_promotion`; the browser does not write promotion tables directly.
 
-### Live staff order board
+Campaign configuration supports fixed/percent discounts, minimum subtotal, optional cap, active windows, priority, exclusive/stackable behavior, voucher coexistence, member requirement, global/per-member limits and branch/product/variant/add-on scope.
 
-`/api/v1/orders` is the live queue source. The board presents persisted Scheduled/Confirmed/Preparing/Ready states and terminal history where appropriate.
+POS quote/order parsing accepts separate `voucherDiscountSen` and `promotionDiscountSen` plus immutable promotion snapshots. Placement remains fully server-authoritative and re-evaluates promotions under deterministic locks.
 
-Staff actions call `/api/v1/orders/status` with current `statusVersion` as `expectedVersion`. HTTP 409 version conflict triggers refetch rather than stale overwrite.
+## Integration invariants
 
-### Queue refresh model
+- live mode never falls back to preview fixtures;
+- preview mode never calls privileged live endpoints;
+- client IDs/amounts are intent only unless explicitly documented as trusted server snapshots;
+- all money is integer sen;
+- accepted order history remains immutable/snapshotted;
+- caller identity is derived from the authenticated session, not request-supplied actor IDs;
+- branch/terminal/shift/payment/commercial state remains server-derived.
 
-The employee JWT remains HttpOnly. React does not open a direct caller-authenticated Supabase Realtime connection.
+## Validation through Phase 7
 
-The implemented board:
+```text
+Backend database audit #231   COMPLETE
+Customer release audit #311   COMPLETE
+Dashboard CI #147             COMPLETE
+```
 
-- uses TanStack Query against `/api/v1/orders`;
-- refetches every 2.5 seconds while active;
-- invalidates after place/status mutations;
-- refetches on supported focus/reconnection paths;
-- never exposes/copies the employee access token to browser JavaScript.
+Dashboard CI covers lint, typecheck, unit tests, live POS browser regression, preview isolation and production build. Backend CI covers cumulative migrations/regressions and true Phase 7 final-promotion-use contention.
 
-Customer Flutter uses owner-scoped `orders` Realtime and authorized refetch.
+Live AIDA Supabase is `ACTIVE_HEALTHY`; Phase 7 migrations are deployed and advisors show no new blocking Phase 7 finding.
 
-## Final cross-client order validation
+## Remaining integration plan
 
-On 2026-08-17 the supported live path completed:
+### Phase 8 — reporting/accounting/audit
 
-- customer authenticated with one active member;
-- Sandwich quoted ASAP at 1,290 sen;
-- `place_customer_order` persisted order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`) as `confirmed` v1;
-- authenticated Owner Dashboard queue observed the exact order;
-- Dashboard persisted `preparing` v2, `ready` v3 and `completed` v4;
-- customer-authorized `get_order` reads observed every transition.
+Replace remaining report/audit presentation with trusted read-only derived RPCs/views. Establish branch/timezone filters, revenue/order/cash/discount/loyalty/inventory reconciliation, export/access control and immutable audit-source semantics. Reports must not mutate source transactions.
 
-One completed order remains retained as closeout evidence.
+### Phase 9 — payments/refunds/external integrations
 
-## Validation baseline
+Add processor-specific authority only after provider/credential/cost approvals. Model intent, authorization, capture, settlement, refund, webhook/idempotency and reconciliation separately. Preserve existing cash/unpaid semantics.
 
-Final Dashboard closeout checks:
+### Phase 10 — release
 
-- lint: PASS with two established Fast Refresh warnings;
-- typecheck: PASS;
-- Vitest: PASS, 25 files / 111 tests;
-- build: PASS;
-- Playwright: PASS, 8/8;
-- `npm audit`: PASS, 0 vulnerabilities;
-- `git diff --check`: PASS;
-- credential/secret safety checks: PASS.
+Production/release integration audit, legal/support URLs, privacy metadata/manifests, review credentials/demo path, release artifacts and current Apple rule verification.
 
-## Scheduling policy
+## Explicitly separate/deferred
 
-Current defaults:
-
-- timezone `Asia/Kuala_Lumpur`
-- 15-minute minimum lead
-- 15-minute slots
-- 7-day maximum advance
-
-Branch opening hours/closures/capacity are not modeled.
-
-## Payment boundary
-
-No real payment processor exists. The authoritative current path is `Pay at counter`/unpaid. Fulfilment completion is not proof of payment settlement.
-
-## Deferred Dashboard domains
-
-Trusted payment/refunds, loyalty, inventory, branch scope/hours/capacity, shifts/cash authority, reporting/revenue, promotions/marketing publication, tax/accounting, delivery and hosted production deployment remain separate bounded tasks.
+Badge/PIN credential provisioning and hardware integrations remain outside the completed Phase 1–7 backend integration unless a later approved scope explicitly takes ownership.

@@ -1,76 +1,86 @@
 # Active Context
 
 **As of:** 2026-09-15  
-**Current boundary:** Combined Phase 1–6 Codex audit remediation  
-**Current verdict:** Phases 1–6 `COMPLETE` against the defined audited implementation boundary; Phase 7–10 remain frozen and not started by this remediation.
+**Current boundary:** Phase 7 — promotions and discounts  
+**Current verdict:** `COMPLETE` against the defined Phase 7 implementation, live-deployment, advisor and documentation boundary. Phase 8–10 remain frozen until explicit owner authorization.
 
 ## Product topology
 
 - customer/backend: `Hermann-33/Aida_System`
 - Dashboard/Admin/POS: `Hermann-33/Aida_System-Dashboard`
-- shared Supabase: `eswovqxqzfevcdwwcmuh` (`ACTIVE_HEALTHY`)
+- shared Supabase project: `Aida System`, ref `eswovqxqzfevcdwwcmuh`, region `ap-southeast-1`
 - canonical executable migrations: `Hermann-33/Aida_System/supabase/migrations/` only
 
-## Completed authority
+## Authority completed through Phase 7
 
 ```text
 Phase 1 COMPLETE  branch -> sales point -> terminal -> employee branch scope -> POS attribution
 Phase 2 COMPLETE  terminal + employee -> shift -> POS order / cash ledger
-Phase 3 COMPLETE  customer identity -> privacy preferences / whole-account deletion -> anonymized retained history
-Phase 4 COMPLETE  branch calendar/policy -> pickup slot capacity -> authoritative quote/place
+Phase 3 COMPLETE  customer -> privacy/account deletion -> anonymized retained history
+Phase 4 COMPLETE  branch calendar/policy -> pickup capacity -> authoritative quote/place
 Phase 5 COMPLETE  recipe -> branch inventory -> transactional depletion/reversal
-Phase 6 COMPLETE  member -> loyalty ledgers/balances -> reward/voucher -> authoritative discount/consumption
+Phase 6 COMPLETE  member -> loyalty -> reward/voucher -> authoritative voucher discount/consumption
+Phase 7 COMPLETE  promotion config -> server evaluation -> locked placement -> immutable promotion snapshots
 ```
 
-Supabase/server remains authority for identity, roles, topology, shift/cash/payment/commercial state, privacy/deletion, scheduling/capacity, inventory/recipes and loyalty/voucher state. Dashboard privileged flows remain behind the same-origin HttpOnly BFF with caller-JWT forwarding. Preview fixtures are never backend authority.
+Phase 7 keeps commercial authority on the server. Clients do not submit accepted promotion IDs, promotion discounts or totals. Active promotions are resolved from trusted configuration with branch/product/variant/add-on scope, windows, subtotal thresholds, member rules, usage limits, stacking and voucher-coexistence policy.
 
-## Audit-remediation changes now closed
+Accepted orders expose distinct `voucherDiscountSen` and `promotionDiscountSen` components that reconcile to `discountSen`. Placement serializes candidate promotion configuration/usage, and accepted promotion applications persist immutable commercial snapshots.
 
-The combined remediation closes the valid findings surfaced across the backend/customer and Dashboard audits, including:
-
-- Phase 1–3 security/privacy remediation and blocking regressions;
-- strict Dashboard Phase 6 order/voucher, loyalty and inventory parsing;
-- stale POS member/voucher intent invalidation;
-- explicit Badge/PIN deferral rather than exposed-but-unimplemented live behavior;
-- preview isolation as a blocking Dashboard browser gate;
-- strict Flutter Phase 6 `discountSen` and voucher commercial snapshots;
-- fail-closed Flutter order status, integer, boolean and date parsing;
-- authoritative commercial invariants: line subtotal, discount arithmetic and voucher/discount consistency;
-- true PostgreSQL contention regressions for Phase 4 scheduling, Phase 5 inventory and Phase 6 redemption/voucher consumption;
-- canonical-vs-historical Phase 6 migration filename reconciliation without rewriting applied migration history;
-- synchronized Phase 1–6 governance/screen-map documentation.
-
-Detailed evidence: `docs/context/PHASE_1_6_CODEX_AUDIT_REMEDIATION_CLOSEOUT_2026-09-15.md`.
+Dashboard promotion management remains behind the same-origin HttpOnly employee session/BFF and caller-JWT forwarding. Flutter and POS parse promotion authority fail-closed. Preview mode makes no privileged promotion requests.
 
 ## Validated implementation heads
 
 ```text
-Aida_System             6d64cf3aef2369af61bec68ca1746193157841f5
-Aida_System-Dashboard   f442168221ffa630ea91504111a5582f06bad56a
+Aida_System             c6abf24b498edb401af878f86d26e1c63a633121
+Aida_System-Dashboard   7e14326253b263412da5fa38f47bb137c31d7379
+Backend database audit #231   COMPLETE
+Customer release audit #311   COMPLETE
+Dashboard CI #147             COMPLETE
 ```
+
+## Live Phase 7 deployment
+
+Canonical repository migrations:
 
 ```text
-Backend database audit #218   COMPLETE
-Customer release audit #309   COMPLETE
-Dashboard CI #137             COMPLETE
-Live AIDA Supabase health     ACTIVE_HEALTHY
-Fresh security advisor        COMPLETE for scoped boundary
-Fresh performance advisor     COMPLETE for scoped boundary
+20260915100000_create_promotion_discount_authority.sql
+20260915101000_integrate_promotions_with_order_authority.sql
+20260915101100_normalize_phase7_nullable_voucher_quote.sql
 ```
 
-The security advisor retains one pre-existing Auth WARN for leaked-password protection being disabled; it is documented separately and was not introduced by Phase 1–6. RPC-only RLS/no-policy notices and unused-index observations are INFO-level and consistent with the documented architecture.
+Live Supabase applied-history entries created by the migration service on 2026-09-15:
+
+```text
+20260915120917_create_promotion_discount_authority
+20260915121057_integrate_promotions_with_order_authority
+20260915121119_normalize_phase7_nullable_voucher_quote
+```
+
+These live timestamps map to the three canonical repository files above. Do not rewrite already-applied live migration history merely to match repository filename timestamps.
+
+Live verification after deployment:
+
+- project `eswovqxqzfevcdwwcmuh`: `ACTIVE_HEALTHY`;
+- all six promotion tables: RLS enabled + FORCE RLS;
+- no direct `anon` or `authenticated` CRUD grants on promotion tables;
+- Admin promotion, quote and placement RPCs/functions present with intended execute grants;
+- retired Phase 6 pending-voucher trigger absent;
+- no production promotions or promotion applications were inserted during deployment verification;
+- fresh security advisor: Phase 7 tables appear only as expected INFO `rls_enabled_no_policy`; sole WARN remains the pre-existing leaked-password-protection Auth setting;
+- fresh performance advisor: INFO unused-index findings only; no blocking performance lint.
+
+The database connector itself runs as `supabase_read_only_user` and cannot impersonate the app `anon` role, so a direct end-user RPC call was not made through that connector. Repository SQL/E2E gates validate the runtime RPC behavior; live verification validated deployment history, schema, grants and advisors without creating production order/test data.
 
 ## PR boundaries
 
-The cumulative remediation PRs are:
-
 ```text
-Aida_System             PR #26  codex/phase-1-6-audit-remediation
-Aida_System-Dashboard   PR #23  codex/phase-1-6-audit-remediation
+Aida_System             draft PR #27
+Aida_System-Dashboard   draft PR #24
 ```
 
-Both remain draft/unmerged. Completion does not authorize merge.
+Both remain draft/unmerged. Phase completion does not authorize merge.
 
-## Next boundary
+## Next phase rule
 
-Phase 7 promotions/discounts remains the next dependency boundary, but Phase 7–10 are intentionally frozen. Do not resume implementation or schedulers until the owner explicitly resumes later-phase work.
+Phase 8–10 remain frozen. Do not begin Phase 8 or resume a later-phase scheduler unless the owner explicitly authorizes continuation.

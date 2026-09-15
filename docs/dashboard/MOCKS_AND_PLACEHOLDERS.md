@@ -1,95 +1,60 @@
-# POS/Admin Mocks and Placeholders Register
+# Dashboard Mocks and Placeholders Register
 
-Updated: 2026-09-11
+Updated: 2026-09-15
 
-## Trusted live paths
+This register distinguishes intentional preview/presentation fixtures from live backend authority. **Preview data is never a production fallback.**
 
-The following are live backend integrations, not preview authority:
+## Trusted live paths through Phase 7
 
-- employee/Admin session and trusted branch assignments;
-- Admin Members;
-- catalogue categories/items/variants/options/add-ons;
-- authoritative POS quote/order placement;
-- Now/scheduled pickup policy and workload classification;
-- live order queue/detail and versioned fulfilment transitions;
-- branches and sales points;
-- terminals and terminal status;
-- manager-issued terminal enrolment codes;
-- terminal enrolment/revocation;
-- Admin employee directory and branch assignment;
-- terminal-bound POS placement and persisted branch/sales-point/terminal attribution.
+The following capabilities are live and must not be documented or implemented as mock authority:
 
-## Allowed local browser state
+- employee authentication/session and trusted role/disabled state;
+- branches, employee branch scope, sales points and terminals;
+- terminal enrolment/revocation and POS terminal context;
+- shifts, cash movements and reconciliation;
+- shared catalogue and catalogue mutation;
+- branch scheduling/pickup policy/capacity;
+- authoritative order quote/place/status;
+- branch inventory, recipes and movements;
+- loyalty program/rewards, member wallet/support and POS member lookup;
+- voucher validation/discount/one-time consumption;
+- Phase 7 promotion configuration, scope, automatic order evaluation and immutable application snapshots.
 
-Transient UI state is allowed for:
+## Preview-only fixtures
 
-- unsaved cart lines and selected catalogue IDs;
-- quantity/note;
-- local price estimates before quote;
-- Now/Schedule intent;
-- filters/dialog/loading/error state;
-- one retry-stable `clientRequestId`;
-- decoded terminal display context returned by trusted status endpoints.
+Preview fixtures may exist for deterministic visual development, screenshots and browser isolation tests. They are allowed only when the application is explicitly in preview mode. They may represent sample orders, members, catalogue data, reports, campaigns or settings for presentation purposes.
 
-Local state must not become authority for catalogue validity/pricing, employee branch scope, terminal credential validity or operational attribution.
+Preview mode must not:
 
-## Preview boundary
+- call privileged backend routes;
+- create/mutate live promotions, orders, cash, inventory or loyalty state;
+- provide a fallback when a live request fails;
+- be interpreted as current production state.
 
-Explicit UI Preview may use fixture branches, sales points, terminals, employees and shifts for demonstration. Those fixture values are presentation-only.
+Blocking browser coverage verifies privileged-network isolation in preview mode.
 
-Live mode must not use preview identifiers as database foreign keys, authorization claims, terminal credentials or persisted order attribution.
+## Campaigns / promotions
 
-Admin Locations, Admin Terminals and Admin Employees now consume trusted APIs in live mode. Their Preview behavior remains intentionally separate.
+Campaign presentation is no longer a placeholder in live mode. `/admin/rewards/campaigns` reads/writes server-owned promotion configuration via the same-origin BFF and caller-bound Supabase RPCs. Preview campaigns remain sample UI content only.
 
-## Terminal credential boundary
+Order discounts are not simulated in live POS: the accepted `voucherDiscountSen`, `promotionDiscountSen`, total discount and promotion snapshots come from authoritative quote/place responses.
 
-The real terminal credential is not a preview/local-storage value and must not be exposed to normal React state.
+## Reporting/audit placeholders
 
-Live flow:
+Generalized sales/accounting/audit reporting remains the Phase 8 boundary. Existing report/audit screens may still contain preview-oriented presentation until Phase 8 replaces them with trusted derived backend data. They must not be represented as authoritative financial statements before that work is complete.
 
-```text
-one-time enrolment code
- -> BFF enrol endpoint
- -> Supabase validates caller/branch/terminal
- -> credential returned once
- -> HttpOnly terminal cookie
- -> server-side forwarding for status/POS placement
-```
+## Integrations / payments placeholders
 
-Preview terminal samples must never be accepted by live APIs.
+External processor capture, settlement, refunds and third-party integration status remain Phase 9. Existing cash/unpaid tender behavior is live internal authority; processor-looking presentation must not imply real settlement.
 
-## Removed/fake authority forbidden in live mode
+## Credential/hardware placeholders
 
-Do not use:
+Badge/PIN credential provisioning and hardware integrations remain deferred. UI labels or mock states must not imply those credentials/devices are provisioned by the current backend.
 
-- client-computed totals as final truth;
-- preview/local orders as persisted-order fallback;
-- fake order numbers;
-- fake payment/tender success;
-- local-only fulfilment state;
-- timer-driven order progression;
-- preview catalogue options to bypass live availability;
-- preview branch/sales-point/terminal IDs for live POS attribution;
-- local-storage employee or terminal secrets.
+## Release placeholders
 
-## Still preview/deferred
+Final hosted production URLs, App Store review metadata/screenshots/demo credentials and submission state remain Phase 10/manual release work. Do not label the app as submitted/approved until that event actually occurs.
 
-The following are not trusted live authority yet:
+## Governance
 
-- shifts, opening float, cash movement and variance;
-- employee Auth-user creation/role mutation/badge-PIN lifecycle;
-- branch opening hours/closures/capacity and explicit customer branch selection;
-- inventory/recipes/depletion/transfers;
-- loyalty/reward balances and redemption;
-- promotions/marketing publication authority;
-- payment settlement/refunds;
-- tax/accounting/trusted sales reporting;
-- printer/KDS/payment-device integrations;
-- many settings/integration presentation surfaces;
-- hosted production operations.
-
-## Phase 1 boundary
-
-`TASK-OPS-002` is `COMPLETE`. Phase 1 evidence is in `docs/context/PHASE_1_OPERATIONAL_TOPOLOGY_CLOSEOUT_2026-09-11.md`.
-
-PR #20 and PR #17 remain the frozen Astra audit boundary. Do not begin Phase 2 until Astra findings are resolved or explicitly accepted.
+Phases 1–7 are `COMPLETE` against their defined runtime/live-verification boundary. Phase 8 is the next implementation boundary. Historical audit documents may describe older mock states; current runtime truth is defined by this register plus `ACTIVE_CONTEXT.md`, `SYSTEM_MAP.md`, `ARCHITECTURE.md`, and the phase closeouts.

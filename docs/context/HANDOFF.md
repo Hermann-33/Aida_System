@@ -4,71 +4,78 @@ Updated: 2026-09-15
 
 ## Current boundary
 
-Phases 1–6 are `COMPLETE` against the combined Codex audit-remediation boundary. Phase 7–10 are frozen and were not advanced during remediation.
+Phases 1–7 are `COMPLETE` against their defined authority/validation/deployment boundaries. Phase 8–10 remain frozen and require explicit owner authorization before implementation begins.
 
-## Validated implementation heads
-
-```text
-Aida_System             6d64cf3aef2369af61bec68ca1746193157841f5
-Aida_System-Dashboard   f442168221ffa630ea91504111a5582f06bad56a
-```
-
-## Validation
+## Phase 7 implementation evidence
 
 ```text
-Backend database audit #218   COMPLETE
-Customer release audit #309   COMPLETE
-Dashboard CI #137             COMPLETE
-Live AIDA Supabase health     ACTIVE_HEALTHY
-Fresh security advisor        COMPLETE for scoped boundary
-Fresh performance advisor     COMPLETE for scoped boundary
+Aida_System             c6abf24b498edb401af878f86d26e1c63a633121
+Aida_System-Dashboard   7e14326253b263412da5fa38f47bb137c31d7379
+Backend database audit #231   COMPLETE
+Customer release audit #311   COMPLETE
+Dashboard CI #147             COMPLETE
 ```
 
-Backend #218 runs the complete ordinary Phase 1–6 SQL suite and the true multi-session contention gate. The contention gate proves exactly one winner for the final scheduled pickup slot, exactly one stock-consuming order for the final recipe unit, exactly one successful redemption against the final points balance and exactly one order consuming a one-time voucher.
+Backend #231 proves the full ordinary Phase 1–7 database suite, Phase 4–6 concurrency invariants and the Phase 7 final-promotion-use contention case. Customer #311 validates Flutter static analysis, non-golden tests, goldens, release APK build and artifact upload. Dashboard #147 validates lint, typecheck, unit tests, live POS E2E, preview-isolation E2E and production build.
 
-Customer #309 validates the strict Phase 6 commercial parser with static analysis, non-golden regressions, blocking full-screen goldens, release APK build and artifact upload. The customer model now fails closed on malformed/unknown order state and requires authoritative `discountSen`, voucher snapshots and commercial arithmetic consistency.
-
-Dashboard #137 validates the remediation head containing strict commercial/loyalty/inventory parsing, stale member-intent invalidation, explicit Badge/PIN deferral, corrected live/preview documentation and blocking preview-isolation browser coverage.
-
-## Live Supabase verification
+## Phase 7 live Supabase evidence
 
 Project `eswovqxqzfevcdwwcmuh` is `ACTIVE_HEALTHY`.
 
-Fresh security advisor results contain no Phase 1–6 implementation-created WARN/ERROR. The only WARN is the pre-existing project Auth setting for leaked-password protection. RPC-only RLS/no-policy findings are INFO-level and intentional under the current grants/RPC boundary.
-
-Fresh performance advisor results contain no missing-FK-index finding; remaining notices are INFO-level unused-index observations.
-
-## Migration-history reconciliation
-
-Canonical replay filenames are:
+Canonical repository migrations:
 
 ```text
-20260915083000_reconcile_partial_phase6_live_schema.sql
-20260915083500_index_loyalty_foreign_keys.sql
+20260915100000_create_promotion_discount_authority.sql
+20260915101000_integrate_promotions_with_order_authority.sql
+20260915101100_normalize_phase7_nullable_voucher_quote.sql
 ```
 
-Historical live deployment records remain:
+Live applied-history entries:
 
 ```text
-20260915002000_reconcile_partial_phase6_live_schema.sql
-20260915002800_index_loyalty_foreign_keys.sql
+20260915120917_create_promotion_discount_authority
+20260915121057_integrate_promotions_with_order_authority
+20260915121119_normalize_phase7_nullable_voucher_quote
 ```
 
-Do not rewrite applied migration history. The documentation explicitly maps historical live timestamps to canonical repository replay files.
+Do not rewrite the applied live timestamps. They are the migration-service history mapping for the canonical repository files.
 
-## Documentation parity
+Post-deployment checks confirmed RLS + FORCE RLS on all Phase 7 tables, no direct anon/authenticated CRUD grants, expected RPC/function presence and grants, and retirement of the old pending-voucher trigger. No production promotion/test order data was created during verification.
 
-Shared backend/order contracts, security review and schema foundation were verified byte-identical across both repositories. The corrected Dashboard screen map is synchronized into the backend/customer repository. The combined closeout is mirrored in both repositories.
+Fresh advisors after deployment:
+
+- security: expected INFO `rls_enabled_no_policy` notices for RPC-only promotion/loyalty tables; only WARN is the pre-existing leaked-password-protection Auth setting;
+- performance: INFO unused-index observations only, with no blocking lint.
+
+The read-only SQL connector cannot assume the application `anon` role, so direct application-RPC invocation was not used as a live smoke. Runtime behavior is covered by the blocking repository SQL/browser/client gates; live verification covered migration history, schema, grants and advisors.
+
+## Phase 7 authority delivered
+
+- server-owned fixed/percent promotions with optional cap, windows, subtotal threshold and priority;
+- branch/product/variant/add-on targeting;
+- member requirement plus global/per-member usage limits;
+- exclusive/stackable and voucher-coexistence rules;
+- automatic promotion evaluation in quote;
+- deterministic placement locks + usage revalidation;
+- immutable promotion application snapshots;
+- separate voucher/promotion discount components;
+- strict Flutter/Dashboard parsing;
+- live Dashboard campaign management through caller-bound BFF paths;
+- preview isolation.
+
+## App Store boundary
+
+Phase 7 remains aligned with Apple's physical-goods rule: café food/drink purchases stay outside IAP. Promotions add no StoreKit entitlement, tracking SDK or protected permission. Final App Store submission remains Phase 10.
 
 ## PRs
 
 ```text
-Aida_System             draft PR #26
-Aida_System-Dashboard   draft PR #23
+Aida_System             draft PR #27
+Aida_System-Dashboard   draft PR #24
 ```
 
-Do not merge merely because remediation is complete.
+Do not merge without explicit owner authorization.
 
-## Deferred / next
+## Next action
 
-Phase 7 owns generalized promotions/discounts. Phase 8 owns reporting/accounting/audit. Phase 9 owns payment/refund/external-integration authority. Phase 10 owns the final App Store release gate. Badge/PIN credential provisioning and hardware integrations remain deferred unless a later approved phase explicitly owns them.
+No Phase 8 work should start automatically. Await explicit owner authorization before reporting/accounting/audit implementation begins.

@@ -16,11 +16,11 @@ flowchart LR
 
 AIDA is one product across `Hermann-33/Aida_System`, `Hermann-33/Aida_System-Dashboard`, and Supabase project `eswovqxqzfevcdwwcmuh`. Canonical executable migrations live only in `Aida_System/supabase/migrations/`.
 
-## Trusted authority through Phase 6
+## Trusted authority through Phase 7
 
-Supabase/server owns authenticated identity, trusted role/disabled state, membership, employee branch scope, operational topology, terminal credential validity, shift/cash state, tender/payment classification, catalogue/pricing, branch scheduling/capacity, inventory/recipes/depletion, privacy/account deletion, loyalty balances/reward/voucher state, authoritative discounts and persisted commercial snapshots.
+Supabase/server owns authenticated identity, trusted role/disabled state, membership, employee branch scope, operational topology, terminal credential validity, shift/cash state, tender/payment classification, catalogue/pricing, branch scheduling/capacity, inventory/recipes/depletion, privacy/account deletion, loyalty/reward/voucher state, generalized promotion configuration/evaluation and persisted commercial snapshots.
 
-Dashboard privileged operations stay behind the same-origin BFF. Employee access/refresh and terminal credential are HttpOnly; the BFF forwards the caller JWT and publishable key. No normal flow uses a service-role credential or browser-readable reusable employee bearer/terminal secret. Preview fixtures are never backend authority.
+Dashboard privileged operations stay behind the same-origin BFF. Employee access/refresh and terminal credentials are HttpOnly; the BFF forwards the caller JWT and publishable key. No normal flow uses a service-role credential or browser-readable reusable employee bearer/terminal secret. Preview fixtures are never backend authority.
 
 ## Authority chain
 
@@ -30,41 +30,51 @@ Phase 2: employee + terminal -> shift -> POS order / append-only cash ledger
 Phase 3: customer -> privacy preferences / whole-account deletion -> anonymized retained history
 Phase 4: branch calendar/policy -> pickup slot capacity -> authoritative quote/place
 Phase 5: recipe -> branch stock -> transactional depletion / cancellation reversal
-Phase 6: member -> loyalty ledgers/balances -> reward/voucher -> discount / one-time consumption
+Phase 6: member -> loyalty ledgers/balances -> reward/voucher -> voucher discount / one-time consumption
+Phase 7: promotion config -> eligibility/stacking/usage -> quote/place -> immutable promotion application snapshot
 ```
 
-## Phase 6 loyalty architecture
+## Phase 7 promotion architecture
 
-Trusted resources include `loyalty_program_config`, `member_loyalty_accounts`, `loyalty_order_awards`, point/stamp ledgers, `reward_catalogue`, `member_vouchers` and `voucher_order_applications`.
+Trusted resources include `promotions`, `promotion_branches`, `promotion_items`, `promotion_variants`, `promotion_addons` and `promotion_order_applications`. All six are live with RLS + FORCE RLS and no direct anon/authenticated CRUD grants.
 
-Completed orders award points/stamps exactly once using an order award anchor. Current balances are server-maintained derivatives of trusted mutations. Redemption checks caller-owned membership and deducts under row lock before issuing a server-owned voucher. Stamp milestones issue configured free-item vouchers and preserve rollover.
+Promotion configuration supports fixed or percentage discounts, optional maximum discount, active windows, minimum subtotal, priority, exclusive/stackable behavior, explicit voucher coexistence, member requirements and global/per-member usage limits. Catalogue scope is validated so product scope references products and add-on scope references add-ons.
 
-`quote_order` may apply one caller/member-bound voucher and derives the discount. Placement revalidates and consumes the voucher atomically with accepted order creation. Accepted `orders.discount_sen` and voucher application snapshots are immutable commercial facts.
+`quote_order` computes the authoritative base quote and optional voucher adjustment, then automatically evaluates eligible active promotions. Clients do not submit accepted promotion IDs or discount values. The quote returns distinct `voucherDiscountSen`, `promotionDiscountSen`, total `discountSen`, `totalSen`, voucher snapshot and promotion snapshots.
 
-POS loyalty lookup is additionally bound to employee identity, server-held terminal credential and an open shift. Admin/Owner mutation RPCs bind actor identity to the session and preserve adjustment reasons.
+Placement locks candidate promotion rows in deterministic order before re-evaluating the quote. This stabilizes usage counts and prevents concurrent orders from oversubscribing a final promotion use. Accepted promotions are inserted into `promotion_order_applications` as immutable code/name/type/value/discount/priority/stacking/voucher-coexistence snapshots and must reconcile to the order's authoritative discount.
 
-## Phase 1–3 remediation architecture
+Phase 7 replaces the old pending-voucher trigger path with explicit finalization of voucher and promotion applications. Voucher and promotion discounts remain separate components even though `orders.discount_sen` stores the accepted total discount.
 
-Later commercial hardening preserves a narrow internal customer-anonymization transition. Whole-account deletion scrubs retained free text, replaces the original request digest, deletes customer-owned loyalty state and detaches identifying references from retained order/loyalty commercial snapshots. The generic low-level order writer is owner-internal; matching POS retries can resolve after shift lock/close under current terminal/caller authority, but new POS orders still require an open shift.
+## Live deployment record
+
+Canonical migrations `20260915100000`, `20260915101000`, `20260915101100` are applied to AIDA as live migration-history versions `20260915120917`, `20260915121057`, `20260915121119`. The project is `ACTIVE_HEALTHY`. Fresh security/performance advisors produced no new blocking Phase 7 finding.
+
+## Client architecture
+
+Customer Flutter parses Phase 7 quote/order promotion snapshots fail-closed and verifies voucher/promotion components reconcile to total discount and order arithmetic.
+
+Dashboard/POS uses the same authoritative fields. `/admin/rewards/campaigns` manages promotion configuration through a same-origin BFF using the employee HttpOnly session and caller JWT. Preview mode renders fixtures and does not issue privileged promotion requests.
+
+## Privacy and commercial retention
+
+Whole-account deletion removes customer-owned loyalty state and detaches identifying customer/member references from retained order/application history while preserving legitimate non-identifying commercial facts. Promotion application snapshots are commercial history; nullable member/promotion foreign keys allow identity/configuration removal without rewriting accepted price facts.
 
 ## Realtime and payment boundaries
 
-Customer Realtime is authorized invalidation followed by refetch. Dashboard privileged data does not expose employee tokens for direct Realtime.
-
-Cash/unpaid remains internal POS tender authority. External payment capture/refunds/processor settlement remain deferred.
+Customer Realtime is authorized invalidation followed by refetch. Dashboard privileged data does not expose employee tokens for direct Realtime. Cash/unpaid remains internal POS tender authority. External payment capture/refunds/processor settlement remain Phase 9.
 
 ## Security invariants
 
 - authorization never trusts customer-editable Auth metadata or preview state;
 - no service-role/secret credential is shipped to Flutter/browser code;
 - employee JWT and terminal credential remain HttpOnly for Dashboard live flows;
-- branch/terminal/shift/scheduling/inventory/loyalty/commercial authority is server-derived;
-- direct client mutation of protected operational/loyalty tables is denied;
+- branch/terminal/shift/scheduling/inventory/loyalty/promotion/commercial authority is server-derived;
+- direct client mutation of protected operational/loyalty/promotion tables is denied;
 - stock depletion is transactional and non-negative;
-- voucher discount/consumption is revalidated atomically at placement;
+- voucher ownership/status/expiry/discount and promotion eligibility/usage are revalidated at placement;
+- promotion usage-limit contention serializes rather than oversubscribing;
 - customer self-deletion cannot target another user and does not erase staff/POS audit identity;
-- retained customer history loses customer/member/Auth and loyalty-owned identifiers plus customer-authored free text/request digest.
+- retained customer history loses identifying customer/member/Auth references and customer-authored free text/request digest.
 
-## Next architecture boundary
-
-Phase 7 may add generalized promotions/discounts and stacking/targeting rules. It must compose with the existing immutable `discount_sen`/voucher commercial authority rather than moving discount authority to clients. Phase 7 is not started by this closeout.
+Phases 1–7 are `COMPLETE`. Phase 8–10 remain frozen pending explicit owner authorization.

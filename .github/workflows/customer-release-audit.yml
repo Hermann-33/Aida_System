@@ -2,7 +2,9 @@ name: Customer release audit
 
 on:
   pull_request:
-    branches: [master]
+    branches:
+      - master
+      - codex/phase-1-6-audit-remediation
   workflow_dispatch:
 
 permissions:

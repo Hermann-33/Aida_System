@@ -230,13 +230,15 @@ Customers and POS submit only member/reward/voucher intent. They do not author p
 20260914235500_restore_privacy_anonymization_boundary.sql
 20260914235600_harden_pos_order_authority_boundary.sql
 20260915000500_reconcile_loyalty_account_deletion.sql
-20260915002000_reconcile_partial_phase6_live_schema.sql
-20260915002800_index_loyalty_foreign_keys.sql
+20260915083000_reconcile_partial_phase6_live_schema.sql
+20260915083500_index_loyalty_foreign_keys.sql
 ```
 
 The live AIDA project contained an obsolete partial loyalty draft. Before replacement, live customer loyalty accounts, point/stamp ledgers and member vouchers were all verified at zero rows. The guarded reconciliation refuses destructive replacement if customer loyalty data exists, then replaces the unused draft with the canonical Phase 6 schema.
 
-Six Phase 6 foreign keys initially lacked covering indexes; `20260915002800_index_loyalty_foreign_keys.sql` added them and the performance advisor was rerun successfully.
+The live project already recorded the equivalent final reconciliation/index steps under historical applied timestamps `20260915002000_reconcile_partial_phase6_live_schema.sql` and `20260915002800_index_loyalty_foreign_keys.sql`. Applied migration history is not rewritten; those historical entries map to canonical replay files `20260915083000_reconcile_partial_phase6_live_schema.sql` and `20260915083500_index_loyalty_foreign_keys.sql` respectively.
+
+Six Phase 6 foreign keys initially lacked covering indexes; canonical `20260915083500_index_loyalty_foreign_keys.sql` added them and the performance advisor was rerun successfully.
 
 ## Customer changes
 

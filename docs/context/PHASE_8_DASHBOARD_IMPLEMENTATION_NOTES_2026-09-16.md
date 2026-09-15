@@ -12,11 +12,18 @@ Implemented in `Aida_System-Dashboard`:
 - `src/features/reporting/reportingClient.ts` adds no-store credentialed browser clients with fail-closed top-level response validation;
 - `reportingClient.test.ts` covers BFF routing/filter intent and malformed transaction/audit response rejection.
 
+Validation correction:
+
+- Dashboard CI #150 at `abe618f11cf858bc8b8f2cf2a4b9ecfe65270680` failed at Typecheck after Lint passed; downstream unit/browser/build gates were therefore skipped.
+- The reporting BFF was hardened for strict `noUncheckedIndexedAccess` handling by narrowing the cookie regex capture before decoding it.
+- Pagination query parsing now forwards only non-negative safe integers, preventing `NaN`, fractional, negative, or unsafe values from reaching the reporting RPC filter.
+- A fresh exact-head Dashboard CI run is required before this correction is accepted.
+
 Still required before Phase 8 `COMPLETE`:
 
 - wire `AdminOverviewPage`, `AdminSalesPerformancePage`, `AdminTransactionsPage`, and `AdminAuditPage` to the production reporting client while retaining fixtures only in explicit Preview mode;
 - add BFF authorization/error tests and page-level live-vs-preview regressions;
-- run exact-head Dashboard CI and production build;
+- obtain clean exact-head Dashboard lint/typecheck/unit/browser/build evidence;
 - deploy canonical `20260916100000_create_reporting_audit_authority.sql` to live AIDA Supabase;
 - run fresh live security/performance advisors;
 - synchronize final closeout evidence in both repositories;

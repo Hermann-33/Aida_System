@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:aida_customer/application/providers.dart';
@@ -57,21 +56,31 @@ class _RasterStableGoldenComparator extends LocalFileComparator {
       var significant = 0;
       for (var y = 0; y < actual.height; y++) {
         for (var x = 0; x < actual.width; x++) {
-          if (_excludedLegacyMembershipAction(golden, x, y, actual.width, actual.height)) {
+          if (_excludedLegacyMembershipAction(
+            golden,
+            x,
+            y,
+            actual.width,
+            actual.height,
+          )) {
             continue;
           }
           considered++;
           final offset = (y * actual.width + x) * 4;
           var maxDelta = 0;
           for (var channel = 0; channel < 4; channel++) {
-            final delta = (actual.bytes[offset + channel] - expected.bytes[offset + channel]).abs();
+            final delta =
+                (actual.bytes[offset + channel] -
+                        expected.bytes[offset + channel])
+                    .abs();
             if (delta > maxDelta) maxDelta = delta;
           }
           if (maxDelta > _significantChannelDelta) significant++;
         }
       }
 
-      if (considered > 0 && significant / considered <= _maxSignificantPixelRate) {
+      if (considered > 0 &&
+          significant / considered <= _maxSignificantPixelRate) {
         return true;
       }
     } finally {
@@ -97,8 +106,8 @@ class _RasterStableGoldenComparator extends LocalFileComparator {
     return nx >= 0.615 && nx <= 0.94 && ny >= 0.775 && ny <= 0.87;
   }
 
-  Future<_DecodedRgba> _decode(Uint8List encoded) async {
-    final codec = await ui.instantiateImageCodec(encoded);
+  Future<_DecodedRgba> _decode(List<int> encoded) async {
+    final codec = await ui.instantiateImageCodec(Uint8List.fromList(encoded));
     try {
       final frame = await codec.getNextFrame();
       final image = frame.image;
@@ -111,7 +120,10 @@ class _RasterStableGoldenComparator extends LocalFileComparator {
         image: image,
         width: image.width,
         height: image.height,
-        bytes: data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+        bytes: data.buffer.asUint8List(
+          data.offsetInBytes,
+          data.lengthInBytes,
+        ),
       );
     } finally {
       codec.dispose();
@@ -163,7 +175,8 @@ Future<void> _loadFonts() async {
   Future<void> load(String family, String path) async {
     final bytes = await File(path).readAsBytes();
     await (FontLoader(family)
-      ..addFont(Future.value(ByteData.sublistView(bytes)))).load();
+          ..addFont(Future.value(ByteData.sublistView(bytes))))
+        .load();
   }
 
   await load(AidaType.display, 'assets/fonts/${AidaType.display}.ttf');

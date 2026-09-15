@@ -367,14 +367,72 @@ class OrderVoucherSnapshot {
   final DateTime? appliedAt;
 }
 
+class OrderPromotionSnapshot {
+  const OrderPromotionSnapshot({
+    required this.code,
+    required this.name,
+    required this.discountType,
+    required this.discountValue,
+    required this.discount,
+    required this.priority,
+    required this.stackingMode,
+    required this.allowWithVoucher,
+    this.appliedAt,
+  });
+
+  factory OrderPromotionSnapshot.fromJson(Map<String, dynamic> json) {
+    final discountType = _requiredString(json, 'discountType');
+    if (discountType != 'fixed' && discountType != 'percent') {
+      throw const FormatException('Unknown promotion discount type');
+    }
+    final stackingMode = _requiredString(json, 'stackingMode');
+    if (stackingMode != 'exclusive' && stackingMode != 'stackable') {
+      throw const FormatException('Unknown promotion stacking mode');
+    }
+    final discountValue = _requiredInt(json, 'discountValue');
+    final discountSen = _requiredInt(json, 'discountSen');
+    final priority = _requiredInt(json, 'priority');
+    if (discountValue <= 0 || discountSen <= 0 || priority < 0) {
+      throw const FormatException('Invalid promotion commercial snapshot');
+    }
+    if (discountType == 'percent' && discountValue > 10000) {
+      throw const FormatException('Promotion percentage exceeds 100 percent');
+    }
+    return OrderPromotionSnapshot(
+      code: _requiredString(json, 'code'),
+      name: _requiredString(json, 'name'),
+      discountType: discountType,
+      discountValue: discountValue,
+      discount: Money.fromSen(discountSen),
+      priority: priority,
+      stackingMode: stackingMode,
+      allowWithVoucher: _requiredBool(json, 'allowWithVoucher'),
+      appliedAt: _optionalDate(json['appliedAt']),
+    );
+  }
+
+  final String code;
+  final String name;
+  final String discountType;
+  final int discountValue;
+  final Money discount;
+  final int priority;
+  final String stackingMode;
+  final bool allowWithVoucher;
+  final DateTime? appliedAt;
+}
+
 class OrderQuote {
   const OrderQuote({
     required this.pricingVersion,
     required this.currency,
     required this.subtotal,
+    this.voucherDiscount = Money.zero,
+    this.promotionDiscount = Money.zero,
     this.discount = Money.zero,
     required this.total,
     this.voucher,
+    this.promotions = const [],
     required this.fulfillmentType,
     this.requestedPickupAt,
     required this.serverNow,
@@ -388,12 +446,27 @@ class OrderQuote {
     final discountSen = _requiredInt(json, 'discountSen');
     final totalSen = _requiredInt(json, 'totalSen');
     final voucher = _parseVoucher(json['voucher']);
+    final promotions = _parsePromotions(json['promotions']);
+    final voucherDiscountSen =
+        json.containsKey('voucherDiscountSen')
+            ? _requiredInt(json, 'voucherDiscountSen')
+            : voucher?.discount.sen ?? 0;
+    final promotionDiscountSen =
+        json.containsKey('promotionDiscountSen')
+            ? _requiredInt(json, 'promotionDiscountSen')
+            : promotions.fold<int>(
+              0,
+              (sum, promotion) => sum + promotion.discount.sen,
+            );
     _validateCommercialSnapshot(
       subtotalSen: subtotalSen,
+      voucherDiscountSen: voucherDiscountSen,
+      promotionDiscountSen: promotionDiscountSen,
       discountSen: discountSen,
       totalSen: totalSen,
       lines: lines,
       voucher: voucher,
+      promotions: promotions,
     );
 
     final schedulePolicyRaw = json['schedulePolicy'];
@@ -405,9 +478,12 @@ class OrderQuote {
       pricingVersion: _requiredInt(json, 'pricingVersion'),
       currency: _requiredString(json, 'currency'),
       subtotal: Money.fromSen(subtotalSen),
+      voucherDiscount: Money.fromSen(voucherDiscountSen),
+      promotionDiscount: Money.fromSen(promotionDiscountSen),
       discount: Money.fromSen(discountSen),
       total: Money.fromSen(totalSen),
       voucher: voucher,
+      promotions: promotions,
       fulfillmentType: _fulfillmentType(json['fulfillmentType']),
       requestedPickupAt: _optionalDate(json['requestedPickupAt']),
       serverNow: serverNow,
@@ -422,9 +498,12 @@ class OrderQuote {
   final int pricingVersion;
   final String currency;
   final Money subtotal;
+  final Money voucherDiscount;
+  final Money promotionDiscount;
   final Money discount;
   final Money total;
   final OrderVoucherSnapshot? voucher;
+  final List<OrderPromotionSnapshot> promotions;
   final FulfillmentType fulfillmentType;
   final DateTime? requestedPickupAt;
   final DateTime serverNow;
@@ -443,9 +522,12 @@ class OrderSnapshot {
     required this.currency,
     required this.pricingVersion,
     required this.subtotal,
+    this.voucherDiscount = Money.zero,
+    this.promotionDiscount = Money.zero,
     this.discount = Money.zero,
     required this.total,
     this.voucher,
+    this.promotions = const [],
     required this.createdAt,
     required this.updatedAt,
     required this.lines,
@@ -457,12 +539,27 @@ class OrderSnapshot {
     final discountSen = _requiredInt(json, 'discountSen');
     final totalSen = _requiredInt(json, 'totalSen');
     final voucher = _parseVoucher(json['voucher']);
+    final promotions = _parsePromotions(json['promotions']);
+    final voucherDiscountSen =
+        json.containsKey('voucherDiscountSen')
+            ? _requiredInt(json, 'voucherDiscountSen')
+            : voucher?.discount.sen ?? 0;
+    final promotionDiscountSen =
+        json.containsKey('promotionDiscountSen')
+            ? _requiredInt(json, 'promotionDiscountSen')
+            : promotions.fold<int>(
+              0,
+              (sum, promotion) => sum + promotion.discount.sen,
+            );
     _validateCommercialSnapshot(
       subtotalSen: subtotalSen,
+      voucherDiscountSen: voucherDiscountSen,
+      promotionDiscountSen: promotionDiscountSen,
       discountSen: discountSen,
       totalSen: totalSen,
       lines: lines,
       voucher: voucher,
+      promotions: promotions,
     );
 
     return OrderSnapshot(
@@ -475,9 +572,12 @@ class OrderSnapshot {
       currency: _requiredString(json, 'currency'),
       pricingVersion: _requiredInt(json, 'pricingVersion'),
       subtotal: Money.fromSen(subtotalSen),
+      voucherDiscount: Money.fromSen(voucherDiscountSen),
+      promotionDiscount: Money.fromSen(promotionDiscountSen),
       discount: Money.fromSen(discountSen),
       total: Money.fromSen(totalSen),
       voucher: voucher,
+      promotions: promotions,
       createdAt: _requiredDate(json, 'createdAt'),
       updatedAt: _requiredDate(json, 'updatedAt'),
       lines: lines,
@@ -493,9 +593,12 @@ class OrderSnapshot {
   final String currency;
   final int pricingVersion;
   final Money subtotal;
+  final Money voucherDiscount;
+  final Money promotionDiscount;
   final Money discount;
   final Money total;
   final OrderVoucherSnapshot? voucher;
+  final List<OrderPromotionSnapshot> promotions;
   final DateTime createdAt;
   final DateTime updatedAt;
   final List<OrderLineSnapshot> lines;
@@ -525,15 +628,41 @@ OrderVoucherSnapshot? _parseVoucher(Object? raw) {
   return OrderVoucherSnapshot.fromJson(Map<String, dynamic>.from(raw));
 }
 
+List<OrderPromotionSnapshot> _parsePromotions(Object? raw) {
+  if (raw == null) return const [];
+  if (raw is! List) {
+    throw const FormatException('Promotion snapshots must be an array');
+  }
+  return raw
+      .map(
+        (value) => OrderPromotionSnapshot.fromJson(
+          _mapValue(value, 'promotion snapshot'),
+        ),
+      )
+      .toList(growable: false);
+}
+
 void _validateCommercialSnapshot({
   required int subtotalSen,
+  required int voucherDiscountSen,
+  required int promotionDiscountSen,
   required int discountSen,
   required int totalSen,
   required List<OrderLineSnapshot> lines,
   required OrderVoucherSnapshot? voucher,
+  required List<OrderPromotionSnapshot> promotions,
 }) {
-  if (subtotalSen < 0 || discountSen < 0 || totalSen < 0) {
+  if (subtotalSen < 0 ||
+      voucherDiscountSen < 0 ||
+      promotionDiscountSen < 0 ||
+      discountSen < 0 ||
+      totalSen < 0) {
     throw const FormatException('Order commercial values cannot be negative');
+  }
+  if (discountSen != voucherDiscountSen + promotionDiscountSen) {
+    throw const FormatException(
+      'Order discount must equal voucher plus promotion discounts',
+    );
   }
   if (totalSen != subtotalSen - discountSen) {
     throw const FormatException(
@@ -549,15 +678,53 @@ void _validateCommercialSnapshot({
       'Order line totals must equal the authoritative subtotal',
     );
   }
-  if (discountSen == 0 && voucher != null) {
-    throw const FormatException('Zero-discount order cannot carry a voucher');
-  }
-  if (discountSen > 0 && voucher == null) {
-    throw const FormatException('Discounted order requires a voucher snapshot');
-  }
-  if (voucher != null && voucher.discount.sen != discountSen) {
+
+  if (voucher == null && voucherDiscountSen != 0) {
     throw const FormatException(
-      'Voucher discount must match the authoritative order discount',
+      'Voucher discount requires a trusted voucher snapshot',
+    );
+  }
+  if (voucher != null &&
+      (voucherDiscountSen <= 0 || voucher.discount.sen != voucherDiscountSen)) {
+    throw const FormatException(
+      'Voucher snapshot must match the authoritative voucher discount',
+    );
+  }
+
+  final promotionSnapshotTotal = promotions.fold<int>(
+    0,
+    (sum, promotion) => sum + promotion.discount.sen,
+  );
+  if (promotionSnapshotTotal != promotionDiscountSen) {
+    throw const FormatException(
+      'Promotion snapshots must match the authoritative promotion discount',
+    );
+  }
+  if (promotionDiscountSen == 0 && promotions.isNotEmpty) {
+    throw const FormatException(
+      'Zero promotion discount cannot carry promotion snapshots',
+    );
+  }
+  if (promotionDiscountSen > 0 && promotions.isEmpty) {
+    throw const FormatException(
+      'Promotion discount requires trusted promotion snapshots',
+    );
+  }
+  if (voucher != null && promotions.any((promotion) => !promotion.allowWithVoucher)) {
+    throw const FormatException(
+      'Voucher order contains a voucher-incompatible promotion snapshot',
+    );
+  }
+  final exclusiveCount =
+      promotions.where((promotion) => promotion.stackingMode == 'exclusive').length;
+  if (exclusiveCount > 0 && promotions.length != 1) {
+    throw const FormatException(
+      'Exclusive promotion cannot be combined with another promotion',
+    );
+  }
+  if (discountSen == 0 && (voucher != null || promotions.isNotEmpty)) {
+    throw const FormatException(
+      'Zero-discount order cannot carry discount application snapshots',
     );
   }
 }

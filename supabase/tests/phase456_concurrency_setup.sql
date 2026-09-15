@@ -75,7 +75,7 @@ begin
     )
     and not exists (
       select 1 from public.recipes r
-      where r.item_id=ci.id and r.variant_id is null and r.is_active
+      where r.catalogue_item_id=ci.id and r.variant_id is null and r.is_active
     )
   order by ci.created_at,ci.id
   limit 1;

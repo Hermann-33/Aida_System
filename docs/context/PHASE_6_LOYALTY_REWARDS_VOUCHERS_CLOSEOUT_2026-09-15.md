@@ -42,11 +42,13 @@ Canonical executable Phase 6 migrations remain only in `Aida_System/supabase/mig
 20260914235500_restore_privacy_anonymization_boundary.sql
 20260914235600_harden_pos_order_authority_boundary.sql
 20260915000500_reconcile_loyalty_account_deletion.sql
-20260915002000_reconcile_partial_phase6_live_schema.sql
-20260915002800_index_loyalty_foreign_keys.sql
+20260915083000_reconcile_partial_phase6_live_schema.sql
+20260915083500_index_loyalty_foreign_keys.sql
 ```
 
 The guarded reconciliation migration was required because the live AIDA project contained two obsolete partial loyalty migrations. Before replacement, live customer loyalty accounts, point/stamp ledgers and member vouchers were all zero rows; the reconciliation refuses destructive replacement if customer loyalty data exists.
+
+The live project had already recorded the equivalent reconciliation/index deployment steps under historical timestamps `20260915002000_reconcile_partial_phase6_live_schema.sql` and `20260915002800_index_loyalty_foreign_keys.sql`. Those applied-history entries are not rewritten. The repository filenames above are the canonical replay names and documentation explicitly maps the historical live timestamps to them.
 
 ## Security and privacy boundary
 
@@ -77,7 +79,7 @@ Project `eswovqxqzfevcdwwcmuh` is `ACTIVE_HEALTHY`. The full canonical Phase 6 c
 
 Security advisor result: no Phase 6 WARN/ERROR. The only WARN is the pre-existing Auth setting `auth_leaked_password_protection` being disabled. RLS-enabled/no-policy notices are INFO and intentional for RPC-only tables whose direct client grants are revoked.
 
-Performance advisor initially identified six Phase 6 foreign keys without covering indexes. `20260915002800_index_loyalty_foreign_keys.sql` added them; the rerun has no missing-FK finding. Remaining performance notices are INFO-level unused-index observations.
+Performance advisor initially identified six Phase 6 foreign keys without covering indexes. Canonical migration `20260915083500_index_loyalty_foreign_keys.sql` added them; the rerun has no missing-FK finding. Remaining performance notices are INFO-level unused-index observations.
 
 ## Final validation
 

@@ -16,7 +16,9 @@ import 'mock_member_repository.dart';
 
 /// Real Supabase implementation for customer authentication and membership.
 ///
-/// Loyalty/offers/promotions remain preview-backed until their own tasks.
+/// Phase 6 loyalty is live through SupabaseLoyaltyRepository. Offers,
+/// promotions, and these legacy MemberRepository loyalty accessors remain
+/// preview-backed until their own authority boundaries replace them.
 /// Catalogue is intentionally not part of this repository anymore.
 class SupabaseMemberRepository implements MemberRepository {
   SupabaseMemberRepository(

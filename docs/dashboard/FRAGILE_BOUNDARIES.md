@@ -1,94 +1,62 @@
-# POS/Admin Fragile Boundaries
+# Dashboard Fragile Boundaries
 
-Updated: 2026-09-11
+Updated: 2026-09-15
 
-## Authorization/session boundary
+These boundaries are security/commercial invariants. UI convenience must not weaken them.
 
-- React route guards are presentation only; same-origin BFF + Supabase remain authorization authority.
-- Employee session semantics must not regress from HttpOnly cookies to browser-readable bearer tokens.
-- `assignedBranchIds` must come from `employee_branch_assignments`, never preview fixtures/browser storage.
-- Ordinary staff with no trusted branch assignment must fail closed.
-- Admin/Owner are intentionally global for the current tranche; do not generalize that scope to ordinary staff.
+## 1. Same-origin privileged session
 
-## Terminal authority boundary
+Employee access/refresh tokens and terminal credentials remain HttpOnly/server-side. Browser JavaScript must not receive reusable employee bearer tokens, refresh tokens, service-role credentials or terminal secrets. Dashboard BFF calls forward the caller JWT and publishable key and preserve Supabase authorization checks.
 
-Terminal authority is now live and must not regress to preview/local identifiers.
+## 2. Preview is never authority
 
-- real terminal credential stays in an HttpOnly BFF cookie;
-- React may consume only trusted terminal status/location projections;
-- one-time enrolment code possession alone is insufficient—backend employee branch authorization is required;
-- removing employee branch scope must immediately prevent that employee from using the terminal in that branch;
-- revoking a terminal must immediately prevent resolution/new placement;
-- browser-supplied `branchId`, `salesPointId` or `terminalId` must never replace credential resolution;
-- credentialless `place_pos_order(jsonb)` must remain unavailable to authenticated live clients;
-- accepted order topology attribution is immutable.
+Preview fixtures are visual/test data only. Preview mode must not contact privileged APIs, and live failures must not silently fall back to preview state. This is a blocking browser regression.
 
-Do not write the terminal credential to localStorage, sessionStorage, URL parameters, logs or normal React state.
+## 3. Branch / terminal / shift attribution
 
-## Operational topology boundary
+The browser may request an action but cannot choose trusted terminal, branch, sales point or shift attribution. New POS orders require current employee/terminal authority plus an open shift. Idempotent retries cannot be used to create a new order after shift closure.
 
-`branches`, `sales_points` and `terminals` are trusted backend entities.
+## 4. Commercial arithmetic
 
-- fixture IDs must never be promoted to backend foreign keys;
-- Admin live pages must use the operational BFF/API rather than session-local records;
-- explicit UI Preview may continue to show fixtures but cannot call them trusted state;
-- FORCE-RLS and controlled mutation RPCs must remain intact;
-- authenticated SELECT on sales points/terminals must remain RLS-constrained to Admin/Owner rather than becoming public directory access.
+Catalogue price, subtotal, discount components and total are server-derived integer sen. Dashboard parsers fail closed when line totals, subtotal, voucher/promotion discount components or total do not reconcile.
 
-## POS/order boundary
+```text
+voucherDiscountSen + promotionDiscountSen = discountSen
+totalSen = subtotalSen - discountSen
+```
 
-- local cart arithmetic is estimate-only; server quote is commercial authority;
-- order intents contain selection/fulfilment data, not trusted prices/totals or topology IDs;
-- POS placement requires employee session plus valid terminal credential;
-- customer placement remains terminal-free;
-- `clientRequestId` retry semantics must remain stable;
-- `orders.branchId`, `salesPointId` and `terminalId` are backend truth and must not be rewritten from workstation state.
+## 5. Scheduling and inventory
 
-## Catalogue/modifier boundary
+Pickup availability, capacity and `prepareAt` are server-owned. Inventory/recipe availability is advisory at quote and transactionally consumed at placement. The Dashboard must not infer acceptance from local clocks, displayed stock or optimistic UI.
 
-- shared catalogue decoding must preserve variants, customization groups and compatible add-ons without inventing commercial defaults client-side;
-- required drink groups need one available default;
-- client validation supplements backend validation only;
-- cart identity must include option/add-on selections so distinct configured drinks never merge implicitly;
-- unavailable catalogue state cannot be bypassed with preview data.
+## 6. Loyalty and vouchers
 
-## Scheduling/fulfilment boundary
+Member lookup is caller/terminal/open-shift bound for POS. Voucher ownership, status, expiry, reward eligibility and one-time consumption are server-owned. Changing or clearing a POS member must invalidate stale voucher intent rather than carrying it across identities.
 
-- customer/POS display may say `Now`; shared wire value remains `asap`;
-- do not manufacture schedule slots or branch hours locally;
-- do not reconstruct authoritative `scheduleState` from workstation time;
-- reaching `prepareAt` never auto-transitions an order;
-- legal fulfilment mutations require expected `statusVersion` and server authorization.
+## 7. Phase 7 promotions
 
-Branch hours/closures/capacity and explicit customer pickup branch remain Phase 4 and must not be inferred from current branch/terminal topology.
+Campaign configuration is Admin/Owner-only through caller-bound RPCs. Direct promotion-table authority is revoked.
 
-## Preview boundary
+The browser must never:
 
-`src/preview/` remains demonstration-only. Preview staff, branch, sales-point, terminal, shift, inventory, payment and reporting values must never authorize live APIs or become persisted business truth.
+- submit an accepted promotion ID as order authority;
+- calculate the accepted promotion discount;
+- assume a quoted promotion is reserved;
+- infer usage-limit availability from cached campaign state;
+- rewrite an accepted promotion snapshot after configuration changes.
 
-The Phase 1 change is specifically that branches/sales points/terminals now also have a separate trusted live path. Preview copies are still non-authoritative.
+Placement re-evaluates promotions after deterministic candidate-row locks. A concurrent last-use race may remove a discount without invalidating the underlying purchase; the accepted placement response is authoritative.
 
-## Still deferred high-risk domains
+Exclusive/stackable behavior, voucher coexistence, member requirement, usage limits, branch/catalogue scope, active window and minimum subtotal are server rules.
 
-- shift/cash lifecycle and variance approval;
-- employee Auth-user creation/role mutation/badge-PIN lifecycle;
-- branch hours/capacity/customer branch selection;
-- inventory/recipes/depletion;
-- loyalty/rewards;
-- promotions;
-- reporting/accounting;
-- payment/refunds;
-- printer/KDS/payment-device integration;
-- delivery/hosted production.
+## 8. Accepted order history
 
-Do not wire a later domain against preview identifiers simply because its UI already exists.
+Voucher and promotion applications are immutable commercial facts. UI edits to campaign/reward/catalogue configuration must never rewrite accepted orders. Cancellation/refund changes must use explicit server-controlled state/compensating events, not destructive history edits.
 
-## Cross-repository change rule
+## 9. Customer privacy
 
-Changes to shared IDs, order payloads, terminal credential semantics, staff branch scope, scheduling state or lifecycle strings are coordinated backend + Dashboard/customer contract changes. Update accepted ADRs/contracts and both mirrored governance sets before treating them as complete.
+Admin/POS surfaces must not regain customer identity after whole-account deletion by retaining browser caches or fixture identifiers. Legitimately retained commercial history is non-identifying under the documented deletion boundary.
 
-## Phase 1 audit boundary
+## 10. Deferred boundaries
 
-`TASK-OPS-002` is `COMPLETE`; evidence is in `docs/context/PHASE_1_OPERATIONAL_TOPOLOGY_CLOSEOUT_2026-09-11.md`.
-
-PR #20 and PR #17 are frozen for Astra. Phase 2 must not begin until Astra findings are resolved or explicitly accepted.
+Reporting/accounting/audit is Phase 8 and must be derived read authority. External payment capture/refunds/settlement is Phase 9. Badge/PIN provisioning and hardware integrations remain deferred. Final production/App Store release checks are Phase 10.

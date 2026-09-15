@@ -1,70 +1,85 @@
-# Database Schema Foundation
+# Schema Foundation
 
 Updated: 2026-09-15
 
-Canonical executable migrations are owned only by `Hermann-33/Aida_System/supabase/migrations/`; the Dashboard mirrors schema documentation but does not own a second migration ledger.
+**Current status:** `COMPLETE` through Phase 7. Canonical executable migrations live only in `Hermann-33/Aida_System/supabase/migrations/`.
 
-## Trusted schema through Phase 6
+## Identity and membership
 
-Identity/member: `user_profiles`, `members`, `student_verifications`, `customer_privacy_preferences`.
+Trusted identity begins with Supabase Auth and server-owned `user_profiles`. Customer/member state, employee branch assignments and role checks never trust customer-editable Auth metadata as authorization authority.
 
-Catalogue/orders: shared catalogue tables; `orders`, line/add-on/option snapshots and `order_events`.
+Whole-account deletion is caller-bound and removes customer-owned identity/member/loyalty data while preserving only documented anonymised commercial history.
 
-Operational topology/shift: `branches`, `employee_branch_assignments`, `sales_points`, `terminals`, private terminal credentials/codes, `shifts`, `cash_movements`.
+## Catalogue and ordering
 
-Scheduling: branch ordering policies, service windows/exceptions and accepted scheduling/capacity facts.
+The shared catalogue uses canonical `catalogue_items`, `catalogue_item_variants`, option groups/values and add-on catalogue items. Accepted orders persist server-derived line/customization/commercial snapshots rather than trusting client prices.
 
-Inventory: `inventory_items`, `branch_inventory`, `inventory_movements`, `recipes`, `recipe_components`.
+Orders carry source, branch/topology, member/customer attribution where applicable, integer-sen subtotal/discount/total, fulfilment/scheduling state, payment classification, status/version and idempotency anchors.
 
-Phase 6 loyalty:
+## Operational topology and cash
 
-```text
-loyalty_program_config
-member_loyalty_accounts
-loyalty_order_awards
-loyalty_point_ledger
-loyalty_stamp_ledger
-reward_catalogue
-member_vouchers
-voucher_order_applications
-orders.discount_sen
-```
+Phase 1–2 add branches, employee branch scope, sales points, terminals, terminal credential authority, shifts and append-only cash movements/reconciliation. New POS orders require trusted terminal/caller context and an open shift.
 
-## Phase 6 invariants
+## Scheduling and inventory
 
-- loyalty current balances are server-maintained and non-negative;
-- order awards provide exactly-once completed-order earning;
-- point/stamp history is application append-only; account deletion may remove customer-owned rows;
-- vouchers have server-owned source/status/expiry and immutable reward eligibility snapshots;
-- voucher order applications preserve accepted non-identifying commercial facts;
-- order discount is server-derived and constrained to `0 <= discount <= subtotal`, with `total = subtotal - discount`;
-- Phase 6 tables use RLS + FORCE RLS and deny direct authenticated mutation;
-- required foreign keys have covering indexes after `20260915002800_index_loyalty_foreign_keys.sql`.
+Phase 4 owns branch pickup policy, service windows/exceptions and capacity. Phase 5 owns inventory items, branch inventory, recipes/components and append-only inventory movements. Placement enforces schedule/capacity and transactional non-negative stock consumption; cancellation uses exactly-once reversal facts.
 
-## Phase 1–3 remediation invariants
+## Loyalty and vouchers
 
-`private.create_order_impl_v2(...)` is not executable by ordinary authenticated callers. The guarded POS authority wrapper owns retry/new-order decisions. Whole-account deletion can perform only the expected customer identity + digest anonymization transition and deletes customer-owned loyalty state before Auth/member teardown.
+Phase 6 adds loyalty program configuration, member loyalty accounts, point/stamp ledgers, order award anchors, reward catalogue, member vouchers and immutable voucher order applications. Direct client table mutation is denied; caller-bound RPCs own reads/mutations.
 
-## Canonical Phase 6 tail
+## Promotions and discounts
+
+Phase 7 adds:
 
 ```text
-20260914183500_create_loyalty_rewards_voucher_authority.sql
-20260914183600_harden_loyalty_authority_foundation.sql
-20260914183800_integrate_vouchers_with_order_authority.sql
-20260914183900_make_voucher_consumption_trigger_internal.sql
-20260914184000_preserve_loyalty_privacy_deletion.sql
-20260914184100_expose_voucher_commercial_snapshot.sql
-20260914184200_separate_voucher_quote_from_consumption_lock.sql
-20260914184300_add_loyalty_admin_authority.sql
-20260914184400_add_loyalty_program_configuration_authority.sql
-20260914184500_add_pos_loyalty_lookup_authority.sql
-20260914235500_restore_privacy_anonymization_boundary.sql
-20260914235600_harden_pos_order_authority_boundary.sql
-20260915000500_reconcile_loyalty_account_deletion.sql
-20260915002000_reconcile_partial_phase6_live_schema.sql
-20260915002800_index_loyalty_foreign_keys.sql
+promotions
+promotion_branches
+promotion_items
+promotion_variants
+promotion_addons
+promotion_order_applications
 ```
 
-## Validation
+`promotions` stores server-owned fixed/percentage rules, windows, minimum subtotal, optional cap, priority, stacking mode, voucher compatibility, member requirement, global/per-member usage limits and activation state.
 
-Backend database audit #190 reconstructed the cumulative schema from canonical migrations and passed all regressions through Phase 6. Live AIDA Supabase is deployed and advisor-checked. Phase 7 generalized promotion/discount schema is not started.
+Scope tables reference canonical branches/catalogue resources. Product scope accepts only product catalogue items; add-on scope accepts only `kind='addon'` catalogue items.
+
+`promotion_order_applications` stores immutable accepted commercial snapshots including promotion code/name, type/value, accepted discount, priority, stacking mode and voucher-coexistence state. `promotion_id`/`member_id` may detach where legitimate deletion/configuration lifecycle requires preserving non-identifying accepted transaction truth.
+
+All six Phase 7 tables use RLS + FORCE RLS. Direct `public`/`anon`/`authenticated` table authority is revoked. Admin/Owner configuration and order evaluation are exposed through controlled caller-bound RPC/private-function paths.
+
+## Commercial invariants through Phase 7
+
+```text
+sum(order line totals) = orders.subtotal_sen
+voucher discount + promotion discount = orders.discount_sen
+orders.total_sen = orders.subtotal_sen - orders.discount_sen
+accepted promotion application sum = accepted promotion discount
+```
+
+Promotion usage is serialized by locking candidate promotion rows during placement. Idempotent order retries do not consume usage twice.
+
+## Live migration state
+
+Canonical Phase 7 replay files:
+
+```text
+20260915100000_create_promotion_discount_authority.sql
+20260915101000_integrate_promotions_with_order_authority.sql
+20260915101100_normalize_phase7_nullable_voucher_quote.sql
+```
+
+Live AIDA history records the equivalent applied operations as:
+
+```text
+20260915120917_create_promotion_discount_authority
+20260915121057_integrate_promotions_with_order_authority
+20260915121119_normalize_phase7_nullable_voucher_quote
+```
+
+Do not rewrite applied live migration history merely to match repository timestamps.
+
+## Deferred schema authority
+
+Phase 8 may add read-oriented reporting/accounting/audit projections or RPCs over trusted source facts. Phase 9 owns external processor/refund/settlement authority. Phase 10 owns final release validation. These later phases must not weaken the Phase 1–7 source-of-truth model.

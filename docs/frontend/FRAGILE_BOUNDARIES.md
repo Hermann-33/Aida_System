@@ -1,71 +1,62 @@
-> Scope note: customer Flutter fragile boundaries. Dashboard boundaries are under `docs/dashboard/FRAGILE_BOUNDARIES.md` when present.
+# Customer Fragile Boundaries
 
-# Fragile Boundaries
+Updated: 2026-09-15
 
-Updated: 2026-08-20
+These are the customer-app trust and release boundaries most likely to regress if convenience logic moves authority into Flutter.
 
-## Highest-risk customer areas
+## 1. Authentication vs authorization
 
-- `lib/application/providers.dart`: Auth/member/catalogue/order repository bindings and session-scoped invalidation converge here.
-- `lib/domain/repository/member_repository.dart`: Auth and member identity port; never expand cached member material into role, verification, loyalty or price authority.
-- `lib/data/repository/mock_member_repository.dart`: remaining loyalty/presentation demo values must never be wired as production identity, catalogue or order fallbacks.
-- `lib/main.dart`: root Auth lifecycle and public Supabase client initialization.
-- `features/shell/app_shell.dart`: indexed tab lifetime/floating cart.
-- `domain/model/cart.dart` and `features/cart/cart_screen.dart`: local selection/estimate state must remain distinct from server quote and placement authority.
-- order checkout/history/confirmation: idempotency keys, schedule-policy interpretation, immutable snapshots and persisted status must stay server-backed.
-- membership-card cache: only minimum member identity material may restore offline, isolated by Supabase user ID and cleared on logout/user switch.
-- Android main manifest/toolchain: production networking and clean-checkout release compatibility are regression-protected boundaries.
-- large Home and item-detail screens: local state/calculation/navigation coupling.
-- golden baselines: review visual differences before updating.
+Supabase Auth identifies the caller. Trusted application role/member state comes from server-owned records. Customer-editable Auth metadata must not become authorization authority.
 
-## Redesign-specific regression boundaries
+## 2. Public browsing vs personalized state
 
-### Menu catalogue authority
+Public catalogue/legal/support surfaces should not create unnecessary anonymous Auth users. Personalized membership, loyalty, orders, privacy and deletion require the authenticated customer context.
 
-The redesigned Menu may change layout/components but must continue to consume the shared Supabase catalogue. `MenuListItem` must prefer the server-provided `MenuItem.imageUrl` and use bundled category artwork only as fallback. Category artwork must never become a substitute source for product identity, availability or pricing.
+## 3. Commercial parsing
 
-Stable Menu automation keys are intentionally retained on `MenuCategoryRail` (`menu_cat_all`, `menu_cat_favorites`, `menu_cat_<category-id>`). Removing them silently weakens golden/interaction coverage.
+The app must fail closed on malformed/unknown order status, invalid integer/boolean/date values or inconsistent commercial arithmetic.
 
-### Cart and quote authority
+Through Phase 7:
 
-The item-detail running total, floating-cart amount and Cart subtotal are local estimates only. Visual prominence must not turn them into placement authority. Checkout must continue to render a server quote before placement, and the cart clears only after a persisted `OrderSnapshot` success.
+```text
+sum(lineTotalSen) = subtotalSen
+voucherDiscountSen + promotionDiscountSen = discountSen
+totalSen = subtotalSen - discountSen
+sum(promotion snapshot discounts) = promotionDiscountSen
+```
 
-Swipe-to-remove is local cart interaction only. It must not introduce an order-delete/cancel API side effect.
+Voucher/promotion snapshots cannot be invented client-side to make arithmetic pass.
 
-### Scheduling
+## 4. Promotions are server decisions
 
-The wheel selector is presentation over `derivePickupSlots(OrderingPolicy)`. Do not add local opening-hours constants, arbitrary minute values, branch-capacity guesses or device-clock-only eligibility. `quote_order` remains the server validator even for a value shown by the client.
+Home marketing cards or cached promotion presentation are not discount authority. Flutter must not send accepted promotion IDs/amounts, calculate final eligibility, assume a quote reserves usage or preserve a promotion after the placement response removes it.
 
-### Rewards
+An exclusive accepted promotion must be the sole accepted promotion. Voucher coexistence is trusted only when the server snapshot marks it allowed.
 
-The redesigned balance card displays real member identity through `displayedMemberProvider`, but points/rewards/vouchers are still preview-backed through `MockMemberRepository`. Do not infer or implement loyalty authority merely because the screen now mixes real member identity with polished loyalty presentation.
+## 5. Scheduling and inventory
 
-### Membership QR and shared assets
+Local clocks, branch presentation data and cached stock cannot decide order acceptance. Pickup capacity/prepare time and inventory outcome are server-owned; placement performs final transactional validation.
 
-`AidaLogo` is shared presentation and is already consumed by Membership QR. Logo changes therefore affect an offline-critical surface even when `membership_card_screen.dart` itself is untouched. Keep logo assets bundled/offline-safe and never alter the QR payload from the server-owned member code for visual reasons.
+## 6. Loyalty and vouchers
 
-### Visual tests
+Production loyalty uses `SupabaseLoyaltyRepository`, not mock member values. Points/stamps/rewards/vouchers are caller-bound backend state. Voucher use is intent only until placement accepts/consumes it.
 
-Redesign work commonly invalidates pixel baselines and selector assumptions. Fix stale selectors/testability first. Golden files may be updated only after deliberate inspection of the candidate render; never replace them merely to turn CI green.
+## 7. Whole-account deletion
 
-## Contract-sensitive assumptions
+Settings exposes a live Delete Account action. The client calls the caller-bound deletion path; it must never accept a target account ID or perform partial local-only deletion. On success personalized providers are invalidated and the local signed-in state is cleared.
 
-Reward ladder, narrow student states and payment-method labels must not become shared schema by accident. Catalogue identifiers/variants/add-ons, permanent member code, ordering policy, trusted totals and order status already have accepted server contracts and must not be shadowed by client constants.
+Retained commercial history must remain anonymised according to the backend deletion contract; UI caches must not reconstruct deleted customer identity.
 
-The completed live order E2E does not relax these boundaries: customer payloads remain intent-only, server totals/status remain authoritative and customer status changes arrive through authorized backend state.
+## 8. Realtime
 
-## Cross-repo rule
+Realtime signals are invalidation/refetch triggers where used. Raw change payloads must not bypass RLS-filtered repository fetches to become trusted catalogue/order/commercial state.
 
-Any change to member code, verification, catalogue IDs/pricing/modifiers, order status, payment semantics, rewards/vouchers or promotions must be reviewed against the POS/Admin consumer before completion.
+## 9. Payments
 
-See `UI_REDESIGN_AUDIT_2026-08-20.md` for the redesign-specific backend-impact matrix.
+Until Phase 9, the app must not claim external authorization/capture/settlement/refund. Current internal tender/payment semantics remain backend-owned.
 
-## 2026-09-09 preserved future-work boundaries
+## 10. Permissions and App Store
 
-- `core/config/feature_flags.dart`: account-deletion/referral client paths must stay disabled by default until their backend tasks are deployed and validated.
-- `supabase/drafts/`: prototype/reference SQL only. Never promote a draft into canonical migrations without a dedicated task, fresh timestamp and full migration/security validation.
-- `features/cart/order_confirmation_screen.dart`: persisted backend status remains authoritative; no demo/local status substitute exists.
-- Membership referral sharing must remain gated until the referral/loyalty backend is deployed.
-- Account deletion UI must remain gated until the deletion/anonymisation backend is promoted and live.
-- Demo order-progress/test tooling was deliberately removed from TASK-UI-REDESIGN-004 and must not be reintroduced into customer production paths.
+Do not add camera/location/notifications/tracking or other protected capability merely for convenience without reopening the permission/privacy audit and updating App Store documentation. Membership QR rendering alone does not justify camera permission.
 
+Referral remains draft-gated and off by default. Final hosted URLs, App Privacy/manifests, review credentials, screenshots/metadata and submission state remain Phase 10.

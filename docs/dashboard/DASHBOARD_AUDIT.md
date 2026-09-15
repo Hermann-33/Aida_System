@@ -1,82 +1,73 @@
-# POS/Admin Dashboard Audit
+# Dashboard Audit
 
-Updated: 2026-09-11
+Updated: 2026-09-15
 
-## Current verdict
+**Current verdict:** Dashboard implementation is `COMPLETE` through Phase 7 against the defined runtime/security/CI boundary. This document describes current state; older dated audit records remain historical evidence only.
 
-`COMPLETE` for Phase 1 operational topology. Dashboard live mode now consumes trusted branch, employee-branch, sales-point and terminal authority in addition to the previously trusted Auth/member/catalogue/order tranche.
+## Trusted architecture
 
-Full evidence: `docs/context/PHASE_1_OPERATIONAL_TOPOLOGY_CLOSEOUT_2026-09-11.md`.
+Dashboard/Admin/POS uses a same-origin BFF over the shared Supabase backend. Employee access/refresh and terminal credentials remain HttpOnly/server-side. The BFF forwards the caller JWT and publishable key so Supabase role/RLS/RPC checks remain authoritative. No normal live path uses a service-role credential or exposes reusable employee/terminal secrets to browser JavaScript.
 
-## Trusted live surfaces
+Preview fixtures are isolated and never silently replace failed live authority.
 
-- same-origin employee/Admin authentication/session BFF with HttpOnly cookies;
-- trusted role/disabled-state and `assignedBranchIds`;
-- protected Admin member/catalogue operations;
-- shared catalogue and authoritative quote/order flows;
-- live order queue and versioned fulfilment transitions;
-- Admin branch and sales-point management;
-- Admin terminal list/create/enrolment-code/revoke flows;
-- Admin employee directory and branch-assignment mutation;
-- terminal enrolment/status/credential clearing;
-- live POS requiring trusted terminal context;
-- terminal-bound POS placement with immutable branch/sales-point/terminal attribution.
+## Completed live surfaces
 
-The browser receives neither a service-role credential nor a readable employee/terminal secret. Employee tokens and the terminal credential remain HttpOnly/BFF-held.
+- Phase 1: branches, employee branch scope, sales points, terminals, enrolment/revocation and POS topology attribution.
+- Phase 2: shift lifecycle, cash movements/reconciliation and open-shift order authority.
+- Phase 4: branch pickup configuration and capacity-aware ordering.
+- Phase 5: branch inventory, movements and recipe administration.
+- Phase 6: loyalty program/reward administration, member wallet/support adjustments, POS member lookup and voucher-aware orders.
+- Phase 7: live campaign/promotion administration, automatic server promotion evaluation and POS/order presentation of accepted promotion snapshots.
 
-## Preview boundary
+Phase 3 customer deletion/privacy is primarily a customer/backend surface; Dashboard retained order views consume the resulting anonymised commercial history rather than restoring deleted customer identity.
 
-Explicit UI Preview still uses fixtures for demonstrations. Preview identifiers/state are not trusted backend authority and cannot be used to authorize live employee, location, terminal or order operations.
+## Phase 7 audit result
 
-Admin Locations, Terminals and Employees now use trusted APIs in live mode. Their preview branches remain deliberately separate.
+The Campaigns tab uses production BFF endpoints backed by `get_promotion_admin_state()` and `save_promotion(jsonb)`. Admin/Owner role and caller identity are revalidated server-side. Direct promotion-table access is revoked.
 
-## Phase 1 runtime evidence
-
-Dashboard code head before documentation-only closeout:
-
-`50c559f4ed5a5f0ddd373a4bf450a38c7e9716ba`
-
-Dashboard CI run #23:
+Dashboard order contracts strictly parse:
 
 ```text
-npm ci                 PASS
-lint                   PASS
-typecheck              PASS
-Vitest files      31 / 31 PASS
-Vitest tests     150 / 150 PASS
-production build        PASS
+voucherDiscountSen
+promotionDiscountSen
+discountSen
+promotions[]
 ```
 
-Backend database audit #22 separately proves the database/RPC allow/deny boundary on a clean migration replay.
+and reject inconsistent commercial snapshots. POS does not submit accepted promotion authority; promotions are server-selected during quote/place.
 
-## Security result
+Live/preview regressions cover that preview mode does not contact privileged promotion endpoints and that live POS can render a promotion-only authoritative order/quote.
 
-- ordinary staff with no branch assignment fail closed;
-- employee branch scope is backend state;
-- terminal enrolment requires authenticated branch authorization in addition to possession of the one-time code;
-- the terminal credential stays in an HttpOnly cookie;
-- terminal revocation immediately blocks terminal resolution/POS placement;
-- browser-supplied location IDs are not POS attribution authority;
-- direct topology mutation is denied;
-- no service-role/browser bearer-token bypass exists.
+## Exact validated implementation
 
-Supabase security advisor has one pre-existing leaked-password-protection WARN only. No Phase 1-created security blocker remains.
+```text
+Aida_System-Dashboard   7e14326253b263412da5fa38f47bb137c31d7379
+Dashboard CI #147       COMPLETE
+```
 
-## Still non-authoritative/deferred
+Dashboard CI passed lint, TypeScript typecheck, unit tests, live POS browser authority regression, preview-isolation browser regression and production build.
 
-- shifts/cash movements/opening float/variance;
-- employee Auth-user creation, role mutation and badge/PIN lifecycle;
-- branch opening hours/closures/capacity and explicit customer branch selection;
-- inventory/recipes/depletion/transfers;
-- loyalty/rewards/vouchers;
-- promotions/marketing authority;
-- trusted sales/revenue/tax/accounting reporting;
-- payment settlement/refunds;
-- printer/KDS/payment-device integrations;
-- hosted production operations.
+Cross-repo Phase 7 validation also passed:
 
-Presentation in those areas must not imply backend authority before their phases are implemented.
+```text
+Aida_System             c6abf24b498edb401af878f86d26e1c63a633121
+Backend database audit #231   COMPLETE
+Customer release audit #311   COMPLETE
+```
 
-## Audit boundary
+## Live backend evidence
 
-Dashboard PR #17 and customer/backend PR #20 form the frozen Phase 1 Astra audit boundary. Do not start Phase 2 until Astra findings are resolved or explicitly accepted.
+AIDA Supabase `eswovqxqzfevcdwwcmuh` is `ACTIVE_HEALTHY`. The three canonical Phase 7 migrations are deployed. All six promotion tables have RLS + FORCE RLS with direct anon/authenticated CRUD revoked. Required RPC/function grants are present, the old pending-voucher trigger is retired, and fresh advisors show no new blocking Phase 7 issue.
+
+The sole security WARN remains the pre-existing disabled leaked-password-protection Auth setting. Performance findings are INFO unused-index observations only.
+
+## Known later boundaries
+
+- Phase 8: authoritative reporting/accounting/audit data and exports.
+- Phase 9: external payment/refund/settlement integrations.
+- Phase 10: final production/App Store release gate.
+- separately deferred unless explicitly owned later: Badge/PIN provisioning and hardware integrations.
+
+## Governance
+
+Phase completion does not authorize merge. Phase 7 PRs remain draft/unmerged until the owner explicitly says otherwise. Current-state docs must be updated with each implementation batch; historical audit documents should not be used as runtime truth when a current closeout supersedes them.

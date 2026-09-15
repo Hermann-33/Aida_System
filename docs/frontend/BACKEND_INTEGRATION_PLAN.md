@@ -1,85 +1,88 @@
 # Customer Backend Integration Plan
 
-Updated: 2026-08-17
+Updated: 2026-09-15
 
-## Auth/member — integrated and validated
+This document records the **current production integration through Phase 7** and the remaining later-phase customer work. Older August planning notes are superseded where they conflict with this state.
 
-Supabase Auth and owner-scoped member/profile reads are integrated. Canonical live SQL regression and the full Flutter suite pass. ADR-0003's minimum offline QR material is cached durably per user and cleared on logout/user switch.
+## Production repository wiring
 
-Physical Android validation proved release connectivity, customer signup, trusted profile/member provisioning and Dashboard Members visibility. The final live order E2E also authenticated a real customer normally with exactly one active member.
+Flutter production providers use:
 
-## Catalogue — integrated and validated
+- `SupabaseMemberRepository` for authenticated member/profile/privacy/account capabilities;
+- `SupabaseCatalogueRepository` for shared catalogue;
+- `SupabaseLoyaltyRepository` for points, stamps, rewards and vouchers;
+- `SupabaseOrderRepository` for quote/place/order history and updates.
 
-Customer menu uses `CatalogueRepository` → Supabase `get_catalogue()`. One snapshot feeds categories, featured/popular and menu items. `catalogue_revision` Realtime events invalidate that snapshot. Base prices, availability, images, per-item variants and compatible add-ons come from database records.
+Production does not fall back to legacy mock repositories when Supabase authority is unavailable.
 
-Production runtime has no hardcoded migrated catalogue or `ItemSize` pricing authority. A real Owner catalogue price mutation was observed in the installed Android app after revision invalidation/refetch.
+## Integrated backend capabilities
 
-## Orders and scheduled pickup — integrated and validated
+### Identity / membership
 
-ADR-0010 and `docs/contracts/ORDER_AND_SCHEDULING_CONTRACT.md` are authoritative.
+Supabase Auth plus server-owned member/profile state. Session changes invalidate personalized providers.
 
-The customer backend boundary provides:
+### Privacy / account requirements
 
-- `get_ordering_policy()`
-- `quote_order(jsonb)`
-- `place_customer_order(jsonb)`
-- `get_order(uuid)`
-- `get_my_orders(integer)`
-- owner-scoped `orders` Realtime
+Caller-bound privacy preferences, password-reset support and live whole-account deletion are integrated. The Settings screen exposes Delete Account directly; deletion is not hidden behind a feature flag.
 
-### Implemented Flutter integration
+### Catalogue
 
-1. Keep the cart as **selection state**, not commercial authority.
-2. Build trusted payloads from catalogue item IDs, variant IDs, compatible add-on IDs, quantities and notes.
-3. Read `get_ordering_policy()` to offer ASAP vs Schedule for later.
-4. Generate scheduled slots from backend `serverNow`, timezone, lead, interval and horizon rather than a device-clock-only hardcode.
-5. Call `quote_order()` before placement and render the returned authoritative subtotal/total/line prices.
-6. Require a signed-in active member for customer placement; trusted identity/member state is derived server-side.
-7. Generate one UUID `clientRequestId` for an intended placement and reuse it for network retries of that same order.
-8. Clear the cart only after a successful persisted placement.
-9. Use the server `orderNumber`, total and status.
-10. Use `get_my_orders()` / `get_order()` for history/detail.
-11. Subscribe to owner-authorized `orders` changes and re-fetch; persisted status replaces fake timer progression.
-12. Preserve the existing AIDA visual language; this integration does not create a second design system.
+Live public shared catalogue, categories, featured/popular items, variants/options/add-ons and Realtime invalidation/refetch behavior.
 
-### Scheduling rules
+### Scheduling
 
-Current defaults:
+Order quote/place integrates branch pickup policy, windows/exceptions, lead/horizon/slot capacity and server-derived preparation time.
 
-- `Asia/Kuala_Lumpur`
-- 15-minute minimum lead
-- 15-minute slots
-- 7-day maximum advance
+### Inventory / recipes
 
-Branch opening-hours/capacity are not modeled and must not be presented as validated guarantees.
+Quote is inventory-aware and placement performs authoritative transactional recipe depletion. The customer has no stock mutation authority.
 
-### Payment presentation
+### Loyalty / rewards / vouchers
 
-No real payment processor exists. The current authoritative demo path is explicit `Pay at counter`/unpaid. Cash/Card/E-wallet/Student Wallet must not be presented as successfully processed backend payment state.
+Live points/stamps, reward catalogue and vouchers are caller-bound through `SupabaseLoyaltyRepository`. Voucher use is optional order intent; server quote/place validates and consumes it.
 
-## Realtime/error behavior
+### Phase 7 promotions
 
-- Catalogue: `catalogue_revision` → re-fetch catalogue.
-- Orders: authorized `orders` change → re-fetch full order with `get_order()`.
-- If quote/placement fails because catalogue/schedule state changed, surface an actionable error and keep the cart for correction/retry.
-- Do not silently fall back to local totals or local order history after a backend error.
+Generalized promotions are automatic server authority. The client does not select accepted promotions. Strict order contracts consume `voucherDiscountSen`, `promotionDiscountSen`, total `discountSen` and promotion snapshots and reject inconsistent payloads.
 
-## Final customer validation result
+Placement re-evaluates promotions, so the app must treat the placement response—not a prior quote—as the final commercial fact.
 
-Customer implementation is COMPLETE for the current tranche:
+## Client integration invariants
 
-- Flutter 3.44.9 `pub get`: PASS
-- analyze: PASS, no issues
-- tests: PASS, 44/44
-- release APK: PASS
-- independent clean-worktree release build: PASS
-- final APK declares `android.permission.INTERNET`
-- canonical Auth/member, catalogue and order SQL regressions: PASS transactionally
-- physical Android signup/member provisioning: PASS
-- Owner catalogue mutation → installed app refresh: PASS
+- money is integer sen;
+- accepted prices/discounts/totals are server snapshots;
+- branch scheduling/capacity and inventory result are server-owned;
+- vouchers/promotions are not locally consumed;
+- `clientRequestId` supports idempotent placement but cannot alter an already accepted payload;
+- Realtime causes trusted refetch rather than trusting arbitrary change payloads;
+- account deletion is caller-bound and cannot name another user;
+- public browsing does not require unnecessary anonymous Auth identity creation.
 
-Final cross-client order proof on 2026-08-17 used the supported customer boundary to quote Sandwich ASAP at 1,290 sen and persist order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`). Customer-authorized `get_order` reads then observed Dashboard-persisted `preparing`, `ready` and `completed` states. The final status is `completed`, version 4.
+## Validation through Phase 7
 
-## Deferred customer domains
+```text
+Aida_System implementation   c6abf24b498edb401af878f86d26e1c63a633121
+Customer release audit #311  COMPLETE
+```
 
-Loyalty earning/redemption, real payments/refunds, notifications, student-review workflow, profile writes beyond current authority, branch-specific scheduling/capacity, inventory, reporting and hosted production release operations remain separate tasks.
+Release audit covers static analysis, non-golden tests, golden regressions, release APK build and artifact upload. Phase 7 contract tests cover promotion-only, voucher+promotion and malformed/reconciliation cases.
+
+The shared backend database audit #231 and Dashboard CI #147 also passed the same Phase 7 implementation boundary. Live AIDA Supabase has the Phase 7 migrations deployed and no new blocking advisor finding.
+
+## Remaining integration work
+
+### Phase 8
+
+Reporting/accounting/audit is primarily backend/Dashboard work. Do not introduce customer-visible financial authority merely because reports exist.
+
+### Phase 9
+
+External payment/refund integration may add customer payment UX only after provider, merchant, credential and cost requirements are approved. Distinguish payment intent, authorization, capture, settlement and refund states; never optimistically label an order paid from client state alone.
+
+### Phase 10
+
+Final iOS/App Store work includes production legal/support URLs, privacy manifest/label reconciliation, permission/SDK inventory, physical whole-account-deletion verification, review credentials/demo path, screenshots/metadata and release build/submission readiness.
+
+## Separately deferred
+
+Referral remains draft-gated/off by default until a dedicated abuse/privacy/backend design is approved.

@@ -7,9 +7,4 @@ abstract final class AidaFeatureFlags {
     'AIDA_ENABLE_REFERRAL_DRAFT',
     defaultValue: false,
   );
-
-  static bool get accountDeletionDraft => const bool.fromEnvironment(
-    'AIDA_ENABLE_ACCOUNT_DELETION_DRAFT',
-    defaultValue: false,
-  );
 }

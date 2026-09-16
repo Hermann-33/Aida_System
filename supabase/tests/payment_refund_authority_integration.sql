@@ -51,11 +51,11 @@ select set_config('test.phase9.member_id',(
 ),false);
 
 insert into public.orders(
- id,order_number,source,customer_user_id,member_id,created_by_user_id,
+ id,source,customer_user_id,member_id,created_by_user_id,
  client_request_id,request_hash,fulfillment_type,status,
  subtotal_sen,discount_sen,total_sen,branch_id
 ) values (
- '99100000-0000-0000-0000-000000000001',990000001,'customer',
+ '99100000-0000-0000-0000-000000000001','customer',
  '99000000-0000-0000-0000-000000000001'::uuid,current_setting('test.phase9.member_id')::uuid,
  '99000000-0000-0000-0000-000000000001'::uuid,
  '99110000-0000-0000-0000-000000000001'::uuid,md5('phase9 order'),
@@ -101,7 +101,6 @@ begin
  if v_state#>>'{latestIntent,state}'<>'authorized' or v_state->>'paymentState'<>'pending' then
    raise exception 'authorization incorrectly projected state: %',v_state;
  end if;
-
  select public.apply_payment_provider_event(jsonb_build_object(
    'providerKey','phase9_test','providerEventId','evt-cap-1','paymentIntentId',v_intent,
    'eventType','captured','providerPaymentId','pay-phase9-1','payloadSha256',repeat('2',64)
@@ -111,13 +110,10 @@ begin
     or v_state->>'paidAt' is null then
    raise exception 'capture did not become paid state: %',v_state;
  end if;
-
- -- Exact replay is idempotent.
  perform public.apply_payment_provider_event(jsonb_build_object(
    'providerKey','phase9_test','providerEventId','evt-cap-1','paymentIntentId',v_intent,
    'eventType','captured','providerPaymentId','pay-phase9-1','payloadSha256',repeat('2',64)
  ));
-
  begin
    perform public.apply_payment_provider_event(jsonb_build_object(
      'providerKey','phase9_test','providerEventId','evt-cap-1','paymentIntentId',v_intent,
@@ -127,7 +123,6 @@ begin
  exception when unique_violation then
    if sqlerrm not ilike '%different content%' then raise; end if;
  end;
-
  select public.apply_payment_provider_event(jsonb_build_object(
    'providerKey','phase9_test','providerEventId','evt-settle-1','paymentIntentId',v_intent,
    'eventType','settled','providerPaymentId','pay-phase9-1','payloadSha256',repeat('4',64)
@@ -239,14 +234,13 @@ end;
 $$;
 reset role;
 
--- Fail closed if no external provider is configured.
 update public.payment_provider_configs
 set is_active=false,customer_enabled=false,pos_enabled=false where provider_key='phase9_test';
 insert into public.orders(
- id,order_number,source,customer_user_id,member_id,created_by_user_id,
+ id,source,customer_user_id,member_id,created_by_user_id,
  client_request_id,request_hash,fulfillment_type,status,subtotal_sen,discount_sen,total_sen,branch_id
 ) values (
- '99100000-0000-0000-0000-000000000002',990000002,'customer',
+ '99100000-0000-0000-0000-000000000002','customer',
  '99000000-0000-0000-0000-000000000001'::uuid,current_setting('test.phase9.member_id')::uuid,
  '99000000-0000-0000-0000-000000000001'::uuid,'99110000-0000-0000-0000-000000000002'::uuid,
  md5('provider unavailable'),'asap','confirmed',500,0,500,private.default_branch_id()
@@ -269,7 +263,6 @@ end;
 $$;
 reset role;
 
--- Append-only lifecycle events cannot be rewritten.
 do $$
 begin
  begin

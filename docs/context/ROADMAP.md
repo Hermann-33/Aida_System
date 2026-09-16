@@ -1,10 +1,8 @@
 # Roadmap
 
-Updated: 2026-09-15
+Updated: 2026-09-16
 
 ## Current status
-
-Phases 1–7 are `COMPLETE` against their defined authority, regression, client, live-deployment and advisor boundaries. Phase 8–10 remain frozen pending explicit owner authorization.
 
 ```text
 Phase 1 — operational topology                         COMPLETE
@@ -14,70 +12,51 @@ Phase 4 — branch scheduling and pickup authority      COMPLETE
 Phase 5 — inventory and recipes                       COMPLETE
 Phase 6 — loyalty, rewards and vouchers               COMPLETE
 Phase 7 — promotions and discounts                    COMPLETE
-Phase 8 — reporting/accounting/audit                  FROZEN
-Phase 9 — payments/refunds/external integrations      FROZEN
-Phase 10 — App Store final release gate               FROZEN
+Phase 8 — reporting/accounting/audit                  COMPLETE
+Phase 9 — payments/refunds/external integrations      NEXT
+Phase 10 — App Store final release gate               AFTER PHASE 9
+Cumulative independent audit                          AFTER PHASE 10
 ```
 
-## Trusted foundation through Phase 7
+The owner explicitly approved deferring the independent/Astra/Codex audit until Phase 10 implementation is complete. Normal per-phase validation and documentation remain mandatory.
 
-The product now has server-owned authority for identity/roles, membership/privacy deletion, catalogue/pricing, topology, terminals, shifts/cash, scheduling/capacity, inventory/recipes, loyalty/rewards/vouchers, generalized promotions and immutable accepted commercial snapshots.
+## Trusted foundation through Phase 8
+
+AIDA has server-owned authority for identity/roles, membership/privacy deletion, catalogue/pricing, topology, terminals, shifts/cash, scheduling/capacity, inventory/recipes, loyalty/rewards/vouchers, promotions/discounts, immutable accepted commercial snapshots and read-only operational reporting/reconciliation/audit projections.
 
 Dashboard privileged operations remain behind the same-origin HttpOnly BFF with caller-JWT forwarding. Customer Flutter submits intent through caller-bound RPCs. Preview fixtures never become backend authority.
 
-## Phase 7 — promotions and discounts
-
-Completed scope:
-
-- fixed/percentage promotion definitions and activation windows;
-- optional maximum discount, minimum subtotal and priority;
-- branch/product/variant/add-on targeting;
-- optional member requirement and global/per-member usage limits;
-- exclusive/stackable policy and explicit voucher coexistence;
-- automatic server-side promotion selection during quote;
-- deterministic locked re-evaluation during placement;
-- immutable applied-promotion commercial snapshots;
-- final-use concurrency protection;
-- Admin management through trusted BFF paths;
-- strict Flutter and Dashboard voucher/promotion reconciliation;
-- POS promotion presentation and preview isolation;
-- live AIDA migration deployment plus fresh advisors.
-
-Validated implementation:
-
-```text
-Aida_System             c6abf24b498edb401af878f86d26e1c63a633121
-Aida_System-Dashboard   7e14326253b263412da5fa38f47bb137c31d7379
-Backend database audit #231   COMPLETE
-Customer release audit #311   COMPLETE
-Dashboard CI #147             COMPLETE
-```
-
-Live AIDA project `eswovqxqzfevcdwwcmuh` is `ACTIVE_HEALTHY`. Canonical migrations `20260915100000`, `20260915101000`, `20260915101100` were applied through the migration service as live history `20260915120917`, `20260915121057`, `20260915121119`. Fresh advisors have no new blocking Phase 7 finding.
-
-## Phase 8 — reporting, accounting and audit
-
-`FROZEN`. Do not begin until the owner explicitly authorizes continuation. Intended scope includes trusted sales/operations projections, branch/terminal/staff/shift breakdowns, tax-ready transaction records, export and privileged audit events.
+Phase 8 is live on AIDA through `20260916013938_create_reporting_audit_authority`; repository validation and live advisors are green against the defined boundary.
 
 ## Phase 9 — payments, refunds and external integrations
 
-`FROZEN`. External processor capture/settlement/refunds, processor idempotency/webhooks, accounting/device integrations and deployment-heavy work remain deferred.
+Next scope:
+
+- provider-neutral payment lifecycle and immutable/append-only event history;
+- intent / authorization / capture / failure / cancellation / settlement-reconciliation separation;
+- refund request / processing / success / failure separation;
+- webhook idempotency and replay protection;
+- order/payment reconciliation without allowing clients to self-declare paid/refunded states;
+- Dashboard operational surfaces and Phase 8 report extension for trusted payment/refund facts;
+- preservation of existing cash/unpaid semantics.
+
+Processor-specific activation is not assumed. Merchant onboarding, provider credentials, webhook secrets, fees/paid services and provider-specific production calls require explicit owner approval.
 
 ## Phase 10 — App Store release gate
 
-`FROZEN`. Final iOS compatibility/release build, privacy manifest/App Privacy answers, physical account-deletion verification, production support/privacy URLs, review credentials/notes and final device/accessibility validation remain later work.
+After Phase 9 engineering completion:
 
-## Dependency rule
+- re-check current official Apple requirements;
+- final iOS release/static/test/golden build gates;
+- permission/SDK/privacy-manifest and App Privacy reconciliation;
+- production account-deletion verification;
+- legal/privacy/support URLs;
+- review credentials/demo path/notes;
+- screenshots/metadata matching the binary;
+- production backend/release configuration verification.
 
-```text
-branch/topology
- -> shift/cash
- -> privacy/account boundary
- -> scheduling/capacity
- -> inventory/recipes
- -> loyalty/rewards/vouchers
- -> promotions/discounts
- -X-> reporting until owner authorization
- -> payments/refunds
- -> final release gate
-```
+## Final audit
+
+After Phase 10 implementation and normal validation, prepare the two-repository cumulative Phase 1–10 audit package, run the independent/Astra/Codex audit, remediate findings and rerun affected validation before final program closure.
+
+Phase PRs remain draft/unmerged unless explicitly authorized.

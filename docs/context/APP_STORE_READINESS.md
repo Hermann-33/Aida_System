@@ -1,41 +1,55 @@
 # Apple App Store Readiness Guardrails
 
 **Applies to:** AIDA customer iOS application and backend behavior exposed by it.  
-**Reviewed:** 2026-09-15  
-**Current implementation verdict:** Phases 1–7 `COMPLETE`; final App Store release gate remains Phase 10.
+**Reviewed:** 2026-09-16  
+**Current implementation verdict:** Phases 1–8 engineering `COMPLETE`; Phase 9 is next; the final App Store release gate remains Phase 10.
 
-Official Apple guidance must be re-checked before submission.
+Official Apple guidance must be re-checked during Phase 10 before submission-related changes.
 
 ## Standing rules
 
-AIDA sells physical café food/drink. Under App Review Guideline 3.1.3(e), purchases of physical goods/services consumed outside the app must use payment methods other than In-App Purchase. AIDA therefore must not route café food/drink payment through StoreKit/IAP.
+AIDA sells physical café food/drink. These purchases must not be implemented as digital-content StoreKit/IAP entitlements. The payment architecture must remain a physical-goods payment flow using permitted traditional payment rails/Apple Pay-compatible processor flows when Phase 9 processor activation occurs.
 
-Customer account creation requires an easy-to-find production whole-account deletion path. Public catalogue and Privacy/Terms/Support information should not require unnecessary authentication. Promotions and advertised prices must accurately reflect the server-authoritative commercial result shown to the customer.
+Customer account creation requires an easy-to-find production whole-account deletion path. Public catalogue and Privacy/Terms/Support information should not require unnecessary authentication. Promotions and advertised prices must accurately reflect the server-authoritative commercial result.
 
 ## Privacy boundary
 
 Whole-account deletion is caller-bound to `auth.uid()`, accepts no target user ID, removes customer-owned identity/state and anonymizes legitimately retained commercial history. Retained customer-authored free text and the original customer request digest are scrubbed. Marketing preference defaults off.
 
-## Phase 4–7 impact
+## Phase 4–8 impact
 
-Scheduling, inventory, loyalty/vouchers and generalized promotions add operational/commercial authority only. They introduce no tracking SDK, protected-device permission, StoreKit path or digital-content entitlement.
+Scheduling, inventory, loyalty/vouchers, promotions and reporting add operational/commercial authority only. They introduce no StoreKit digital entitlement. Phase 8 is read-only reporting and adds no customer permission or mutation surface.
 
-Phase 7 promotions apply to physical café goods. Promotion eligibility and accepted discount amounts are server-owned; clients cannot author accepted promotion IDs, discounts or totals. Quote/order responses expose separate voucher and promotion discount components and immutable accepted commercial snapshots, supporting accurate price presentation.
+Phase 8 reporting deliberately labels commercial value as accepted order value rather than processor settlement. This prevents the UI from claiming payment facts that do not yet exist.
 
-The Admin campaign surface is an internal operations tool. Preview mode uses fixtures only and does not contact privileged promotion endpoints.
+## Phase 9 guardrails
 
-Live Phase 7 deployment and fresh Supabase advisors completed on 2026-09-15 without introducing a new App Store-specific blocker.
+Payment/refund implementation must:
 
-## iOS permission/data audit
+- keep the server authoritative for payment/refund lifecycle state;
+- never accept client-authored paid/captured/settled/refunded truth;
+- distinguish authorization, capture, settlement/reconciliation and refund states;
+- preserve current cash/unpaid semantics;
+- keep physical-goods payment outside IAP;
+- avoid embedding provider secrets in Flutter/browser code;
+- document any new SDK, permission, tracking/data collection or external disclosure.
 
-`docs/context/PHASE_3_IOS_DATA_PERMISSION_AUDIT.md` remains the current protected-permission audit. Phases 4–7 did not add a capability that reopens it. `qr_flutter` renders a membership QR and does not justify camera permission.
+Processor-specific production activation requires explicit owner approval for provider choice, merchant setup, credentials/webhook secrets and any cost-bearing service.
 
-## Remaining final release gate
+## Remaining Phase 10 release gate
 
-Before App Store submission the release candidate still requires operational public Privacy/Support URLs, final App Privacy/privacy-manifest reconciliation, physical verification of whole-account deletion against production release infrastructure, review credentials/demo path, and screenshots/metadata matching the submitted binary. Reopen the permission audit if a later phase adds notifications, camera, location, tracking or another protected capability.
+Before App Store submission, Phase 10 must re-check current official Apple requirements and verify at minimum:
 
-External card/e-wallet processor settlement remains Phase 9. When added, it must continue to follow the physical-goods/non-IAP boundary and must not create a misleading in-app price/discount path.
+- release/static/test/golden build gates;
+- current iOS SDK/Xcode compatibility;
+- permission/SDK inventory and privacy manifests;
+- App Privacy answers against actual collected/shared data;
+- production whole-account deletion;
+- operational Privacy/Support/Terms URLs;
+- review credentials/demo path/review notes;
+- screenshots/metadata matching the submitted binary;
+- production backend configuration and physical-goods payment behavior.
 
-## Governance
+The cumulative independent/Astra/Codex audit is deferred until Phase 10 implementation and normal validation are complete. It is not waived.
 
-Phase completion is not an App Store submission verdict and does not authorize automatic PR merge. Phase 8–10 remain frozen pending explicit owner authorization.
+Phase completion does not authorize PR merge or App Store submission.

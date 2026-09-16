@@ -1,86 +1,56 @@
 # Active Context
 
-**As of:** 2026-09-15  
-**Current boundary:** Phase 7 — promotions and discounts  
-**Current verdict:** `COMPLETE` against the defined Phase 7 implementation, live-deployment, advisor and documentation boundary. Phase 8–10 remain frozen until explicit owner authorization.
+**As of:** 2026-09-16  
+**Current boundary:** Phase 8 engineering closeout; Phase 9 is the next authorized implementation boundary.  
+**Current verdict:** Phases 1–8 `COMPLETE` against implementation, repository validation, live-backend and documentation requirements. The owner explicitly deferred the independent/Astra/Codex audit to one cumulative Phase 1–10 audit after Phase 10 implementation.
 
-## Product topology
+## Current authority
 
-- customer/backend: `Hermann-33/Aida_System`
-- Dashboard/Admin/POS: `Hermann-33/Aida_System-Dashboard`
-- shared Supabase project: `Aida System`, ref `eswovqxqzfevcdwwcmuh`, region `ap-southeast-1`
-- canonical executable migrations: `Hermann-33/Aida_System/supabase/migrations/` only
+AIDA has server-owned authority through Phase 8 for identity/roles, branches/sales points/terminals, shifts/cash, privacy/account deletion, pickup scheduling/capacity, inventory/recipes, loyalty/rewards/vouchers, promotions/discounts, accepted commercial snapshots, and read-only operational reporting/reconciliation/audit projections.
 
-## Authority completed through Phase 7
+Dashboard privileged traffic remains behind the same-origin HttpOnly BFF with caller-JWT forwarding. Preview fixtures are never production authority. Customer and POS clients submit intent; the server owns prices, totals, discounts, stock/capacity outcomes and persisted commercial facts.
 
-```text
-Phase 1 COMPLETE  branch -> sales point -> terminal -> employee branch scope -> POS attribution
-Phase 2 COMPLETE  terminal + employee -> shift -> POS order / cash ledger
-Phase 3 COMPLETE  customer -> privacy/account deletion -> anonymized retained history
-Phase 4 COMPLETE  branch calendar/policy -> pickup capacity -> authoritative quote/place
-Phase 5 COMPLETE  recipe -> branch inventory -> transactional depletion/reversal
-Phase 6 COMPLETE  member -> loyalty -> reward/voucher -> authoritative voucher discount/consumption
-Phase 7 COMPLETE  promotion config -> server evaluation -> locked placement -> immutable promotion snapshots
-```
+## Phase 8 evidence
 
-Phase 7 keeps commercial authority on the server. Clients do not submit accepted promotion IDs, promotion discounts or totals. Active promotions are resolved from trusted configuration with branch/product/variant/add-on scope, windows, subtotal thresholds, member rules, usage limits, stacking and voucher-coexistence policy.
-
-Accepted orders expose distinct `voucherDiscountSen` and `promotionDiscountSen` components that reconcile to `discountSen`. Placement serializes candidate promotion configuration/usage, and accepted promotion applications persist immutable commercial snapshots.
-
-Dashboard promotion management remains behind the same-origin HttpOnly employee session/BFF and caller-JWT forwarding. Flutter and POS parse promotion authority fail-closed. Preview mode makes no privileged promotion requests.
-
-## Validated implementation heads
+Canonical migration:
 
 ```text
-Aida_System             c6abf24b498edb401af878f86d26e1c63a633121
-Aida_System-Dashboard   7e14326253b263412da5fa38f47bb137c31d7379
-Backend database audit #231   COMPLETE
-Customer release audit #311   COMPLETE
-Dashboard CI #147             COMPLETE
+20260916100000_create_reporting_audit_authority.sql
 ```
 
-## Live Phase 7 deployment
-
-Canonical repository migrations:
+Live migration history:
 
 ```text
-20260915100000_create_promotion_discount_authority.sql
-20260915101000_integrate_promotions_with_order_authority.sql
-20260915101100_normalize_phase7_nullable_voucher_quote.sql
+20260916013938_create_reporting_audit_authority
 ```
 
-Live Supabase applied-history entries created by the migration service on 2026-09-15:
+Validated implementation heads before the final governance-only documentation refresh:
 
 ```text
-20260915120917_create_promotion_discount_authority
-20260915121057_integrate_promotions_with_order_authority
-20260915121119_normalize_phase7_nullable_voucher_quote
+Aida_System             d56aa67d34a2bb006fe60033513c3fdf29b2c092
+Aida_System-Dashboard   36024d78778e86aa94ef8bc8a5602780e95f47c0
+Backend database audit #252   COMPLETE
+Dashboard CI #175              COMPLETE
 ```
 
-These live timestamps map to the three canonical repository files above. Do not rewrite already-applied live migration history merely to match repository filename timestamps.
+Fresh live advisors reported no Phase 8-created WARN/ERROR. The pre-existing Supabase Auth leaked-password-protection warning remains separate.
 
-Live verification after deployment:
+## Audit governance
 
-- project `eswovqxqzfevcdwwcmuh`: `ACTIVE_HEALTHY`;
-- all six promotion tables: RLS enabled + FORCE RLS;
-- no direct `anon` or `authenticated` CRUD grants on promotion tables;
-- Admin promotion, quote and placement RPCs/functions present with intended execute grants;
-- retired Phase 6 pending-voucher trigger absent;
-- no production promotions or promotion applications were inserted during deployment verification;
-- fresh security advisor: Phase 7 tables appear only as expected INFO `rls_enabled_no_policy`; sole WARN remains the pre-existing leaked-password-protection Auth setting;
-- fresh performance advisor: INFO unused-index findings only; no blocking performance lint.
-
-The database connector itself runs as `supabase_read_only_user` and cannot impersonate the app `anon` role, so a direct end-user RPC call was not made through that connector. Repository SQL/E2E gates validate the runtime RPC behavior; live verification validated deployment history, schema, grants and advisors without creating production order/test data.
-
-## PR boundaries
+Owner decision on 2026-09-16:
 
 ```text
-Aida_System             draft PR #27
-Aida_System-Dashboard   draft PR #24
+Phase 8 normal validation -> Phase 9
+Phase 9 normal validation -> Phase 10
+Phase 10 normal validation -> cumulative Phase 1–10 independent/Astra/Codex audit
 ```
 
-Both remain draft/unmerged. Phase completion does not authorize merge.
+Per-phase SQL/client/browser/release CI, live migration verification, advisors and documentation remain mandatory. Only the separate independent audit checkpoint is deferred.
 
-## Next phase rule
+## Branch / merge governance
 
-Phase 8–10 remain frozen. Do not begin Phase 8 or resume a later-phase scheduler unless the owner explicitly authorizes continuation.
+Phase PRs remain draft/unmerged unless the owner explicitly authorizes merge. Completion does not authorize merge.
+
+## Next action
+
+Require exact-head CI on this final Phase 8 documentation-only closeout. When green, create matching Phase 9 branches from those exact Phase 8 heads, write the mirrored Phase 9 plan, then implement provider-neutral payments/refunds/external-integration authority. Processor-specific activation remains subject to explicit credential/cost/provider approval.

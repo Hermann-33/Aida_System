@@ -1,70 +1,59 @@
 # AIDA Backend Completion Phases
 
-**Status:** Phases 1–7 `COMPLETE`; Phase 8–10 frozen  
-**Started:** 2026-09-10  
-**Updated:** 2026-09-15
+**Status:** Phases 1–8 `COMPLETE`; Phase 9 is next; Phase 10 follows Phase 9.  
+**Updated:** 2026-09-16
 
 ## Completion rule
 
-A phase is `COMPLETE` only when implementation, canonical migrations, authorization/regression coverage, affected client validation, live-backend verification where applicable, advisor review, synchronized documentation, deferred scope and App Store impact are recorded. Completion does not authorize PR merge or the next phase.
+A phase reaches engineering `COMPLETE` only when implementation, canonical migrations where applicable, authorization/regression coverage, affected client validation, live-backend verification/advisors where applicable, synchronized documentation, deferred scope and App Store impact are recorded.
+
+Owner governance change on 2026-09-16: the independent/Astra/Codex audit is deferred to one cumulative Phase 1–10 audit after Phase 10 implementation. Per-phase engineering validation is not deferred.
+
+Completion never authorizes PR merge.
 
 ## Phase status
 
-| Phase | Task | Status | Evidence |
-|---|---|---|---|
-| 1 — Operational topology | `TASK-OPS-002` | `COMPLETE` | Phase 1 closeout + cumulative remediation closeout |
-| 2 — Shift and cash authority | `TASK-OPS-003` | `COMPLETE` | Phase 2 closeout + cumulative remediation closeout |
-| 3 — Customer privacy/account requirements | `TASK-PRIVACY-001` | `COMPLETE` | Phase 3 closeout + cumulative remediation closeout |
-| 4 — Branch scheduling/pickup | `TASK-OPS-004` | `COMPLETE` | Phase 4 closeout + true contention regression |
-| 5 — Inventory and recipes | `TASK-OPS-005` | `COMPLETE` | Phase 5 closeout + true contention regression |
-| 6 — Loyalty, rewards and vouchers | `TASK-OPS-006` | `COMPLETE` | Phase 6 closeout + strict clients + true contention regression |
-| 7 — Promotions and discounts | `TASK-OPS-007` | `COMPLETE` | Phase 7 closeout + repository CI + live AIDA deployment/advisors |
+| Phase | Task | Verdict |
+|---|---|---|
+| 1 — Operational topology | `TASK-OPS-002` | `COMPLETE` |
+| 2 — Shift and cash authority | `TASK-OPS-003` | `COMPLETE` |
+| 3 — Customer privacy/account requirements | `TASK-PRIVACY-001` | `COMPLETE` |
+| 4 — Branch scheduling/pickup | `TASK-OPS-004` | `COMPLETE` |
+| 5 — Inventory and recipes | `TASK-OPS-005` | `COMPLETE` |
+| 6 — Loyalty, rewards and vouchers | `TASK-OPS-006` | `COMPLETE` |
+| 7 — Promotions and discounts | `TASK-OPS-007` | `COMPLETE` |
+| 8 — Reporting, accounting and audit | `TASK-OPS-008` | `COMPLETE` |
 
-## Phase 7 validated implementation boundary
-
-```text
-Aida_System             c6abf24b498edb401af878f86d26e1c63a633121
-Aida_System-Dashboard   7e14326253b263412da5fa38f47bb137c31d7379
-Backend database audit #231   COMPLETE
-Customer release audit #311   COMPLETE
-Dashboard CI #147             COMPLETE
-```
-
-Canonical migrations:
+## Phase 8 closeout baseline
 
 ```text
-20260915100000_create_promotion_discount_authority.sql
-20260915101000_integrate_promotions_with_order_authority.sql
-20260915101100_normalize_phase7_nullable_voucher_quote.sql
+Aida_System             d56aa67d34a2bb006fe60033513c3fdf29b2c092
+Aida_System-Dashboard   36024d78778e86aa94ef8bc8a5602780e95f47c0
+Backend database audit #252   COMPLETE
+Dashboard CI #175              COMPLETE
+Live migration         20260916013938_create_reporting_audit_authority
 ```
 
-Live AIDA migration-history mapping:
+Fresh live advisors found no Phase 8-created WARN/ERROR.
+
+## Phase 9 — payments, refunds and external integrations
+
+Phase 9 is the next authorized boundary after the final Phase 8 documentation-only exact-head CI. It must establish provider-neutral trusted state for payment intent, authorization, capture, failure/cancellation, settlement/reconciliation, refunds and webhook/idempotency handling without fabricating external processor outcomes.
+
+Cash/unpaid POS semantics remain valid. Processor-specific activation, merchant onboarding, paid services, webhook secrets and provider credentials require explicit owner approval.
+
+## Phase 10 — App Store release gate
+
+Phase 10 follows Phase 9 engineering completion and re-checks current official Apple requirements before submission-related changes. It owns final privacy/account-deletion, SDK/permission/privacy-manifest, metadata/review-access, production-backend and release-build validation.
+
+## Cumulative audit
+
+After Phase 10 engineering validation and documentation are complete:
 
 ```text
-20260915120917_create_promotion_discount_authority
-20260915121057_integrate_promotions_with_order_authority
-20260915121119_normalize_phase7_nullable_voucher_quote
+prepare Phase 1–10 audit package
+ -> run independent/Astra/Codex audit across both repositories and live boundaries
+ -> remediate findings
+ -> rerun affected validation
+ -> final cumulative COMPLETE verdict
 ```
-
-Live project `eswovqxqzfevcdwwcmuh` is `ACTIVE_HEALTHY`. Phase 7 tables were verified with RLS + FORCE RLS and no direct anon/authenticated CRUD grants. Fresh security advisors added only expected INFO RPC-only RLS/no-policy findings; the sole WARN remains the pre-existing leaked-password-protection setting. Fresh performance advisors contain INFO unused-index findings only.
-
-## Dependency chain
-
-```text
-Phase 1 COMPLETE
- -> Phase 2 COMPLETE
- -> Phase 3 COMPLETE
- -> Phase 4 COMPLETE
- -> Phase 5 COMPLETE
- -> Phase 6 COMPLETE
- -> Phase 7 COMPLETE
- -X-> Phase 8 FROZEN pending explicit owner authorization
-```
-
-## Later phases
-
-- Phase 8 — reporting, accounting and audit — `FROZEN`
-- Phase 9 — payments, refunds and external integrations — `FROZEN`
-- Phase 10 — App Store release gate — `FROZEN`
-
-Do not begin Phase 8, resume a later-phase scheduler or merge Phase 7 PRs without explicit owner authorization.

@@ -1,68 +1,82 @@
 # Supabase Status
 
-**Status date:** 2026-09-15  
+**Status date:** 2026-09-16  
 **Project:** Aida System  
 **Ref:** `eswovqxqzfevcdwwcmuh`  
 **Region:** `ap-southeast-1`  
 **Current state:** `ACTIVE_HEALTHY`  
-**Current verdict:** Phase 7 live deployment/advisor boundary `COMPLETE`.
+**Current verdict:** Phase 8 live deployment/advisor boundary `COMPLETE`; Phase 8 engineering verdict `COMPLETE` under the owner-approved cumulative-audit deferral.
 
 Canonical executable migrations live only in `Hermann-33/Aida_System/supabase/migrations/`.
 
-## Phase 7 live deployment
-
-Canonical repository migrations:
+## Phase 7 live baseline
 
 ```text
-20260915100000_create_promotion_discount_authority.sql
-20260915101000_integrate_promotions_with_order_authority.sql
-20260915101100_normalize_phase7_nullable_voucher_quote.sql
+canonical 20260915100000_create_promotion_discount_authority.sql
+live      20260915120917_create_promotion_discount_authority
+
+canonical 20260915101000_integrate_promotions_with_order_authority.sql
+live      20260915121057_integrate_promotions_with_order_authority
+
+canonical 20260915101100_normalize_phase7_nullable_voucher_quote.sql
+live      20260915121119_normalize_phase7_nullable_voucher_quote
 ```
 
-Migration-service live history:
+## Phase 8 live deployment
 
 ```text
-20260915120917_create_promotion_discount_authority
-20260915121057_integrate_promotions_with_order_authority
-20260915121119_normalize_phase7_nullable_voucher_quote
+canonical 20260916100000_create_reporting_audit_authority.sql
+live      20260916013938_create_reporting_audit_authority
 ```
 
-The live versions are historical deployment identifiers generated when the canonical SQL was applied. Do not rewrite applied migration history to force timestamp equality with repository filenames.
+The migration-service timestamp is the historical live identifier; applied history must not be rewritten to match the repository filename.
 
-## Live verification
+No Phase 8 production fixture/reporting data was inserted.
 
-Post-deployment verification confirmed:
+## Live Phase 8 verification
 
-- `promotions`, `promotion_branches`, `promotion_items`, `promotion_variants`, `promotion_addons`, `promotion_order_applications` exist;
-- every Phase 7 table has RLS enabled and FORCE RLS enabled;
-- `anon` has no direct SELECT/INSERT privilege on Phase 7 tables;
-- `authenticated` has no direct SELECT/INSERT/UPDATE/DELETE privilege on Phase 7 tables;
-- `get_promotion_admin_state`, `save_promotion`, `quote_order`, customer placement and POS placement functions are present;
-- expected authenticated/anon execute grants are present on public RPC boundaries;
-- the old `orders_consume_pending_voucher` trigger is retired;
-- zero promotion rows and zero promotion application rows existed immediately after deployment verification, so no production fixture data was introduced.
+The live project contains:
 
-The SQL inspection connector runs as `supabase_read_only_user` and cannot switch to `anon`, so it cannot directly execute the public app RPC despite the app-role grants being present. Runtime RPC behavior remains covered by the blocking local database and client/browser regressions; live verification intentionally avoided creating production test orders/promotions.
+```text
+public.get_admin_reporting_summary(jsonb)
+public.get_admin_transaction_report(jsonb)
+public.get_admin_audit_events(jsonb)
+```
 
-## Fresh advisors after Phase 7 DDL
+Verified:
 
-### Security
+- public reporting RPCs are `SECURITY INVOKER`;
+- public `search_path` is `public, pg_temp`;
+- `anon` cannot execute them;
+- `authenticated` can execute the public RPCs;
+- `private.require_reporting_admin(uuid)` is `SECURITY DEFINER`, empty `search_path`, not directly executable by anon/authenticated;
+- guarded private reporting/filter implementations are `SECURITY DEFINER` with empty `search_path`;
+- Phase 8 created no report table and no parallel mutation authority.
 
-- INFO `rls_enabled_no_policy` appears on the six Phase 7 RPC-only promotion tables and the existing RPC-only loyalty tables. This is intentional because direct table grants are revoked and access is through controlled RPCs.
-- The only WARN is the existing `auth_leaked_password_protection` setting being disabled. This pre-dates Phase 7 and is a Supabase Auth configuration item, not a Phase 7 schema defect.
-- Remediation reference: https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection
+## Fresh advisors
 
-### Performance
+Security after Phase 8 DDL:
 
-- Advisor output contains INFO `unused_index` findings only, including newly created Phase 7 indexes before production usage accumulates.
-- No blocking missing-index or other performance warning was reported.
+- INFO `rls_enabled_no_policy` remains on pre-existing RPC-only loyalty/promotion authority tables;
+- one pre-existing WARN: Supabase Auth leaked-password protection disabled;
+- no Phase 8-created security WARN/ERROR.
+
+Remediation reference: https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection
+
+Performance after Phase 8 DDL:
+
+- INFO unused-index observations only on existing indexes;
+- no Phase 8-created performance WARN/ERROR.
 
 ## Repository validation paired with live state
 
 ```text
-Backend database audit #231   COMPLETE
-Customer release audit #311   COMPLETE
-Dashboard CI #147             COMPLETE
+Aida_System             d56aa67d34a2bb006fe60033513c3fdf29b2c092
+Aida_System-Dashboard   36024d78778e86aa94ef8bc8a5602780e95f47c0
+Backend database audit #252   COMPLETE
+Dashboard CI #175              COMPLETE
 ```
 
-Phases 1–7 are now `COMPLETE` against the defined boundary. Phase 8–10 remain frozen pending explicit owner authorization.
+## Next live boundary
+
+Phase 9 may add provider-neutral payment/refund schema and RPC authority through canonical migrations. Any processor-specific live integration requiring credentials, merchant setup, webhook secret or paid service needs explicit owner approval. Fresh security/performance advisors remain mandatory after each Phase 9 DDL batch.

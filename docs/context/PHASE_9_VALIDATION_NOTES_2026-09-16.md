@@ -36,7 +36,9 @@ No processor is activated and no provider credentials/secrets are committed. Wit
 
 Backend database audit #261 at exact head `06479ccba677c6915aefd54d1a910b5581f9eb81` passed every Phase 1–8 regression and failed only at `Payment and refund authority regression`; downstream contention gates were correctly skipped.
 
-Static inspection isolated a test-harness defect: the regression denied authenticated direct-table access and then contradicted that contract by selecting refund IDs directly from `payment_refunds`. Commit `8ca2209b4f1d2af28af4dd05f1cf826588b42b33` repairs the test without weakening production authority: refund IDs are now extracted from the protected `refunds` array returned by the payment RPC snapshot. Exact-head clean CI remains required before this regression boundary is accepted.
+Static inspection isolated a test-harness defect: the regression denied authenticated direct-table access and then contradicted that contract by selecting refund IDs directly from `payment_refunds`. Commit `8ca2209b4f1d2af28af4dd05f1cf826588b42b33` repairs the test without weakening production authority: refund IDs are now extracted from the protected `refunds` array returned by the payment RPC snapshot.
+
+Backend database audit #264 then exposed the next real boundary at `payment_refund_authority_integration.sql:134`: `public.apply_payment_provider_event(...)` is a SECURITY INVOKER wrapper whose explicitly granted private implementation could not be resolved because `service_role` lacked `USAGE` on schema `private`. The same schema-resolution requirement applies to authenticated Phase 9 invoker wrappers. Canonical corrective migration `20260916111000_grant_phase9_private_rpc_schema_usage.sql` grants only schema `USAGE` to `authenticated` and `service_role`; it does not grant table access or any additional function execution. Exact-head clean CI remains required.
 
 ## Live Supabase inspection boundary
 

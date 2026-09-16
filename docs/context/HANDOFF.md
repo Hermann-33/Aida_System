@@ -4,7 +4,7 @@ Updated: 2026-09-16
 
 ## Current boundary
 
-Phases 1–7 are `COMPLETE` against their defined authority/validation/deployment boundaries. Phase 8 is `PARTIAL` and actively implementing read-only reporting/accounting/audit projections. Phase 9–10 remain frozen.
+Phases 1–7 are `COMPLETE`. Phase 8 is `PARTIAL` with backend authority and the four Dashboard reporting surfaces implemented; fresh exact-head Dashboard validation, live migration/advisors and the independent audit boundary remain. Phase 9–10 are frozen.
 
 ## Final Phase 7 evidence
 
@@ -16,81 +16,84 @@ Customer release audit #314   COMPLETE
 Dashboard CI #149             COMPLETE
 ```
 
-The final Dashboard gate includes lint, typecheck, unit tests, live POS browser regression, preview-isolation browser regression and production build.
+## Phase 8 backend authority
 
-## Phase 7 live Supabase state
-
-Project `eswovqxqzfevcdwwcmuh` remains the shared AIDA backend.
-
-Canonical Phase 7 repository migrations:
+Canonical migration:
 
 ```text
-20260915100000_create_promotion_discount_authority.sql
-20260915101000_integrate_promotions_with_order_authority.sql
-20260915101100_normalize_phase7_nullable_voucher_quote.sql
+supabase/migrations/20260916100000_create_reporting_audit_authority.sql
 ```
 
-Live applied-history entries:
+Read-only authenticated Admin/Owner RPCs:
 
 ```text
-20260915120917_create_promotion_discount_authority
-20260915121057_integrate_promotions_with_order_authority
-20260915121119_normalize_phase7_nullable_voucher_quote
+public.get_admin_reporting_summary(jsonb)
+public.get_admin_transaction_report(jsonb)
+public.get_admin_audit_events(jsonb)
 ```
 
-Do not rewrite already-applied migration-service timestamps.
+The contract reports trusted Phase 1–7 facts only. Commercial totals are accepted order value, not processor settlement. Voucher and promotion discounts remain separate. Refund/settlement facts are explicitly absent until Phase 9.
 
-## Phase 8 branch baseline
+Backend database audit #239 passed the full Phase 1–8 regression chain. A later documentation head passed audit #243.
+
+## Phase 8 Dashboard implementation
+
+Production reporting now uses the same-origin HttpOnly employee-session BFF + caller JWT on:
 
 ```text
-Aida_System             codex/phase-8-reporting-accounting-audit
-  starts from 8f37d838fc4659a1e1d3a5dcae43887a796ca2be
-
-Aida_System-Dashboard   codex/phase-8-reporting-accounting-audit
-  starts from c70fc8cd39f447eb68a0470e657d121db5c0f90f
+/admin
+/admin/reports/sales
+/admin/reports/transactions
+/admin/system/audit
 ```
 
-The detailed plan is `docs/context/PHASE_8_REPORTING_ACCOUNTING_AUDIT_PLAN_2026-09-16.md`.
+The client parser is strict and validates summary, transaction and audit contracts before rendering. Production fixture authority was removed from these four pages. Preview mode remains sample-only and does not call privileged reporting endpoints.
 
-## Phase 8 implementation order
+Important Dashboard implementation commits in this increment:
 
-1. Establish narrow caller-bound reporting/audit RPCs over trusted Phase 1–7 facts.
-2. Add blocking SQL authorization/reconciliation/pagination regressions.
-3. Preserve all existing Phase 1–7 database and contention gates.
-4. Add Dashboard same-origin reporting BFF + strict client/parser contract.
-5. Replace production fixture use in Executive Dashboard, Sales & Performance, Transactions and Audit pages.
-6. Preserve preview fixture isolation and prove no privileged reporting calls in preview.
-7. Deploy canonical Phase 8 migrations only after repository gates are green.
-8. Run fresh live Supabase security/performance advisors and synchronize closeout docs.
-9. Run Astra audit before Phase 9.
+```text
+13cece551c0dc4916714795801d95f06f0b79519  strict reporting parser
+782d9bac687241f5c298cf1ec73930f2c56a74e7  live Transactions
+bbedd3be563be946cd94920c6735b53386535168  live Audit
+59013f77720735d8bffb06ba1f1c5925fbcfba96  live Executive Dashboard
+39f35b5fb6918f6181c674aec2975009d01fd5de  live Sales & Performance
+1ed51f6bc7826f26630a61f1ec675f85190348f8  strict parser regression tests
+404d60c41a31826a5605edd3310177c772198cf3  reporting preview isolation browser test
+c9355880395d5c087df7e30874eab8601a95336e  include reporting preview test in CI
+```
 
-## Reporting semantics
+## Validation state
 
-Phase 8 is operational reporting/reconciliation, not invented statutory accounting.
+Dashboard CI #156 was the last confirmed failure before this complete UI batch. It failed only at Typecheck because the reporting test mock was inferred with zero arguments. That defect has been fixed. The current UI/client/test batch requires a fresh exact-head CI run.
 
-Use persisted facts for accepted order totals, separate voucher/promotion discounts, topology, shifts/cash, loyalty applications and inventory movements. Do not manufacture VAT/SST, profit, COGS, processor settlement or refund facts that are not authoritatively stored.
+Do not treat Phase 8 as green until the new head passes:
 
-Any missing audit/report fact must be represented as unavailable/incomplete rather than inferred from preview data.
+- lint;
+- typecheck;
+- unit tests;
+- live POS browser regression;
+- preview isolation including Phase 8 reporting pages;
+- production build.
 
-## Security invariants
+## Live Phase 8 deployment rule
 
-- reporting is read-only;
-- Admin/Owner and branch scope are server-enforced;
-- Dashboard keeps HttpOnly employee session + same-origin BFF + caller JWT forwarding;
-- no service-role browser path;
-- no browser-readable reusable employee/terminal credential;
-- no widened direct table grants for convenience;
-- preview never contacts privileged report RPCs;
-- avoid unnecessary customer PII in reports.
+The Phase 8 migration is not considered live merely because repository CI passes. After exact-head repository validation:
 
-## Apple boundary
+1. verify current Supabase platform guidance/changelog as required by the project Supabase workflow;
+2. inspect live migration history for project `eswovqxqzfevcdwwcmuh`;
+3. apply only the canonical Phase 8 migration through migration tooling;
+4. verify function/grant state;
+5. run fresh security and performance advisors;
+6. resolve any Phase 8-created actionable finding before closure.
 
-Phase 8 does not introduce digital entitlements, StoreKit/IAP, tracking SDKs or protected-device permissions. It reports operational facts for physical café goods. Phase 9 owns payment/refund integrations; final App Store submission remains Phase 10.
+## Audit / sequencing gate
+
+Phase 8 needs synchronized closeout evidence and the required independent/Astra audit boundary before Phase 9. Do not impersonate or fabricate an external audit result. If the audit cannot be executed with available tooling, record the exact blocker rather than silently skipping it.
 
 ## Merge governance
 
-Phase 7 PRs remain draft/unmerged. Phase 8 work must also remain draft/unmerged until explicit owner authorization. Phase 8 completion does not itself authorize Phase 9 or merge.
+Both Phase 8 branches/PRs remain draft and unmerged. Completion does not authorize merge.
 
 ## Immediate next action
 
-Implement and test the first Phase 8 reporting/audit Supabase RPC contract before wiring Dashboard production pages.
+Check the exact current Dashboard head and its new CI result. Repair only confirmed failures. Once Dashboard is green, perform live Phase 8 deployment/advisor verification, synchronize closeout docs and resolve the independent audit gate before starting Phase 9.

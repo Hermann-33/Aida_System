@@ -31,115 +31,75 @@ jobs:
 
       - name: Branch authority regression
         run: >-
-          psql
-          postgresql://postgres:postgres@127.0.0.1:54322/postgres
-          -v ON_ERROR_STOP=1
-          -f supabase/tests/branch_authority_integration.sql
+          psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f supabase/tests/branch_authority_integration.sql
 
       - name: Operational topology regression
         run: >-
-          psql
-          postgresql://postgres:postgres@127.0.0.1:54322/postgres
-          -v ON_ERROR_STOP=1
-          -f supabase/tests/operational_topology_integration.sql
+          psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f supabase/tests/operational_topology_integration.sql
 
       - name: Order regression
         run: >-
-          psql
-          postgresql://postgres:postgres@127.0.0.1:54322/postgres
-          -v ON_ERROR_STOP=1
-          -f supabase/tests/order_integration.sql
+          psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f supabase/tests/order_integration.sql
 
       - name: Scheduled order operations regression
         run: >-
-          psql
-          postgresql://postgres:postgres@127.0.0.1:54322/postgres
-          -v ON_ERROR_STOP=1
-          -f supabase/tests/scheduled_order_operations_integration.sql
+          psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f supabase/tests/scheduled_order_operations_integration.sql
 
       - name: Shift and cash authority regression
         run: >-
-          psql
-          postgresql://postgres:postgres@127.0.0.1:54322/postgres
-          -v ON_ERROR_STOP=1
-          -f supabase/tests/shift_cash_authority_integration.sql
+          psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f supabase/tests/shift_cash_authority_integration.sql
 
       - name: Customer privacy and account deletion regression
         run: >-
-          psql
-          postgresql://postgres:postgres@127.0.0.1:54322/postgres
-          -v ON_ERROR_STOP=1
-          -f supabase/tests/customer_privacy_account_integration.sql
+          psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f supabase/tests/customer_privacy_account_integration.sql
 
       - name: Customer retained free-text deletion regression
         run: >-
-          psql
-          postgresql://postgres:postgres@127.0.0.1:54322/postgres
-          -v ON_ERROR_STOP=1
-          -f supabase/tests/customer_privacy_free_text_integration.sql
+          psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f supabase/tests/customer_privacy_free_text_integration.sql
 
       - name: Student verification deletion regression
         run: >-
-          psql
-          postgresql://postgres:postgres@127.0.0.1:54322/postgres
-          -v ON_ERROR_STOP=1
-          -f supabase/tests/customer_privacy_student_cascade_integration.sql
+          psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f supabase/tests/customer_privacy_student_cascade_integration.sql
 
       - name: Phase 1-3 audit remediation regression
         run: >-
-          psql
-          postgresql://postgres:postgres@127.0.0.1:54322/postgres
-          -v ON_ERROR_STOP=1
-          -f supabase/tests/phase123_audit_remediation_integration.sql
+          psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f supabase/tests/phase123_audit_remediation_integration.sql
 
       - name: Branch scheduling and pickup regression
         run: >-
-          psql
-          postgresql://postgres:postgres@127.0.0.1:54322/postgres
-          -v ON_ERROR_STOP=1
-          -f supabase/tests/branch_scheduling_pickup_integration.sql
+          psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f supabase/tests/branch_scheduling_pickup_integration.sql
 
       - name: Inventory and recipes regression
         run: >-
-          psql
-          postgresql://postgres:postgres@127.0.0.1:54322/postgres
-          -v ON_ERROR_STOP=1
-          -f supabase/tests/inventory_recipes_integration.sql
+          psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f supabase/tests/inventory_recipes_integration.sql
 
       - name: Loyalty, rewards and vouchers regression
         run: >-
-          psql
-          postgresql://postgres:postgres@127.0.0.1:54322/postgres
-          -v ON_ERROR_STOP=1
-          -f supabase/tests/loyalty_rewards_vouchers_integration.sql
+          psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f supabase/tests/loyalty_rewards_vouchers_integration.sql
 
       - name: Loyalty program configuration regression
         run: >-
-          psql
-          postgresql://postgres:postgres@127.0.0.1:54322/postgres
-          -v ON_ERROR_STOP=1
-          -f supabase/tests/loyalty_program_configuration_integration.sql
+          psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f supabase/tests/loyalty_program_configuration_integration.sql
 
       - name: POS loyalty lookup contract regression
         run: >-
-          psql
-          postgresql://postgres:postgres@127.0.0.1:54322/postgres
-          -v ON_ERROR_STOP=1
-          -f supabase/tests/pos_loyalty_lookup_contract.sql
+          psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f supabase/tests/pos_loyalty_lookup_contract.sql
 
       - name: Promotion and discount authority regression
         run: >-
-          psql
-          postgresql://postgres:postgres@127.0.0.1:54322/postgres
-          -v ON_ERROR_STOP=1
-          -f supabase/tests/promotion_discount_authority_integration.sql
+          psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f supabase/tests/promotion_discount_authority_integration.sql
 
       - name: Promotion quote and placement regression
         run: >-
-          psql
-          postgresql://postgres:postgres@127.0.0.1:54322/postgres
-          -v ON_ERROR_STOP=1
-          -f supabase/tests/promotion_discount_order_integration.sql
+          psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f supabase/tests/promotion_discount_order_integration.sql
+
+      - name: Seed Phase 8 reporting fixture
+        run: >-
+          psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f supabase/tests/reporting_accounting_audit_fixture.sql
+
+      - name: Reporting, reconciliation and audit regression
+        run: >-
+          psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f supabase/tests/reporting_accounting_audit_integration.sql
 
       - name: Phase 4-6 true contention regression
         run: bash supabase/tests/phase456_concurrency_regression.sh

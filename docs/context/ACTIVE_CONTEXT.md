@@ -1,8 +1,8 @@
 # Active Context
 
-**As of:** 2026-09-15  
-**Current boundary:** Phase 7 — promotions and discounts  
-**Current verdict:** `COMPLETE` against the defined Phase 7 implementation, live-deployment, advisor and documentation boundary. Phase 8–10 remain frozen until explicit owner authorization.
+**As of:** 2026-09-16  
+**Current boundary:** Phase 8 — reporting, accounting and audit  
+**Current verdict:** `PARTIAL` — implementation substantially complete; live deployment/advisors and independent audit still pending. Phase 7 is `COMPLETE`; Phase 9–10 remain frozen.
 
 ## Product topology
 
@@ -11,76 +11,87 @@
 - shared Supabase project: `Aida System`, ref `eswovqxqzfevcdwwcmuh`, region `ap-southeast-1`
 - canonical executable migrations: `Hermann-33/Aida_System/supabase/migrations/` only
 
-## Authority completed through Phase 7
+## Completed authority through Phase 7
 
 ```text
-Phase 1 COMPLETE  branch -> sales point -> terminal -> employee branch scope -> POS attribution
-Phase 2 COMPLETE  terminal + employee -> shift -> POS order / cash ledger
-Phase 3 COMPLETE  customer -> privacy/account deletion -> anonymized retained history
-Phase 4 COMPLETE  branch calendar/policy -> pickup capacity -> authoritative quote/place
-Phase 5 COMPLETE  recipe -> branch inventory -> transactional depletion/reversal
-Phase 6 COMPLETE  member -> loyalty -> reward/voucher -> authoritative voucher discount/consumption
-Phase 7 COMPLETE  promotion config -> server evaluation -> locked placement -> immutable promotion snapshots
+Phase 1 COMPLETE  operational topology
+Phase 2 COMPLETE  shifts and cash authority
+Phase 3 COMPLETE  customer privacy/account deletion
+Phase 4 COMPLETE  branch scheduling/pickup capacity
+Phase 5 COMPLETE  inventory and recipes
+Phase 6 COMPLETE  loyalty/rewards/vouchers
+Phase 7 COMPLETE  promotions and discounts
+Phase 8 PARTIAL   read-only operational reporting/reconciliation/audit projections
 ```
 
-Phase 7 keeps commercial authority on the server. Clients do not submit accepted promotion IDs, promotion discounts or totals. Active promotions are resolved from trusted configuration with branch/product/variant/add-on scope, windows, subtotal thresholds, member rules, usage limits, stacking and voucher-coexistence policy.
-
-Accepted orders expose distinct `voucherDiscountSen` and `promotionDiscountSen` components that reconcile to `discountSen`. Placement serializes candidate promotion configuration/usage, and accepted promotion applications persist immutable commercial snapshots.
-
-Dashboard promotion management remains behind the same-origin HttpOnly employee session/BFF and caller-JWT forwarding. Flutter and POS parse promotion authority fail-closed. Preview mode makes no privileged promotion requests.
-
-## Validated implementation heads
+## Phase 7 closure baseline
 
 ```text
-Aida_System             c6abf24b498edb401af878f86d26e1c63a633121
-Aida_System-Dashboard   7e14326253b263412da5fa38f47bb137c31d7379
-Backend database audit #231   COMPLETE
-Customer release audit #311   COMPLETE
-Dashboard CI #147             COMPLETE
+Aida_System             8f37d838fc4659a1e1d3a5dcae43887a796ca2be
+Aida_System-Dashboard   c70fc8cd39f447eb68a0470e657d121db5c0f90f
+Backend database audit #234   COMPLETE
+Customer release audit #314   COMPLETE
+Dashboard CI #149             COMPLETE
 ```
 
-## Live Phase 7 deployment
+## Phase 8 backend state
 
-Canonical repository migrations:
+Canonical migration:
 
 ```text
-20260915100000_create_promotion_discount_authority.sql
-20260915101000_integrate_promotions_with_order_authority.sql
-20260915101100_normalize_phase7_nullable_voucher_quote.sql
+supabase/migrations/20260916100000_create_reporting_audit_authority.sql
 ```
 
-Live Supabase applied-history entries created by the migration service on 2026-09-15:
+It exposes narrow caller-bound Admin/Owner read RPCs for:
+
+- operational summary/reconciliation;
+- paginated transaction detail;
+- source-backed audit events.
+
+Trusted reporting includes accepted order value, separate voucher/promotion discounts, paid POS cash, shift/cash reconciliation, product/branch/sales-point attribution, loyalty/application counts and inventory movements.
+
+It deliberately does **not** invent statutory accounting, tax, COGS/profit, processor settlement or refund facts.
+
+Backend database audit #239 passed the complete Phase 1–8 regression chain. A later documentation head also passed backend audit #243.
+
+## Phase 8 Dashboard state
+
+The production reporting boundary is now wired through the same-origin HttpOnly employee BFF and caller JWT for:
+
+- `AdminOverviewPage`;
+- `AdminSalesPerformancePage`;
+- `AdminTransactionsPage`;
+- `AdminAuditPage`.
+
+Live pages consume strict parsed reporting RPC output. Preview mode remains fixture-only and a dedicated Playwright regression asserts that all four preview reporting surfaces make zero privileged `/api/v1/admin/reporting/*` requests.
+
+Production labels use **accepted order value**, not captured/settled sales. Refund/processor state is explicitly unavailable until Phase 9.
+
+## Current validation boundary
+
+Dashboard CI #156 previously failed at Typecheck because the reporting test fetch mock was inferred as zero-argument. That defect is fixed. The reporting client has since been made strict, all four production pages were converted, parser tests hardened and the reporting preview-isolation test added to the blocking preview E2E command.
+
+The current Dashboard implementation batch now requires a fresh exact-head CI pass before acceptance.
+
+## Remaining Phase 8 closure
+
+1. Exact-head Dashboard lint/typecheck/unit/live-POS/preview-isolation/build green.
+2. Final backend/customer exact-head gates green after synchronized docs.
+3. Deploy canonical Phase 8 migration to live AIDA Supabase.
+4. Verify live RPC/grant state and migration history.
+5. Run fresh Supabase security and performance advisors.
+6. Synchronize Phase 8 closeout evidence across both repositories.
+7. Complete or explicitly accept the required independent/Astra audit boundary before Phase 9.
+
+## Branch / merge governance
 
 ```text
-20260915120917_create_promotion_discount_authority
-20260915121057_integrate_promotions_with_order_authority
-20260915121119_normalize_phase7_nullable_voucher_quote
+Aida_System             codex/phase-8-reporting-accounting-audit
+Aida_System-Dashboard   codex/phase-8-reporting-accounting-audit
 ```
 
-These live timestamps map to the three canonical repository files above. Do not rewrite already-applied live migration history merely to match repository filename timestamps.
+Phase 8 PRs remain draft/unmerged. Completion does not authorize merge. Phase 9 must not begin while Phase 8 remains `PARTIAL`.
 
-Live verification after deployment:
+## Next action
 
-- project `eswovqxqzfevcdwwcmuh`: `ACTIVE_HEALTHY`;
-- all six promotion tables: RLS enabled + FORCE RLS;
-- no direct `anon` or `authenticated` CRUD grants on promotion tables;
-- Admin promotion, quote and placement RPCs/functions present with intended execute grants;
-- retired Phase 6 pending-voucher trigger absent;
-- no production promotions or promotion applications were inserted during deployment verification;
-- fresh security advisor: Phase 7 tables appear only as expected INFO `rls_enabled_no_policy`; sole WARN remains the pre-existing leaked-password-protection Auth setting;
-- fresh performance advisor: INFO unused-index findings only; no blocking performance lint.
-
-The database connector itself runs as `supabase_read_only_user` and cannot impersonate the app `anon` role, so a direct end-user RPC call was not made through that connector. Repository SQL/E2E gates validate the runtime RPC behavior; live verification validated deployment history, schema, grants and advisors without creating production order/test data.
-
-## PR boundaries
-
-```text
-Aida_System             draft PR #27
-Aida_System-Dashboard   draft PR #24
-```
-
-Both remain draft/unmerged. Phase completion does not authorize merge.
-
-## Next phase rule
-
-Phase 8–10 remain frozen. Do not begin Phase 8 or resume a later-phase scheduler unless the owner explicitly authorizes continuation.
+Run and repair the fresh Dashboard exact-head validation for the complete Phase 8 reporting UI batch. If green, proceed to live Phase 8 migration/advisor verification and synchronized closeout/audit evidence.

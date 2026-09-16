@@ -36,15 +36,15 @@ No processor is activated and no provider credentials/secrets are committed. Wit
 
 Backend database audit #261 at exact head `06479ccba677c6915aefd54d1a910b5581f9eb81` passed every Phase 1–8 regression and failed only at `Payment and refund authority regression`; downstream contention gates were correctly skipped.
 
-Static inspection isolated a test-harness defect that violates the boundary the same test asserts: after proving `authenticated` has no direct privileges on `public.payment_refunds`, the regression later executes direct `select` queries against that table while still under `set local role authenticated` to discover refund IDs. The public payment snapshot already exposes refund IDs through its protected `refunds` array, so the regression must obtain IDs from the RPC response rather than weakening table grants. Production grants must not be relaxed to make the test green.
+Static inspection isolated a test-harness defect: the regression denied authenticated direct-table access and then contradicted that contract by selecting refund IDs directly from `payment_refunds`. Commit `8ca2209b4f1d2af28af4dd05f1cf826588b42b33` repairs the test without weakening production authority: refund IDs are now extracted from the protected `refunds` array returned by the payment RPC snapshot. Exact-head clean CI remains required before this regression boundary is accepted.
 
 ## Live Supabase inspection boundary
 
-The Supabase connection available in this run exposes only project `Stone Set` (`pjltldrernuvrjsnmcqg`), not the documented AIDA project `eswovqxqzfevcdwwcmuh`. No Phase 9 migration was applied and no AIDA live state/advisor claim was made from the wrong project.
+The Supabase connection available in the prior inspection exposed only project `Stone Set` (`pjltldrernuvrjsnmcqg`), not the documented AIDA project `eswovqxqzfevcdwwcmuh`. No Phase 9 migration was applied and no AIDA live state/advisor claim was made from the wrong project.
 
 ## Current validation boundary
 
-The Phase 9 migration/test batch is not accepted. Repair the regression to consume refund IDs from the protected RPC snapshot, rerun the clean database audit through the historical contention gates, then add the required true simultaneous refund contention and cash-refund end-to-end coverage before Dashboard/customer wiring and live deployment.
+The Phase 9 migration/test batch remains `PARTIAL` until the clean database audit reruns successfully through the historical contention gates. After that, true simultaneous refund contention and cash-refund end-to-end coverage remain required before Dashboard/customer wiring and live deployment.
 
 ## External activation boundary
 

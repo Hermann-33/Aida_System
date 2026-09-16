@@ -32,25 +32,19 @@ No processor is activated and no provider credentials/secrets are committed. Wit
 
 ## Blocking regression
 
-`supabase/tests/payment_refund_authority_integration.sql` covers:
+`supabase/tests/payment_refund_authority_integration.sql` covers grants/direct-table denial, intent idempotency, authorization/capture/settlement separation, provider-event replay conflicts, refund reservation, partial/full refund projection, cancellation protection, provider-unavailable failure and append-only history.
 
-- grants and direct-table denial;
-- external intent idempotency;
-- authorization vs capture vs settlement separation;
-- provider-event replay/digest conflict handling;
-- refund reservation and overrun denial;
-- partial/full refund projection;
-- cancellation blocked until full refund;
-- fail-closed provider-unavailable behavior;
-- append-only payment event history.
+Backend database audit #261 at exact head `06479ccba677c6915aefd54d1a910b5581f9eb81` passed every Phase 1–8 regression and failed only at `Payment and refund authority regression`; downstream contention gates were correctly skipped.
 
-The backend database audit workflow now runs this regression after the Phase 8 report regression and before historical contention gates.
+Static inspection isolated a test-harness defect that violates the boundary the same test asserts: after proving `authenticated` has no direct privileges on `public.payment_refunds`, the regression later executes direct `select` queries against that table while still under `set local role authenticated` to discover refund IDs. The public payment snapshot already exposes refund IDs through its protected `refunds` array, so the regression must obtain IDs from the RPC response rather than weakening table grants. Production grants must not be relaxed to make the test green.
+
+## Live Supabase inspection boundary
+
+The Supabase connection available in this run exposes only project `Stone Set` (`pjltldrernuvrjsnmcqg`), not the documented AIDA project `eswovqxqzfevcdwwcmuh`. No Phase 9 migration was applied and no AIDA live state/advisor claim was made from the wrong project.
 
 ## Current validation boundary
 
-The first Phase 9 migration/test batch is **not yet accepted**. The exact-head database audit must complete cleanly; any migration/replay or test defect is repaired before Dashboard/customer Phase 9 wiring proceeds.
-
-True simultaneous refund contention and cash-refund end-to-end coverage remain required before Phase 9 engineering closure.
+The Phase 9 migration/test batch is not accepted. Repair the regression to consume refund IDs from the protected RPC snapshot, rerun the clean database audit through the historical contention gates, then add the required true simultaneous refund contention and cash-refund end-to-end coverage before Dashboard/customer wiring and live deployment.
 
 ## External activation boundary
 

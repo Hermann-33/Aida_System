@@ -2,7 +2,7 @@
 
 **As of:** 2026-09-16  
 **Current boundary:** Phase 8 — reporting, accounting and audit  
-**Current verdict:** `PARTIAL` — active implementation. Phase 7 is `COMPLETE`; Phase 9–10 remain frozen.
+**Current verdict:** `PARTIAL` — implementation substantially complete; live deployment/advisors and independent audit still pending. Phase 7 is `COMPLETE`; Phase 9–10 remain frozen.
 
 ## Product topology
 
@@ -14,14 +14,14 @@
 ## Completed authority through Phase 7
 
 ```text
-Phase 1 COMPLETE  branch -> sales point -> terminal -> employee branch scope -> POS attribution
-Phase 2 COMPLETE  terminal + employee -> shift -> POS order / cash ledger
-Phase 3 COMPLETE  customer -> privacy/account deletion -> anonymized retained history
-Phase 4 COMPLETE  branch calendar/policy -> pickup capacity -> authoritative quote/place
-Phase 5 COMPLETE  recipe -> branch inventory -> transactional depletion/reversal
-Phase 6 COMPLETE  member -> loyalty -> reward/voucher -> authoritative voucher discount/consumption
-Phase 7 COMPLETE  promotion config -> server evaluation -> locked placement -> immutable promotion snapshots
-Phase 8 PARTIAL   trusted Phase 1–7 facts -> read-only operational reports/audit projections
+Phase 1 COMPLETE  operational topology
+Phase 2 COMPLETE  shifts and cash authority
+Phase 3 COMPLETE  customer privacy/account deletion
+Phase 4 COMPLETE  branch scheduling/pickup capacity
+Phase 5 COMPLETE  inventory and recipes
+Phase 6 COMPLETE  loyalty/rewards/vouchers
+Phase 7 COMPLETE  promotions and discounts
+Phase 8 PARTIAL   read-only operational reporting/reconciliation/audit projections
 ```
 
 ## Phase 7 closure baseline
@@ -34,52 +34,64 @@ Customer release audit #314   COMPLETE
 Dashboard CI #149             COMPLETE
 ```
 
-The Phase 7 live promotion deployment remains valid. Do not rewrite its migration-service timestamps to match canonical repository filenames.
+## Phase 8 backend state
 
-## Phase 8 authority boundary
+Canonical migration:
 
-Phase 8 replaces fixture-derived production reports with source-backed operational reporting and reconciliation. It must remain read-only with respect to Phase 1–7 authority.
+```text
+supabase/migrations/20260916100000_create_reporting_audit_authority.sql
+```
 
-Trusted report inputs include accepted order/commercial snapshots, order events, topology attribution, shift/cash ledgers, loyalty ledgers/application snapshots, promotion applications and inventory movement ledgers.
+It exposes narrow caller-bound Admin/Owner read RPCs for:
 
-Production reports must not invent:
+- operational summary/reconciliation;
+- paginated transaction detail;
+- source-backed audit events.
 
-- tax/VAT/SST or statutory accounting treatment;
-- general-ledger entries or financial statements;
-- profit/COGS without trusted historical cost basis;
-- processor capture/refund/settlement truth before Phase 9;
-- synthetic production trends, fake refund reasons or fixture payment facts.
+Trusted reporting includes accepted order value, separate voucher/promotion discounts, paid POS cash, shift/cash reconciliation, product/branch/sales-point attribution, loyalty/application counts and inventory movements.
 
-Branch/time reporting must use authoritative scope and timezone semantics. Customer PII is not part of the reporting contract unless explicitly necessary and authorized.
+It deliberately does **not** invent statutory accounting, tax, COGS/profit, processor settlement or refund facts.
 
-## Dashboard boundary
+Backend database audit #239 passed the complete Phase 1–8 regression chain. A later documentation head also passed backend audit #243.
 
-The current production-reporting targets are:
+## Phase 8 Dashboard state
+
+The production reporting boundary is now wired through the same-origin HttpOnly employee BFF and caller JWT for:
 
 - `AdminOverviewPage`;
 - `AdminSalesPerformancePage`;
 - `AdminTransactionsPage`;
 - `AdminAuditPage`.
 
-Outside preview mode these pages must move to same-origin BFF reporting endpoints forwarding the caller JWT to narrow Supabase reporting RPCs. Preview remains fixture-only and must not contact privileged reporting endpoints.
+Live pages consume strict parsed reporting RPC output. Preview mode remains fixture-only and a dedicated Playwright regression asserts that all four preview reporting surfaces make zero privileged `/api/v1/admin/reporting/*` requests.
 
-## Phase 8 branch state
+Production labels use **accepted order value**, not captured/settled sales. Refund/processor state is explicitly unavailable until Phase 9.
+
+## Current validation boundary
+
+Dashboard CI #156 previously failed at Typecheck because the reporting test fetch mock was inferred as zero-argument. That defect is fixed. The reporting client has since been made strict, all four production pages were converted, parser tests hardened and the reporting preview-isolation test added to the blocking preview E2E command.
+
+The current Dashboard implementation batch now requires a fresh exact-head CI pass before acceptance.
+
+## Remaining Phase 8 closure
+
+1. Exact-head Dashboard lint/typecheck/unit/live-POS/preview-isolation/build green.
+2. Final backend/customer exact-head gates green after synchronized docs.
+3. Deploy canonical Phase 8 migration to live AIDA Supabase.
+4. Verify live RPC/grant state and migration history.
+5. Run fresh Supabase security and performance advisors.
+6. Synchronize Phase 8 closeout evidence across both repositories.
+7. Complete or explicitly accept the required independent/Astra audit boundary before Phase 9.
+
+## Branch / merge governance
 
 ```text
 Aida_System             codex/phase-8-reporting-accounting-audit
 Aida_System-Dashboard   codex/phase-8-reporting-accounting-audit
 ```
 
-Phase 8 implementation starts from the exact Phase 7 closure heads above.
-
-## Live backend rule
-
-No Phase 8 migration is considered deployed merely because it exists in the repository. Deploy only after local/CI regression coverage is green, then verify live migration history, grants/schema and fresh Supabase security/performance advisors.
-
-## PR / merge governance
-
-Phase 7 PRs remain draft/unmerged. Phase 8 work also remains draft/unmerged until explicitly authorized. Completion of Phase 8 does not authorize merge or Phase 9.
+Phase 8 PRs remain draft/unmerged. Completion does not authorize merge. Phase 9 must not begin while Phase 8 remains `PARTIAL`.
 
 ## Next action
 
-Implement the Phase 8 read-only reporting/audit RPC contract and blocking SQL regression coverage first. Only after that contract is green should Dashboard production reporting pages be wired to it.
+Run and repair the fresh Dashboard exact-head validation for the complete Phase 8 reporting UI batch. If green, proceed to live Phase 8 migration/advisor verification and synchronized closeout/audit evidence.

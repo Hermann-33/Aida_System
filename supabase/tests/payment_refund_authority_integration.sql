@@ -136,7 +136,7 @@ reset role;
 
 set local role authenticated;
 do $$
-declare v_actor uuid:='99000000-0000-0000-0000-000000000002'; v_state jsonb;
+declare v_actor uuid:='99000000-0000-0000-0000-000000000002'; v_state jsonb; v_refund_id text;
 begin
  perform set_config('request.jwt.claims',jsonb_build_object('sub',v_actor,'role','authenticated')::text,true);
  select public.request_external_refund(jsonb_build_object(
@@ -147,11 +147,10 @@ begin
  if v_state->>'paymentState'<>'paid' or (v_state->>'refundedSen')::bigint<>0 then
    raise exception 'requested refund falsely became succeeded: %',v_state;
  end if;
- perform set_config('test.phase9.refund1_id',(
-   select id::text from public.payment_refunds
-   where order_id='99100000-0000-0000-0000-000000000001'::uuid
-     and idempotency_key='99130000-0000-0000-0000-000000000001'::uuid
- ),false);
+ select refund->>'id' into strict v_refund_id
+ from jsonb_array_elements(v_state->'refunds') refund
+ where refund->>'reason'='partial refund' and (refund->>'amountSen')::bigint=400;
+ perform set_config('test.phase9.refund1_id',v_refund_id,false);
  begin
    perform public.request_external_refund(jsonb_build_object(
      'orderId','99100000-0000-0000-0000-000000000001',
@@ -176,7 +175,7 @@ reset role;
 
 set local role authenticated;
 do $$
-declare v_actor uuid:='99000000-0000-0000-0000-000000000002'; v_state jsonb;
+declare v_actor uuid:='99000000-0000-0000-0000-000000000002'; v_state jsonb; v_refund_id text;
 begin
  perform set_config('request.jwt.claims',jsonb_build_object('sub',v_actor,'role','authenticated')::text,true);
  select public.get_order_payment_state('99100000-0000-0000-0000-000000000001') into v_state;
@@ -198,11 +197,10 @@ begin
    'idempotencyKey','99130000-0000-0000-0000-000000000003',
    'amountSen',600,'reason','remaining refund'
  )) into v_state;
- perform set_config('test.phase9.refund2_id',(
-   select id::text from public.payment_refunds
-   where order_id='99100000-0000-0000-0000-000000000001'::uuid
-     and idempotency_key='99130000-0000-0000-0000-000000000003'::uuid
- ),false);
+ select refund->>'id' into strict v_refund_id
+ from jsonb_array_elements(v_state->'refunds') refund
+ where refund->>'reason'='remaining refund' and (refund->>'amountSen')::bigint=600;
+ perform set_config('test.phase9.refund2_id',v_refund_id,false);
 end;
 $$;
 reset role;

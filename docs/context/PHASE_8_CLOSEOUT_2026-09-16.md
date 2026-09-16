@@ -2,11 +2,11 @@
 
 Updated: 2026-09-16
 
-Verdict: `PARTIAL`
+Verdict: `COMPLETE`
 
-Phase 8 implementation and repository validation are complete. Formal closure is blocked only by the required independent/Astra audit boundary.
+Phase 8 implementation, repository validation, live deployment/advisor verification and synchronized documentation requirements are complete. By explicit owner decision on 2026-09-16, the independent/Astra/Codex audit is deferred to one cumulative Phase 1–10 audit after Phase 10 implementation and is no longer a blocker between Phases 8, 9 and 10.
 
-## Exact validated repository heads before this closeout-document commit
+## Validated repository heads before final governance-only documentation refresh
 
 ```text
 Aida_System             d56aa67d34a2bb006fe60033513c3fdf29b2c092
@@ -15,37 +15,53 @@ Backend database audit #252   COMPLETE
 Dashboard CI #175              COMPLETE
 ```
 
-Dashboard CI #175 completed successfully at the exact Dashboard implementation/documentation head. Backend database audit #252 completed successfully at the exact backend implementation/documentation head.
+The final governance-change documentation commit is documentation-only and must receive its own exact-head CI before Phase 9 implementation starts.
+
+## Backend authority
+
+Canonical migration:
+
+```text
+20260916100000_create_reporting_audit_authority.sql
+```
+
+Public caller surfaces:
+
+```text
+public.get_admin_reporting_summary(jsonb)
+public.get_admin_transaction_report(jsonb)
+public.get_admin_audit_events(jsonb)
+```
+
+The public functions are authenticated-only `SECURITY INVOKER` surfaces. Guarded private implementations are caller-bound `SECURITY DEFINER` functions with empty `search_path`.
 
 ## Live Supabase
 
-Project: `eswovqxqzfevcdwwcmuh` (`Aida System`).
+Project: `eswovqxqzfevcdwwcmuh` (`Aida System`)
 
-Live migration history includes:
+Live migration history:
 
 ```text
-20260916013938 create_reporting_audit_authority
+20260916013938_create_reporting_audit_authority
 ```
 
-This confirms the canonical Phase 8 reporting/audit authority is deployed live.
+No production fixture/reporting data was inserted. Live function/grant/security-mode verification matched the repository contract.
 
-Fresh advisors were read after confirming the live migration. Security findings are limited to pre-existing RLS-with-no-policy informational findings on Phase 6/7 private-authority tables plus the project-level leaked-password-protection warning. No Phase 8 reporting object is named by the security advisor. Performance findings are unused-index informational notices on existing operational/loyalty/promotion indexes; no Phase 8 reporting object is named.
+Fresh security advisors found no Phase 8-created WARN/ERROR. The only WARN remains the pre-existing Supabase Auth leaked-password-protection setting. Fresh performance advisors contain INFO unused-index findings only and no Phase 8-created WARN/ERROR.
 
-Supabase advisor remediation references:
-- https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy
+References:
 - https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection
 - https://supabase.com/docs/guides/database/database-linter?lint=0005_unused_index
+- https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy
 
-## Authority boundary
+## Reporting semantics
 
-Phase 8 remains read-only reporting/accounting/audit authority over accepted Phase 1–7 facts. It does not create mutation authority, processor settlement facts, statutory tax treatment, a general ledger, COGS/profit facts, bank reconciliation, refunds, or external accounting integration facts.
+Phase 8 reports trusted operational facts only. Accepted order value is not labelled as processor settlement. Voucher and promotion discounts remain separate. Cancelled orders are excluded from accepted commercial totals. Refund/processor state, statutory accounting, COGS/profit, bank reconciliation and external accounting integrations are not fabricated.
 
-Dashboard production reporting remains behind the same-origin HttpOnly employee-session BFF with caller-JWT forwarding. Preview fixtures remain non-authoritative.
+Dashboard production reporting uses the same-origin HttpOnly employee-session BFF and caller JWT. Preview mode remains non-authoritative and has a blocking zero-privileged-reporting-request browser regression.
 
-## Remaining blocker
+## Audit deferral
 
-The project governance requires an independent/Astra Phase 8 audit before Phase 8 may be marked `COMPLETE` and before Phase 9 may start. No available tool in this run can execute or impersonate Astra/independent review. No audit result is fabricated.
+The independent audit remains required for final program closure, but it will run once after Phase 10 over the cumulative Phase 1–10 system. Per-phase CI, live verification, advisors and documentation remain mandatory in the meantime.
 
-Until that audit is actually executed and passes, Phase 8 remains `PARTIAL`; Phase 9 and Phase 10 remain frozen.
-
-Both Phase 8 PRs remain draft and unmerged. Completion, when achieved, will not authorize merge.
+Both Phase 8 PRs remain draft and unmerged. Phase completion does not authorize merge.

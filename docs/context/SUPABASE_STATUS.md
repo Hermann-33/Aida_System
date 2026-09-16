@@ -5,49 +5,37 @@
 **Ref:** `eswovqxqzfevcdwwcmuh`  
 **Region:** `ap-southeast-1`  
 **Current state:** `ACTIVE_HEALTHY`  
-**Current verdict:** Phase 8 live deployment/advisor boundary `COMPLETE`; Phase 8 overall remains `PARTIAL` only at the independent/Astra audit gate.
+**Current verdict:** Phase 8 live deployment/advisor boundary `COMPLETE`; Phase 8 engineering verdict `COMPLETE` under the owner-approved cumulative-audit deferral.
 
 Canonical executable migrations live only in `Hermann-33/Aida_System/supabase/migrations/`.
 
 ## Phase 7 live baseline
 
-Canonical repository migrations:
-
 ```text
-20260915100000_create_promotion_discount_authority.sql
-20260915101000_integrate_promotions_with_order_authority.sql
-20260915101100_normalize_phase7_nullable_voucher_quote.sql
+canonical 20260915100000_create_promotion_discount_authority.sql
+live      20260915120917_create_promotion_discount_authority
+
+canonical 20260915101000_integrate_promotions_with_order_authority.sql
+live      20260915121057_integrate_promotions_with_order_authority
+
+canonical 20260915101100_normalize_phase7_nullable_voucher_quote.sql
+live      20260915121119_normalize_phase7_nullable_voucher_quote
 ```
-
-Migration-service live history:
-
-```text
-20260915120917_create_promotion_discount_authority
-20260915121057_integrate_promotions_with_order_authority
-20260915121119_normalize_phase7_nullable_voucher_quote
-```
-
-Do not rewrite applied migration history to force timestamp equality with canonical repository filenames.
 
 ## Phase 8 live deployment
 
-Canonical repository migration:
-
 ```text
-20260916100000_create_reporting_audit_authority.sql
+canonical 20260916100000_create_reporting_audit_authority.sql
+live      20260916013938_create_reporting_audit_authority
 ```
 
-Migration-service live history:
+The migration-service timestamp is the historical live identifier; applied history must not be rewritten to match the repository filename.
 
-```text
-20260916013938_create_reporting_audit_authority
-```
+No Phase 8 production fixture/reporting data was inserted.
 
-The live version is the migration-service identifier generated when the exact canonical SQL was applied. No Phase 8 fixture or synthetic production reporting data was inserted.
+## Live Phase 8 verification
 
-## Phase 8 live verification
-
-The live project now contains these caller surfaces:
+The live project contains:
 
 ```text
 public.get_admin_reporting_summary(jsonb)
@@ -55,48 +43,40 @@ public.get_admin_transaction_report(jsonb)
 public.get_admin_audit_events(jsonb)
 ```
 
-Verification confirmed:
+Verified:
 
-- all three public RPCs are `SECURITY INVOKER`;
-- public RPC `search_path` is `public, pg_temp`;
-- `anon` has no execute privilege on any Phase 8 report RPC;
-- `authenticated` has execute privilege on all three public report RPCs;
-- `private.require_reporting_admin(uuid)` is `SECURITY DEFINER`, uses an empty `search_path`, and is not executable by anon/authenticated;
-- `private.reporting_filter_impl(jsonb,uuid)` and the three private report implementations are `SECURITY DEFINER` with empty `search_path` and are executable only by authenticated callers through the guarded contract;
-- no new Phase 8 report table or parallel mutation authority was created.
+- public reporting RPCs are `SECURITY INVOKER`;
+- public `search_path` is `public, pg_temp`;
+- `anon` cannot execute them;
+- `authenticated` can execute the public RPCs;
+- `private.require_reporting_admin(uuid)` is `SECURITY DEFINER`, empty `search_path`, not directly executable by anon/authenticated;
+- guarded private reporting/filter implementations are `SECURITY DEFINER` with empty `search_path`;
+- Phase 8 created no report table and no parallel mutation authority.
 
-Runtime semantics remain those covered by blocking SQL regressions: Admin/Owner only, bounded date/page filters, source-backed values, accepted-order-value terminology, separate voucher/promotion discounts, and explicit absence of processor settlement/refund authority before Phase 9.
+## Fresh advisors
 
-## Fresh advisors after Phase 8 DDL
+Security after Phase 8 DDL:
 
-### Security
+- INFO `rls_enabled_no_policy` remains on pre-existing RPC-only loyalty/promotion authority tables;
+- one pre-existing WARN: Supabase Auth leaked-password protection disabled;
+- no Phase 8-created security WARN/ERROR.
 
-Fresh security advisors on 2026-09-16 report:
+Remediation reference: https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection
 
-- 14 INFO `rls_enabled_no_policy` findings on pre-existing RPC-only loyalty/promotion tables. Phase 8 introduced no table, so it added none of these findings. Direct table authority remains intentionally constrained through the existing RPC design.
-- one WARN: `auth_leaked_password_protection` remains disabled. This is a pre-existing Supabase Auth configuration item, not a Phase 8 schema defect.
-- no Phase 8-created security WARN or ERROR.
+Performance after Phase 8 DDL:
 
-Remediation reference for the Auth setting: https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection
-
-### Performance
-
-Fresh performance advisors report INFO `unused_index` findings only on existing indexes. No Phase 8 missing-index warning, performance WARN or ERROR was reported. Phase 8 created no index.
+- INFO unused-index observations only on existing indexes;
+- no Phase 8-created performance WARN/ERROR.
 
 ## Repository validation paired with live state
 
-Implementation/live validation immediately before this documentation refresh:
-
 ```text
-Aida_System             bde55b9e4ec20f95bb19d041b33a068e18f4abb6
-Backend database audit #249   COMPLETE
-
-Aida_System-Dashboard   8cc99f77bba8e4ff355e4c0a246a8a79742d1406
-Dashboard CI #173              COMPLETE
+Aida_System             d56aa67d34a2bb006fe60033513c3fdf29b2c092
+Aida_System-Dashboard   36024d78778e86aa94ef8bc8a5602780e95f47c0
+Backend database audit #252   COMPLETE
+Dashboard CI #175              COMPLETE
 ```
 
-Dashboard #173 passed lint, TypeScript, unit tests, live POS browser regression, the expanded Phase 8 preview-isolation regression and the production build. Backend #249 passed the complete Phase 1–8 database regression chain plus the Phase 4–7 contention gates.
+## Next live boundary
 
-## Remaining phase boundary
-
-The Phase 8 implementation, repository validation, live migration and live advisor gates are complete. Phase 8 remains `PARTIAL` solely because the project governance requires the independent/Astra audit boundary to be completed or explicitly accepted before Phase 9 begins.
+Phase 9 may add provider-neutral payment/refund schema and RPC authority through canonical migrations. Any processor-specific live integration requiring credentials, merchant setup, webhook secret or paid service needs explicit owner approval. Fresh security/performance advisors remain mandatory after each Phase 9 DDL batch.

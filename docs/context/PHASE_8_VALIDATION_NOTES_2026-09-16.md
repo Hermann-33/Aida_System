@@ -38,6 +38,14 @@ Current implementation batch:
 - `404d60c41a31826a5605edd3310177c772198cf3` — dedicated Playwright preview-isolation regression visits all four Phase 8 reporting surfaces and asserts zero `/api/v1/admin/reporting/*` requests;
 - `c9355880395d5c087df7e30874eab8601a95336e` — the new Phase 8 preview spec is included in the blocking `test:e2e:preview` CI command.
 
+Dashboard CI #170 on documentation head `159512205bfcc4b18b0f3389ea1717e37f6aa17b` passed Lint and then failed Typecheck because the preceding `package.json` rewrite had accidentally omitted the existing `@vitejs/plugin-react` devDependency. This was a validation/configuration regression, not a reporting-contract failure.
+
+Remediation after #170:
+
+- `bfd321a9510e556f78368669ab1a507e7f4e9020` restores `@vitejs/plugin-react` at the prior `^6.0.3` constraint while retaining the Phase 8 preview E2E command;
+- `1abda7d8f121453956024e2a5eb0827c1cacac37` stabilizes the Audit page source-row memoization and removes the new hook-dependency warning introduced by the reporting conversion;
+- a fresh exact-head Dashboard CI pass is required before the reporting UI batch is accepted.
+
 Production reporting semantics are intentionally conservative:
 
 - commercial totals are **accepted order value**, not processor settlement;

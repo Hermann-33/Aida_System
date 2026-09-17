@@ -105,6 +105,10 @@ jobs:
         run: >-
           psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f supabase/tests/payment_refund_authority_integration.sql
 
+      - name: Cash refund end-to-end regression
+        run: >-
+          psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f supabase/tests/cash_refund_authority_integration.sql
+
       - name: Phase 9 true refund contention
         run: bash supabase/tests/phase9_refund_concurrency_regression.sh
 

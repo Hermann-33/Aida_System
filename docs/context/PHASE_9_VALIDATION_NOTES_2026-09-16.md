@@ -6,48 +6,57 @@ Status: `PARTIAL`
 
 Phases 1–8 engineering are `COMPLETE`. Independent/Astra/Codex audit is deferred by owner instruction to one cumulative Phase 1–10 audit after Phase 10. Normal Phase 9 engineering validation remains mandatory.
 
-## First backend authority batch
+## Provider-neutral backend authority
 
-Canonical migration added:
+Canonical migrations:
 
 ```text
 supabase/migrations/20260916110000_create_payment_refund_authority.sql
+supabase/migrations/20260916111000_grant_phase9_private_rpc_schema_usage.sql
+supabase/migrations/20260917154500_reconcile_phase9_payment_refund_live_schema.sql
 ```
 
-The migration extends, rather than replaces, the existing order payment model. It adds:
+The main authority adds `orders.refunded_sen`, external tender/payment projection, non-secret provider activation metadata, provider-neutral payment intents/events, refund records/events, webhook digest/idempotency receipts, caller-bound payment-state/request RPCs, service-role-only provider event application, Admin/Owner cash refunds tied to a trusted open shift/cash-out movement, and cancellation protection while payment is unresolved. No processor is activated and no provider credentials/secrets are committed.
 
-- `orders.refunded_sen` and protected payment-summary states `unpaid|pending|paid|partially_refunded|refunded`;
-- tender support for `external` while retaining `unpaid|cash` behavior;
-- non-secret `payment_provider_configs` activation metadata;
-- provider-neutral `payment_intents` and append-only `payment_events`;
-- `payment_refunds` and append-only `payment_refund_events`;
-- webhook idempotency/digest receipts without raw provider payloads or secrets;
-- authenticated read/request RPCs for order payment state and external intent/refund requests;
-- service-role-only provider-event application RPCs;
-- Admin/Owner cash refund authority tied to an open terminal/shift and a trusted cash-out ledger movement;
-- protected order payment projection so clients cannot directly mark orders paid/refunded;
-- cancellation protection until pending/paid/partially-refunded payment is resolved.
+The `20260916111000` repair grants only `USAGE` on schema `private` to `authenticated` and `service_role` so SECURITY INVOKER wrappers can resolve explicitly granted private implementation functions. It does not grant table access or additional function execution.
 
-No processor is activated and no provider credentials/secrets are committed. With no active provider configuration, external payment creation fails closed.
+`20260917154500` intentionally replays the already-validated `20260916110000` migration body. It exists only to reconcile live AIDA after an erroneous migration-service call recorded the Phase 9 migration name with comments instead of executing the canonical SQL. Clean repository replay remains authoritative and must prove that this duplicate/idempotent reconciliation migration is safe.
 
-## Blocking regression
+## Database regression status
 
-`supabase/tests/payment_refund_authority_integration.sql` covers grants/direct-table denial, intent idempotency, authorization/capture/settlement separation, provider-event replay conflicts, refund reservation, partial/full refund projection, cancellation protection, provider-unavailable failure and append-only history.
+`supabase/tests/payment_refund_authority_integration.sql` covers direct-table denial, intent idempotency, authorization/capture/settlement separation, provider-event replay conflicts, refund reservation, partial/full refund projection, cancellation protection, provider-unavailable failure and append-only history.
 
-Backend database audit #261 at exact head `06479ccba677c6915aefd54d1a910b5581f9eb81` passed every Phase 1–8 regression and failed only at `Payment and refund authority regression`; downstream contention gates were correctly skipped.
+Backend database audit #266 on head `1f3a21939be72a10d871486295d31a80844b7094` passed the complete Phase 1–9 regression chain that existed at that head, including `Payment and refund authority regression` and the historical Phase 4–7 contention gates.
 
-Static inspection isolated a test-harness defect: the regression denied authenticated direct-table access and then contradicted that contract by selecting refund IDs directly from `payment_refunds`. Commit `8ca2209b4f1d2af28af4dd05f1cf826588b42b33` repairs the test without weakening production authority: refund IDs are now extracted from the protected `refunds` array returned by the payment RPC snapshot.
+That workflow still does not include the dedicated simultaneous-refund contention regression or a complete cash-refund E2E/contention gate. Those remain mandatory before Phase 9 closeout.
 
-Backend database audit #264 then exposed the next real boundary at `payment_refund_authority_integration.sql:134`: `public.apply_payment_provider_event(...)` is a SECURITY INVOKER wrapper whose explicitly granted private implementation could not be resolved because `service_role` lacked `USAGE` on schema `private`. The same schema-resolution requirement applies to authenticated Phase 9 invoker wrappers. Canonical corrective migration `20260916111000_grant_phase9_private_rpc_schema_usage.sql` grants only schema `USAGE` to `authenticated` and `service_role`; it does not grant table access or any additional function execution. Exact-head clean CI remains required.
+## Live AIDA reconciliation boundary — 2026-09-17
 
-## Live Supabase inspection boundary
+AIDA project `eswovqxqzfevcdwwcmuh` is visible and `ACTIVE_HEALTHY`.
 
-The Supabase connection available in the prior inspection exposed only project `Stone Set` (`pjltldrernuvrjsnmcqg`), not the documented AIDA project `eswovqxqzfevcdwwcmuh`. No Phase 9 migration was applied and no AIDA live state/advisor claim was made from the wrong project.
+Migration history contains:
+
+```text
+20260917055816_create_payment_refund_authority
+```
+
+Inspection of `supabase_migrations.schema_migrations.statements` proved that this live entry contains only comments saying the canonical repository body should be applied; it did not execute the Phase 9 DDL. Correspondingly, live inspection showed the expected Phase 9 payment/refund tables and `orders.refunded_sen` were absent. The later private-schema grant migration was also absent from live history and `service_role` did not have the required `private` schema usage.
+
+No migration-history row will be rewritten or deleted. The corrective path is the new canonical reconciliation migration `20260917154500_reconcile_phase9_payment_refund_live_schema.sql`, followed by the normal migration/advisor/live verification gates.
 
 ## Current validation boundary
 
-The Phase 9 migration/test batch remains `PARTIAL` until the clean database audit reruns successfully through the historical contention gates. After that, true simultaneous refund contention and cash-refund end-to-end coverage remain required before Dashboard/customer wiring and live deployment.
+Current backend branch head after adding the reconciliation migration is `7896246b6e779359e15e20baba235ab928866462`.
+
+Next mandatory gates:
+
+1. clean database audit on the reconciliation head;
+2. apply the reconciliation body and private-schema usage repair to live AIDA through migration tooling;
+3. verify live Phase 9 tables/columns/functions/grants/RLS and run security/performance advisors;
+4. add true simultaneous-refund contention and cash-refund E2E/contention coverage;
+5. integrate trusted payment/refund state into Phase 8 reporting, Flutter and Dashboard/BFF;
+6. exact-head customer/Dashboard/backend validation and synchronized closeout docs.
 
 ## External activation boundary
 
-Provider choice, merchant onboarding, production API credentials/webhook secrets and any cost-bearing service remain explicit owner-approval boundaries. Provider-specific success/settlement must never be fabricated.
+Provider choice, merchant onboarding, production API credentials/webhook secrets and any cost-bearing service remain explicit owner-approval boundaries. Provider-specific success, settlement or refund outcomes must never be fabricated.

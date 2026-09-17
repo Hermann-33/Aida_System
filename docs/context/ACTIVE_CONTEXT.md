@@ -1,8 +1,8 @@
 # Active Context
 
-**As of:** 2026-09-16  
+**As of:** 2026-09-17  
 **Current boundary:** Phase 9 — payments, refunds and external integrations  
-**Current verdict:** `PARTIAL` — Phase 9 planning active; Phases 1–8 engineering `COMPLETE`.
+**Current verdict:** `PARTIAL` — provider-neutral backend authority is repository-green through database audit #266; live reconciliation and client/Dashboard integration remain open. Phases 1–8 engineering are `COMPLETE`.
 
 ## Phase 8 final exact-head closure
 
@@ -15,17 +15,29 @@ Dashboard CI #177              COMPLETE
 
 Phase 8 live migration `20260916013938_create_reporting_audit_authority` remains deployed on AIDA with no Phase 8-created advisor WARN/ERROR.
 
-## Current Phase 9 rule
+## Phase 9 current authority
 
-Build a provider-neutral trusted payment/refund state machine first. Do not fabricate provider capture/settlement/refund outcomes and do not expose secrets to Flutter/browser code. Existing cash/unpaid authority must remain compatible.
+The backend branch contains provider-neutral payment/refund lifecycle authority: intent, capture/settlement projection, append-only payment/refund evidence, webhook idempotency receipts, Admin/Owner refund requests, trusted cash refunds and cancellation protection. No external processor is activated and no provider secrets are committed.
 
-The detailed scope is `docs/context/PHASE_9_PAYMENTS_REFUNDS_INTEGRATIONS_PLAN_2026-09-16.md`.
+Backend database audit #266 passed the existing complete Phase 1–9 regression chain, including the Phase 9 payment/refund integration test. Dedicated simultaneous-refund contention and complete cash-refund E2E/contention coverage still have to be added.
 
-Provider-specific activation/merchant credentials/cost-bearing services require explicit owner approval; safe independent Phase 9 implementation continues without them.
+## Live AIDA reconciliation
+
+AIDA project `eswovqxqzfevcdwwcmuh` is visible and healthy. Its migration history contains `20260917055816_create_payment_refund_authority`, but inspection proved that entry recorded comments only and did not execute the canonical Phase 9 DDL. The expected payment/refund tables and `orders.refunded_sen` were therefore absent live.
+
+A new canonical repository migration now exists:
+
+```text
+20260917154500_reconcile_phase9_payment_refund_live_schema.sql
+```
+
+It deliberately replays the validated Phase 9 authority body. The existing `20260916111000_grant_phase9_private_rpc_schema_usage.sql` supplies the required private-schema `USAGE` grant. Live migration history will not be rewritten.
+
+Current backend head after the reconciliation migration/documentation batch is the Phase 9 branch tip following `7896246b6e779359e15e20baba235ab928866462`; exact-head CI must be re-read before deployment.
 
 ## Audit governance
 
-Independent/Astra/Codex audit is deferred to one cumulative Phase 1–10 audit after Phase 10. Per-phase engineering CI/live/advisor/docs gates remain mandatory.
+Independent/Astra/Codex audit remains deferred to one cumulative Phase 1–10 audit after Phase 10. Per-phase engineering CI/live/advisor/docs gates remain mandatory.
 
 ## Branches
 
@@ -38,4 +50,8 @@ PRs remain draft/unmerged unless explicitly authorized.
 
 ## Next action
 
-Implement the canonical Phase 9 provider-neutral payment/refund schema and protected lifecycle helpers, preserving current order/cash behavior, then add blocking SQL state-machine/idempotency/refund contention regressions before wiring Dashboard/customer surfaces.
+1. Require clean database replay on the reconciliation head.
+2. Apply the reconciliation migration and private-schema grant to live AIDA, then verify schema/grants/RLS and advisors.
+3. Add simultaneous-refund contention and cash-refund E2E/contention regressions.
+4. Wire payment/refund facts into reporting, customer Flutter and Dashboard/BFF.
+5. Run exact-head backend/customer/Dashboard gates and complete Phase 9 docs before opening Phase 10.

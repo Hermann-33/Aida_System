@@ -28,16 +28,19 @@ The `20260916111000` repair grants only `USAGE` on schema `private` to `authenti
 
 Backend database audit #266 on head `1f3a21939be72a10d871486295d31a80844b7094` passed the complete Phase 1–9 regression chain that existed at that head, including `Payment and refund authority regression` and the historical Phase 4–7 contention gates.
 
-A dedicated true-concurrency gate is now committed:
+Two additional blocking Phase 9 gates are now committed and wired into `.github/workflows/backend-database-audit.yml`:
 
 ```text
+supabase/tests/cash_refund_authority_integration.sql
 supabase/tests/phase9_refund_concurrency_setup.sql
 supabase/tests/phase9_refund_concurrency_regression.sh
 ```
 
-It creates one trusted 1,000-sen captured external order, starts two independent authenticated Admin transactions requesting 600-sen refunds with different idempotency keys, deliberately holds the first order lock, and requires exactly one reservation to succeed. The loser must fail on remaining refundable balance. Postconditions require exactly one active refund reservation totaling 600 sen and no false succeeded-refund projection on the order. `.github/workflows/backend-database-audit.yml` now treats this as a blocking Phase 9 step.
+The cash-refund regression performs real sales-point/terminal creation, terminal enrolment, open-shift authority, cash POS placement and `refund_cash_order`. It requires the payment projection to reconcile and an idempotent retry to leave exactly one succeeded refund row, one refund event and one matching `cash_out` movement.
 
-A complete cash-refund E2E/contention gate is still required before Phase 9 closeout.
+The true-concurrency regression creates one trusted 1,000-sen captured external order, starts two independent authenticated Admin transactions requesting 600-sen refunds with different idempotency keys, deliberately holds the first order lock, and requires exactly one reservation to succeed. The loser must fail on remaining refundable balance. Postconditions require exactly one active refund reservation totaling 600 sen and no false succeeded-refund projection on the order.
+
+Exact-head CI is required before these new gates are accepted as passing.
 
 ## Live AIDA reconciliation boundary — 2026-09-17
 
@@ -55,16 +58,15 @@ No migration-history row will be rewritten or deleted. The corrective path is th
 
 ## Current validation boundary
 
-The repository now contains the reconciliation migration plus the blocking simultaneous-refund gate. Exact-head database CI is required on the latest Phase 9 branch tip before any live reconciliation is applied.
+The repository now contains the reconciliation migration plus both missing payment/refund concurrency/cash-refund gates. Exact-head database CI is required on the latest Phase 9 branch tip before any live reconciliation is applied.
 
 Next mandatory gates:
 
-1. clean database audit on the reconciliation + contention head;
+1. clean database audit on the reconciliation + cash-refund + contention head;
 2. apply the reconciliation body and private-schema usage repair to live AIDA through migration tooling;
 3. verify live Phase 9 tables/columns/functions/grants/RLS and run security/performance advisors;
-4. add complete cash-refund E2E/contention coverage;
-5. integrate trusted payment/refund state into Phase 8 reporting, Flutter and Dashboard/BFF;
-6. exact-head customer/Dashboard/backend validation and synchronized closeout docs.
+4. integrate trusted payment/refund state into Phase 8 reporting, Flutter and Dashboard/BFF;
+5. exact-head customer/Dashboard/backend validation and synchronized closeout docs.
 
 ## External activation boundary
 

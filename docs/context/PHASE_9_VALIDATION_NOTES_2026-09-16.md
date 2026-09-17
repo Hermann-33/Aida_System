@@ -42,6 +42,20 @@ The true-concurrency regression creates one trusted 1,000-sen captured external 
 
 Exact-head CI is required before these new gates are accepted as passing.
 
+## Customer payment contract
+
+The Flutter customer app now has a dedicated payment capability rather than mixing provider lifecycle into order placement:
+
+```text
+apps/customer/lib/domain/model/order_payment.dart
+apps/customer/lib/domain/repository/payment_repository.dart
+apps/customer/lib/data/repository/supabase_payment_repository.dart
+apps/customer/lib/application/payment_providers.dart
+apps/customer/test/domain/order_payment_phase9_contract_test.dart
+```
+
+`OrderPaymentSnapshot` strictly validates tender/payment state, provider-intent amount/currency, paid timestamps, refunded/refundable reconciliation, succeeded refund totals and total reserved refunds. External paid/refunded projections require a captured provider intent; cash payment cannot carry provider intent. `SupabasePaymentRepository` calls only the caller-bound `get_order_payment_state` and `request_external_payment` RPCs and maps provider-unavailable responses to a truthful unavailable result rather than fabricating processor success. Customer release validation remains required before this batch is accepted.
+
 ## Live AIDA reconciliation boundary — 2026-09-17
 
 AIDA project `eswovqxqzfevcdwwcmuh` is visible and `ACTIVE_HEALTHY`.
@@ -58,15 +72,16 @@ No migration-history row will be rewritten or deleted. The corrective path is th
 
 ## Current validation boundary
 
-The repository now contains the reconciliation migration plus both missing payment/refund concurrency/cash-refund gates. Exact-head database CI is required on the latest Phase 9 branch tip before any live reconciliation is applied.
+The repository contains the reconciliation migration, both missing payment/refund concurrency/cash-refund gates and the initial strict Flutter payment contract. Exact-head database and customer release CI are required on the latest Phase 9 branch tip before live reconciliation/client presentation is considered validated.
 
 Next mandatory gates:
 
 1. clean database audit on the reconciliation + cash-refund + contention head;
-2. apply the reconciliation body and private-schema usage repair to live AIDA through migration tooling;
-3. verify live Phase 9 tables/columns/functions/grants/RLS and run security/performance advisors;
-4. integrate trusted payment/refund state into Phase 8 reporting, Flutter and Dashboard/BFF;
-5. exact-head customer/Dashboard/backend validation and synchronized closeout docs.
+2. customer analysis/tests/goldens/release build for the new payment contract;
+3. apply the reconciliation body and private-schema usage repair to live AIDA through migration tooling;
+4. verify live Phase 9 tables/columns/functions/grants/RLS and run security/performance advisors;
+5. integrate trusted payment/refund state into Phase 8 reporting and Dashboard/BFF, then customer presentation where useful;
+6. exact-head customer/Dashboard/backend validation and synchronized closeout docs.
 
 ## External activation boundary
 

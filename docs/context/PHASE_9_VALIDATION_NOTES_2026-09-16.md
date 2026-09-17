@@ -54,7 +54,9 @@ apps/customer/lib/application/payment_providers.dart
 apps/customer/test/domain/order_payment_phase9_contract_test.dart
 ```
 
-`OrderPaymentSnapshot` strictly validates tender/payment state, provider-intent amount/currency, paid timestamps, refunded/refundable reconciliation, succeeded refund totals and total reserved refunds. External paid/refunded projections require a captured provider intent; cash payment cannot carry provider intent. `SupabasePaymentRepository` calls only the caller-bound `get_order_payment_state` and `request_external_payment` RPCs and maps provider-unavailable responses to a truthful unavailable result rather than fabricating processor success. Customer release validation remains required before this batch is accepted.
+`OrderPaymentSnapshot` strictly validates tender/payment state, provider-intent amount/currency, paid timestamps, refunded/refundable reconciliation, succeeded refund totals and total reserved refunds. External paid/refunded projections require a captured provider intent; cash payment cannot carry provider intent. `SupabasePaymentRepository` calls only the caller-bound `get_order_payment_state` and `request_external_payment` RPCs and maps provider-unavailable responses to a truthful unavailable result rather than fabricating processor success.
+
+The customer release workflow was also corrected to recognize cumulative PR bases through Phase 9 (`codex/phase-7-promotions-discounts`, `codex/phase-8-reporting-accounting-audit`, `codex/phase-9-payments-refunds-integrations`). This prevents stacked Phase 9/10 client work from bypassing static analysis, non-golden tests, blocking goldens and release APK validation.
 
 ## Live AIDA reconciliation boundary — 2026-09-17
 

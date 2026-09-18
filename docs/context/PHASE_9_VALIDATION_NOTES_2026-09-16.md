@@ -58,6 +58,26 @@ apps/customer/test/domain/order_payment_phase9_contract_test.dart
 
 The customer release workflow was also corrected to recognize cumulative PR bases through Phase 9 (`codex/phase-7-promotions-discounts`, `codex/phase-8-reporting-accounting-audit`, `codex/phase-9-payments-refunds-integrations`). This prevents stacked Phase 9/10 client work from bypassing static analysis, non-golden tests, blocking goldens and release APK validation.
 
+
+## Dashboard payment/refund contract
+
+The Dashboard now has a same-origin Phase 9 payment/refund boundary:
+
+```text
+server/paymentBff.ts
+server/paymentBff.test.ts
+api/v1/admin/payments/state.ts
+api/v1/admin/payments/refund.ts
+src/features/payments/paymentClient.ts
+src/features/payments/paymentClient.test.ts
+```
+
+Admin payment reads and refund requests reuse the HttpOnly employee session. Cash refunds additionally consume the HttpOnly terminal credential only inside the BFF before calling `refund_cash_order`; the browser never receives that credential. External refunds call only the authenticated caller-bound `request_external_refund` RPC. The BFF uses the Supabase publishable key plus caller JWT and never uses a service-role credential.
+
+The strict Dashboard payment parser validates accepted order amount/currency against the latest intent, payment/tender states, paid timestamps, succeeded-refund reconciliation, active refund reservations and external captured-payment requirements. The existing order parser now accepts `external`, `pending`, `partially_refunded` and `refunded` and cross-checks its summary fields against the nested protected payment projection. Customer orders may use unpaid/external authority but can never acquire POS cash authority.
+
+Dashboard CI remains required before this batch is accepted.
+
 ## Live AIDA reconciliation boundary — 2026-09-17
 
 AIDA project `eswovqxqzfevcdwwcmuh` is visible and `ACTIVE_HEALTHY`.

@@ -432,8 +432,6 @@ class OrderQuote {
     this.promotionDiscount = Money.zero,
     this.discount = Money.zero,
     required this.total,
-    required this.refunded,
-    required this.payment,
     this.voucher,
     this.promotions = const [],
     required this.fulfillmentType,
@@ -448,25 +446,6 @@ class OrderQuote {
     final subtotalSen = _requiredInt(json, 'subtotalSen');
     final discountSen = _requiredInt(json, 'discountSen');
     final totalSen = _requiredInt(json, 'totalSen');
-    final currency = _requiredString(json, 'currency');
-    final refundedSen = _requiredInt(json, 'refundedSen');
-    if (refundedSen < 0 || refundedSen > totalSen) {
-      throw const FormatException('Order refunded amount is out of bounds');
-    }
-    final paymentRaw = json['payment'];
-    if (paymentRaw is! Map) {
-      throw const FormatException('Order payment projection must be an object');
-    }
-    final payment = OrderPaymentSnapshot.fromJson(
-      Map<String, dynamic>.from(paymentRaw),
-      orderTotalSen: totalSen,
-      orderCurrency: currency,
-    );
-    if (payment.refunded.sen != refundedSen) {
-      throw const FormatException(
-        'Order refunded amount must match the trusted payment projection',
-      );
-    }
     final voucher = _parseVoucher(json['voucher']);
     final promotions = _parsePromotions(json['promotions']);
     final voucherDiscountSen =
@@ -526,8 +505,6 @@ class OrderQuote {
   final Money promotionDiscount;
   final Money discount;
   final Money total;
-  final Money refunded;
-  final OrderPaymentSnapshot payment;
   final OrderVoucherSnapshot? voucher;
   final List<OrderPromotionSnapshot> promotions;
   final FulfillmentType fulfillmentType;
@@ -552,6 +529,8 @@ class OrderSnapshot {
     this.promotionDiscount = Money.zero,
     this.discount = Money.zero,
     required this.total,
+    required this.refunded,
+    required this.payment,
     this.voucher,
     this.promotions = const [],
     required this.createdAt,
@@ -564,6 +543,25 @@ class OrderSnapshot {
     final subtotalSen = _requiredInt(json, 'subtotalSen');
     final discountSen = _requiredInt(json, 'discountSen');
     final totalSen = _requiredInt(json, 'totalSen');
+    final currency = _requiredString(json, 'currency');
+    final refundedSen = _requiredInt(json, 'refundedSen');
+    if (refundedSen < 0 || refundedSen > totalSen) {
+      throw const FormatException('Order refunded amount is out of bounds');
+    }
+    final paymentRaw = json['payment'];
+    if (paymentRaw is! Map) {
+      throw const FormatException('Order payment projection must be an object');
+    }
+    final payment = OrderPaymentSnapshot.fromJson(
+      Map<String, dynamic>.from(paymentRaw),
+      orderTotalSen: totalSen,
+      orderCurrency: currency,
+    );
+    if (payment.refunded.sen != refundedSen) {
+      throw const FormatException(
+        'Order refunded amount must match the trusted payment projection',
+      );
+    }
     final voucher = _parseVoucher(json['voucher']);
     final promotions = _parsePromotions(json['promotions']);
     final voucherDiscountSen =
@@ -623,6 +621,8 @@ class OrderSnapshot {
   final Money promotionDiscount;
   final Money discount;
   final Money total;
+  final Money refunded;
+  final OrderPaymentSnapshot payment;
   final OrderVoucherSnapshot? voucher;
   final List<OrderPromotionSnapshot> promotions;
   final DateTime createdAt;

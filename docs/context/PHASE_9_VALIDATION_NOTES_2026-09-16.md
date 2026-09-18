@@ -78,6 +78,21 @@ The strict Dashboard payment parser validates accepted order amount/currency aga
 
 Dashboard CI remains required before this batch is accepted.
 
+
+## Admin transaction refund workflow
+
+`AdminTransactionsPage` now keeps Phase 8 accepted-order reporting semantics separate from Phase 9 payment authority. The transaction list continues to represent accepted commercial value; opening a live transaction loads `get_order_payment_state` through the Admin BFF for current tender, capture, settlement and refund facts.
+
+The live drawer now:
+- displays trusted tender/payment/refund state and provider lifecycle state;
+- computes requestable refund balance from succeeded plus requested/processing reservations so the UI does not encourage over-reservation;
+- submits integer-sen refund intent with a fresh idempotency key;
+- uses the cash path only through the enrolled-terminal/open-shift BFF authority;
+- labels external refunds as requests until provider success evidence exists;
+- keeps all privileged payment/refund calls disabled in UI preview mode.
+
+`src/features/admin/AdminTransactionsPage.test.tsx` covers protected payment-state loading, a cash-refund submission and preview isolation. Dashboard CI remains required before accepting the UI batch.
+
 ## Live AIDA reconciliation boundary — 2026-09-17
 
 AIDA project `eswovqxqzfevcdwwcmuh` is visible and `ACTIVE_HEALTHY`.

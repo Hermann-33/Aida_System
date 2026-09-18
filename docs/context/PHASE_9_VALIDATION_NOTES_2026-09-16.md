@@ -187,6 +187,18 @@ Observed exact-head CI exposed two fixture/assertion defects rather than product
 
 New exact-head backend/customer/Dashboard CI remains required before live reconciliation.
 
+
+## Dashboard cumulative unit-regression repair — 2026-09-18
+
+Dashboard CI advanced through lint and typecheck, then exposed cumulative unit-fixture drift.
+
+- `parseOrderQuote` is restored to the intended pricing-only contract; persisted payment/refund fields are required only on `OrderSnapshot`.
+- Phase 7 discounted order tests now update the nested unpaid payment projection when the accepted total changes.
+- Cash-order tests now carry a matching nested cash/paid projection.
+- Historical Phase 8 reporting-client fixtures now include the required Phase 9 reporting semantics/payment summary so malformed-field tests still reach the specific field they intend to exercise.
+
+These changes preserve the stricter production contract; they do not weaken validation. Exact-head Dashboard CI must rerun through unit/browser/build gates.
+
 ## Live AIDA reconciliation boundary — 2026-09-17
 
 AIDA project `eswovqxqzfevcdwwcmuh` is visible and `ACTIVE_HEALTHY`.

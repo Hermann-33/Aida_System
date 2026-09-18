@@ -157,6 +157,13 @@ The production integrations page now loads the non-secret provider-status RPC an
 
 Sales & Performance now preserves the Phase 8 accepted-order metrics while separately displaying Phase 9 gross captured value, cash/external captured value, pending external value, net captured after succeeded refunds, refund totals by tender, and external settlement-state buckets. The UI explicitly states that capture is not settlement and that refunds do not rewrite accepted order value.
 
+
+## Dashboard payment/refund audit presentation
+
+The Audit page now keeps the Phase 8 general operational audit and the Phase 9 payment/refund audit as separate independently paged feeds. It does not fabricate a combined total or combined cursor. The payment/refund section renders only append-only source facts returned by the dedicated RPC and explicitly states that raw provider payloads and secrets are excluded. UI preview loads neither privileged feed.
+
+`AdminAuditPage.test.tsx` covers dual-feed loading and preview isolation.
+
 ## Live AIDA reconciliation boundary — 2026-09-17
 
 AIDA project `eswovqxqzfevcdwwcmuh` is visible and `ACTIVE_HEALTHY`.

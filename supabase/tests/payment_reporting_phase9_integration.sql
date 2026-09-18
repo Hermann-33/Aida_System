@@ -24,6 +24,13 @@ values
 update public.user_profiles set app_role='admin'
 where user_id='99400000-0000-0000-0000-000000000002';
 
+-- The true-concurrency fixture intentionally persists on the disposable CI
+-- database for its companion shell test. Isolate this transactional regression
+-- from that prior active provider without weakening the one-active-provider rule.
+update public.payment_provider_configs
+set is_active=false, customer_enabled=false, pos_enabled=false
+where is_active or customer_enabled or pos_enabled;
+
 insert into public.payment_provider_configs(
   provider_key,display_name,environment,is_active,customer_enabled,pos_enabled,supports_refunds
 ) values ('phase9_report','Phase 9 Reporting Provider','test',true,true,false,false);

@@ -93,6 +93,13 @@ The live drawer now:
 
 `src/features/admin/AdminTransactionsPage.test.tsx` covers protected payment-state loading, a cash-refund submission and preview isolation. Dashboard CI remains required before accepting the UI batch.
 
+
+## Dashboard CI trigger repair
+
+The Dashboard CI workflow previously targeted only pull requests into `main`, so the Phase 9 draft PR stacked on the validated Phase 8 branch could not produce exact-head CI. The workflow now also recognizes the cumulative remediation/Phase 7/Phase 8/Phase 9 bases. This restores mandatory lint, typecheck, unit, browser, preview-isolation and production-build validation for stacked Phase 9 work and the later Phase 10 branch.
+
+Exact-head Dashboard CI remains required before accepting the Dashboard payment/refund batch.
+
 ## Live AIDA reconciliation boundary — 2026-09-17
 
 AIDA project `eswovqxqzfevcdwwcmuh` is visible and `ACTIVE_HEALTHY`.

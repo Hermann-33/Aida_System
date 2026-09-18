@@ -138,6 +138,18 @@ Because all canonical migrations are replayed before the regression suite, the h
 
 This is a test expectation repair only; it does not weaken production authority.
 
+
+## Dashboard provider-status and payment-audit read boundary
+
+The Dashboard read side now exposes Phase 9 provider/payment reporting through separate same-origin contracts:
+
+- `GET /api/v1/admin/payments/providers` → caller-bound `get_payment_provider_admin_state()`;
+- `GET /api/v1/admin/reporting/payment-audit` → caller-bound `get_admin_payment_audit_events(jsonb)`.
+
+The provider route returns non-secret capability/activation metadata only. The payment-audit route preserves its own pagination and coverage declaration instead of pretending to be merged into the older general audit stream.
+
+`paymentClient.ts` now strictly parses provider environment/activation/channel/refund-capability metadata. `reportingClient.ts` now strictly parses Phase 9 payment summary facts, transaction refund/provider lifecycle facts and the separate payment-audit report. Tests cover caller-JWT/publishable-key forwarding, accepted-value versus refund/capture semantics, and raw-provider-payload exclusion. Dashboard CI remains required.
+
 ## Live AIDA reconciliation boundary — 2026-09-17
 
 AIDA project `eswovqxqzfevcdwwcmuh` is visible and `ACTIVE_HEALTHY`.

@@ -164,6 +164,19 @@ The Audit page now keeps the Phase 8 general operational audit and the Phase 9 p
 
 `AdminAuditPage.test.tsx` covers dual-feed loading and preview isolation.
 
+
+## Flutter persisted order payment integration
+
+`OrderSnapshot` now requires the protected Phase 9 payment projection returned by persisted order/history RPCs. Quotes remain pricing-only and do not carry payment authority.
+
+Persisted snapshots now:
+- require `refundedSen` and a nested `payment` object;
+- parse the nested object through the strict `OrderPaymentSnapshot` contract using the accepted order total/currency;
+- reject negative/over-total refunded amounts;
+- reject any mismatch between top-level `refundedSen` and the trusted nested payment projection.
+
+Historical Phase 6/7 customer snapshot fixtures and the shared test order repository now include valid unpaid payment projections. `order_snapshot_phase9_contract_test.dart` covers a partially-refunded captured external order plus missing/mismatched payment authority. Customer release CI remains required.
+
 ## Live AIDA reconciliation boundary — 2026-09-17
 
 AIDA project `eswovqxqzfevcdwwcmuh` is visible and `ACTIVE_HEALTHY`.

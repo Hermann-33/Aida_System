@@ -333,7 +333,7 @@ begin
       and (x->>'refundableSen')::bigint=(x->>'totalSen')::bigint
       and (x->>'refundReservedSen')::bigint=0
       and (x->>'refundReconciled')::boolean
-      and x->'latestPaymentIntent' is null
+      and x->>'latestPaymentIntent' is null
       and jsonb_array_length(x->'refunds')=0
       and jsonb_array_length(x->'lines')=1
   ) then

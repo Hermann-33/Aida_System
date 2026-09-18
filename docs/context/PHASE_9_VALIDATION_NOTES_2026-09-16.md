@@ -177,6 +177,16 @@ Persisted snapshots now:
 
 Historical Phase 6/7 customer snapshot fixtures and the shared test order repository now include valid unpaid payment projections. `order_snapshot_phase9_contract_test.dart` covers a partially-refunded captured external order plus missing/mismatched payment authority. Customer release CI remains required.
 
+
+## Exact-head regression repairs — 2026-09-18
+
+Observed exact-head CI exposed two fixture/assertion defects rather than production-authority defects.
+
+- The cumulative Phase 8/9 SQL regression compared a JSONB `null` provider intent with SQL `IS NULL`. It now checks the text projection so a correct `"latestPaymentIntent": null` passes while the rest of the immutable commercial/payment assertions stay intact.
+- Legacy Dashboard order-board, POS checkout and workload test fixtures now carry the required Phase 9 `refundedSen` plus trusted nested `payment` projection. Cash fixtures use a cash/paid projection; unpaid customer fixtures use unpaid/unpaid. No production behavior was relaxed.
+
+New exact-head backend/customer/Dashboard CI remains required before live reconciliation.
+
 ## Live AIDA reconciliation boundary — 2026-09-17
 
 AIDA project `eswovqxqzfevcdwwcmuh` is visible and `ACTIVE_HEALTHY`.

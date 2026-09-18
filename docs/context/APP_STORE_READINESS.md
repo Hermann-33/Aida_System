@@ -1,54 +1,44 @@
 # Apple App Store Readiness Guardrails
 
 **Applies to:** AIDA customer iOS application and backend behavior exposed by it.  
-**Reviewed:** 2026-09-16  
-**Current implementation verdict:** Phases 1–8 engineering `COMPLETE`; Phase 9 is next; the final App Store release gate remains Phase 10.
+**Reviewed:** 2026-09-18  
+**Current implementation verdict:** Phases 1–9 engineering `COMPLETE`; Phase 10 App Store release gate is `PARTIAL`.
 
-Official Apple guidance must be re-checked during Phase 10 before submission-related changes.
+## Current Apple requirements re-checked on 2026-09-18
 
-## Standing rules
+Official Apple submission guidance was re-checked at Phase 10 start. For uploads in 2026, iOS/iPadOS apps must be built with the iOS/iPadOS 26 SDK or later. App Store Connect requires accurate app privacy disclosures and an iOS privacy-policy URL. Apps supporting account creation must provide an in-app whole-account deletion path. Submission requires the required metadata and a selected build; screenshots require at least one and permit up to ten per supported device presentation. Accessibility support can now be declared in App Store Connect.
 
-AIDA sells physical café food/drink. These purchases must not be implemented as digital-content StoreKit/IAP entitlements. The payment architecture must remain a physical-goods payment flow using permitted traditional payment rails/Apple Pay-compatible processor flows when Phase 9 processor activation occurs.
+AIDA sells physical café food/drink. These purchases remain outside StoreKit/IAP. Payment/refund state remains server-authoritative and no external payment processor is activated.
 
-Customer account creation requires an easy-to-find production whole-account deletion path. Public catalogue and Privacy/Terms/Support information should not require unnecessary authentication. Promotions and advertised prices must accurately reflect the server-authoritative commercial result.
+## Phase 10 implementation completed so far
 
-## Privacy boundary
+- dedicated matching Phase 10 branches were created from the exact validated Phase 9 heads in both repositories;
+- the customer release workflow now includes the Phase 10 branch and a macOS unsigned iOS release-build gate;
+- the iOS release gate requires an application `PrivacyInfo.xcprivacy` file;
+- an application privacy manifest was added declaring no application-level tracking and no application-declared required-reason API categories. Third-party SDK manifests remain part of the archive-level privacy report and must be verified before submission;
+- existing `Info.plist` currently declares no camera, location, contacts, microphone, photo-library or tracking permission purpose strings, matching the current customer dependency/feature surface inspected at Phase 10 start.
+
+## Privacy and account deletion
 
 Whole-account deletion is caller-bound to `auth.uid()`, accepts no target user ID, removes customer-owned identity/state and anonymizes legitimately retained commercial history. Retained customer-authored free text and the original customer request digest are scrubbed. Marketing preference defaults off.
 
-## Phase 4–8 impact
+Before submission, App Store Connect privacy answers must be reconciled against the final archive privacy report and actual Supabase/customer data flows. Do not claim "Data Not Collected" merely because the application-level privacy manifest contains an empty collected-data array: App Store privacy disclosures cover server and third-party collection as well.
 
-Scheduling, inventory, loyalty/vouchers, promotions and reporting add operational/commercial authority only. They introduce no StoreKit digital entitlement. Phase 8 is read-only reporting and adds no customer permission or mutation surface.
+## Remaining release blockers / owner-controlled actions
 
-Phase 8 reporting deliberately labels commercial value as accepted order value rather than processor settlement. This prevents the UI from claiming payment facts that do not yet exist.
+Phase 10 cannot truthfully claim App Store submission readiness until all of the following have evidence:
 
-## Phase 9 guardrails
+- exact-head customer static/test/golden/Android release gates and the new unsigned iOS release build are green;
+- final iOS archive is produced with the current required Apple SDK/Xcode toolchain and its aggregate privacy report is reviewed;
+- signing team, production bundle identifier, distribution certificate/profile and App Store Connect app record are confirmed;
+- production Privacy Policy URL and Support URL are live; Terms URL/content is verified where presented by the app;
+- App Store Connect privacy answers match actual app/backend/SDK data handling;
+- review credentials or a deterministic review/demo path and review notes are prepared;
+- final screenshots and metadata match the submitted binary;
+- accessibility declarations are made only for features actually tested;
+- production backend configuration, account deletion and physical-goods payment behavior receive final release verification.
 
-Payment/refund implementation must:
-
-- keep the server authoritative for payment/refund lifecycle state;
-- never accept client-authored paid/captured/settled/refunded truth;
-- distinguish authorization, capture, settlement/reconciliation and refund states;
-- preserve current cash/unpaid semantics;
-- keep physical-goods payment outside IAP;
-- avoid embedding provider secrets in Flutter/browser code;
-- document any new SDK, permission, tracking/data collection or external disclosure.
-
-Processor-specific production activation requires explicit owner approval for provider choice, merchant setup, credentials/webhook secrets and any cost-bearing service.
-
-## Remaining Phase 10 release gate
-
-Before App Store submission, Phase 10 must re-check current official Apple requirements and verify at minimum:
-
-- release/static/test/golden build gates;
-- current iOS SDK/Xcode compatibility;
-- permission/SDK inventory and privacy manifests;
-- App Privacy answers against actual collected/shared data;
-- production whole-account deletion;
-- operational Privacy/Support/Terms URLs;
-- review credentials/demo path/review notes;
-- screenshots/metadata matching the submitted binary;
-- production backend configuration and physical-goods payment behavior.
+Provider-specific activation, merchant onboarding, credentials/webhook secrets, cost-bearing services and legal/business decisions remain explicit owner-approval boundaries.
 
 The cumulative independent/Astra/Codex audit is deferred until Phase 10 implementation and normal validation are complete. It is not waived.
 

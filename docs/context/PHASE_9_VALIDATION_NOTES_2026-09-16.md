@@ -199,6 +199,16 @@ Dashboard CI advanced through lint and typecheck, then exposed cumulative unit-f
 
 These changes preserve the stricter production contract; they do not weaken validation. Exact-head Dashboard CI must rerun through unit/browser/build gates.
 
+
+## Final observed pre-live fixture repairs — 2026-09-18
+
+The next exact-head runs reached the final new gates and exposed only disposable-test fixture drift.
+
+- The payment-reporting regression now disables any previously persisted active provider fixture inside its own transaction before creating its dedicated active provider. This preserves the production one-active-provider uniqueness constraint and rolls back after the regression.
+- Preview E2E scheduled/customer and POS order mocks now include the required Phase 9 `refundedSen` plus nested trusted `payment` projection. The quote mock remains pricing-only.
+
+No production authority was relaxed. Exact-head backend/customer/Dashboard gates must now rerun before live reconciliation.
+
 ## Live AIDA reconciliation boundary — 2026-09-17
 
 AIDA project `eswovqxqzfevcdwwcmuh` is visible and `ACTIVE_HEALTHY`.

@@ -150,6 +150,13 @@ The provider route returns non-secret capability/activation metadata only. The p
 
 `paymentClient.ts` now strictly parses provider environment/activation/channel/refund-capability metadata. `reportingClient.ts` now strictly parses Phase 9 payment summary facts, transaction refund/provider lifecycle facts and the separate payment-audit report. Tests cover caller-JWT/publishable-key forwarding, accepted-value versus refund/capture semantics, and raw-provider-payload exclusion. Dashboard CI remains required.
 
+
+## Dashboard provider and payment-reporting presentation
+
+The production integrations page now loads the non-secret provider-status RPC and remains read-only. When no provider row is configured it explicitly shows external payments as unconfigured; configured rows show environment, activation/channel flags and declared refund capability. No activation, credential or merchant-onboarding mutation is exposed. UI preview uses isolated sample state and makes no privileged request.
+
+Sales & Performance now preserves the Phase 8 accepted-order metrics while separately displaying Phase 9 gross captured value, cash/external captured value, pending external value, net captured after succeeded refunds, refund totals by tender, and external settlement-state buckets. The UI explicitly states that capture is not settlement and that refunds do not rewrite accepted order value.
+
 ## Live AIDA reconciliation boundary — 2026-09-17
 
 AIDA project `eswovqxqzfevcdwwcmuh` is visible and `ACTIVE_HEALTHY`.

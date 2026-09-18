@@ -112,6 +112,10 @@ jobs:
       - name: Phase 9 true refund contention
         run: bash supabase/tests/phase9_refund_concurrency_regression.sh
 
+      - name: Phase 9 payment reporting and provider capability
+        run: >-
+          psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f supabase/tests/payment_reporting_phase9_integration.sql
+
       - name: Phase 4-6 true contention regression
         run: bash supabase/tests/phase456_concurrency_regression.sh
 

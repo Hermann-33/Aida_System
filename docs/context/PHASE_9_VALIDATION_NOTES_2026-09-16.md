@@ -126,6 +126,18 @@ supabase/tests/payment_reporting_phase9_integration.sql
 
 The regression proves unsupported external refunds fail closed, then enables refund capability and verifies capture → refund success, non-secret provider state, accepted/captured/refunded/net reporting reconciliation, transaction-level refund facts and payment/refund audit coverage. It is wired into the backend database audit. Exact-head CI remains required.
 
+
+## Cumulative Phase 8 reporting regression repair
+
+Because all canonical migrations are replayed before the regression suite, the historical Phase 8 reporting test must validate the cumulative Phase 9 read model rather than require Phase 9 fields to be absent. `reporting_accounting_audit_integration.sql` now preserves the original guarantees while asserting the upgraded contract:
+
+- accepted order value remains distinct from processor settlement;
+- refund/provider lifecycle availability is declared truthfully;
+- the Phase 8 no-refund fixture has `refundedSen=0`, `refundableSen=totalSen`, zero reserved refunds, no provider intent and an empty refund list;
+- discount and immutable order-line reconciliation remain unchanged.
+
+This is a test expectation repair only; it does not weaken production authority.
+
 ## Live AIDA reconciliation boundary — 2026-09-17
 
 AIDA project `eswovqxqzfevcdwwcmuh` is visible and `ACTIVE_HEALTHY`.

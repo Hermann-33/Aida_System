@@ -1,8 +1,8 @@
 # Active Context
 
-**As of:** 2026-09-17  
-**Current boundary:** Phase 9 — payments, refunds and external integrations  
-**Current verdict:** `PARTIAL` — provider-neutral backend authority is repository-green through database audit #266; live reconciliation and client/Dashboard integration remain open. Phases 1–8 engineering are `COMPLETE`.
+**As of:** 2026-09-18  
+**Current boundary:** Phase 9 — payments, refunds and external integrations closeout  
+**Current verdict:** `PARTIAL` — Phase 9 implementation, live deployment and pre-documentation exact-head validation are complete; this documentation correction must receive fresh exact-head CI before Phase 9 can be declared `COMPLETE`. Phases 1–8 engineering are `COMPLETE`.
 
 ## Phase 8 final exact-head closure
 
@@ -13,27 +13,40 @@ Aida_System-Dashboard   9fdc4edad87debcbbdd3ff5b9ad894e66dd8f148
 Dashboard CI #177              COMPLETE
 ```
 
-Phase 8 live migration `20260916013938_create_reporting_audit_authority` remains deployed on AIDA with no Phase 8-created advisor WARN/ERROR.
+Phase 8 live migration `20260916013938_create_reporting_audit_authority` remains deployed on AIDA.
 
-## Phase 9 current authority
+## Phase 9 authority and live deployment
 
-The backend branch contains provider-neutral payment/refund lifecycle authority: intent, capture/settlement projection, append-only payment/refund evidence, webhook idempotency receipts, Admin/Owner refund requests, trusted cash refunds and cancellation protection. No external processor is activated and no provider secrets are committed.
+Provider-neutral payment/refund lifecycle authority is implemented and deployed: payment intent, authorization/capture/settlement projection, failure/cancellation, append-only payment/refund evidence, webhook idempotency, reconciliation facts, Admin/Owner refund requests, trusted cash refunds and protected order refund totals. No external processor is activated and no provider secret is committed.
 
-Backend database audit #266 passed the existing complete Phase 1–9 regression chain, including the Phase 9 payment/refund integration test. Dedicated simultaneous-refund contention and complete cash-refund E2E/contention coverage still have to be added.
-
-## Live AIDA reconciliation
-
-AIDA project `eswovqxqzfevcdwwcmuh` is visible and healthy. Its migration history contains `20260917055816_create_payment_refund_authority`, but inspection proved that entry recorded comments only and did not execute the canonical Phase 9 DDL. The expected payment/refund tables and `orders.refunded_sen` were therefore absent live.
-
-A new canonical repository migration now exists:
+Live AIDA migration history includes the reconciliation and hardening sequence:
 
 ```text
-20260917154500_reconcile_phase9_payment_refund_live_schema.sql
+20260918045340 grant_phase9_private_rpc_schema_usage
+20260918045350 reconcile_phase9_payment_refund_live_schema
+20260918045355 upgrade_phase9_reporting_payment_facts
+20260918050051 index_phase9_webhook_foreign_keys
 ```
 
-It deliberately replays the validated Phase 9 authority body. The existing `20260916111000_grant_phase9_private_rpc_schema_usage.sql` supplies the required private-schema `USAGE` grant. Live migration history will not be rewritten.
+The earlier `20260917055816 create_payment_refund_authority` ledger entry did not install the canonical DDL; the reconciliation migration deliberately repaired live schema without rewriting migration history.
 
-Current backend head after the reconciliation migration/documentation batch is the Phase 9 branch tip following `7896246b6e779359e15e20baba235ab928866462`; exact-head CI must be re-read before deployment.
+Post-deployment advisors show no Phase 9-created blocking security or performance finding. Phase 9 payment tables intentionally use RLS with no direct policies because access is through protected RPC authority. The remaining security WARN is project-level leaked-password protection, not a Phase 9 schema defect. The webhook foreign-key indexes added by the final hardening migration now appear only as expected fresh unused-index INFO findings; the prior unindexed-FK defect is gone.
+
+## Phase 9 validation evidence before this documentation correction
+
+```text
+Aida_System             fce9a1984360e76fb8d9a3814751e86687552828
+Backend database audit #313   COMPLETE / success
+Customer release audit #345   COMPLETE / success
+Aida_System-Dashboard   0b1f978e949518d78e1cbfcd8cdc7d358ca48d7d
+Dashboard CI #216              COMPLETE / success
+```
+
+Those runs validate the implementation/live-advisor documentation batch immediately before this stale-context correction. Because documentation is a hard exact-head gate, fresh CI on the commits containing this correction is still required before Phase 9 closeout.
+
+## Trust boundary
+
+Supabase/server remains authoritative for payment/refund state and commercial facts. Dashboard privileged traffic remains behind the same-origin HttpOnly BFF with caller-JWT forwarding. No service-role secret, employee bearer token, refresh token or terminal credential is exposed to normal browser JavaScript. Money remains integer sen. Provider-specific activation, merchant onboarding, credentials/webhook secrets, cost-bearing services and legal/business decisions remain explicit owner-approval boundaries.
 
 ## Audit governance
 
@@ -50,8 +63,4 @@ PRs remain draft/unmerged unless explicitly authorized.
 
 ## Next action
 
-1. Require clean database replay on the reconciliation head.
-2. Apply the reconciliation migration and private-schema grant to live AIDA, then verify schema/grants/RLS and advisors.
-3. Add simultaneous-refund contention and cash-refund E2E/contention regressions.
-4. Wire payment/refund facts into reporting, customer Flutter and Dashboard/BFF.
-5. Run exact-head backend/customer/Dashboard gates and complete Phase 9 docs before opening Phase 10.
+Require fresh exact-head Backend database audit, Customer release audit and Dashboard CI for this documentation correction. If all are green and no repository/live drift appears, mark Phase 9 engineering `COMPLETE`, create matching dedicated Phase 10 branches in both repositories, and begin the App Store release gate. Do not wait for a separate Phase 9 Astra audit.

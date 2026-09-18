@@ -314,9 +314,11 @@ begin
 
   select public.get_admin_transaction_report(v_filter) into v_transactions;
 
-  if (v_transactions#>>'{semantics,refundDataAvailable}')::boolean
+  if not (v_transactions#>>'{semantics,refundDataAvailable}')::boolean
+     or not (v_transactions#>>'{semantics,providerLifecycleAvailable}')::boolean
+     or not (v_transactions#>>'{semantics,acceptedOrderValueUnchangedByRefunds}')::boolean
      or (v_transactions#>>'{semantics,processorSettlementIncluded}')::boolean then
-    raise exception 'Phase 8 transaction report claimed unavailable Phase 9 facts: %',v_transactions->'semantics';
+    raise exception 'Cumulative Phase 8/9 transaction semantics are misleading: %',v_transactions->'semantics';
   end if;
 
   if not exists (
@@ -327,7 +329,12 @@ begin
       and (x->>'promotionDiscountSen')::bigint=200
       and (x->>'discountSen')::bigint=300
       and (x->>'discountReconciled')::boolean
-      and not (x ? 'refundSen')
+      and (x->>'refundedSen')::bigint=0
+      and (x->>'refundableSen')::bigint=(x->>'totalSen')::bigint
+      and (x->>'refundReservedSen')::bigint=0
+      and (x->>'refundReconciled')::boolean
+      and x->>'latestPaymentIntent' is null
+      and jsonb_array_length(x->'refunds')=0
       and jsonb_array_length(x->'lines')=1
   ) then
     raise exception 'Phase 8 transaction report did not preserve authoritative commercial detail: %',v_transactions;

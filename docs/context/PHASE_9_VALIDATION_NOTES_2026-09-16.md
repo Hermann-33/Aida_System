@@ -100,6 +100,32 @@ The Dashboard CI workflow previously targeted only pull requests into `main`, so
 
 Exact-head Dashboard CI remains required before accepting the Dashboard payment/refund batch.
 
+
+## Phase 9 reporting and provider-capability completion
+
+Canonical follow-up migration:
+
+```text
+supabase/migrations/20260918120400_upgrade_phase9_reporting_payment_facts.sql
+```
+
+This migration preserves immutable accepted order value while adding source-backed Phase 9 payment/refund reporting and provider capability enforcement.
+
+- External refund insertion is guarded by `payment_refunds_provider_capability`; a provider whose non-secret configuration declares `supports_refunds=false` fails closed with `REFUND_PROVIDER_UNSUPPORTED`.
+- `get_payment_provider_admin_state()` exposes Admin/Owner read-only non-secret provider activation/capability metadata only. It exposes no API key, webhook secret or merchant credential.
+- `get_admin_reporting_summary` now layers trusted payment facts over the Phase 8 accepted-value report: captured gross, cash/external captured value, pending external value, succeeded refunds, cash/external refunds, net captured after refunds, payment-state counts and external settlement-state buckets. Accepted order value is not redefined as settlement.
+- `paidPosCashSen` continues to represent gross paid POS cash accepted value even after a non-cancelled cash order becomes partially or fully refunded.
+- `get_admin_transaction_report` now includes per-order `refundedSen`, `refundableSen`, active refund reservation total, reconciliation status, latest provider intent lifecycle and refund snapshots while keeping `totalSen` as the immutable accepted order value.
+- `get_admin_payment_audit_events` provides a separate paged source-backed projection over append-only payment/refund events, including payload digests for reconciliation but never raw provider payloads or secrets.
+
+Blocking regression:
+
+```text
+supabase/tests/payment_reporting_phase9_integration.sql
+```
+
+The regression proves unsupported external refunds fail closed, then enables refund capability and verifies capture → refund success, non-secret provider state, accepted/captured/refunded/net reporting reconciliation, transaction-level refund facts and payment/refund audit coverage. It is wired into the backend database audit. Exact-head CI remains required.
+
 ## Live AIDA reconciliation boundary — 2026-09-17
 
 AIDA project `eswovqxqzfevcdwwcmuh` is visible and `ACTIVE_HEALTHY`.

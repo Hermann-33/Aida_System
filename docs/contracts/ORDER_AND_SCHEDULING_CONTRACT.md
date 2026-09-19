@@ -1,303 +1,113 @@
 # Order and Scheduling Contract
 
-**Updated:** 2026-08-23
-**Current task extension:** `TASK-MENU-CUSTOMIZATION-001`
-**Status:** COMPLETE.
+**Updated:** 2026-09-15  
+**Current extension:** Phase 7 generalized promotion/discount authority  
+**Status:** `COMPLETE` through Phase 7
 
-ADR-0010 remains authoritative for order identity, server quote/persistence, scheduling and fulfilment-state ownership. TASK-MENU-CUSTOMIZATION-001 extends each line's trusted selection model with catalogue option IDs and immutable option snapshots; it does not change the persisted fulfilment state machine.
+## Trusted order intent
 
-## Backend authority
+Clients submit product/customization quantity/note, fulfilment, branch/pickup, tender where permitted, and optional member/voucher intent. Clients are never authority for prices, totals, discount, accepted promotion IDs, order IDs/numbers, customer/member identity, topology, shift, payment state, inventory result, voucher state, promotion usage state, `prepareAt`, schedule capacity or fulfilment status.
 
-Live Supabase project: `eswovqxqzfevcdwwcmuh`.
+Promotions are selected automatically from server configuration. A client does not claim that a promotion applies and does not submit an authoritative promotion discount.
 
-Canonical migrations live only in `Hermann-33/Aida_System/supabase/migrations/`.
+## Quote authority
 
-Relevant order/customization migrations:
+`quote_order(jsonb)` validates catalogue/customizations, branch/pickup policy and inventory. It optionally validates caller/member-bound voucher intent, then evaluates eligible active promotions from trusted configuration.
 
-- `20260812182212_create_authoritative_orders_and_scheduling.sql`
-- `20260812183029_index_order_foreign_keys.sql`
-- `20260820151421_add_scheduled_order_preparation_window.sql`
-- `20260822135421_add_drink_customization_catalogue.sql`
-- `20260822135602_integrate_drink_customizations_with_orders.sql`
-- `20260822141814_harden_drink_customization_indexes_and_rls.sql`
-- `20260822143542_grant_public_drink_customization_reads.sql`
+The authoritative Phase 7 quote returns:
 
-Persistent order resources:
+- `subtotalSen`;
+- `voucherDiscountSen`;
+- `promotionDiscountSen`;
+- total `discountSen`;
+- `totalSen`;
+- optional voucher snapshot;
+- ordered promotion snapshots;
+- trusted line and scheduling snapshots.
 
-- `order_schedule_settings`;
-- `orders`;
-- `order_lines`;
-- `order_line_addons`;
-- `order_line_options`;
-- `order_events`.
-
-Realtime publication remains `catalogue_revision` + `orders`.
-
-## Trusted order payload
-
-Clients submit selection and fulfilment intent only:
-
-```json
-{
-  "clientRequestId": "UUID-required-for-placement",
-  "fulfillmentType": "asap | scheduled",
-  "requestedPickupAt": "ISO-8601 timestamp only when scheduled",
-  "items": [
-    {
-      "itemId": "product UUID",
-      "variantId": "variant UUID when required",
-      "optionValueIds": ["drink option-value UUID"],
-      "addOnIds": ["compatible add-on UUID"],
-      "quantity": 1,
-      "note": "optional <= 300 chars"
-    }
-  ]
-}
-```
-
-Clients do not submit trusted product/variant/add-on/option labels, price deltas, unit prices, subtotals, totals, member/customer IDs, order numbers, `prepareAt`, `scheduleState`, fulfilment status, role or payment state.
-
-Customer-facing `Now` is presentation only. The trusted fulfillment enum remains `asap` for immediate orders.
-
-## Authoritative quote / customization resolution
-
-`quote_order(jsonb)` remains the shared commercial/scheduling validator for customer and POS.
-
-For each line it revalidates:
-
-- product exists, is `kind=product`, published and available under active category;
-- variant ownership/availability when variants exist;
-- add-on IDs are unique, linked to that product, published and available;
-- option IDs are unique and belong to that drink;
-- option group/value and per-item option are active/available;
-- at most one selected option belongs to each required group;
-- quantity and note bounds;
-- requested pickup against server scheduling policy.
-
-### Required option defaults / older clients
-
-If the item is a drink and a required active group has no explicit selection, the deployed quote function resolves that group's configured available default.
-
-This means an older APK that sends no `optionValueIds` can still place a drink order using server-owned defaults, provided every required group has a valid available default.
-
-If no available default exists, quote fails closed rather than inventing client state.
-
-### Pricing version 2
-
-Current quote responses use:
+The commercial invariant is:
 
 ```text
-pricingVersion = 2
+voucherDiscountSen + promotionDiscountSen = discountSen
+totalSen = subtotalSen - discountSen
+sum(lineTotalSen) = subtotalSen
 ```
 
-Authoritative unit price:
+Quote is advisory/read-only: it does not consume inventory, a voucher or a promotion use.
 
-```text
-basePriceSen
-+ variant.priceDeltaSen
-+ sum(selected/default option priceDeltaSen)
-+ sum(compatible add-on priceSen)
-= unitPriceSen
-```
+## Promotion evaluation
 
-`lineTotalSen = unitPriceSen * quantity` and order subtotal/total are server-derived.
+A promotion may be constrained by active window, minimum subtotal, branch scope, product/variant/add-on scope, member requirement, voucher coexistence, global usage limit and per-member usage limit.
 
-Client-computed prices remain estimates only.
+Fixed discounts use integer sen. Percentage discounts use basis points and may have a maximum discount. Promotion evaluation is ordered by priority/code/id. Exclusive promotions terminate selection; stackable promotions may compose according to server stacking rules and remaining order value.
 
-## Immutable line snapshots
+## Placement authority
 
-`order_lines` stores:
+Customer placement derives customer/member from Auth. POS placement derives topology from the server-held terminal credential and requires current employee authorization plus an open shift for a new order.
 
-- base product snapshot;
-- variant snapshot;
-- add-on total;
-- option total (`option_total_sen`);
-- authoritative unit/line totals;
-- quantity/note.
+Placement revalidates schedule/capacity, inventory, voucher intent and promotions transactionally. Candidate promotion rows are locked in deterministic order before final evaluation so usage counts remain stable during placement.
 
-`order_line_addons` snapshots selected compatible add-ons.
+A matching persisted POS retry may be returned after the original shift is later locked/closed only if current employee/terminal authority still resolves and the payload/tender/topology context matches. This does not permit a new order without an open shift and does not consume a promotion twice.
 
-`order_line_options` snapshots, per selected/default option:
+## Immutable commercial snapshot
 
-- catalogue option group ID;
-- catalogue option value ID;
-- group code/name;
-- option code/customer-facing label;
-- accepted price delta.
+Accepted order commercial state includes integer-sen subtotal, voucher discount, promotion discount, total discount and total plus line/customization snapshots.
 
-Historical orders therefore do not change when Admin later renames/disables/reprices a Temperature/Sweetness option.
+If a voucher is used, `voucher_order_applications` stores an immutable code/reward/type/discount snapshot.
 
-## Per-line independence
+Each accepted promotion is persisted in `promotion_order_applications` with immutable promotion code/name, discount type/value, accepted `discount_sen`, priority, stacking mode and voucher-coexistence snapshot. Later promotion configuration changes do not rewrite accepted orders.
 
-Modifier state is line-scoped.
+The sum of persisted promotion application discounts must equal authoritative `promotionDiscountSen`, and voucher + persisted promotion discount must equal `orders.discount_sen`.
 
-These are distinct intended configurations:
+Phase 3 whole-account deletion may perform only the narrow internal identity/request-digest anonymization transition; accepted product/price/topology/payment/voucher/promotion discount facts remain intact.
 
-```text
-Latte · Hot · Regular · no Boba
-Latte · Iced · Less sweet · Boba
-```
+## Scheduling and inventory
 
-Customer and POS carts must keep option/add-on IDs in their line identity/equivalence logic so editing one configuration does not merge/mutate the other.
+Server branch policy owns timezone/windows/exceptions, lead/horizon/slot interval and capacity. `prepare_at` is server-derived. Quote checks recipe stock; placement performs atomic non-negative stock consumption; cancellation writes exactly-once inventory reversals.
 
-## Scheduling policy
-
-Read RPC: `get_ordering_policy()`.
-
-Current live policy verified 2026-08-23:
-
-```text
-timezone: Asia/Kuala_Lumpur
-scheduleEnabled: true
-minimumLeadMinutes: 15
-preparationLeadMinutes: 15
-slotIntervalMinutes: 15
-maximumAdvanceDays: 7
-```
-
-`minimumLeadMinutes` controls the earliest scheduled pickup.
-
-`preparationLeadMinutes` controls the server-owned operational preparation window and satisfies:
-
-```text
-0 <= preparationLeadMinutes <= minimumLeadMinutes
-```
-
-Branch hours/closures/capacity remain unimplemented and must not be fabricated by clients.
-
-## Scheduled-order preparation snapshot
-
-For scheduled orders:
-
-```text
-prepareAt = requestedPickupAt - preparationLeadMinutes
-```
-
-`prepareAt` is backend-generated, null for ASAP orders, immutable after placement and unaffected by later policy edits.
-
-Authorized snapshots expose:
-
-```text
-prepareAt
-serverNow
-scheduleState = future | due | overdue | null
-```
-
-For persisted `status=scheduled`:
-
-```text
-requestedPickupAt < serverNow -> overdue
-prepareAt <= serverNow         -> due
-otherwise                      -> future
-```
-
-`scheduleState` is operational classification, not a persisted lifecycle state.
-
-## Persisted fulfilment state machine
-
-Initial persisted state remains:
-
-```text
-asap      -> confirmed
-scheduled -> scheduled
-```
-
-Legal staff transitions remain:
+## Fulfilment
 
 ```text
 confirmed -> preparing | cancelled
 scheduled -> preparing | cancelled
 preparing -> ready | cancelled
-ready     -> completed
+ready -> completed
 ```
 
-`completed` and `cancelled` are terminal.
+Transitions require authorization and expected `statusVersion`; time never auto-mutates status. Completion remains the loyalty earning boundary and is idempotently anchored per order.
 
-No timer/migration/client auto-transitions scheduled work to `preparing`. **Start preparing** remains an authorized staff action with expected `statusVersion`.
+Cash-paid cancellation remains blocked pending the later refund authority path.
 
-## Customer client requirements
+## Validation and live deployment
 
-Customer Flutter must:
-
-- load variants/customization groups/compatible add-ons from the shared catalogue;
-- filter add-on rows from normal customer browse;
-- retain one selected available option per required group;
-- keep configured option/add-on IDs per cart line;
-- include option deltas only in a labelled local estimate;
-- send `optionValueIds` and `addOnIds` to quote/place without commercial fields;
-- quote before placement and display server total as authority;
-- use `Now` presentation for `asap`;
-- derive Schedule values only from `OrderingPolicy` / `derivePickupSlots`;
-- reuse `clientRequestId` for retry of the same intended placement;
-- clear cart only after persisted placement.
-
-`Add to cart` returning to Menu is a UI-navigation decision only.
-
-## Dashboard / POS requirements
-
-Existing same-origin order endpoints remain:
+Validated implementation heads:
 
 ```text
-GET  /api/v1/orders/policy
-GET  /api/v1/orders
-GET  /api/v1/orders/detail?id=<uuid>
-POST /api/v1/orders/quote
-POST /api/v1/orders/place
-POST /api/v1/orders/status
-POST /api/v1/admin/orders/policy
+Aida_System             c6abf24b498edb401af878f86d26e1c63a633121
+Aida_System-Dashboard   7e14326253b263412da5fa38f47bb137c31d7379
+Backend database audit #231   COMPLETE
+Customer release audit #311   COMPLETE
+Dashboard CI #147             COMPLETE
 ```
 
-Dashboard BFF forwards the authenticated caller JWT and never exposes a service-role credential or employee bearer token to React.
-
-POS modifier groups map as:
+Canonical Phase 7 migrations:
 
 ```text
-variant                   required single choice when present
-Temperature/Sweetness     required single choice
-compatible add-ons        optional multi-select
+20260915100000_create_promotion_discount_authority.sql
+20260915101000_integrate_promotions_with_order_authority.sql
+20260915101100_normalize_phase7_nullable_voucher_quote.sql
 ```
 
-Unavailable options remain disabled and must not be sent. POS line-to-order mapping emits only item/variant/option/add-on IDs, quantity and note.
+Live AIDA history maps them to:
 
-Operational Active/Scheduled/Ready/History classification continues to consume backend `scheduleState` and does not derive trusted state from workstation time.
+```text
+20260915120917_create_promotion_discount_authority
+20260915121057_integrate_promotions_with_order_authority
+20260915121119_normalize_phase7_nullable_voucher_quote
+```
 
-## Payment boundary
+Project `eswovqxqzfevcdwwcmuh` is `ACTIVE_HEALTHY`. Live checks confirmed Phase 7 RLS/FORCE RLS, revoked direct table access, intended RPC/function presence and grants, retirement of the pending-voucher trigger, and fresh advisors with no new blocking Phase 7 finding.
 
-There is still no trusted payment processor/payment settlement. Current flow remains explicit `Pay at counter` / unpaid. Fulfilment completion does not prove payment settlement.
+The SQL inspection connector runs as `supabase_read_only_user` and cannot assume the app `anon` role, so it cannot directly invoke `quote_order` as an end user. Application-role runtime behavior is covered by the blocking database/client/browser regression gates; live verification intentionally did not create production test promotions or orders.
 
-## Verification
-
-Detailed closeout evidence:
-
-`docs/context/MENU_CUSTOMIZATION_2026-08-23.md`
-
-Live closeout checks confirm:
-
-- `pricingVersion=2` in deployed `quote_order` definition;
-- all current required drink groups have at least one available option and exactly one available default;
-- current Iced Drinks have Hot unavailable;
-- public/authenticated quote execution and option-catalogue reads are granted as intended;
-- immutable `order_line_options` has no ordinary authenticated direct read grant;
-- Supabase security advisor has no new task-related WARN/ERROR.
-
-Customer executable evidence: analyze PASS, 55/55 tests PASS, option/cart/order regressions and UI/golden QA PASS.
-
-Dashboard executable evidence: lint/typecheck/build PASS, Vitest 129/129, Playwright 10/10, POS/Admin UI/theme QA PASS.
-
-The final database connector is read-only and cannot impersonate `anon`; closeout therefore inspected the deployed quote/default function definition instead of creating synthetic production orders.
-
-## Deferred domains
-
-Still separate bounded tasks:
-
-- branch-specific hours/closures/capacity;
-- branch-scoped order visibility;
-- terminal/sales-point authority;
-- shifts/cash authority;
-- payment/refunds;
-- loyalty;
-- inventory;
-- promotions/discounts;
-- tax/accounting/reporting;
-- delivery;
-- hosted production operations.
+Phase 8–10 remain frozen pending explicit owner authorization.

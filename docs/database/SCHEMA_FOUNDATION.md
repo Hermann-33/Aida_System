@@ -1,103 +1,85 @@
-# Database Schema Foundation
+# Schema Foundation
 
-Updated: 2026-08-17
+Updated: 2026-09-15
 
-Canonical executable migrations are owned by `Hermann-33/Aida_System/supabase/`. The Dashboard repository mirrors this schema documentation but does not own a second migration ledger.
+**Current status:** `COMPLETE` through Phase 7. Canonical executable migrations live only in `Hermann-33/Aida_System/supabase/migrations/`.
 
-## Identity/member foundation
+## Identity and membership
 
-Trusted identity/membership tables:
+Trusted identity begins with Supabase Auth and server-owned `user_profiles`. Customer/member state, employee branch assignments and role checks never trust customer-editable Auth metadata as authorization authority.
 
-- `user_profiles` — Auth-linked application profile, trusted `app_role`, disabled state and profile fields.
-- `members` — customer membership identity, server-generated member code, member type/student state and membership status.
-- `student_verifications` — trusted verification-review records.
+Whole-account deletion is caller-bound and removes customer-owned identity/member/loyalty data while preserving only documented anonymised commercial history.
 
-These tables use RLS/FORCE RLS according to the accepted identity/member migrations. Public signup provisions customer-only trusted state through the Auth trigger; clients cannot self-promote employee roles or assign trusted member codes/verification outcomes.
+## Catalogue and ordering
 
-## Shared catalogue foundation
+The shared catalogue uses canonical `catalogue_items`, `catalogue_item_variants`, option groups/values and add-on catalogue items. Accepted orders persist server-derived line/customization/commercial snapshots rather than trusting client prices.
 
-Live catalogue tables:
+Orders carry source, branch/topology, member/customer attribution where applicable, integer-sen subtotal/discount/total, fulfilment/scheduling state, payment classification, status/version and idempotency anchors.
 
-- `catalogue_categories` — server UUID, slug/name/image, sort and active state.
-- `catalogue_items` — server UUID/SKU/slug, category, product/add-on kind, integer-sen base price, publication/availability/merchandising fields, image/volume/prep-route/sort.
-- `catalogue_item_variants` — item-specific option label/code, integer-sen delta, default/availability/sort.
-- `catalogue_item_addons` — normalized product-to-add-on compatibility.
-- `catalogue_revision` — singleton public read-only invalidation counter; published to Realtime.
-- `catalogue_audit_events` — append-only trusted catalogue mutation evidence.
+## Operational topology and cash
 
-Controlled catalogue RPCs:
+Phase 1–2 add branches, employee branch scope, sales points, terminals, terminal credential authority, shifts and append-only cash movements/reconciliation. New POS orders require trusted terminal/caller context and an open shift.
 
-- `get_catalogue()`
-- `save_catalogue_category(jsonb)`
-- `save_catalogue_item(jsonb)`
+## Scheduling and inventory
 
-All exposed catalogue tables use RLS/FORCE RLS. Customer/public reads are publication-scoped; Admin/owner writes use trusted caller identity.
+Phase 4 owns branch pickup policy, service windows/exceptions and capacity. Phase 5 owns inventory items, branch inventory, recipes/components and append-only inventory movements. Placement enforces schedule/capacity and transactional non-negative stock consumption; cancellation uses exactly-once reversal facts.
 
-## Authoritative order/scheduling foundation
+## Loyalty and vouchers
 
-Live order/scheduling tables:
+Phase 6 adds loyalty program configuration, member loyalty accounts, point/stamp ledgers, order award anchors, reward catalogue, member vouchers and immutable voucher order applications. Direct client table mutation is denied; caller-bound RPCs own reads/mutations.
 
-- `order_schedule_settings` — singleton scheduling policy.
-- `orders` — server-owned order identity, source, trusted actor references, fulfilment intent, status/version, integer-sen totals and lifecycle timestamps.
-- `order_lines` — immutable item/variant naming and price snapshots, quantity, note and line total.
-- `order_line_addons` — immutable add-on naming/price snapshots.
-- `order_events` — append-only creation/status transition evidence.
+## Promotions and discounts
 
-All five order/scheduling tables use RLS + FORCE RLS. Ordinary authenticated customers do not receive direct commercial order INSERT/UPDATE authority; controlled RPCs own quote/place/read/status operations.
+Phase 7 adds:
 
-Current order/scheduling RPC surface:
+```text
+promotions
+promotion_branches
+promotion_items
+promotion_variants
+promotion_addons
+promotion_order_applications
+```
 
-- `get_ordering_policy()`
-- `quote_order(jsonb)`
-- `place_customer_order(jsonb)`
-- `place_pos_order(jsonb)`
-- `get_order(uuid)`
-- `get_my_orders(integer)`
-- `list_orders(text[], integer)`
-- `transition_order_status(uuid,text,bigint,text)`
-- `save_ordering_policy(jsonb)`
+`promotions` stores server-owned fixed/percentage rules, windows, minimum subtotal, optional cap, priority, stacking mode, voucher compatibility, member requirement, global/per-member usage limits and activation state.
 
-`orders` is published to Realtime for authorized customer invalidation/refetch. Immutable order line/add-on snapshots are not separately published.
+Scope tables reference canonical branches/catalogue resources. Product scope accepts only product catalogue items; add-on scope accepts only `kind='addon'` catalogue items.
 
-Current scheduling defaults:
+`promotion_order_applications` stores immutable accepted commercial snapshots including promotion code/name, type/value, accepted discount, priority, stacking mode and voucher-coexistence state. `promotion_id`/`member_id` may detach where legitimate deletion/configuration lifecycle requires preserving non-identifying accepted transaction truth.
 
-- timezone `Asia/Kuala_Lumpur`
-- enabled
-- 15-minute minimum lead
-- 15-minute slot interval
-- 7-day maximum horizon
+All six Phase 7 tables use RLS + FORCE RLS. Direct `public`/`anon`/`authenticated` table authority is revoked. Admin/Owner configuration and order evaluation are exposed through controlled caller-bound RPC/private-function paths.
 
-Branch opening hours, closures and capacity are not modeled in the current schema.
+## Commercial invariants through Phase 7
 
-## Commercial authority rules
+```text
+sum(order line totals) = orders.subtotal_sen
+voucher discount + promotion discount = orders.discount_sen
+orders.total_sen = orders.subtotal_sen - orders.discount_sen
+accepted promotion application sum = accepted promotion discount
+```
 
-- Money is integer sen.
-- Catalogue item/variant/add-on IDs are server-owned UUIDs.
-- `quote_order` re-prices from current orderable catalogue state and ignores client price/total fields.
-- Customer placement derives customer/member identity from the authenticated session and active member record.
-- POS placement requires staff-or-above through the trusted caller boundary.
-- Order number, totals, commercial snapshots, initial status and lifecycle timestamps are server-owned.
-- Placement is idempotent through actor-scoped `clientRequestId`.
-- Fulfilment transitions are allow-listed and require expected `statusVersion`.
+Promotion usage is serialized by locking candidate promotion rows during placement. Idempotent order retries do not consume usage twice.
 
-## Current live inventory/evidence
+## Live migration state
 
-At the 2026-08-17 closeout verification:
+Canonical Phase 7 replay files:
 
-- 14 public base tables exist in the accepted identity/member + catalogue + order/scheduling architecture;
-- 9 Auth users / 9 profiles / 6 members are present;
-- trusted roles owner/admin/staff = 1/1/1;
-- catalogue revision = 15;
-- 1 retained completed order exists.
+```text
+20260915100000_create_promotion_discount_authority.sql
+20260915101000_integrate_promotions_with_order_authority.sql
+20260915101100_normalize_phase7_nullable_voucher_quote.sql
+```
 
-Retained E2E order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`) is customer-source, total 1,290 sen, final `completed` version 4, with creation/preparing/ready/completed event evidence.
+Live AIDA history records the equivalent applied operations as:
 
-## Canonical regression coverage
+```text
+20260915120917_create_promotion_discount_authority
+20260915121057_integrate_promotions_with_order_authority
+20260915121119_normalize_phase7_nullable_voucher_quote
+```
 
-The customer repository owns transactional SQL regressions for:
+Do not rewrite applied live migration history merely to match repository timestamps.
 
-- Auth/member provisioning and member-directory/RLS behavior;
-- catalogue publication, mutation, audit/revision and customer write denial;
-- order pricing, compatibility, scheduling, identity derivation, idempotency, owner-scoped reads, direct-DML denial, staff queue/POS behavior and legal/stale/terminal fulfilment transitions.
+## Deferred schema authority
 
-Synthetic test rows roll back and do not replace approved live/demo state.
+Phase 8 may add read-oriented reporting/accounting/audit projections or RPCs over trusted source facts. Phase 9 owns external processor/refund/settlement authority. Phase 10 owns final release validation. These later phases must not weaken the Phase 1–7 source-of-truth model.

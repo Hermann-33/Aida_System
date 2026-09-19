@@ -1,88 +1,60 @@
-# POS/Admin Mocks and Placeholders Register
+# Dashboard Mocks and Placeholders Register
 
-Updated: 2026-08-23
+Updated: 2026-09-15
 
-## Trusted current paths
+This register distinguishes intentional preview/presentation fixtures from live backend authority. **Preview data is never a production fallback.**
 
-These are shared/live backend integrations, not preview authority:
+## Trusted live paths through Phase 7
 
-- protected Admin Members directory;
-- Admin Menu categories/items/prices/publication/availability;
-- variants/sizes;
-- Drink flag and Temperature/Sweetness per-item configuration;
-- compatible add-on links;
-- POS catalogue browsing and modifier groups;
-- authoritative POS quote/place;
-- Now/scheduled pickup policy;
-- scheduled preparation classification;
-- Active/Scheduled/Ready/History order workloads;
-- live staff Sale/Orders entry in accepted global single-café scope;
-- live order queue/detail and versioned fulfilment transitions.
+The following capabilities are live and must not be documented or implemented as mock authority:
 
-Preview menu/modifier/order fixtures are not runtime authority for those paths.
+- employee authentication/session and trusted role/disabled state;
+- branches, employee branch scope, sales points and terminals;
+- terminal enrolment/revocation and POS terminal context;
+- shifts, cash movements and reconciliation;
+- shared catalogue and catalogue mutation;
+- branch scheduling/pickup policy/capacity;
+- authoritative order quote/place/status;
+- branch inventory, recipes and movements;
+- loyalty program/rewards, member wallet/support and POS member lookup;
+- voucher validation/discount/one-time consumption;
+- Phase 7 promotion configuration, scope, automatic order evaluation and immutable application snapshots.
 
-## Local UI state that is allowed
+## Preview-only fixtures
 
-The browser may keep transient interaction state such as:
+Preview fixtures may exist for deterministic visual development, screenshots and browser isolation tests. They are allowed only when the application is explicitly in preview mode. They may represent sample orders, members, catalogue data, reports, campaigns or settings for presentation purposes.
 
-- current unsaved cart lines;
-- selected item/variant IDs;
-- selected `optionValueIds` for Temperature/Sweetness;
-- selected compatible add-on IDs;
-- quantity/note;
-- local estimated price before quote;
-- selected Now/scheduled intent;
-- view/filter/dialog/loading/error state;
-- one `clientRequestId` reused for retry of the same intended placement.
+Preview mode must not:
 
-Local state must not become authority for modifier availability, compatibility or final prices.
+- call privileged backend routes;
+- create/mutate live promotions, orders, cash, inventory or loyalty state;
+- provide a fallback when a live request fails;
+- be interpreted as current production state.
 
-## Modifier-specific boundary
+Blocking browser coverage verifies privileged-network isolation in preview mode.
 
-Temperature/Sweetness and add-on metadata come from the shared catalogue.
+## Campaigns / promotions
 
-The browser may render catalogue price deltas in an estimate, but `quote_order` revalidates IDs and returns authoritative `pricingVersion=2` totals.
+Campaign presentation is no longer a placeholder in live mode. `/admin/rewards/campaigns` reads/writes server-owned promotion configuration via the same-origin BFF and caller-bound Supabase RPCs. Preview campaigns remain sample UI content only.
 
-If the Admin disables or reprices an option after a cart was staged, the client must tolerate quote rejection/repricing rather than preserving stale local truth.
+Order discounts are not simulated in live POS: the accepted `voucherDiscountSen`, `promotionDiscountSen`, total discount and promotion snapshots come from authoritative quote/place responses.
 
-Add-ons are per-line optional selections. Do not use a global add-on selection that implicitly applies to an entire sale.
+## Reporting/audit placeholders
 
-## Removed order/POS preview authority
+Generalized sales/accounting/audit reporting remains the Phase 8 boundary. Existing report/audit screens may still contain preview-oriented presentation until Phase 8 replaces them with trusted derived backend data. They must not be represented as authoritative financial statements before that work is complete.
 
-The live Sale/Orders path must not use:
+## Integrations / payments placeholders
 
-- client-computed totals as final commercial truth;
-- preview/local orders as persisted-order fallback;
-- fake order numbers;
-- fake processor/tender success;
-- local-only fulfilment status;
-- fake timer-driven progression;
-- preview option/add-on values to bypass unavailable live catalogue state.
+External processor capture, settlement, refunds and third-party integration status remain Phase 9. Existing cash/unpaid tender behavior is live internal authority; processor-looking presentation must not imply real settlement.
 
-## Admin preview boundary
+## Credential/hardware placeholders
 
-UI Preview may inspect the public catalogue but is read-only. It must not expose or simulate successful Admin catalogue mutation.
+Badge/PIN credential provisioning and hardware integrations remain deferred. UI labels or mock states must not imply those credentials/devices are provisioned by the current backend.
 
-Real option/add-on edits require the authenticated Admin/Owner BFF/RPC path.
+## Release placeholders
 
-## Payment boundary
+Final hosted production URLs, App Store review metadata/screenshots/demo credentials and submission state remain Phase 10/manual release work. Do not label the app as submitted/approved until that event actually occurs.
 
-No trusted processor exists. Use explicit `Pay at counter` / unpaid semantics. Preview tender/payment UI is never settlement evidence.
+## Governance
 
-## Still preview/deferred
-
-- loyalty/rewards;
-- terminal/device enrolment authority;
-- shift/cash authority;
-- POS Member, Shift and Terminal preview rails;
-- branch/branch-scope and deeper employee-management mutation;
-- inventory/depletion;
-- marketing publication;
-- payment/refunds;
-- tax/accounting;
-- sales/revenue reporting;
-- branch opening-hours/capacity scheduling;
-- many settings/integration/audit presentation surfaces;
-- hosted production operations.
-
-TASK-MENU-CUSTOMIZATION-001 closeout and executable validation are documented in `docs/context/MENU_CUSTOMIZATION_2026-08-23.md`.
+Phases 1–7 are `COMPLETE` against their defined runtime/live-verification boundary. Phase 8 is the next implementation boundary. Historical audit documents may describe older mock states; current runtime truth is defined by this register plus `ACTIVE_CONTEXT.md`, `SYSTEM_MAP.md`, `ARCHITECTURE.md`, and the phase closeouts.

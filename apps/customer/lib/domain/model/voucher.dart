@@ -1,3 +1,5 @@
+export 'money.dart';
+
 import 'reward.dart';
 
 /// An entitlement the member already holds — a voucher, free drink, or free

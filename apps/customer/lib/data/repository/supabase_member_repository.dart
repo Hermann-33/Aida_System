@@ -6,6 +6,7 @@ import '../../core/error/result.dart';
 import '../../domain/model/loyalty.dart';
 import '../../domain/model/member.dart';
 import '../../domain/model/offer.dart';
+import '../../domain/model/privacy_preferences.dart';
 import '../../domain/model/promo.dart';
 import '../../domain/model/reward.dart';
 import '../../domain/model/voucher.dart';
@@ -15,7 +16,9 @@ import 'mock_member_repository.dart';
 
 /// Real Supabase implementation for customer authentication and membership.
 ///
-/// Loyalty/offers/promotions remain preview-backed until their own tasks.
+/// Phase 6 loyalty is live through SupabaseLoyaltyRepository. Offers,
+/// promotions, and these legacy MemberRepository loyalty accessors remain
+/// preview-backed until their own authority boundaries replace them.
 /// Catalogue is intentionally not part of this repository anymore.
 class SupabaseMemberRepository implements MemberRepository {
   SupabaseMemberRepository(
@@ -123,6 +126,77 @@ class SupabaseMemberRepository implements MemberRepository {
     if (userId != null) await _bestEffortRemove(userId);
     _activeUserId = null;
     return const Ok(null);
+  }
+
+  @override
+  Future<Result<PrivacyPreferences>> getPrivacyPreferences() async {
+    if (_client.auth.currentUser == null) {
+      return const Err(AuthFailure('Sign in to load privacy preferences'));
+    }
+    try {
+      final response = await _client.rpc('get_my_privacy_preferences');
+      return Ok(_privacyPreferencesFromRpc(response));
+    } on PostgrestException {
+      return const Err(
+        ServerFailure('Unable to load privacy preferences right now'),
+      );
+    } catch (_) {
+      return const Err(
+        ServerFailure('Unable to load privacy preferences right now'),
+      );
+    }
+  }
+
+  @override
+  Future<Result<PrivacyPreferences>> savePrivacyPreferences({
+    required bool marketingNotificationsEnabled,
+    required bool transactionalNotificationsEnabled,
+  }) async {
+    if (_client.auth.currentUser == null) {
+      return const Err(AuthFailure('Sign in to update privacy preferences'));
+    }
+    try {
+      final response = await _client.rpc(
+        'save_my_privacy_preferences',
+        params: <String, dynamic>{
+          'p_marketing_notifications_enabled':
+              marketingNotificationsEnabled,
+          'p_transactional_notifications_enabled':
+              transactionalNotificationsEnabled,
+        },
+      );
+      return Ok(_privacyPreferencesFromRpc(response));
+    } on PostgrestException {
+      return const Err(
+        ServerFailure('Unable to update privacy preferences right now'),
+      );
+    } catch (_) {
+      return const Err(
+        ServerFailure('Unable to update privacy preferences right now'),
+      );
+    }
+  }
+
+  PrivacyPreferences _privacyPreferencesFromRpc(dynamic response) {
+    if (response is! Map) {
+      throw const FormatException('Invalid privacy preference response');
+    }
+    final row = Map<String, dynamic>.from(response);
+    final marketing = row['marketingNotificationsEnabled'];
+    final transactional = row['transactionalNotificationsEnabled'];
+    if (marketing is! bool || transactional is! bool) {
+      throw const FormatException('Invalid privacy preference values');
+    }
+    final updatedRaw = row['updatedAt'];
+    final updatedAt =
+        updatedRaw is String && updatedRaw.isNotEmpty
+            ? DateTime.tryParse(updatedRaw)
+            : null;
+    return PrivacyPreferences(
+      marketingNotificationsEnabled: marketing,
+      transactionalNotificationsEnabled: transactional,
+      updatedAt: updatedAt,
+    );
   }
 
   Future<Result<void>> logOut() async {

@@ -2,6 +2,7 @@ import '../../core/error/result.dart';
 import '../../domain/model/loyalty.dart';
 import '../../domain/model/member.dart';
 import '../../domain/model/offer.dart';
+import '../../domain/model/privacy_preferences.dart';
 import '../../domain/model/promo.dart';
 import '../../domain/model/reward.dart';
 import '../../domain/model/voucher.dart';
@@ -55,6 +56,32 @@ class MockMemberRepository implements MemberRepository {
   Future<Result<void>> deleteAccount() async {
     await Future<void>.delayed(latency);
     return const Ok(null);
+  }
+
+  @override
+  Future<Result<PrivacyPreferences>> getPrivacyPreferences() async {
+    await Future<void>.delayed(latency);
+    return const Ok(
+      PrivacyPreferences(
+        marketingNotificationsEnabled: false,
+        transactionalNotificationsEnabled: true,
+      ),
+    );
+  }
+
+  @override
+  Future<Result<PrivacyPreferences>> savePrivacyPreferences({
+    required bool marketingNotificationsEnabled,
+    required bool transactionalNotificationsEnabled,
+  }) async {
+    await Future<void>.delayed(latency);
+    return Ok(
+      PrivacyPreferences(
+        marketingNotificationsEnabled: marketingNotificationsEnabled,
+        transactionalNotificationsEnabled: transactionalNotificationsEnabled,
+        updatedAt: DateTime.now(),
+      ),
+    );
   }
 
   @override
@@ -135,6 +162,11 @@ class MockMemberRepository implements MemberRepository {
         imageCategory: 'Drinks',
       ),
     ]);
+  }
+
+  Future<Result<void>> redeemReward(String rewardId) async {
+    await Future<void>.delayed(latency);
+    return const Ok(null);
   }
 
   @override

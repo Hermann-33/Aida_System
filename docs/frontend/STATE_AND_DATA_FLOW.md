@@ -1,148 +1,108 @@
 # Customer State and Data Flow
 
-Updated: 2026-08-20
+Updated: 2026-09-15
+
+**Current live boundary:** customer runtime is integrated through Phase 7. Production providers use Supabase repositories; legacy preview/sample values are not production authority.
+
+## Authentication and member identity
+
+```text
+Supabase Auth session
+ -> SupabaseMemberRepository
+ -> authStateProvider / memberProvider
+ -> authenticated profile/member surfaces
+```
+
+Auth state changes invalidate personalized member, privacy, loyalty and order providers so one account's cached state is not carried into another session.
 
 ## Catalogue
 
 ```text
 Supabase get_catalogue()
  -> SupabaseCatalogueRepository
- -> catalogueProvider snapshot
- -> categories / featured / popular / menu providers
- -> Home + Menu + item detail
-
-Admin DB mutation
- -> catalogue revision bump
- -> Supabase Realtime catalogue_revision event
- -> catalogueRevisionProvider
- -> catalogueProvider re-fetch
- -> UI reflects new DB state
+ -> catalogueProvider
+ -> Home / Menu / item detail / checkout selections
 ```
 
-Item detail uses DB variants and compatible add-on IDs. Manual pull-to-refresh invalidates the full catalogue snapshot and re-fetches from Supabase.
+Catalogue Realtime is an invalidation signal only: a revision causes a fresh RLS-filtered snapshot fetch. Realtime payloads do not become catalogue authority themselves.
 
-The redesigned Menu changes presentation, not authority: `MenuListItem` receives the same `MenuItem` objects from `menuItemsProvider`. Server `imageUrl` is the primary product image; bundled category art is only an image fallback and never catalogue data. `MenuCategoryRail` changes category selection UI only; `selectedCategoryProvider`/`favoritesOnlyProvider` remain local filters.
-
-## Cart versus trusted quote
-
-The cart remains client interaction state only:
+## Privacy and whole-account deletion
 
 ```text
-Menu item + variant + add-on IDs + quantity + note
- -> local cart state
- -> order payload selections
- -> quote_order()
- -> server revalidates current catalogue
- -> authoritative line/unit/subtotal/total sen
+Settings / Privacy
+ -> SupabaseMemberRepository
+ -> caller-bound privacy RPCs
+
+Delete Account
+ -> authStateProvider.deleteAccount()
+ -> SupabaseMemberRepository.deleteAccount()
+ -> caller-bound whole-account deletion
+ -> auth/member/loyalty state removed + retained commercial history anonymised
+ -> personalized providers invalidated
 ```
 
-Local `Money` arithmetic is not persisted order authority. The redesigned item-detail CTA and floating cart render a running local estimate; Cart labels it `Estimated subtotal`. Checkout/final order display switches to the backend quote and handles catalogue drift/unavailability.
+The Settings screen exposes an explicit Delete Account action. Deletion is not feature-flagged; the only preserved backend-dependent feature flag is the referral draft.
 
-Swipe-to-remove in the redesigned Cart mutates only `cartProvider`. It has no backend side effect.
-
-## ASAP / scheduled pickup
+## Loyalty, rewards and vouchers
 
 ```text
-get_ordering_policy()
- -> serverNow
- -> timezone Asia/Kuala_Lumpur
- -> scheduleEnabled
- -> minimumLeadMinutes
- -> slotIntervalMinutes
- -> maximumAdvanceDays
- -> derivePickupSlots(policy)
- -> checkout wheel renders only derived timestamps
- -> user selects ASAP or scheduled timestamp
- -> quote_order validates again
+SupabaseLoyaltyRepository
+ -> pointsProvider
+ -> stampCardProvider
+ -> rewardsProvider
+ -> vouchersProvider
+ -> Rewards / Settings / checkout wallet presentation
 ```
 
-ASAP omits/nulls `requestedPickupAt`. Scheduled pickup sends a policy-aligned timestamp. Device clock alone is not schedule authority. Branch hours/capacity are not modeled.
+Production loyalty does not fall back to legacy member preview values. Points/stamps, reward catalogue and vouchers are caller-bound backend state. Redemption and voucher eligibility/consumption are server-owned.
 
-The merged redesign retains a wheel-style selector but does not own its time domain. The stale redesign experiment with arbitrary minutes and client-only opening hours was rejected before merge. A post-merge widget regression records quote requests and asserts that Schedule chooses a value from `derivePickupSlots(policy)`.
-
-## Placement / idempotency
+## Ordering
 
 ```text
-successful quote + current cart selections
- -> create clientRequestId UUID once
- -> place_customer_order(payload)
- -> authenticated customer/member derived server-side
- -> server re-quotes
- -> persisted order + immutable commercial snapshots
- -> response contains server orderNumber/status/total
- -> clear cart only after success
+cart + fulfilment/pickup intent + optional voucher intent
+ -> SupabaseOrderRepository.quote
+ -> public.quote_order
+ -> authoritative lines/subtotal/schedule/inventory/voucher/promotions/total
+ -> checkout UI
+
+confirmed intent + clientRequestId
+ -> place_customer_order
+ -> transactional schedule + stock + voucher + promotion revalidation
+ -> immutable accepted snapshot
+ -> order/history providers
 ```
 
-A transport retry of the same intended placement reuses the same `clientRequestId`. A genuinely new intended order gets a new UUID. Validation failure retains the cart for correction/requote. The redesign does not change `OrderCheckoutSession` or this retry boundary.
+The client never submits accepted prices, promotion IDs, promotion discounts, stock result or schedule capacity.
 
-## Order history / detail
+## Phase 7 promotion data
+
+Promotions are automatic server decisions, not a customer selection source. `OrderQuote` and `OrderSnapshot` strictly parse:
 
 ```text
-get_my_orders(limit)
- -> backend order snapshots
- -> order history screen
-
-select order
- -> get_order(orderId)
- -> backend snapshot
- -> order detail / confirmation status
+voucherDiscountSen
+promotionDiscountSen
+discountSen
+promotions[]
 ```
 
-Historical product names/prices come from immutable backend snapshots, not current catalogue records.
+Commercial validation requires voucher + promotion components to reconcile to total discount and line totals/subtotal/total to reconcile. A voucher-compatible promotion may coexist only when its trusted snapshot allows it; an exclusive promotion cannot be presented alongside another promotion.
 
-## Realtime status
+The existing Home promo/offer presentation may display marketing content, but it is not authoritative discount eligibility. Accepted commercial promotions come only from `quote_order`/placed-order snapshots.
 
-```text
-place_customer_order returns order
- -> owner-visible orders subscription
+## Scheduling and inventory
 
-staff transition in Dashboard
- -> orders row status/statusVersion changes
- -> Supabase Realtime authorized event
- -> customer provider invalidates/re-fetches get_order(orderId)
- -> confirmation/order detail renders persisted status
-```
+Branch scheduling, service windows, lead/horizon/capacity and `prepareAt` are server-derived. The app presents returned pickup choices/results; it does not infer capacity from local time.
 
-No frontend timer manufactures Preparing/Ready state. Presentation-only relative-time labels may be computed locally, but persisted fulfilment status comes only from the backend.
+Inventory/recipe availability is also server-owned. Quote can report current availability, while placement performs the authoritative transactional depletion. The customer app has no inventory mutation authority.
 
-The full live boundary was validated on 2026-08-17: customer order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`) was placed as `confirmed` v1; Dashboard transitions persisted `preparing` v2, `ready` v3 and `completed` v4; customer-authorized `get_order` reads observed each changed status.
+## Order updates
 
-## Rewards and member display
+Order history/updates come from trusted backend snapshots. Realtime, where used, is an invalidation/refetch mechanism rather than a channel for trusting arbitrary commercial change payloads.
 
-The redesigned Rewards screen now mixes two different authority classes and they must stay explicit:
+## Payments
 
-```text
-displayedMemberProvider
- -> SupabaseMemberRepository.getMember()
- -> owner-scoped user_profiles + members
- -> optional local presentation edit overlay
- -> member name/code shown on Rewards balance card
+Current customer ordering preserves the documented pay-at-counter/unpaid internal semantics. External processor authorization/capture/settlement/refunds remain Phase 9; the client must not imply successful external payment before that authority exists.
 
-pointsProvider / rewardsProvider / vouchersProvider
- -> SupabaseMemberRepository pending-feature delegation
- -> MockMemberRepository
- -> preview-only loyalty values/catalogue/vouchers
-```
+## Remaining/deferred customer surfaces
 
-Real member identity on the card does not make the loyalty balance or redemption authoritative. `Redeem` remains a non-mutating preview action until a trusted loyalty task exists.
-
-## Membership QR / offline boundary
-
-`MembershipCardScreen` still renders `member.memberCode` from the owner-scoped member read with the minimum per-user offline cache as connectivity fallback. The redesign changes only the shared `AidaLogo` presentation. The logo is bundled in the APK, so the offline membership card does not gain a network dependency.
-
-## Errors and offline boundaries
-
-- Catalogue read uses explicit failure state; no production fixture fallback.
-- Customer order placement requires an authenticated active member; no anonymous/guest customer-placement shortcut.
-- Realtime disconnect does not advance local status; refresh re-fetches persisted authority.
-- The minimum offline member-code cache is not an offline order queue and never becomes price/order authority.
-- Transport/Auth messages do not expose tokens or raw upstream stack traces.
-- Bundled category/logo imagery is presentation fallback only; it never replaces backend catalogue/member truth.
-
-## Payment boundary
-
-The backend has no payment-settlement state. Customer checkout uses explicit `Pay at counter`/unpaid semantics. `Payment received` is not generated as fake backend state.
-
-## Redesign audit reference
-
-See `docs/frontend/UI_REDESIGN_AUDIT_2026-08-20.md` for the post-merge backend-impact and verification matrix.
+Referral remains explicitly draft-gated. Phase 8 is primarily Dashboard/backend reporting and should not invent new customer authority. Phase 9 may add approved external payment UX. Phase 10 owns final iOS/App Store production verification, privacy metadata, URLs, review path and release artifacts.

@@ -1,88 +1,62 @@
-# POS/Admin Fragile Boundaries
+# Dashboard Fragile Boundaries
 
-Updated: 2026-08-23
+Updated: 2026-09-15
 
-## High-risk areas
+These boundaries are security/commercial invariants. UI convenience must not weaken them.
 
-- `src/App.tsx` / `ProtectedRoute`: UI route guards are presentation only; same-origin BFF + Supabase remain authorization authority.
-- `src/auth/`: employee session semantics must not regress from HttpOnly cookies into browser-readable bearer tokens.
-- `src/pages/EmployeeWelcomePage.tsx` / `PosShellPage.tsx`: live staff access must remain independent of deferred terminal/shift authority; preview repositories stay preview-only.
-- `src/features/catalogue/catalogueClient.ts`: shared catalogue decoding must retain `isDrink`, `customizationGroups`, variants and compatible add-ons without inventing commercial defaults client-side. Older/missing customization arrays may safely decode to empty presentation state, but malformed trusted fields must not be used as new authority.
-- `src/features/admin/AdminMenuEditorPage.tsx`: drink option controls must preserve at least one available option and exactly one available default per required group; client validation supplements but never replaces backend validation.
-- `src/features/pos/posCatalogue.ts` / `ModifierSheet.tsx`: variants and Temperature/Sweetness are required single-choice groups; compatible add-ons are optional multi-select. Do not collapse this into global/per-order modifier state.
-- `src/features/orders/orderClient.ts`: `optionValueIds` are selection IDs only. Do not add product/option prices, labels or totals as trusted placement input. `scheduleState`/`prepareAt` also remain server projections.
-- Local POS cart arithmetic is estimate-only. Server quote is commercial authority.
-- `src/preview/`: fixtures must never be promoted to live business truth.
-- Manager approval/void/refund/cancel previews are not trusted privilege boundaries.
-- Shift/cash, branch/terminal, loyalty, inventory and reporting remain deferred authority domains.
-- Preview/live build gates must remain fail-closed against preview/auth bypass.
+## 1. Same-origin privileged session
 
-## Cross-repo modifier fragility
+Employee access/refresh tokens and terminal credentials remain HttpOnly/server-side. Browser JavaScript must not receive reusable employee bearer tokens, refresh tokens, service-role credentials or terminal secrets. Dashboard BFF calls forward the caller JWT and publishable key and preserve Supabase authorization checks.
 
-Customer Flutter and Dashboard/POS must remain contract-compatible on:
+## 2. Preview is never authority
 
-```text
-catalogue item IDs
-variant IDs
-option group/value IDs
-compatible add-on IDs
-option/add-on availability/default semantics
-integer-sen price deltas
-order option snapshots
-pricingVersion
-```
+Preview fixtures are visual/test data only. Preview mode must not contact privileged APIs, and live failures must not silently fall back to preview state. This is a blocking browser regression.
 
-A change to the standard option template, option-group requirements, ID shape or quote payload is a cross-repository contract change, not an isolated frontend edit.
+## 3. Branch / terminal / shift attribution
 
-## Per-line independence
+The browser may request an action but cannot choose trusted terminal, branch, sales point or shift attribution. New POS orders require current employee/terminal authority plus an open shift. Idempotent retries cannot be used to create a new order after shift closure.
 
-Cart equality/identity must include option/add-on selections.
+## 4. Commercial arithmetic
 
-These configurations must never merge implicitly:
+Catalogue price, subtotal, discount components and total are server-derived integer sen. Dashboard parsers fail closed when line totals, subtotal, voucher/promotion discount components or total do not reconcile.
 
 ```text
-Latte · Hot · Regular · no add-on
-Latte · Iced · Less sweet · Boba
+voucherDiscountSen + promotionDiscountSen = discountSen
+totalSen = subtotalSen - discountSen
 ```
 
-Do not reintroduce a global Add-ons ordering section/state that cannot identify the target drink.
+## 5. Scheduling and inventory
 
-## Admin option rules
+Pickup availability, capacity and `prepareAt` are server-owned. Inventory/recipe availability is advisory at quote and transactionally consumed at placement. The Dashboard must not infer acceptance from local clocks, displayed stock or optimistic UI.
 
-- An unavailable option cannot remain the active default.
-- Every required group needs at least one available option and exactly one available default.
-- Customer-facing labels may change without changing stable option IDs.
-- Price deltas are integer sen and remain backend-authoritative.
-- Disabling an option changes future availability only; historical order snapshots must remain unchanged.
-- Preview Admin must remain read-only.
+## 6. Loyalty and vouchers
 
-## UI/theme rules
+Member lookup is caller/terminal/open-shift bound for POS. Voucher ownership, status, expiry, reward eligibility and one-time consumption are server-owned. Changing or clearing a POS member must invalidate stale voucher intent rather than carrying it across identities.
 
-New modifier/Admin UI must reuse the existing Dashboard token/component language:
+## 7. Phase 7 promotions
 
-- `src/styles/tokens.css` colors/spacing/radii;
-- Plus Jakarta Sans / Playfair typography;
-- existing modifier cards/forms/buttons;
-- visible focus behavior and reduced-motion handling.
+Campaign configuration is Admin/Owner-only through caller-bound RPCs. Direct promotion-table authority is revoked.
 
-Do not import Luckin/reference-app branding or create a second modifier design system.
+The browser must never:
 
-Unavailable/selected/required state must not rely on color alone.
+- submit an accepted promotion ID as order authority;
+- calculate the accepted promotion discount;
+- assume a quoted promotion is reserved;
+- infer usage-limit availability from cached campaign state;
+- rewrite an accepted promotion snapshot after configuration changes.
 
-## Scheduling / fulfilment rules
+Placement re-evaluates promotions after deterministic candidate-row locks. A concurrent last-use race may remove a discount without invalidating the underlying purchase; the accepted placement response is authoritative.
 
-- Customer/POS display may say `Now`, but the shared wire enum remains `asap` until a coordinated contract change.
-- Do not manufacture valid schedule slots or branch hours locally.
-- Do not recreate `scheduleState` from workstation time or auto-transition orders.
-- Keep legal versioned fulfilment transitions and conflict refetch behavior.
+Exclusive/stackable behavior, voucher coexistence, member requirement, usage limits, branch/catalogue scope, active window and minimum subtotal are server rules.
 
-## Change rules
+## 8. Accepted order history
 
-- Define/modify server authority before changing trusted modifier semantics.
-- Coordinate option/add-on/order payload changes across both repositories.
-- Keep terminal/shift rails preview-only until their authoritative schema/BFF exists.
-- Preserve explicit preview labeling for deferred domains.
-- Do not silently change shared lifecycle strings/IDs.
-- Keep local estimates clearly subordinate to quote results.
+Voucher and promotion applications are immutable commercial facts. UI edits to campaign/reward/catalogue configuration must never rewrite accepted orders. Cancellation/refund changes must use explicit server-controlled state/compensating events, not destructive history edits.
 
-TASK-MENU-CUSTOMIZATION-001 validation evidence is in `docs/context/MENU_CUSTOMIZATION_2026-08-23.md`.
+## 9. Customer privacy
+
+Admin/POS surfaces must not regain customer identity after whole-account deletion by retaining browser caches or fixture identifiers. Legitimately retained commercial history is non-identifying under the documented deletion boundary.
+
+## 10. Deferred boundaries
+
+Reporting/accounting/audit is Phase 8 and must be derived read authority. External payment capture/refunds/settlement is Phase 9. Badge/PIN provisioning and hardware integrations remain deferred. Final production/App Store release checks are Phase 10.

@@ -2,7 +2,13 @@ name: Customer release audit
 
 on:
   pull_request:
-    branches: [master]
+    branches:
+      - master
+      - codex/phase-1-6-audit-remediation
+      - codex/phase-7-promotions-discounts
+      - codex/phase-8-reporting-accounting-audit
+      - codex/phase-9-payments-refunds-integrations
+      - codex/phase-10-app-store-release-gate
   workflow_dispatch:
 
 permissions:
@@ -55,7 +61,6 @@ jobs:
 
       - name: Golden regression suite
         id: goldens
-        continue-on-error: true
         run: flutter test test/golden/screens_golden_test.dart
 
       - name: Upload golden failure evidence
@@ -79,3 +84,31 @@ jobs:
           path: apps/customer/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 14
+
+  ios-release-gate:
+    if: github.head_ref == 'codex/phase-10-app-store-release-gate' || github.event_name == 'workflow_dispatch'
+    runs-on: macos-15
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: apps/customer
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.9'
+          channel: stable
+          cache: true
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Verify App Store privacy manifest
+        run: test -f ios/Runner/PrivacyInfo.xcprivacy
+
+      - name: Build unsigned iOS release
+        run: flutter build ios --release --no-codesign

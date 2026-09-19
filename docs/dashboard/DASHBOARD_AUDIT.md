@@ -1,83 +1,73 @@
-# POS/Admin Dashboard Audit
+# Dashboard Audit
 
-Updated: 2026-08-17
+Updated: 2026-09-15
 
-## Current verdict
+**Current verdict:** Dashboard implementation is `COMPLETE` through Phase 7 against the defined runtime/security/CI boundary. This document describes current state; older dated audit records remain historical evidence only.
 
-`COMPLETE` for the trusted Auth/member/catalogue/order tranche defined by TASK-CLOSEOUT-001. Broader payment, loyalty, inventory, reporting, branch/terminal/shift and hosted-production domains remain preview/deferred and are not promoted by this verdict.
+## Trusted architecture
 
-## Runtime
+Dashboard/Admin/POS uses a same-origin BFF over the shared Supabase backend. Employee access/refresh and terminal credentials remain HttpOnly/server-side. The BFF forwards the caller JWT and publishable key so Supabase role/RLS/RPC checks remain authoritative. No normal live path uses a service-role credential or exposes reusable employee/terminal secrets to browser JavaScript.
 
-React 19.2.7, TypeScript 6.0.3, Vite 8.1.5, React Router DOM 7.18.1, Tailwind CSS 4, Radix/shadcn-style components, TanStack Query, Vitest and Playwright. npm with lockfile.
+Preview fixtures are isolated and never silently replace failed live authority.
 
-## Trusted current surfaces
+## Completed live surfaces
 
-- same-origin employee/Admin authentication/session BFF with HttpOnly cookies;
-- trusted role/disabled-state checks from shared profiles;
-- protected Admin Members directory;
-- shared public/POS catalogue read;
-- protected Admin catalogue management;
-- TASK-AUTH-005 preview/live session separation;
-- authoritative POS quote/place with stable idempotency;
-- server-policy ASAP/scheduled pickup;
-- explicit Pay-at-counter/unpaid order semantics;
-- live BFF-backed order queue;
-- legal versioned fulfilment transitions with conflict refetch.
+- Phase 1: branches, employee branch scope, sales points, terminals, enrolment/revocation and POS topology attribution.
+- Phase 2: shift lifecycle, cash movements/reconciliation and open-shift order authority.
+- Phase 4: branch pickup configuration and capacity-aware ordering.
+- Phase 5: branch inventory, movements and recipe administration.
+- Phase 6: loyalty program/reward administration, member wallet/support adjustments, POS member lookup and voucher-aware orders.
+- Phase 7: live campaign/promotion administration, automatic server promotion evaluation and POS/order presentation of accepted promotion snapshots.
 
-The browser does not receive a service-role credential or persistent employee bearer token. Route guards remain presentation/access-routing logic, not backend authorization authority.
+Phase 3 customer deletion/privacy is primarily a customer/backend surface; Dashboard retained order views consume the resulting anonymised commercial history rather than restoring deleted customer identity.
 
-## Current non-authoritative/deferred behavior
+## Phase 7 audit result
 
-The following remain outside the trusted tranche unless separately backed by a current contract:
+The Campaigns tab uses production BFF endpoints backed by `get_promotion_admin_state()` and `save_promotion(jsonb)`. Admin/Owner role and caller identity are revalidated server-side. Direct promotion-table access is revoked.
 
-- payment settlement/refunds;
-- loyalty/reward balances and redemptions;
-- inventory/recipes/depletion/transfers;
-- branch scope and branch opening-hours/capacity;
-- terminal enrolment/device authority beyond current preview/local behavior;
-- shift/cash-movement authority;
-- employee/branch management surfaces not yet backed by a trusted server contract;
-- marketing publication;
-- sales/revenue/tax/accounting reporting;
-- several settings/integration/audit display surfaces.
+Dashboard order contracts strictly parse:
 
-Preview/local fixtures in these domains must not be used as catalogue/order/member/payment truth.
+```text
+voucherDiscountSen
+promotionDiscountSen
+discountSen
+promotions[]
+```
 
-## Final verification baseline
+and reject inconsistent commercial snapshots. POS does not submit accepted promotion authority; promotions are server-selected during quote/place.
 
-TASK-CLOSEOUT-001 Dashboard validation:
+Live/preview regressions cover that preview mode does not contact privileged promotion endpoints and that live POS can render a promotion-only authoritative order/quote.
 
-- lint: PASS with two established Fast Refresh warnings;
-- typecheck: PASS;
-- Vitest: PASS, 25 files / 111 tests;
-- production build: PASS;
-- legacy token/localStorage safety assertion: PASS;
-- Playwright: PASS, 8/8;
-- `npm audit`: PASS, 0 vulnerabilities;
-- `git diff --check`: PASS;
-- no service-role/secret/browser employee-token persistence introduced.
+## Exact validated implementation
 
-## Cross-client evidence
+```text
+Aida_System-Dashboard   7e14326253b263412da5fa38f47bb137c31d7379
+Dashboard CI #147       COMPLETE
+```
 
-Physical/manual proof:
+Dashboard CI passed lint, TypeScript typecheck, unit tests, live POS browser authority regression, preview-isolation browser regression and production build.
 
-- Android customer signup → trusted member → protected Dashboard Members;
-- real Owner catalogue mutation → installed customer catalogue refresh.
+Cross-repo Phase 7 validation also passed:
 
-Final live order proof on 2026-08-17:
+```text
+Aida_System             c6abf24b498edb401af878f86d26e1c63a633121
+Backend database audit #231   COMPLETE
+Customer release audit #311   COMPLETE
+```
 
-- customer quoted Sandwich ASAP at 1,290 sen;
-- customer placed order `100006` (`7cf027dc-3ff0-4604-a3fd-c7a943aac603`) as `confirmed` v1;
-- authenticated Owner Dashboard queue observed the same order;
-- Dashboard persisted `preparing` v2 → `ready` v3 → `completed` v4;
-- customer-authorized reads observed each status.
+## Live backend evidence
 
-One completed order remains retained as closeout evidence.
+AIDA Supabase `eswovqxqzfevcdwwcmuh` is `ACTIVE_HEALTHY`. The three canonical Phase 7 migrations are deployed. All six promotion tables have RLS + FORCE RLS with direct anon/authenticated CRUD revoked. Required RPC/function grants are present, the old pending-voucher trigger is retired, and fresh advisors show no new blocking Phase 7 issue.
 
-## Security/operations
+The sole security WARN remains the pre-existing disabled leaked-password-protection Auth setting. Performance findings are INFO unused-index observations only.
 
-Current Supabase security advisor has one WARN: leaked-password protection disabled. Hosted/Vercel deployment remains DEFERRED for the accepted local Dashboard PC → cloud Supabase → installed-phone topology.
+## Known later boundaries
 
-## Historical baseline note
+- Phase 8: authoritative reporting/accounting/audit data and exports.
+- Phase 9: external payment/refund/settlement integrations.
+- Phase 10: final production/App Store release gate.
+- separately deferred unless explicitly owned later: Badge/PIN provisioning and hardware integrations.
 
-The original TASK-WF-002/TASK-MENU-001 audits correctly described a much earlier preview-first state. Those measurements remain historical evidence only. Current system truth is maintained in `docs/context/ACTIVE_CONTEXT.md`, `SUPABASE_STATUS.md`, `CLOSEOUT_EVIDENCE_2026-08-17.md`, the accepted ADRs/contracts, and this updated audit.
+## Governance
+
+Phase completion does not authorize merge. Phase 7 PRs remain draft/unmerged until the owner explicitly says otherwise. Current-state docs must be updated with each implementation batch; historical audit documents should not be used as runtime truth when a current closeout supersedes them.

@@ -86,7 +86,7 @@ jobs:
           retention-days: 14
 
   ios-release-gate:
-    if: github.base_ref == 'codex/phase-10-app-store-release-gate' || github.event_name == 'workflow_dispatch'
+    if: github.head_ref == 'codex/phase-10-app-store-release-gate' || github.event_name == 'workflow_dispatch'
     runs-on: macos-15
     timeout-minutes: 35
     defaults:
